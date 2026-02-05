@@ -1,6 +1,7 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
+#include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
 
 namespace RogueCity::Generators {
@@ -36,7 +37,7 @@ namespace RogueCity::Generators {
         );
 
         /// Trace full road network from seed points
-        [[nodiscard]] std::vector<Road> traceNetwork(
+        [[nodiscard]] fva::Container<Road> traceNetwork(
             const std::vector<Vec2>& seeds,
             const TensorFieldGenerator& field,
             const Params& params = Params{}

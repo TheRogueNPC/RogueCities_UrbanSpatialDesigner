@@ -3,6 +3,7 @@
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
 
 namespace RogueCity::Generators {
@@ -35,7 +36,7 @@ namespace RogueCity::Generators {
 
         /// Generated city output
         struct CityOutput {
-            std::vector<Road> roads;
+            fva::Container<Road> roads;
             std::vector<District> districts;
             std::vector<LotToken> lots;
             TensorFieldGenerator tensor_field;
@@ -56,9 +57,9 @@ namespace RogueCity::Generators {
         /// Pipeline stages
         TensorFieldGenerator generateTensorField(const std::vector<AxiomInput>& axioms);
         std::vector<Vec2> generateSeeds();
-        std::vector<Road> traceRoads(const TensorFieldGenerator& field, const std::vector<Vec2>& seeds);
-        std::vector<District> classifyDistricts(const std::vector<Road>& roads);
-        std::vector<LotToken> generateLots(const std::vector<Road>& roads, const std::vector<District>& districts);
+        fva::Container<Road> traceRoads(const TensorFieldGenerator& field, const std::vector<Vec2>& seeds);
+        std::vector<District> classifyDistricts(const fva::Container<Road>& roads);
+        std::vector<LotToken> generateLots(const fva::Container<Road>& roads, const std::vector<District>& districts);
     };
 
 } // namespace RogueCity::Generators

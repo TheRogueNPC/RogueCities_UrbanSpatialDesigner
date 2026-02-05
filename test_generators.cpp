@@ -60,7 +60,7 @@ int main() {
     }
 
     // Road statistics
-    if (!output.roads.empty()) {
+    if (output.roads.size() > 0) {
         std::cout << "\n=== Road Statistics ===" << std::endl;
         int major_count = 0;
         int minor_count = 0;

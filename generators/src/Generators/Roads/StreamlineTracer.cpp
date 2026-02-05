@@ -73,13 +73,12 @@ namespace RogueCity::Generators {
         return result;
     }
 
-    std::vector<Road> StreamlineTracer::traceNetwork(
+    fva::Container<Road> StreamlineTracer::traceNetwork(
         const std::vector<Vec2>& seeds,
         const TensorFieldGenerator& field,
         const Params& params
     ) {
-        std::vector<Road> roads;
-        roads.reserve(seeds.size() * 2);  // Major + minor per seed
+        fva::Container<Road> roads;
 
         uint32_t road_id = 0;
 
@@ -92,7 +91,7 @@ namespace RogueCity::Generators {
                 major_road.type = RoadType::M_Major;
                 major_road.id = road_id++;
                 major_road.is_user_created = false;
-                roads.push_back(std::move(major_road));
+                roads.add(std::move(major_road));
             }
 
             // Trace minor road (perpendicular)
@@ -103,7 +102,7 @@ namespace RogueCity::Generators {
                 minor_road.type = RoadType::M_Minor;
                 minor_road.id = road_id++;
                 minor_road.is_user_created = false;
-                roads.push_back(std::move(minor_road));
+                roads.add(std::move(minor_road));
             }
         }
 

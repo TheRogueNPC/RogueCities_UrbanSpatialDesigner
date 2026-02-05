@@ -84,7 +84,7 @@ namespace RogueCity::Generators {
         return seeds;
     }
 
-    std::vector<Road> CityGenerator::traceRoads(
+    fva::Container<Road> CityGenerator::traceRoads(
         const TensorFieldGenerator& field,
         const std::vector<Vec2>& seeds
     ) {
@@ -98,14 +98,14 @@ namespace RogueCity::Generators {
     }
 
     std::vector<District> CityGenerator::classifyDistricts(
-        const std::vector<Road>& roads
+        const fva::Container<Road>& roads
     ) {
         // Placeholder for Phase 3 - block extraction + AESP classification
         return std::vector<District>();
     }
 
     std::vector<LotToken> CityGenerator::generateLots(
-        const std::vector<Road>& roads,
+        const fva::Container<Road>& roads,
         const std::vector<District>& districts
     ) {
         // Placeholder for Phase 3 - lot subdivision
