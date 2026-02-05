@@ -1,10 +1,10 @@
-﻿#include "RogueCity/Core/Data/TensorTypes.hpp"
+#include "RogueCity/Core/Data/TensorTypes.hpp"
 #include <cmath>
 
 namespace RogueCity::Core {
 
-    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unsed]] bool smooth) {
-        (void)smooth;  // Unused in core, used in generators layer [[maybe_unsed]] silences warning
+    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unused]] bool smooth) {
+        (void)smooth;  // Unused in core, used in generators layer
 
         // Simplified addition (full smooth blending in generators layer)
         r += other.r;
