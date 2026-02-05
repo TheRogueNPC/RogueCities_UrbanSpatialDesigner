@@ -13,6 +13,10 @@ set(CORE_HEADERS
     include/RogueCity/Core/Math/Vec2.hpp
     include/RogueCity/Core/Data/CityTypes.hpp
     include/RogueCity/Core/Data/TensorTypes.hpp
+    include/RogueCity/Core/Util/FastVectorArray.hpp
+    include/RogueCity/Core/Util/IndexVector.hpp
+    include/RogueCity/Core/Util/StableIndexVector.hpp
+    include/RogueCity/Core/Util/RogueWorker.hpp
 )
 
 set(CORE_SOURCES
@@ -31,9 +35,12 @@ target_include_directories(RogueCityCore PUBLIC
 )
 
 # === DEPENDENCIES ===
+find_package(Threads REQUIRED)
+
 target_link_libraries(RogueCityCore PUBLIC
     glm::glm
     magic_enum
+    Threads::Threads
 )
 
 # === C++ STANDARD ===

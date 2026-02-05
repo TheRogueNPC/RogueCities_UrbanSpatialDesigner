@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
 
 namespace RogueCity::Generators {
@@ -11,7 +12,7 @@ namespace RogueCity::Generators {
     class RoadClassifier {
     public:
         /// Classify roads based on network analysis
-        static void classifyNetwork(std::vector<Road>& roads);
+        static void classifyNetwork(fva::Container<Road>& roads);
 
         /// Classify single road based on length and connectivity
         static RoadType classifyRoad(const Road& road, double avg_length);

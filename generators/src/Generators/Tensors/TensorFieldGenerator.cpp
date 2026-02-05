@@ -1,7 +1,9 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
-#include <cmath>
+#include "RogueCity/Core/Util/RogueWorker.hpp"
 #include <algorithm>
+#include <cmath>
+#include <thread>
 
 namespace RogueCity::Generators {
 
@@ -40,39 +42,54 @@ namespace RogueCity::Generators {
     }
 
     void TensorFieldGenerator::generateField() {
-        // Generate tensor field by blending all basis fields at each grid point
-        for (int gy = 0; gy < config_.height; ++gy) {
-            for (int gx = 0; gx < config_.width; ++gx) {
-                // Convert grid indices to world position (cell centers)
-                Vec2 world_pos(
-                    (gx + 0.5) * config_.cell_size,
-                    (gy + 0.5) * config_.cell_size
-                );
+        const uint32_t thread_count = std::max(1u, std::thread::hardware_concurrency());
+        const int max_group_size = std::max(1, std::min(16, config_.height)); // Cap chunking to 16 groups per generator spec.
+        const uint32_t group_size = std::min(thread_count, static_cast<uint32_t>(max_group_size));
+        const int chunk_size = (config_.height + static_cast<int>(group_size) - 1) / static_cast<int>(group_size);
 
-                // Blend all basis fields
-                Tensor2D result = Tensor2D::zero();
-                double total_weight = 0.0;
+        // RogueWorker resides in the Rowk namespace defined by RogueWorker.hpp.
+        Rowk::RogueWorker worker(thread_count);
+        Rowk::WorkGroup work = worker.execute(
+            [&](uint32_t id, uint32_t) {
+                const int start_row = static_cast<int>(id) * chunk_size;
+                const int end_row = std::min(config_.height, start_row + chunk_size);
+                for (int gy = start_row; gy < end_row; ++gy) {
+                    for (int gx = 0; gx < config_.width; ++gx) {
+                        // Convert grid indices to world position (cell centers)
+                        Vec2 world_pos(
+                            (gx + 0.5) * config_.cell_size,
+                            (gy + 0.5) * config_.cell_size
+                        );
 
-                for (const auto& field : basis_fields_) {
-                    double weight = field->getWeight(world_pos);
-                    if (weight > 1e-6) {
-                        Tensor2D tensor = field->sample(world_pos);
-                        tensor.scale(weight);
-                        result.add(tensor, true);  // Smooth blending
-                        total_weight += weight;
+                        // Blend all basis fields
+                        Tensor2D result = Tensor2D::zero();
+                        double total_weight = 0.0;
+
+                        for (const auto& field : basis_fields_) {
+                            double weight = field->getWeight(world_pos);
+                            if (weight > 1e-6) {
+                                Tensor2D tensor = field->sample(world_pos);
+                                tensor.scale(weight);
+                                result.add(tensor, true);  // Smooth blending
+                                total_weight += weight;
+                            }
+                        }
+
+                        // Normalize by total weight
+                        if (total_weight > 1e-6) {
+                            result.scale(1.0 / total_weight);
+                        }
+
+                        // Store in grid
+                        int idx = gy * config_.width + gx;
+                        grid_[idx] = result;
                     }
                 }
+            },
+            group_size
+        );
 
-                // Normalize by total weight
-                if (total_weight > 1e-6) {
-                    result.scale(1.0 / total_weight);
-                }
-
-                // Store in grid
-                int idx = gy * config_.width + gx;
-                grid_[idx] = result;
-            }
-        }
+        work.waitExecutionDone();
 
         field_generated_ = true;
     }
