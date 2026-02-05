@@ -27,8 +27,8 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
 )
 
-# Create shared library (enables hot-reload in future)
-add_library(RogueCityGenerators SHARED
+# Create static library
+add_library(RogueCityGenerators STATIC
     ${GENERATOR_SOURCES}
     ${GENERATOR_HEADERS}
 )
@@ -49,14 +49,6 @@ target_link_libraries(RogueCityGenerators
 
 # C++20 features
 target_compile_features(RogueCityGenerators PUBLIC cxx_std_20)
-
-# Windows DLL export/import
-if(WIN32)
-    target_compile_definitions(RogueCityGenerators
-        PRIVATE GENERATORS_EXPORTS
-        INTERFACE GENERATORS_IMPORTS
-    )
-endif()
 
 # Optimization flags
 if(MSVC)

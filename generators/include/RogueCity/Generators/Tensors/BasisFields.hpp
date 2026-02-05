@@ -1,7 +1,7 @@
 #pragma once
-#define _USE_MATH_DEFINES
 #include "RogueCity/Core/Types.hpp"
 #include <cmath>
+#include <numbers>
 #include <memory>
 
 namespace RogueCity::Generators {
@@ -44,7 +44,7 @@ namespace RogueCity::Generators {
             Vec2 dir = p - center;
             double angle = std::atan2(dir.y, dir.x);
             // Tangent to circle (perpendicular to radius)
-            return Tensor2D::fromAngle(angle + M_PI * 0.5);
+            return Tensor2D::fromAngle(angle + std::numbers::pi * 0.5);
         }
     };
 
@@ -65,7 +65,7 @@ namespace RogueCity::Generators {
             int cell_y = static_cast<int>(p.y / 50.0);
             bool use_primary = (cell_x + cell_y) % 2 == 0;
             
-            double angle = use_primary ? theta : (theta + M_PI * 0.5);
+            double angle = use_primary ? theta : (theta + std::numbers::pi * 0.5);
             return Tensor2D::fromAngle(angle);
         }
     };
@@ -92,7 +92,7 @@ namespace RogueCity::Generators {
             
             // Blend between radial and terminal direction
             double blend = std::min(1.0, to_p.length() / radius);
-            Vec2 dir = Vec2::lerp(to_p, terminal_dir, blend);
+            Vec2 dir = lerp(to_p, terminal_dir, blend);
             
             return Tensor2D::fromVector(dir);
         }

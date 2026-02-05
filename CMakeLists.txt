@@ -56,6 +56,9 @@ endif()
 add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
+# === TESTS ===
+add_executable(test_generators test_generators.cpp)
+target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
 
 message(STATUS "===========================================")
 message(STATUS "Core configured successfully!")
