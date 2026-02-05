@@ -1,0 +1,27 @@
+# azure-pipelines.yml
+
+trigger:
+- main
+
+pool:
+  vmImage: windows-latest
+
+steps:
+- checkout: self
+  submodules: true
+
+- task: CMake@1
+  displayName: "Configure (VS2022 x64)"
+  inputs:
+    cmakeArgs: >
+      -S .
+      -B build
+      -G "Visual Studio 17 2022"
+      -A x64
+
+- task: CMake@1
+  displayName: "Build (Release)"
+  inputs:
+    cmakeArgs: >
+      --build build
+      --config Release
