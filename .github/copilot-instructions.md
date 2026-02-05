@@ -24,7 +24,25 @@
 - Road classification and AESP values are table-driven; if you add road types or adjust AESP weights, update the lookup arrays in `AESPClassifier` to keep tests and docs consistent. See [generators/include/RogueCity/Generators/Districts/AESPClassifier.hpp](generators/include/RogueCity/Generators/Districts/AESPClassifier.hpp).
 
 ## Agent usage
-- Follow the agent roles and mandates in [AGENTS.md](AGENTS.md) when delegating tasks (Architect + helper agents).
+- Follow the agent roles and mandates in [.github/AGENTS.md](.github/AGENTS.md) when delegating tasks (Architect + helper agents).
+
+## Helper agent decision trees (when to consult + tools)
+- If the request changes C++ code paths → consult Coder Agent.
+  - Use: file_search (locate files), read_file (confirm context), apply_patch (edit), get_errors (validate).
+- If the request involves formulas, metrics, tensor fields, AESP weights, or grid index math → consult Math Genius Agent.
+  - Use: read_file on [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md), then read_file on relevant headers/impls; avoid guessing formulas.
+- If the request is about district archetypes, zoning behavior, or player flow → consult City Planner Agent.
+  - Use: read_file on [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md) and AESP classifier/road types; verify semantics before edits.
+- If the request affects counts, memory, or data growth → consult Resource Manager Agent.
+  - Use: read_file on generator configs, grep_search for caps/limits, then suggest bounds.
+- If the request is debugging, profiling, or reproducibility → consult Debug Manager Agent.
+  - Use: grep_search for assertions/logging, run_in_terminal for build/test, get_errors for compile issues.
+- If the request is docs or build instructions → consult Documentation Keeper Agent.
+  - Use: read_file on [ReadMe.md](ReadMe.md) and docs, apply_patch for updates.
+- If the request touches Lua-facing APIs or signature stability → consult Commenter/API Alias Keeper.
+  - Use: read_file on exposed headers, list_code_usages for impacted symbols, update comments/aliases.
+- If the request touches UI workflows or ImGui panels → consult ImGui Designer Agent.
+  - Use: read_file under app/, grep_search for ImGui panels, ensure Core stays UI-free.
 
 ## Useful references
 - Design/architecture narrative: [ReadMe.md](ReadMe.md) and [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md).
