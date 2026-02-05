@@ -12,7 +12,7 @@
   - Build core: `cmake --build build --target RogueCityCore --config Release`
   - Build generators: `cmake --build build --target RogueCityGenerators --config Release`
 - Fast core-only iteration: `cmake -B build_core -S . -DBUILD_CORE_ONLY=ON` then `cmake --build build_core --target RogueCityCore --config Release` (documented in [ReadMe.md](ReadMe.md)).
-- Tests are currently a single executable: [test_generators.cpp](test_generators.cpp). Build target `test_generators`, run directly or via `ctest --test-dir build --output-on-failure`.
+- Tests are currently a single executable: update CMakeLists to reference `tests/test_generators.cpp`. Build target `test_generators`, run directly or via `ctest --test-dir build --output-on-failure`.
 
 ## Dependencies & integration points
 - GLM is required; it is found via `find_package(glm)` or from `3rdparty/glm` fallback. See [CMakeLists.txt](CMakeLists.txt).

@@ -57,8 +57,13 @@ add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
 # === TESTS ===
-add_executable(test_generators test_generators.cpp)
+add_executable(test_generators tests/test_generators.cpp)
 target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
+target_compile_features(test_generators PRIVATE cxx_std_20)
+
+add_executable(test_core tests/test_core.cpp)
+target_link_libraries(test_core PRIVATE RogueCityCore)
+target_compile_features(test_core PRIVATE cxx_std_20)
 
 message(STATUS "===========================================")
 message(STATUS "Core configured successfully!")

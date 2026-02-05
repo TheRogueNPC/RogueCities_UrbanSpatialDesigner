@@ -258,7 +258,7 @@ private:
 	friend Worker;
 };
 
-Worker::Worker(RogueWorker* swarm)
+inline Worker::Worker(RogueWorker* swarm)
 	: m_rogue_worker(swarm)
 	, m_group(nullptr)
 	, m_id(0)
@@ -269,13 +269,13 @@ Worker::Worker(RogueWorker* swarm)
 {
 }
 
-void Worker::createThread()
+inline void Worker::createThread()
 {
 	lockReady();
 	m_thread = std::thread(&Worker::run, this);
 }
 
-void Worker::run()
+inline void Worker::run()
 {
 	while (true) {
 		waitReady();
@@ -290,27 +290,27 @@ void Worker::run()
 	}
 }
 
-void Worker::lockReady()
+inline void Worker::lockReady()
 {
 	m_ready_mutex.lock();
 }
 
-void Worker::unlockReady()
+inline void Worker::unlockReady()
 {
 	m_ready_mutex.unlock();
 }
 
-void Worker::lockDone()
+inline void Worker::lockDone()
 {
 	m_done_mutex.lock();
 }
 
-void Worker::unlockDone()
+inline void Worker::unlockDone()
 {
 	m_done_mutex.unlock();
 }
 
-void Worker::setJob(uint32_t id, ExecutionGroup* group)
+inline void Worker::setJob(uint32_t id, ExecutionGroup* group)
 {
 	m_id = id;
 	m_job = group->m_job;
@@ -318,24 +318,24 @@ void Worker::setJob(uint32_t id, ExecutionGroup* group)
 	m_group = group;
 }
 
-void Worker::stop()
+inline void Worker::stop()
 {
 	m_running = false;
 }
 
-void Worker::join()
+inline void Worker::join()
 {
 	m_thread.join();
 }
 
-void Worker::waitReady()
+inline void Worker::waitReady()
 {
 	m_rogue_worker->notifyWorkerReady(this);
 	lockReady();
 	unlockReady();
 }
 
-void Worker::waitDone()
+inline void Worker::waitDone()
 {
 	m_group->notifyWorkerDone();
 	lockDone();
