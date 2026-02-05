@@ -1,0 +1,61 @@
+#pragma once
+#include "RogueCity/Core/Types.hpp"
+#include "BasisFields.hpp"
+#include <vector>
+#include <memory>
+
+namespace RogueCity::Generators {
+
+    using namespace Core;
+
+    /// Generates tensor field from axioms for road network generation
+    class TensorFieldGenerator {
+    public:
+        /// Grid configuration
+        struct Config {
+            int width{ 200 };          // Grid width in cells
+            int height{ 200 };         // Grid height in cells
+            double cell_size{ 10.0 };  // Cell size in meters (10m = 200x200 = 2km x 2km)
+        };
+
+        /// Constructor
+        explicit TensorFieldGenerator(const Config& config = Config{});
+
+        /// Add basis fields from axioms
+        void addRadialField(const Vec2& center, double radius, double decay = 2.0);
+        void addGridField(const Vec2& center, double radius, double theta, double decay = 2.0);
+        void addDeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay = 2.0);
+        void addGridCorrective(const Vec2& center, double radius, double theta, double decay = 3.0);
+
+        /// Sample tensor at world position (interpolated from grid)
+        [[nodiscard]] Tensor2D sampleTensor(const Vec2& world_pos) const;
+
+        /// Generate field by evaluating all basis fields at grid points
+        void generateField();
+
+        /// Clear all basis fields
+        void clear();
+
+        /// Getters
+        [[nodiscard]] int getWidth() const { return config_.width; }
+        [[nodiscard]] int getHeight() const { return config_.height; }
+        [[nodiscard]] double getCellSize() const { return config_.cell_size; }
+        [[nodiscard]] bool isGenerated() const { return field_generated_; }
+
+    private:
+        Config config_;
+        std::vector<Tensor2D> grid_;  // width * height tensor grid
+        std::vector<std::unique_ptr<BasisField>> basis_fields_;
+        bool field_generated_{ false };
+
+        /// Convert world position to grid indices
+        [[nodiscard]] bool worldToGrid(const Vec2& world_pos, int& gx, int& gy) const;
+
+        /// Get tensor at grid cell (no interpolation)
+        [[nodiscard]] Tensor2D getGridTensor(int gx, int gy) const;
+
+        /// Bilinear interpolation of tensors
+        [[nodiscard]] Tensor2D interpolateTensor(const Vec2& world_pos) const;
+    };
+
+} // namespace RogueCity::Generators
