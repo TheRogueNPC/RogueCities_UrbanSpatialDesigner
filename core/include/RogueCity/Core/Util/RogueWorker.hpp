@@ -101,14 +101,19 @@ public:
 class ExecutionGroup
 {
 public:
-	ExecutionGroup(WorkerFunction job, uint32_t group_size, std::list<Worker*>& available_workers)
+	ExecutionGroup(WorkerFunction job, uint32_t group_size, std::list<Worker*> workers)
 		: m_job(job)
 		, m_group_size(group_size)
 		, m_done_count(0U)
 		, m_condition()
 		, m_condition_mutex()
 	{
-		retrieveWorkers(available_workers);
+		uint32_t id = 0;
+		for (Worker* worker : workers) {
+			worker->setJob(id, this);
+			m_workers.push_back(worker);
+			++id;
+		}
 		start();
 	}
 
@@ -153,16 +158,6 @@ private:
 	{
 		std::unique_lock<std::mutex> ul(m_condition_mutex);
 		m_condition.wait(ul, [this] { return m_done_count == m_group_size; });
-	}
-
-	void retrieveWorkers(std::list<Worker*>& available_workers)
-	{
-		for (uint32_t i(m_group_size); i--;) {
-			Worker* worker = available_workers.front();
-			available_workers.pop_front();
-			worker->setJob(i, this);
-			m_workers.push_back(worker);
-		}
 	}
 
 	friend Worker;
@@ -218,11 +213,20 @@ public:
 			group_size = m_thread_count;
 		}
 
-		if (group_size > m_available_workers.size()) {
-			return WorkGroup();
+		std::list<Worker*> workers;
+		{
+			std::lock_guard<std::mutex> lg(m_mutex);
+			if (group_size > m_available_workers.size()) {
+				return WorkGroup();
+			}
+			for (uint32_t i = 0; i < group_size; ++i) {
+				Worker* worker = m_available_workers.front();
+				m_available_workers.pop_front();
+				workers.push_back(worker);
+			}
 		}
 
-		return WorkGroup(std::make_unique<ExecutionGroup>(job, group_size, m_available_workers));
+		return WorkGroup(std::make_shared<ExecutionGroup>(job, group_size, std::move(workers)));
 	}
 
 

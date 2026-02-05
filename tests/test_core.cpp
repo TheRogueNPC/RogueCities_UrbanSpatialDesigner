@@ -376,23 +376,24 @@ void test_rogue_worker_parallel_computation() {
 }
 
 void test_rogue_worker_multiple_groups() {
-    const uint32_t thread_count = 2;
-    Rowk::RogueWorker worker(thread_count);
+	const uint32_t thread_count = 4;
+	const uint32_t group_size = 2;
+	Rowk::RogueWorker worker(thread_count);
 
-    std::atomic<int> counter1{0};
-    std::atomic<int> counter2{0};
+	std::atomic<int> counter1{0};
+	std::atomic<int> counter2{0};
 
-    auto job1 = [&counter1](uint32_t, uint32_t) { counter1++; };
-    auto job2 = [&counter2](uint32_t, uint32_t) { counter2++; };
+	auto job1 = [&counter1](uint32_t, uint32_t) { counter1++; };
+	auto job2 = [&counter2](uint32_t, uint32_t) { counter2++; };
 
-    Rowk::WorkGroup group1 = worker.execute(job1, thread_count);
-    Rowk::WorkGroup group2 = worker.execute(job2, thread_count);
+	Rowk::WorkGroup group1 = worker.execute(job1, group_size);
+	Rowk::WorkGroup group2 = worker.execute(job2, group_size);
 
-    group1.waitExecutionDone();
-    group2.waitExecutionDone();
+	group1.waitExecutionDone();
+	group2.waitExecutionDone();
 
-    ASSERT_EQUAL(counter1.load(), static_cast<int>(thread_count));
-    ASSERT_EQUAL(counter2.load(), static_cast<int>(thread_count));
+	ASSERT_EQUAL(counter1.load(), static_cast<int>(group_size));
+	ASSERT_EQUAL(counter2.load(), static_cast<int>(group_size));
 }
 
 // ============================================================================
