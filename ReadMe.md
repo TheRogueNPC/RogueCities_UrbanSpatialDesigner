@@ -1,4 +1,3 @@
-```markdown
 # Rogue City Designer
 ### An Urban Spatial City Generator
 
@@ -335,10 +334,6 @@ If you use this research or implementation in academic work, please cite:
 - **GitHub**: [@TheRogueNPC](https://github.com/TheRogueNPC)
 
 ---
+_"Cities are defined by their roads. From roads emerge parcels, lots, buildings, and ultimately districts. This structural view from urban morphology emphasizes how these elements create functional urban form."_```
 
-*"Cities are defined by their roads. From roads emerge parcels, lots, buildings, and ultimately districts."*
-```
 
-**Save this and commit!** Now get some sleep—you've completed Phase 1 and have a professional README. Tomorrow: Phase 2 (Generators). 🌙
-
-_"Cities are defined by their roads. From roads emerge parcels, lots, buildings, and ultimately districts. This structural view from urban morphology emphasizes how these elements create functional urban form."_
