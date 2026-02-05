@@ -1,0 +1,166 @@
+#define _USE_MATH_DEFINES
+#include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
+#include <cmath>
+#include <algorithm>
+
+namespace RogueCity::Generators {
+
+    TensorFieldGenerator::TensorFieldGenerator(const Config& config)
+        : config_(config) {
+        // Allocate grid storage
+        grid_.resize(config_.width * config_.height, Tensor2D::zero());
+    }
+
+    void TensorFieldGenerator::addRadialField(const Vec2& center, double radius, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<RadialField>(center, radius, decay)
+        );
+        field_generated_ = false;  // Invalidate cached field
+    }
+
+    void TensorFieldGenerator::addGridField(const Vec2& center, double radius, double theta, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<GridField>(center, radius, theta, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addDeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<DeltaField>(center, radius, terminal, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addGridCorrective(const Vec2& center, double radius, double theta, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<GridCorrectiveField>(center, radius, theta, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::generateField() {
+        // Generate tensor field by blending all basis fields at each grid point
+        for (int gy = 0; gy < config_.height; ++gy) {
+            for (int gx = 0; gx < config_.width; ++gx) {
+                // Convert grid indices to world position (cell centers)
+                Vec2 world_pos(
+                    (gx + 0.5) * config_.cell_size,
+                    (gy + 0.5) * config_.cell_size
+                );
+
+                // Blend all basis fields
+                Tensor2D result = Tensor2D::zero();
+                double total_weight = 0.0;
+
+                for (const auto& field : basis_fields_) {
+                    double weight = field->getWeight(world_pos);
+                    if (weight > 1e-6) {
+                        Tensor2D tensor = field->sample(world_pos);
+                        tensor.scale(weight);
+                        result.add(tensor, true);  // Smooth blending
+                        total_weight += weight;
+                    }
+                }
+
+                // Normalize by total weight
+                if (total_weight > 1e-6) {
+                    result.scale(1.0 / total_weight);
+                }
+
+                // Store in grid
+                int idx = gy * config_.width + gx;
+                grid_[idx] = result;
+            }
+        }
+
+        field_generated_ = true;
+    }
+
+    Tensor2D TensorFieldGenerator::sampleTensor(const Vec2& world_pos) const {
+        if (!field_generated_) {
+            // Fallback: Real-time sampling (slower but works if generateField() not called)
+            Tensor2D result = Tensor2D::zero();
+            double total_weight = 0.0;
+
+            for (const auto& field : basis_fields_) {
+                double weight = field->getWeight(world_pos);
+                if (weight > 1e-6) {
+                    Tensor2D tensor = field->sample(world_pos);
+                    tensor.scale(weight);
+                    result.add(tensor, true);
+                    total_weight += weight;
+                }
+            }
+
+            if (total_weight > 1e-6) {
+                result.scale(1.0 / total_weight);
+            }
+
+            return result;
+        }
+
+        // Fast path: Interpolate from pre-generated grid
+        return interpolateTensor(world_pos);
+    }
+
+    bool TensorFieldGenerator::worldToGrid(const Vec2& world_pos, int& gx, int& gy) const {
+        gx = static_cast<int>(world_pos.x / config_.cell_size);
+        gy = static_cast<int>(world_pos.y / config_.cell_size);
+        return (gx >= 0 && gx < config_.width && gy >= 0 && gy < config_.height);
+    }
+
+    Tensor2D TensorFieldGenerator::getGridTensor(int gx, int gy) const {
+        if (gx < 0 || gx >= config_.width || gy < 0 || gy >= config_.height) {
+            return Tensor2D::zero();
+        }
+        int idx = gy * config_.width + gx;
+        return grid_[idx];
+    }
+
+    Tensor2D TensorFieldGenerator::interpolateTensor(const Vec2& world_pos) const {
+        // Bilinear interpolation of tensors at grid points
+        double fx = world_pos.x / config_.cell_size;
+        double fy = world_pos.y / config_.cell_size;
+
+        int gx0 = static_cast<int>(std::floor(fx));
+        int gy0 = static_cast<int>(std::floor(fy));
+        int gx1 = gx0 + 1;
+        int gy1 = gy0 + 1;
+
+        double tx = fx - gx0;
+        double ty = fy - gy0;
+
+        // Get 4 corner tensors
+        Tensor2D t00 = getGridTensor(gx0, gy0);
+        Tensor2D t10 = getGridTensor(gx1, gy0);
+        Tensor2D t01 = getGridTensor(gx0, gy1);
+        Tensor2D t11 = getGridTensor(gx1, gy1);
+
+        // Bilinear blend (simple average for tensors)
+        Tensor2D result = Tensor2D::zero();
+        result.add(t00, true);
+        result.scale((1.0 - tx) * (1.0 - ty));
+
+        Tensor2D temp = t10;
+        temp.scale(tx * (1.0 - ty));
+        result.add(temp, true);
+
+        temp = t01;
+        temp.scale((1.0 - tx) * ty);
+        result.add(temp, true);
+
+        temp = t11;
+        temp.scale(tx * ty);
+        result.add(temp, true);
+
+        return result;
+    }
+
+    void TensorFieldGenerator::clear() {
+        basis_fields_.clear();
+        std::fill(grid_.begin(), grid_.end(), Tensor2D::zero());
+        field_generated_ = false;
+    }
+
+} // namespace RogueCity::Generators

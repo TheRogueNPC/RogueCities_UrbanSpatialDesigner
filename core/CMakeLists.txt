@@ -22,7 +22,7 @@ set(CORE_SOURCES
 )
 
 # === LIBRARY TARGET ===
-add_library(RogueCityCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+add_library(RogueCityCore STATIC ${CORE_SOURCES} ${CORE_HEADERS} "src/Generators/Tensors/BasisFields.cpp" "src/Generators/Tensors/TensorFieldGenerator.cpp" "src/Generators/Roads/StreamlineTracer.cpp" "src/Generators/Roads/RoadClassifier.cpp" "src/Generators/Districts/AESPClassifier.cpp" "src/Generators/Pipeline/CityGenerator.cpp")
 
 # === PUBLIC INTERFACE ===
 target_include_directories(RogueCityCore PUBLIC

@@ -3,8 +3,8 @@
 
 namespace RogueCity::Core {
 
-    Tensor2D& Tensor2D::add(const Tensor2D& other, bool smooth) {
-        (void)smooth;  // Unused in core, used in generators layer
+    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unsed]] bool smooth) {
+        (void)smooth;  // Unused in core, used in generators layer [[maybe_unsed]] silences warning
 
         // Simplified addition (full smooth blending in generators layer)
         r += other.r;

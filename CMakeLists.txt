@@ -54,6 +54,8 @@ endif()
 
 # === CORE LIBRARY ===
 add_subdirectory(core)
+#=== GENERATORS LIBRARY (Phase 2)===
+add_subdirectory(generators)
 
 message(STATUS "===========================================")
 message(STATUS "Core configured successfully!")
