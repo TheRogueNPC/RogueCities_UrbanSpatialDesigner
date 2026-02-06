@@ -1,6 +1,10 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
+// ADDED (visualizer/src/main.cpp): Hyper-reactive UI root includes.
+#include "ui/rc_ui_root.h"
+#include "ui/rc_ui_theme.h"
+
 #include <imgui.h>
 
 using RogueCity::Core::Editor::EditorEvent;
@@ -76,6 +80,14 @@ int main()
         io.DeltaTime = 1.0f / 60.0f;
         ImGui::NewFrame();
 
+        // ADDED (visualizer/src/main.cpp): Hyper-reactive UI root hook.
+        static bool theme_applied = false;
+        if (!theme_applied) {
+            RC_UI::ApplyTheme();
+            theme_applied = true;
+        }
+        RC_UI::DrawRoot(io.DeltaTime);
+
         hfsm.update(gs, io.DeltaTime);
         draw_main_menu(hfsm, gs);
         draw_editor_windows(hfsm, gs);
@@ -87,4 +99,3 @@ int main()
     ImGui::DestroyContext();
     return 0;
 }
-
