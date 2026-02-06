@@ -278,9 +278,9 @@ cmake --build build_core --target RogueCityCore --config Release
 | Phase | Status | Description | Target Date |
 |-------|--------|-------------|-------------|
 | **Phase 1** | ✅ **Complete** | Core data layer (Vec2, Tensor2D, AESP types) | Feb 4 |
-| **Phase 2** | ⏳ In Progress | Generators library (tensor fields, roads, districts) | Feb 5-7 |
-| **Phase 3** | 🔜 Planned | Minimal ImGui UI (axiom placement, visualization) | Feb 8-10 |
-| **Phase 4** | 🔜 Planned | Export system (JSON, OBJ, GLTF) | Feb 11-12 |
+| **Phase 2** | ✅ **Complete** | Generators library (tensor fields, roads, districts) | Feb 5-7 |
+| **Phase 3** | 💭 **Functional-WIP** | Minimal ImGui UI (axiom placement, visualization) | Feb 8-10 |
+| **Phase 4** | ⏳ In Progress| Export system (JSON, OBJ, GLTF) | Feb 11-12 |
 | **Phase 5** | 🔜 Planned | MVP polish, presets, documentation | Feb 13-15 |
 
 **MVP Target**: February 15, 2026
