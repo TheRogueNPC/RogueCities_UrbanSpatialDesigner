@@ -118,7 +118,7 @@ namespace fva
 			return GenericHandle<U>(m_index, *m_source);
 		}
 
-		const uint64_t getIndex() const
+		uint64_t getIndex() const
 		{
 			return m_index;
 		}

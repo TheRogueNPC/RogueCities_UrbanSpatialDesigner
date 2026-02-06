@@ -13,16 +13,22 @@ set(CORE_HEADERS
     include/RogueCity/Core/Math/Vec2.hpp
     include/RogueCity/Core/Data/CityTypes.hpp
     include/RogueCity/Core/Data/TensorTypes.hpp
+    include/RogueCity/Core/Editor/EditorState.hpp
+    include/RogueCity/Core/Editor/GlobalState.hpp
     include/RogueCity/Core/Util/FastVectorArray.hpp
     include/RogueCity/Core/Util/IndexVector.hpp
     include/RogueCity/Core/Util/StableIndexVector.hpp
     include/RogueCity/Core/Util/RogueWorker.hpp
+    include/RogueCity/Core/Validation/EditorIntegrity.hpp
 )
 
 set(CORE_SOURCES
     src/Core/Math/Vec2.cpp
     src/Core/Data/CityTypes.cpp
     src/Core/Data/TensorTypes.cpp
+    src/Core/Editor/EditorState.cpp
+    src/Core/Editor/GlobalState.cpp
+    src/Core/Validation/EditorIntegrity.cpp
 )
 
 # === LIBRARY TARGET ===
