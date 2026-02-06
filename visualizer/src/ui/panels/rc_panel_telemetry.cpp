@@ -1,7 +1,7 @@
-// FILE: visualizer/src/ui/panels/rc_panel_telemetry.cpp (RogueCities_UrbanSpatialDesigner)
-// PURPOSE: Stub telemetry display with reactive fill.
-#include "ui/panels/rc_panel_telemetry.h"
+// FILE: rc_panel_telemetry.cpp
+// PURPOSE: Live analytics panel showing procedural generation metrics.
 
+#include "ui/panels/rc_panel_telemetry.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
 
@@ -11,10 +11,12 @@ namespace RC_UI::Panels::Telemetry {
 
 void Draw(float dt)
 {
+    // Color the panel background using the theme palette
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    ImGui::Begin("Telemetry", nullptr, ImGuiWindowFlags_NoCollapse);
+    // The window title is "Analytics" to reflect its purpose
+    ImGui::Begin("Analytics", nullptr, ImGuiWindowFlags_NoCollapse);
 
-    // TODO (visualizer/src/ui/panels/rc_panel_telemetry.cpp): Bind telemetry values to generator metrics.
+    // TODO: Bind real metrics here. The following reactive bar animates using Pulse().
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, 120.0f);

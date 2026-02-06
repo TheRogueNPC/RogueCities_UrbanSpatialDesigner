@@ -1,0 +1,35 @@
+name: Manual Commit to Main
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: 'Commit message'
+        required: true
+        default: 'Automated changes'
+
+jobs:
+  commit-to-main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+      
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m "${{ github.event.inputs.commit_message }}" || echo "No changes to commit"
+          git push origin main
+          
+    permissions:
+        contents: 
+          write  # Allows pushing commits
+
