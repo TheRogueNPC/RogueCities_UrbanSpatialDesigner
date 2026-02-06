@@ -5,8 +5,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
-// OpenGL loader
-#include "GL/gl3w.h"
+// OpenGL loader - must be included before GLFW
+#include <GL/gl3w.h>
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
