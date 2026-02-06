@@ -1,6 +1,10 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
+// ADDED (visualizer/src/main.cpp): Hyper-reactive UI root includes.
+#include "ui/rc_ui_root.h"
+#include "ui/rc_ui_theme.h"
+
 #include <imgui.h>
 
 using RogueCity::Core::Editor::EditorEvent;
@@ -55,6 +59,16 @@ static void draw_editor_windows(EditorHFSM& hfsm, GlobalState& gs)
     }
 }
 
+static void apply_theme_once()
+{
+    // ADDED (visualizer/src/main.cpp): Apply RC_UI theme a single time after NewFrame.
+    static bool theme_applied = false;
+    if (!theme_applied) {
+        RC_UI::ApplyTheme();
+        theme_applied = true;
+    }
+}
+
 int main()
 {
     IMGUI_CHECKVERSION();
@@ -70,11 +84,17 @@ int main()
 
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2(1280.0f, 720.0f);
+    // ADDED (visualizer/src/main.cpp): Enable ImGui docking for the RC_UI dockspace.
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // Headless "frame loop" demonstrating HFSM integration.
-    for (int frame = 0; frame < 3; ++frame) {
+    auto run_frame = [&]() {
         io.DeltaTime = 1.0f / 60.0f;
         ImGui::NewFrame();
+
+        // ADDED (visualizer/src/main.cpp): Hyper-reactive UI root hook.
+        apply_theme_once();
+        RC_UI::DrawRoot(io.DeltaTime);
 
         hfsm.update(gs, io.DeltaTime);
         draw_main_menu(hfsm, gs);
@@ -82,9 +102,12 @@ int main()
 
         ImGui::Render();
         ++gs.frame_counter;
+    };
+
+    for (int frame = 0; frame < 3; ++frame) {
+        run_frame();
     }
 
     ImGui::DestroyContext();
     return 0;
 }
-

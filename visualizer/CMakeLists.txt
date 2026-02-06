@@ -26,10 +26,20 @@ if(ROGUECITY_BUILD_VISUALIZER)
     target_compile_features(RogueCityImGui PUBLIC cxx_std_20)
 
     add_executable(RogueCityVisualizerHeadless
+        # ADDED (visualizer/CMakeLists.txt): Hyper-reactive UI module sources.
         src/main.cpp
+        src/ui/rc_ui_anim.cpp
+        src/ui/rc_ui_root.cpp
+        src/ui/rc_ui_theme.cpp
+        src/ui/panels/rc_panel_axiom_bar.cpp
+        src/ui/panels/rc_panel_inspector.cpp
+        src/ui/panels/rc_panel_log.cpp
+        src/ui/panels/rc_panel_system_map.cpp
+        src/ui/panels/rc_panel_telemetry.cpp
     )
 
     target_link_libraries(RogueCityVisualizerHeadless PRIVATE RogueCityCore RogueCityImGui)
+    # ADDED (visualizer/CMakeLists.txt): Expose UI module headers.
+    target_include_directories(RogueCityVisualizerHeadless PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
 endif()
-
