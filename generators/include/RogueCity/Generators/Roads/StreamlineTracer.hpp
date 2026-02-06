@@ -26,22 +26,43 @@ namespace RogueCity::Generators {
         [[nodiscard]] std::vector<Vec2> traceMajor(
             const Vec2& seed,
             const TensorFieldGenerator& field,
-            const Params& params = Params{}
+            const Params& params
         );
+
+        [[nodiscard]] std::vector<Vec2> traceMajor(
+            const Vec2& seed,
+            const TensorFieldGenerator& field
+        ) {
+            return traceMajor(seed, field, Params{});
+        }
 
         /// Trace single streamline along minor eigenvector
         [[nodiscard]] std::vector<Vec2> traceMinor(
             const Vec2& seed,
             const TensorFieldGenerator& field,
-            const Params& params = Params{}
+            const Params& params
         );
+
+        [[nodiscard]] std::vector<Vec2> traceMinor(
+            const Vec2& seed,
+            const TensorFieldGenerator& field
+        ) {
+            return traceMinor(seed, field, Params{});
+        }
 
         /// Trace full road network from seed points
         [[nodiscard]] fva::Container<Road> traceNetwork(
             const std::vector<Vec2>& seeds,
             const TensorFieldGenerator& field,
-            const Params& params = Params{}
+            const Params& params
         );
+
+        [[nodiscard]] fva::Container<Road> traceNetwork(
+            const std::vector<Vec2>& seeds,
+            const TensorFieldGenerator& field
+        ) {
+            return traceNetwork(seeds, field, Params{});
+        }
 
     private:
         /// RK4 integration step

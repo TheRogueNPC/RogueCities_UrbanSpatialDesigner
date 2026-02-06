@@ -1,8 +1,11 @@
 #include "RogueCity/App/Tools/AxiomVisual.hpp"
 #include "RogueCity/App/Tools/AxiomAnimationController.hpp"
+#include "RogueCity/App/Tools/AxiomIcon.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include <imgui.h>
+#include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace RogueCity::App {
 
@@ -22,7 +25,7 @@ AxiomVisual::AxiomVisual(int id, AxiomType type)
         for (int i = 0; i < 4; ++i) {
             auto knob = std::make_unique<RingControlKnob>();
             knob->ring_index = ring_idx;
-            knob->angle = (M_PI / 2.0f) * i;  // 0°, 90°, 180°, 270°
+            knob->angle = (std::numbers::pi_v<float> / 2.0f) * static_cast<float>(i);  // 0°, 90°, 180°, 270°
             knob->value = 1.0f;
             knob->is_hovered = false;
             knob->is_dragging = false;
@@ -119,6 +122,10 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
             ImVec2(screen_center.x, screen_center.y + marker_size * 0.6f),
             marker_color, 1.5f
         );
+
+        // Type glyph (SVG-inspired, ImDrawList-native)
+        const ImU32 icon_color = GetAxiomTypeInfo(type_).primary_color;
+        DrawAxiomIcon(draw_list, screen_center, marker_size * 0.70f, type_, icon_color);
     }
 
     // Render control knobs
@@ -145,6 +152,14 @@ RingControlKnob* AxiomVisual::get_hovered_knob(const Core::Vec2& world_pos) {
     return nullptr;
 }
 
+void AxiomVisual::set_hovered(bool hovered) {
+    hovered_ = hovered;
+}
+
+void AxiomVisual::set_selected(bool selected) {
+    selected_ = selected;
+}
+
 void AxiomVisual::set_position(const Core::Vec2& pos) {
     position_ = pos;
 }
@@ -164,15 +179,25 @@ void AxiomVisual::set_rotation(float theta) {
     rotation_ = theta;
 }
 
-void AxiomVisual::set_delta_terminal(DeltaTerminal terminal) {
-    delta_terminal_ = terminal;
-}
-
 int AxiomVisual::id() const { return id_; }
 const Core::Vec2& AxiomVisual::position() const { return position_; }
 float AxiomVisual::radius() const { return rings_[2].radius; }
 AxiomVisual::AxiomType AxiomVisual::type() const { return type_; }
 float AxiomVisual::rotation() const { return rotation_; }
+
+void AxiomVisual::set_organic_curviness(float value) { organic_curviness_ = std::clamp(value, 0.0f, 1.0f); }
+void AxiomVisual::set_radial_spokes(int spokes) { radial_spokes_ = std::max(3, std::min(spokes, 24)); }
+void AxiomVisual::set_loose_grid_jitter(float value) { loose_grid_jitter_ = std::clamp(value, 0.0f, 1.0f); }
+void AxiomVisual::set_suburban_loop_strength(float value) { suburban_loop_strength_ = std::clamp(value, 0.0f, 1.0f); }
+void AxiomVisual::set_stem_branch_angle(float radians) { stem_branch_angle_ = std::clamp(radians, 0.0f, std::numbers::pi_v<float>); }
+void AxiomVisual::set_superblock_block_size(float meters) { superblock_block_size_ = std::max(50.0f, meters); }
+
+float AxiomVisual::organic_curviness() const { return organic_curviness_; }
+int AxiomVisual::radial_spokes() const { return radial_spokes_; }
+float AxiomVisual::loose_grid_jitter() const { return loose_grid_jitter_; }
+float AxiomVisual::suburban_loop_strength() const { return suburban_loop_strength_; }
+float AxiomVisual::stem_branch_angle() const { return stem_branch_angle_; }
+float AxiomVisual::superblock_block_size() const { return superblock_block_size_; }
 
 void AxiomVisual::trigger_placement_animation() {
     if (!animation_enabled_) return;
@@ -195,9 +220,13 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
     input.position = position_;
     input.radius = rings_[2].radius;  // Use outer ring as primary radius
     input.theta = rotation_;
-    // Convert Editor DeltaTerminal to Generators DeltaTerminal
-    input.terminal = static_cast<Generators::DeltaTerminal>(delta_terminal_);
     input.decay = decay_;
+    input.organic_curviness = organic_curviness_;
+    input.radial_spokes = radial_spokes_;
+    input.loose_grid_jitter = loose_grid_jitter_;
+    input.suburban_loop_strength = suburban_loop_strength_;
+    input.stem_branch_angle = stem_branch_angle_;
+    input.superblock_block_size = superblock_block_size_;
     return input;
 }
 

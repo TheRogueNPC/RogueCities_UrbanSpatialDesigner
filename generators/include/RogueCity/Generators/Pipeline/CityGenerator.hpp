@@ -6,6 +6,7 @@
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
+#include <cstdint>
 
 namespace RogueCity::Generators {
 
@@ -25,14 +26,33 @@ namespace RogueCity::Generators {
 
         /// Axiom input (user-placed planning intent)
         struct AxiomInput {
-            enum class Type { Radial, Grid, Delta, GridCorrective };
+            enum class Type : uint8_t {
+                Organic = 0,
+                Grid = 1,
+                Radial = 2,
+                Hexagonal = 3,
+                Stem = 4,
+                LooseGrid = 5,
+                Suburban = 6,
+                Superblock = 7,
+                Linear = 8,
+                GridCorrective = 9,
+                COUNT = 10
+            };
             
-            Type type;
-            Vec2 position;
-            double radius;
-            double theta{ 0.0 };  // For Grid/GridCorrective
-            DeltaTerminal terminal{ DeltaTerminal::North };  // For Delta
+            Type type{ Type::Grid };
+            Vec2 position{};
+            double radius{ 250.0 };
+            double theta{ 0.0 };  // Grid/Linear/Stem orientation (radians)
             double decay{ 2.0 };
+
+            // Type-specific parameters (interpreted by `type`)
+            float organic_curviness{ 0.5f };          // Organic [0..1]
+            int radial_spokes{ 8 };                   // Radial [3..24]
+            float loose_grid_jitter{ 0.15f };         // LooseGrid [0..1]
+            float suburban_loop_strength{ 0.7f };     // Suburban [0..1]
+            float stem_branch_angle{ 0.7f };          // Stem (radians)
+            float superblock_block_size{ 250.0f };    // Superblock (meters)
         };
 
         /// Generated city output
@@ -48,8 +68,13 @@ namespace RogueCity::Generators {
         /// Generate city from axioms
         [[nodiscard]] CityOutput generate(
             const std::vector<AxiomInput>& axioms,
-            const Config& config = Config{}
+            const Config& config
         );
+
+        /// Generate with default config
+        [[nodiscard]] CityOutput generate(const std::vector<AxiomInput>& axioms) {
+            return generate(axioms, Config{});
+        }
 
     private:
         Config config_;

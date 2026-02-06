@@ -24,24 +24,25 @@ namespace RogueCity::Core::Editor {
     };
 
     struct EditorAxiom {
-        enum class Type : uint8_t { Radial, Grid, Delta, GridCorrective };
-        enum class DeltaTerminal : uint8_t {
-            North,
-            South,
-            East,
-            West,
-            NorthEast,
-            NorthWest,
-            SouthEast,
-            SouthWest
+        enum class Type : uint8_t {
+            Organic = 0,
+            Grid = 1,
+            Radial = 2,
+            Hexagonal = 3,
+            Stem = 4,
+            LooseGrid = 5,
+            Suburban = 6,
+            Superblock = 7,
+            Linear = 8,
+            GridCorrective = 9,
+            COUNT = 10
         };
 
         uint32_t id{ 0 };
         Type type{ Type::Grid };
         Vec2 position{};
         double radius{ 250.0 };
-        double theta{ 0.0 }; // Grid/GridCorrective
-        DeltaTerminal terminal{ DeltaTerminal::North }; // Delta
+        double theta{ 0.0 }; // Grid/Linear/Stem/GridCorrective
         double decay{ 2.0 };
         bool is_user_placed{ true };
     };
@@ -68,4 +69,3 @@ namespace RogueCity::Core::Editor {
     GlobalState& GetGlobalState();
 
 } // namespace RogueCity::Core::Editor
-

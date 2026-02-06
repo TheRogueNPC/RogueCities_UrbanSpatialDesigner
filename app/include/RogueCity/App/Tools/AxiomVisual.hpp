@@ -5,6 +5,8 @@
 #include <vector>
 #include <memory>
 
+struct ImDrawList;
+
 namespace RogueCity::App {
 
 struct RingControlKnob;
@@ -15,7 +17,6 @@ class AxiomAnimationController;
 class AxiomVisual {
 public:
     using AxiomType = Generators::CityGenerator::AxiomInput::Type;
-    using DeltaTerminal = Core::Editor::EditorAxiom::DeltaTerminal;
 
     struct Ring {
         float radius;          // Current radius (meters)
@@ -36,19 +37,35 @@ public:
     /// Mouse interaction
     [[nodiscard]] bool is_hovered(const Core::Vec2& world_pos, float world_radius) const;
     [[nodiscard]] RingControlKnob* get_hovered_knob(const Core::Vec2& world_pos);
+    void set_hovered(bool hovered);
+    void set_selected(bool selected);
 
     /// Axiom properties
     void set_position(const Core::Vec2& pos);
     void set_radius(float radius);
     void set_type(AxiomType type);
     void set_rotation(float theta);
-    void set_delta_terminal(DeltaTerminal terminal);
+
+    // Type-specific parameters
+    void set_organic_curviness(float value);
+    void set_radial_spokes(int spokes);
+    void set_loose_grid_jitter(float value);
+    void set_suburban_loop_strength(float value);
+    void set_stem_branch_angle(float radians);
+    void set_superblock_block_size(float meters);
 
     [[nodiscard]] int id() const;
     [[nodiscard]] const Core::Vec2& position() const;
     [[nodiscard]] float radius() const;
     [[nodiscard]] AxiomType type() const;
     [[nodiscard]] float rotation() const;
+
+    [[nodiscard]] float organic_curviness() const;
+    [[nodiscard]] int radial_spokes() const;
+    [[nodiscard]] float loose_grid_jitter() const;
+    [[nodiscard]] float suburban_loop_strength() const;
+    [[nodiscard]] float stem_branch_angle() const;
+    [[nodiscard]] float superblock_block_size() const;
 
     /// Animation control
     void trigger_placement_animation();  // Ring expansion on place
@@ -62,8 +79,14 @@ private:
     AxiomType type_;
     Core::Vec2 position_{ 0.0, 0.0 };
     float rotation_{ 0.0 };
-    DeltaTerminal delta_terminal_{ DeltaTerminal::North };
     float decay_{ 2.0 };
+
+    float organic_curviness_{ 0.5f };
+    int radial_spokes_{ 8 };
+    float loose_grid_jitter_{ 0.15f };
+    float suburban_loop_strength_{ 0.7f };
+    float stem_branch_angle_{ 0.7f };
+    float superblock_block_size_{ 250.0f };
 
     Ring rings_[3];  // Immediate, Medium, Far influence
     std::vector<std::unique_ptr<RingControlKnob>> knobs_;

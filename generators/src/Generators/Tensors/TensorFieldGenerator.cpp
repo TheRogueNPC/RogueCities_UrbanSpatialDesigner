@@ -7,10 +7,20 @@
 
 namespace RogueCity::Generators {
 
+    TensorFieldGenerator::TensorFieldGenerator()
+        : TensorFieldGenerator(Config{}) {}
+
     TensorFieldGenerator::TensorFieldGenerator(const Config& config)
         : config_(config) {
         // Allocate grid storage
         grid_.resize(config_.width * config_.height, Tensor2D::zero());
+    }
+
+    void TensorFieldGenerator::addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<OrganicField>(center, radius, theta, curviness, decay)
+        );
+        field_generated_ = false;
     }
 
     void TensorFieldGenerator::addRadialField(const Vec2& center, double radius, double decay) {
@@ -20,6 +30,13 @@ namespace RogueCity::Generators {
         field_generated_ = false;  // Invalidate cached field
     }
 
+    void TensorFieldGenerator::addRadialField(const Vec2& center, double radius, int spokes, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<RadialHubSpokeField>(center, radius, spokes, decay)
+        );
+        field_generated_ = false;
+    }
+
     void TensorFieldGenerator::addGridField(const Vec2& center, double radius, double theta, double decay) {
         basis_fields_.push_back(
             std::make_unique<GridField>(center, radius, theta, decay)
@@ -27,9 +44,44 @@ namespace RogueCity::Generators {
         field_generated_ = false;
     }
 
-    void TensorFieldGenerator::addDeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay) {
+    void TensorFieldGenerator::addHexagonalField(const Vec2& center, double radius, double theta, double decay) {
         basis_fields_.push_back(
-            std::make_unique<DeltaField>(center, radius, terminal, decay)
+            std::make_unique<HexagonalField>(center, radius, theta, 120.0, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addStemField(const Vec2& center, double radius, double theta, float branch_angle, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<StemField>(center, radius, theta, branch_angle, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addLooseGridField(const Vec2& center, double radius, double theta, float jitter, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<LooseGridField>(center, radius, theta, jitter, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addSuburbanField(const Vec2& center, double radius, float loop_strength, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<SuburbanField>(center, radius, loop_strength, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addSuperblockField(const Vec2& center, double radius, double theta, float block_size, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<SuperblockField>(center, radius, theta, block_size, decay)
+        );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addLinearField(const Vec2& center, double radius, double theta, double decay) {
+        basis_fields_.push_back(
+            std::make_unique<LinearField>(center, radius, theta, decay)
         );
         field_generated_ = false;
     }

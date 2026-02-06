@@ -44,20 +44,47 @@ namespace RogueCity::Generators {
         // Add basis fields from axioms
         for (const auto& axiom : axioms) {
             switch (axiom.type) {
-                case AxiomInput::Type::Radial:
-                    field.addRadialField(axiom.position, axiom.radius, axiom.decay);
+                case AxiomInput::Type::Organic:
+                    field.addOrganicField(axiom.position, axiom.radius, axiom.theta, axiom.organic_curviness, axiom.decay);
                     break;
 
                 case AxiomInput::Type::Grid:
                     field.addGridField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
                     break;
 
-                case AxiomInput::Type::Delta:
-                    field.addDeltaField(axiom.position, axiom.radius, axiom.terminal, axiom.decay);
+                case AxiomInput::Type::Radial:
+                    field.addRadialField(axiom.position, axiom.radius, axiom.radial_spokes, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::Hexagonal:
+                    field.addHexagonalField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::Stem:
+                    field.addStemField(axiom.position, axiom.radius, axiom.theta, axiom.stem_branch_angle, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::LooseGrid:
+                    field.addLooseGridField(axiom.position, axiom.radius, axiom.theta, axiom.loose_grid_jitter, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::Suburban:
+                    field.addSuburbanField(axiom.position, axiom.radius, axiom.suburban_loop_strength, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::Superblock:
+                    field.addSuperblockField(axiom.position, axiom.radius, axiom.theta, axiom.superblock_block_size, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::Linear:
+                    field.addLinearField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
                     break;
 
                 case AxiomInput::Type::GridCorrective:
                     field.addGridCorrective(axiom.position, axiom.radius, axiom.theta, axiom.decay);
+                    break;
+
+                case AxiomInput::Type::COUNT:
                     break;
             }
         }

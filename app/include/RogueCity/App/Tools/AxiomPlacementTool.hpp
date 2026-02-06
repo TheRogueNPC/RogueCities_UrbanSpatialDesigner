@@ -17,6 +17,7 @@ public:
         Idle,              // No interaction
         Placing,           // Click to place new axiom
         DraggingSize,      // Dragging to set radius
+        DraggingAxiom,     // Dragging axiom position
         DraggingKnob,      // Adjusting ring radius via knob
         Hovering           // Mouse over existing axiom
     };
@@ -46,10 +47,17 @@ public:
 
     /// Configuration
     void set_default_axiom_type(AxiomVisual::AxiomType type);
+    [[nodiscard]] AxiomVisual::AxiomType default_axiom_type() const;
     void set_animation_enabled(bool enabled);
 
     /// Convert all axioms to generator inputs
     [[nodiscard]] std::vector<Generators::CityGenerator::AxiomInput> get_axiom_inputs() const;
+
+    /// Returns true once when axioms changed (place/modify/delete)
+    [[nodiscard]] bool consume_dirty();
+
+    /// True while the user is manipulating the tool (placing/dragging)
+    [[nodiscard]] bool is_interacting() const;
 
 private:
     std::vector<std::unique_ptr<AxiomVisual>> axioms_;
@@ -64,8 +72,10 @@ private:
 
     RingControlKnob* dragging_knob_{ nullptr };
     Core::Vec2 knob_drag_start_{ 0.0, 0.0 };
+    Core::Vec2 axiom_drag_offset_{ 0.0, 0.0 };
 
     bool animation_enabled_{ true };
+    bool dirty_{ false };
 };
 
 } // namespace RogueCity::App

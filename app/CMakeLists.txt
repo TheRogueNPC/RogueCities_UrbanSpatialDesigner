@@ -14,6 +14,7 @@ set(APP_SOURCES
     src/Tools/AxiomVisual.cpp
     src/Tools/AxiomAnimationController.cpp
     src/Tools/AxiomPlacementTool.cpp
+    src/Tools/AxiomIcon.cpp
     src/Tools/ContextWindowPopup.cpp
     
     # Viewports (3D/2D hybrid rendering)
@@ -26,6 +27,7 @@ set(APP_SOURCES
     
     # Integration (Generator bridge)
     src/Integration/GeneratorBridge.cpp
+    src/Integration/RealTimePreview.cpp
 )
 
 set(APP_HEADERS
@@ -33,6 +35,7 @@ set(APP_HEADERS
     include/RogueCity/App/Tools/AxiomVisual.hpp
     include/RogueCity/App/Tools/AxiomAnimationController.hpp
     include/RogueCity/App/Tools/AxiomPlacementTool.hpp
+    include/RogueCity/App/Tools/AxiomIcon.hpp
     include/RogueCity/App/Tools/ContextWindowPopup.hpp
     
     # Viewports

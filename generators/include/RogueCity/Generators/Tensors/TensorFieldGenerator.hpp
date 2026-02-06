@@ -19,12 +19,20 @@ namespace RogueCity::Generators {
         };
 
         /// Constructor
-        explicit TensorFieldGenerator(const Config& config = Config{});
+        TensorFieldGenerator();
+        explicit TensorFieldGenerator(const Config& config);
 
         /// Add basis fields from axioms
+        void addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay = 2.0);
         void addRadialField(const Vec2& center, double radius, double decay = 2.0);
+        void addRadialField(const Vec2& center, double radius, int spokes, double decay = 2.0);
         void addGridField(const Vec2& center, double radius, double theta, double decay = 2.0);
-        void addDeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay = 2.0);
+        void addHexagonalField(const Vec2& center, double radius, double theta, double decay = 2.0);
+        void addStemField(const Vec2& center, double radius, double theta, float branch_angle, double decay = 2.0);
+        void addLooseGridField(const Vec2& center, double radius, double theta, float jitter, double decay = 2.0);
+        void addSuburbanField(const Vec2& center, double radius, float loop_strength, double decay = 2.0);
+        void addSuperblockField(const Vec2& center, double radius, double theta, float block_size, double decay = 2.0);
+        void addLinearField(const Vec2& center, double radius, double theta, double decay = 2.0);
         void addGridCorrective(const Vec2& center, double radius, double theta, double decay = 3.0);
 
         /// Sample tensor at world position (interpolated from grid)

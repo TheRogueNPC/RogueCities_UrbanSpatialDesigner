@@ -2,6 +2,10 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include <functional>
 #include <memory>
+#include <atomic>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
 namespace RogueCity::App {
 
@@ -11,6 +15,13 @@ class RealTimePreview {
 public:
     using OnGenerationCompleteCallback = 
         std::function<void(const Generators::CityGenerator::CityOutput&)>;
+
+    enum class GenerationPhase : uint8_t {
+        Idle,
+        InitStreetSweeper,
+        Sweeping,
+        StreetsSwept
+    };
 
     RealTimePreview();
     ~RealTimePreview();
@@ -43,18 +54,32 @@ public:
     /// Get last generated output (or nullptr)
     [[nodiscard]] const Generators::CityGenerator::CityOutput* get_output() const;
 
+    /// Status phase for UI overlays
+    [[nodiscard]] GenerationPhase phase() const;
+    [[nodiscard]] float phase_elapsed_seconds() const;
+
 private:
     float debounce_delay_{ 0.5f };
     float time_since_last_request_{ 0.0f };
     bool regeneration_pending_{ false };
-    bool is_generating_{ false };
-    float generation_progress_{ 0.0f };
+    std::atomic<bool> is_generating_{ false };
+    std::atomic<float> generation_progress_{ 0.0f };
+
+    GenerationPhase phase_{ GenerationPhase::Idle };
+    float phase_elapsed_seconds_{ 0.0f };
+    bool init_pending_start_{ false };
 
     std::vector<Generators::CityGenerator::AxiomInput> pending_axioms_;
     Generators::CityGenerator::Config pending_config_;
 
     std::unique_ptr<Generators::CityGenerator::CityOutput> current_output_;
-    std::unique_ptr<Generators::CityGenerator> generator_;
+
+    std::unique_ptr<Generators::CityGenerator::CityOutput> completed_output_;
+    bool completed_output_ready_{ false };
+    mutable std::mutex completed_mutex_;
+
+    std::jthread generation_thread_;
+    std::atomic<uint64_t> generation_token_{ 0 };
 
     OnGenerationCompleteCallback on_complete_;
 
@@ -62,7 +87,7 @@ private:
     void start_generation();
 
     /// Handle generation completion (called from worker thread)
-    void on_generation_complete(Generators::CityGenerator::CityOutput output);
+    void on_generation_complete(uint64_t token, Generators::CityGenerator::CityOutput output);
 };
 
 } // namespace RogueCity::App
