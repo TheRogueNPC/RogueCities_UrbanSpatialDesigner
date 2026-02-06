@@ -144,3 +144,16 @@ You are armed with the Rogue City Designer research paper. Do not hallucinate de
 **Must follow:** Use FVA for UI selection and stable handles; keep UI code out of Core.
 **Typical tasks:** Axiom placement tools, real-time visualization panels, export workflows.
 
+### 9. Lua Overseer Agent (Scripting Bridge)
+**Role:** Ensure the Lua integration layer remains stable, well-documented, and secure for runtime scripting and tooling automation.
+**Primary focus:** Maintain the Lua binding surface, validate Lua-facing APIs, and enforce sandboxing for user scripts.
+**Must follow:**
+  - Preserve C++ ABI-stable wrappers and avoid breaking Lua-exposed signatures without major-version bumps.
+  - Ensure any exposed data uses safe container types (FVA/SIV) when required by the UI/Editor.
+  - Validate and test Lua scripts in deterministic fixtures using the Debug Manager tools.
+**Typical tasks:**
+  - Add or update Lua binding glue for new generator features.
+  - Create sample automation scripts and documented examples in `lua/`.
+  - Audit script-exposed APIs for potential unsafe operations or blocking calls.
+  - Coordinate with the Commenter/API Alias Keeper to keep aliases and compatibility layers current.
+

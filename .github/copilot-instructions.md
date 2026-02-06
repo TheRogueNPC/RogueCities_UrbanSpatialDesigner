@@ -23,6 +23,18 @@
 - Generation pipeline stages are explicit methods in `CityGenerator` (tensor field → seed generation → road tracing → future districts/lots). Keep new stages in this orchestrator to preserve the pipeline flow. See [generators/src/Generators/Pipeline/CityGenerator.cpp](generators/src/Generators/Pipeline/CityGenerator.cpp).
 - Road classification and AESP values are table-driven; if you add road types or adjust AESP weights, update the lookup arrays in `AESPClassifier` to keep tests and docs consistent. See [generators/include/RogueCity/Generators/Districts/AESPClassifier.hpp](generators/include/RogueCity/Generators/Districts/AESPClassifier.hpp).
 
+## State Machine (HFSM) Guidelines
+- **Purpose:** The codebase now uses a deterministic hierarchical finite state machine (HFSM) for editor UI flows and discrete generator orchestration.
+- **Where to review:** See `tests/test_editor_hfsm.cpp` and `ImDesignManager/design_manager.cpp` for concrete examples and tests.
+- **Design rules:**
+  - **Separation:** HFSM types and state implementations belong to the `app/` or `generators/` layers. Do not introduce HFSM types into `core/`.
+  - **Performance:** Avoid heavy work inside state `enter`/`exit` handlers; delegate work >10ms to `RogueWorker` per the Rogue Protocol.
+  - **Threading & Safety:** State transitions should run on the main thread by default. Offloaded transitions must be explicitly documented and made thread-safe.
+  - **Instrumentation:** Add deterministic unit tests and transition logging when adding or modifying states; prefer adding tests in `tests/test_editor_hfsm.cpp`.
+- **Agent responsibilities:**
+  - **Coder Agent:** Implement new states in `app/` or `generators/`, expose only data-safe hooks, and follow HFSM rules above.
+  - **Debug Manager Agent:** Add transition tests, timing assertions, and deterministic replay fixtures when changing HFSM behaviour.
+
 ## Agent usage
 - Follow the agent roles and mandates in [.github/AGENTS.md](.github/AGENTS.md) when delegating tasks (Architect + helper agents).
 
