@@ -4,6 +4,7 @@
 // UI system includes
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
+#include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine theme
 
 #include <imgui.h>
 #include "imgui_impl_glfw.h"
@@ -69,8 +70,8 @@ int main(int, char**)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    // Apply custom theme
-    RC_UI::ApplyTheme();
+    // Apply Cockpit Doctrine theme (MUST be before any UI rendering)
+    RogueCity::UI::DesignSystem::ApplyCockpitTheme();
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);

@@ -10,6 +10,9 @@ message(STATUS "Configuring App Layer...")
 
 # === SOURCE FILES ===
 set(APP_SOURCES
+    # UI Design System (SINGLE SOURCE OF TRUTH - Cockpit Doctrine enforcement)
+    src/UI/DesignSystem.cpp
+    
     # Tools (Axiom placement and visualization)
     src/Tools/AxiomVisual.cpp
     src/Tools/AxiomAnimationController.cpp
@@ -31,6 +34,9 @@ set(APP_SOURCES
 )
 
 set(APP_HEADERS
+    # UI Design System (Cockpit Doctrine theme + tokens)
+    include/RogueCity/App/UI/DesignSystem.h
+    
     # Tools
     include/RogueCity/App/Tools/AxiomVisual.hpp
     include/RogueCity/App/Tools/AxiomAnimationController.hpp

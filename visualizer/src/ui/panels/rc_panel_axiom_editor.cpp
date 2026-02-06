@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
+#include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine enforcement
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
@@ -13,7 +14,6 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
-#include "ui/rc_ui_theme.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cstring>
@@ -22,8 +22,33 @@
 
 namespace RC_UI::Panels::AxiomEditor {
 
+using namespace RogueCity::UI;  // For DesignSystem helpers
+
 namespace {
     using Preview = RogueCity::App::RealTimePreview;
+    
+    // === ROGUENAV MINIMAP CONFIGURATION ===
+    enum class MinimapMode {
+        Disabled,
+        Soliton,      // Render-to-texture (recommended, high performance)
+        Reactive,     // Dual viewport (heavier, real-time updates)
+        Satellite     // Future: Satellite-style view (stub)
+    };
+    
+    enum class RogueNavAlert {
+        Normal,       // Blue - All clear
+        Caution,      // Yellow - Suspicious
+        Evasion,      // Orange - Being tracked
+        Alert         // Red - Detected/Combat
+    };
+    
+    static bool s_minimap_visible = true;
+    static MinimapMode s_minimap_mode = MinimapMode::Soliton;
+    static RogueNavAlert s_nav_alert_level = RogueNavAlert::Normal;
+    static constexpr float kMinimapSize = 250.0f;
+    static constexpr float kMinimapPadding = 10.0f;
+    static constexpr float kMinimapWorldSize = 2000.0f;  // World bounds for minimap (2km)
+    static float s_minimap_zoom = 1.0f;  // Zoom level (0.5 = zoomed out, 2.0 = zoomed in)
 
     void DrawAxiomModeStatus(const Preview& preview, ImVec2 pos) {
         ImGui::SetCursorScreenPos(pos);
@@ -183,11 +208,192 @@ const char* GetValidationError() {
     return s_validation_error.c_str();
 }
 
+// === ROGUENAV MINIMAP RENDERING ===
+static ImU32 GetNavAlertColor() {
+    switch (s_nav_alert_level) {
+        case RogueNavAlert::Alert:   return DesignTokens::ErrorRed;      // Red - Detected
+        case RogueNavAlert::Evasion: return IM_COL32(255, 128, 0, 255);  // Orange - Tracked
+        case RogueNavAlert::Caution: return DesignTokens::YellowWarning; // Yellow - Suspicious
+        case RogueNavAlert::Normal:
+        default:                     return DesignTokens::InfoBlue;      // Blue - All clear
+    }
+}
+
+// Convert world coordinates to minimap UV space [0,1]
+static ImVec2 WorldToMinimapUV(const RogueCity::Core::Vec2& world_pos, const RogueCity::Core::Vec2& camera_pos) {
+    // World space relative to camera
+    float rel_x = (world_pos.x - camera_pos.x) / (kMinimapWorldSize * s_minimap_zoom);
+    float rel_y = (world_pos.y - camera_pos.y) / (kMinimapWorldSize * s_minimap_zoom);
+    
+    // Center on minimap (0.5, 0.5) + relative offset
+    return ImVec2(0.5f + rel_x, 0.5f + rel_y);
+}
+
+// Convert minimap pixel coords to world coordinates
+static RogueCity::Core::Vec2 MinimapPixelToWorld(const ImVec2& pixel_pos, const ImVec2& minimap_pos, const RogueCity::Core::Vec2& camera_pos) {
+    // Normalize to UV [0,1]
+    float u = (pixel_pos.x - minimap_pos.x) / kMinimapSize;
+    float v = (pixel_pos.y - minimap_pos.y) / kMinimapSize;
+    
+    // UV to world (centered on camera)
+    float world_x = camera_pos.x + (u - 0.5f) * kMinimapWorldSize * s_minimap_zoom;
+    float world_y = camera_pos.y + (v - 0.5f) * kMinimapWorldSize * s_minimap_zoom;
+    
+    return RogueCity::Core::Vec2(world_x, world_y);
+}
+
+static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_pos, const ImVec2& viewport_size) {
+    if (!s_minimap_visible) return;
+    
+    // Position minimap in top-right corner
+    const ImVec2 minimap_pos = ImVec2(
+        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+        viewport_pos.y + kMinimapPadding
+    );
+    
+    // RogueNav border (alert-colored warning stripe)
+    const ImU32 alert_color = GetNavAlertColor();
+    draw_list->AddRect(
+        minimap_pos,
+        ImVec2(minimap_pos.x + kMinimapSize, minimap_pos.y + kMinimapSize),
+        alert_color,
+        0.0f,  // No rounding (Y2K hard edges)
+        0,
+        3.0f   // 3px warning stripe border
+    );
+    
+    // Semi-transparent background
+    draw_list->AddRectFilled(
+        ImVec2(minimap_pos.x + 3, minimap_pos.y + 3),
+        ImVec2(minimap_pos.x + kMinimapSize - 3, minimap_pos.y + kMinimapSize - 3),
+        IM_COL32(10, 15, 25, 200)  // Dark semi-transparent
+    );
+    
+    // RogueNav label (top-left corner, inside border)
+    ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8, minimap_pos.y + 8));
+    ImGui::PushStyleColor(ImGuiCol_Text, alert_color);
+    ImGui::Text("ROGUENAV");
+    ImGui::PopStyleColor();
+    
+    // Mode indicator (top-right corner, inside border)
+    const char* mode_text = "";
+    switch (s_minimap_mode) {
+        case MinimapMode::Soliton:    mode_text = "SOLITON"; break;
+        case MinimapMode::Reactive:   mode_text = "REACTIVE"; break;
+        case MinimapMode::Satellite:  mode_text = "SATELLITE"; break;
+        default: mode_text = "OFF"; break;
+    }
+    ImVec2 mode_text_size = ImGui::CalcTextSize(mode_text);
+    ImGui::SetCursorScreenPos(ImVec2(
+        minimap_pos.x + kMinimapSize - mode_text_size.x - 8,
+        minimap_pos.y + 8
+    ));
+    ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
+    ImGui::Text("%s", mode_text);
+    ImGui::PopStyleColor();
+    
+    // Alert level indicator (bottom-right corner)
+    const char* alert_text = "";
+    switch (s_nav_alert_level) {
+        case RogueNavAlert::Alert:   alert_text = "ALERT"; break;
+        case RogueNavAlert::Evasion: alert_text = "EVASION"; break;
+        case RogueNavAlert::Caution: alert_text = "CAUTION"; break;
+        case RogueNavAlert::Normal:  alert_text = "NORMAL"; break;
+    }
+    ImVec2 alert_text_size = ImGui::CalcTextSize(alert_text);
+    ImGui::SetCursorScreenPos(ImVec2(
+        minimap_pos.x + kMinimapSize - alert_text_size.x - 8,
+        minimap_pos.y + kMinimapSize - 20
+    ));
+    ImGui::PushStyleColor(ImGuiCol_Text, alert_color);
+    ImGui::Text("%s", alert_text);
+    ImGui::PopStyleColor();
+    
+    // TODO: Render actual minimap content (orthographic top-down view)
+    // Get camera position for world-to-minimap conversion
+    const auto camera_pos = s_primary_viewport ? s_primary_viewport->get_camera_xy() : RogueCity::Core::Vec2(1000.0f, 1000.0f);
+    
+    // === PHASE 2: RENDER AXIOMS AS COLORED DOTS ===
+    if (s_axiom_tool) {
+        const auto& axioms = s_axiom_tool->axioms();
+        for (const auto& axiom : axioms) {
+            ImVec2 uv = WorldToMinimapUV(axiom->position(), camera_pos);
+            
+            // Only draw if within minimap bounds
+            if (uv.x >= 0.0f && uv.x <= 1.0f && uv.y >= 0.0f && uv.y <= 1.0f) {
+                ImVec2 screen_pos = ImVec2(
+                    minimap_pos.x + uv.x * kMinimapSize,
+                    minimap_pos.y + uv.y * kMinimapSize
+                );
+                
+                // Draw axiom as colored circle
+                ImU32 axiom_color = DesignTokens::MagentaHighlight;
+                draw_list->AddCircleFilled(screen_pos, 3.0f, axiom_color);
+                draw_list->AddCircle(screen_pos, 5.0f, axiom_color, 8, 1.0f);
+            }
+        }
+    }
+    
+    // === PHASE 2: RENDER ROADS AS SIMPLIFIED LINES ===
+    if (s_preview && s_preview->get_output()) {
+        const auto& roads = s_preview->get_output()->roads;
+        for (auto it = roads.begin(); it != roads.end(); ++it) {
+            const auto& road = *it;
+            if (road.points.empty()) continue;
+            
+            // Draw road as line segments (every 5th point for performance)
+            for (size_t i = 0; i < road.points.size() - 1; i += 5) {
+                ImVec2 uv1 = WorldToMinimapUV(road.points[i], camera_pos);
+                ImVec2 uv2 = WorldToMinimapUV(road.points[i + 1], camera_pos);
+                
+                // Clip to minimap bounds
+                if ((uv1.x >= 0.0f && uv1.x <= 1.0f && uv1.y >= 0.0f && uv1.y <= 1.0f) ||
+                    (uv2.x >= 0.0f && uv2.x <= 1.0f && uv2.y >= 0.0f && uv2.y <= 1.0f)) {
+                    
+                    ImVec2 screen1 = ImVec2(
+                        minimap_pos.x + uv1.x * kMinimapSize,
+                        minimap_pos.y + uv1.y * kMinimapSize
+                    );
+                    ImVec2 screen2 = ImVec2(
+                        minimap_pos.x + uv2.x * kMinimapSize,
+                        minimap_pos.y + uv2.y * kMinimapSize
+                    );
+                    
+                    draw_list->AddLine(screen1, screen2, DesignTokens::CyanAccent, 1.0f);
+                }
+            }
+        }
+    }
+    
+    // === PHASE 1: DRAW FRUSTUM RECTANGLE (MAIN CAMERA VIEW) ===
+    // Draw a rectangle showing the main viewport's visible area
+    // For now, draw a simple rectangle around the center (placeholder)
+    const float frustum_size = 50.0f;  // Placeholder size in pixels
+    const ImVec2 frustum_center = ImVec2(
+        minimap_pos.x + kMinimapSize / 2.0f,
+        minimap_pos.y + kMinimapSize / 2.0f
+    );
+    draw_list->AddRect(
+        ImVec2(frustum_center.x - frustum_size, frustum_center.y - frustum_size),
+        ImVec2(frustum_center.x + frustum_size, frustum_center.y + frustum_size),
+        DesignTokens::YellowWarning,
+        0.0f, 0, 2.0f
+    );
+    
+    // Center crosshair (current camera position)
+    const ImVec2 center = ImVec2(
+        minimap_pos.x + kMinimapSize / 2.0f,
+        minimap_pos.y + kMinimapSize / 2.0f
+    );
+    draw_list->AddCircleFilled(center, 4.0f, alert_color);
+    draw_list->AddCircle(center, 8.0f, alert_color, 16, 1.5f);
+}
+
 void Draw(float dt) {
 Initialize();
     
-ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorBG);
-ImGui::Begin("RogueVisualizer", nullptr, 
+// Use DesignSystem panel helper (enforces Cockpit Doctrine styling)
+DesignSystem::BeginPanel("RogueVisualizer", 
     ImGuiWindowFlags_NoCollapse | 
     ImGuiWindowFlags_NoScrollbar |
     ImGuiWindowFlags_NoScrollWithMouse
@@ -459,10 +665,49 @@ ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f),
             "Roads: %llu", roads.size());
     }
     
+    // === ROGUENAV MINIMAP OVERLAY ===
+    // Render minimap as overlay in top-right corner
+    RenderMinimapOverlay(draw_list, viewport_pos, viewport_size);
+    
+    // === PHASE 1: MINIMAP INTERACTION ===
+    const ImVec2 minimap_pos_bounds = ImVec2(
+        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+        viewport_pos.y + kMinimapPadding
+    );
+    const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
+    
+    // Check if mouse is over minimap
+    const ImVec2 mouse_screen = ImGui::GetMousePos();
+    const bool minimap_hovered = (mouse_screen.x >= minimap_pos_bounds.x && mouse_screen.x <= minimap_max_bounds.x &&
+                                   mouse_screen.y >= minimap_pos_bounds.y && mouse_screen.y <= minimap_max_bounds.y);
+    
+    if (minimap_hovered && s_minimap_visible) {
+        // Phase 1: Scroll to zoom
+        float scroll = ImGui::GetIO().MouseWheel;
+        if (scroll != 0.0f) {
+            s_minimap_zoom *= (1.0f + scroll * 0.1f);
+            s_minimap_zoom = std::clamp(s_minimap_zoom, 0.5f, 3.0f);  // Min 0.5x, max 3x
+        }
+        
+        // Phase 1: Click to teleport camera
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            const auto camera_pos = s_primary_viewport->get_camera_xy();
+            const auto camera_z = s_primary_viewport->get_camera_z();
+            const auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_pos_bounds, camera_pos);
+            
+            // Set camera to clicked position
+            s_primary_viewport->set_camera_position(world_pos, camera_z);
+        }
+    }
+    
+    // Minimap toggle hotkey (M key)
+    if (ImGui::IsKeyPressed(ImGuiKey_M) && !ImGui::GetIO().WantTextInput) {
+        s_minimap_visible = !s_minimap_visible;
+    }
+    
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).
     
-    ImGui::End();
-    ImGui::PopStyleColor();
+    DesignSystem::EndPanel();  // Use DesignSystem helper (matches BeginPanel)
 }
 
 } // namespace RC_UI::Panels::AxiomEditor

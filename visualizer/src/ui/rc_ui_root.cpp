@@ -63,7 +63,7 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
 
     ImGui::DockBuilderDockWindow("Axiom Bar", dock_top);
     ImGui::DockBuilderDockWindow("RogueVisualizer", dock_main);
-    ImGui::DockBuilderDockWindow("Minimap", dock_right_bottom);
+    // Minimap is now embedded as overlay in RogueVisualizer (removed from docking)
     ImGui::DockBuilderDockWindow("Analytics", dock_right);
 
     ImGui::DockBuilderDockWindow("Tools", dock_tools);
@@ -124,9 +124,10 @@ void DrawRoot(float dt)
     Panels::RiverIndex::Draw(dt);
     Panels::Log::Draw(dt);
 
+    // Minimap is now embedded as overlay in RogueVisualizer (no separate panel)
+    // Still update the minimap viewport for shared camera sync
     if (s_minimap) {
         s_minimap->update(dt);
-        s_minimap->render();
     }
 }
 
