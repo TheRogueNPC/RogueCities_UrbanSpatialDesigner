@@ -119,6 +119,12 @@ add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
 
+# === OUTPUT DIRECTORIES ===
+# Set all executables to go to the bin/ folder
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/../bin)
+
 # === VISUALIZER APP (stub) ===
 # ImGui-based Visualizer will live under the visualizer/ folder.
 # This keeps UI concerns separate from core/generators.
@@ -157,4 +163,6 @@ endif()
 message(STATUS "===========================================")
 message(STATUS "Core configured successfully!")
 message(STATUS "Build with: cmake --build build_core --target RogueCityCore")
+message(STATUS "Executables will be output to: ${CMAKE_BINARY_DIR}/../bin")
 message(STATUS "===========================================")
+

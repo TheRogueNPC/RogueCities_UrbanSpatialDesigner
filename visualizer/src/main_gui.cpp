@@ -1,6 +1,10 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
+// UI system includes
+#include "ui/rc_ui_root.h"
+#include "ui/rc_ui_theme.h"
+
 #include <imgui.h>
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -15,53 +19,6 @@ using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
 using RogueCity::Core::Editor::EditorState;
 using RogueCity::Core::Editor::GlobalState;
-
-static void draw_main_menu(EditorHFSM& hfsm, GlobalState& gs)
-{
-    (void)gs;
-
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("Mode")) {
-            if (ImGui::MenuItem("Idle", nullptr, hfsm.state() == EditorState::Idle)) {
-                hfsm.handle_event(EditorEvent::GotoIdle, gs);
-            }
-            if (ImGui::MenuItem("Edit Roads", nullptr, hfsm.state() == EditorState::Editing_Roads)) {
-                hfsm.handle_event(EditorEvent::Tool_Roads, gs);
-            }
-            if (ImGui::MenuItem("Edit Districts", nullptr, hfsm.state() == EditorState::Editing_Districts)) {
-                hfsm.handle_event(EditorEvent::Tool_Districts, gs);
-            }
-            if (ImGui::MenuItem("Simulate", nullptr, hfsm.state() == EditorState::Simulating)) {
-                hfsm.handle_event(EditorEvent::BeginSim, gs);
-            }
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
-}
-
-static void draw_editor_windows(EditorHFSM& hfsm, GlobalState& gs)
-{
-    switch (hfsm.state()) {
-    case EditorState::Editing_Roads:
-        ImGui::Begin("Roads");
-        ImGui::Text("Road count: %llu", static_cast<unsigned long long>(gs.roads.size()));
-        ImGui::End();
-        break;
-    case EditorState::Editing_Districts:
-        ImGui::Begin("Districts");
-        ImGui::Text("District count: %llu", static_cast<unsigned long long>(gs.districts.size()));
-        ImGui::End();
-        break;
-    case EditorState::Simulating:
-        ImGui::Begin("Simulation");
-        ImGui::Text("Simulation running...");
-        ImGui::End();
-        break;
-    default:
-        break;
-    }
-}
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -105,17 +62,15 @@ int main(int, char**)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    // Apply custom theme
+    RC_UI::ApplyTheme();
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     // Our state
-    bool show_demo_window = false;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    ImVec4 clear_color = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
 
     auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
@@ -134,12 +89,10 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        hfsm.update(gs, ImGui::GetIO().DeltaTime);
-        draw_main_menu(hfsm, gs);
-        draw_editor_windows(hfsm, gs);
-
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+        // Update HFSM and draw all panels with docking enabled
+        float dt = io.DeltaTime;
+        hfsm.update(gs, dt);
+        RC_UI::DrawRoot(dt);
 
         // Rendering
         ImGui::Render();
