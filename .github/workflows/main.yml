@@ -1,0 +1,33 @@
+name: GPT Agent Commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_path:
+        description: 'File path to create/update'
+        required: true
+      file_content:
+        description: 'File content'
+        required: true
+      commit_message:
+        description: 'Commit message'
+        required: true
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create/Update file
+        run: |
+          mkdir -p $(dirname "${{ inputs.file_path }}")
+          echo "${{ inputs.file_content }}" > "${{ inputs.file_path }}"
+          
+      - name: Commit changes
+        run: |
+          git config user.name "GPT Agent"
+          git config user.email "agent@roguenpc.dev"
+          git add "${{ inputs.file_path }}"
+          git commit -m "${{ inputs.commit_message }}"
+          git push
