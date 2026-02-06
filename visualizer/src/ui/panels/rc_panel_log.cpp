@@ -16,10 +16,12 @@ void Draw(float dt)
 
     // TODO (visualizer/src/ui/panels/rc_panel_log.cpp): Wire log stream to generator events.
     static ReactiveF flash;
+    constexpr float kGlowBase = 0.2f;
+    constexpr float kGlowRange = 0.5f;
     flash.target = ImGui::IsWindowHovered() ? 1.0f : 0.0f;
     flash.Update(dt);
 
-    const ImVec4 glow = ImVec4(ColorAccentB.x, ColorAccentB.y, ColorAccentB.z, 0.2f + 0.5f * flash.v);
+    const ImVec4 glow = ImVec4(ColorAccentB.x, ColorAccentB.y, ColorAccentB.z, kGlowBase + kGlowRange * flash.v);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, glow);
     ImGui::BeginChild("LogStream", ImVec2(0.0f, 0.0f), true);
     ImGui::Text("↳ Generator: Ready");

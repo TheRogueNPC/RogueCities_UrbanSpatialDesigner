@@ -22,13 +22,15 @@ void Draw(float dt)
 
     ImGui::SetCursorScreenPos(ImVec2(start.x + 18.0f, start.y + 8.0f));
     static ReactiveF chip_hover;
+    constexpr float kChipBaseWidth = 120.0f;
+    constexpr float kChipHoverExpansion = 40.0f;
     const ImVec2 chip_box(160.0f, 28.0f);
     ImGui::InvisibleButton("AxiomChip", chip_box);
     chip_hover.target = ImGui::IsItemHovered() ? 1.0f : 0.0f;
     chip_hover.Update(dt);
 
     const ImVec2 chip_min = ImGui::GetItemRectMin();
-    const float chip_width = 120.0f + 40.0f * chip_hover.v;
+    const float chip_width = kChipBaseWidth + kChipHoverExpansion * chip_hover.v;
     const ImVec2 chip_max(chip_min.x + chip_width, chip_min.y + chip_box.y);
     draw_list->AddRectFilled(chip_min, chip_max, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.accent), 14.0f);
     draw_list->AddText(ImVec2(chip_min.x + 12.0f, chip_min.y + 6.0f),

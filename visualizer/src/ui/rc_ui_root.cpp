@@ -13,29 +13,26 @@
 
 namespace RC_UI {
 
+constexpr ImGuiWindowFlags kHostFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
+                                        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                        ImGuiWindowFlags_NoNavFocus;
+
 void DrawRoot(float dt)
 {
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
     ImGui::SetNextWindowViewport(viewport->ID);
 
-    const ImGuiWindowFlags host_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
-                                        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-                                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
-                                        ImGuiWindowFlags_NoNavFocus;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::Begin("RC_UI_DockHost", nullptr, host_flags);
+    ImGui::Begin("RcUiDockHost", nullptr, kHostFlags);
     ImGui::PopStyleVar(2);
 
     // ADDED (visualizer/src/ui/rc_ui_root.cpp): Single fullscreen dockspace with default layout.
-    const ImGuiID dockspace_id = ImGui::GetID("RC_UI_DockSpace");
+    const ImGuiID dockspace_id = ImGui::GetID("RcUiDockSpace");
     if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
-        ImGui::DockBuilderRemoveNode(dockspace_id);
         ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
         ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 
