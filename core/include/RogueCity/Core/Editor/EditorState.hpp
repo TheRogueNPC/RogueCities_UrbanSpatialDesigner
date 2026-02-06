@@ -14,6 +14,7 @@ namespace RogueCity::Core::Editor {
         Idle,
 
         Editing,
+        Editing_Axioms,     // NEW: Axiom placement and adjustment mode
         Editing_Roads,
         Editing_Districts,
         Editing_Lots,
@@ -48,10 +49,15 @@ namespace RogueCity::Core::Editor {
 
         GotoIdle,
 
+        Tool_Axioms,        // NEW: Switch to axiom tool
         Tool_Roads,
         Tool_Districts,
         Tool_Lots,
         Tool_Buildings,
+
+        AxiomPlaced,        // NEW: User placed axiom
+        AxiomModified,      // NEW: Ring/knob adjusted
+        AxiomDeleted,       // NEW: Axiom removed
 
         Viewport_Pan,
         Viewport_Select,

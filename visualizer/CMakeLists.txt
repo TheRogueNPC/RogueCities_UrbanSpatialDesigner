@@ -10,21 +10,26 @@ if(NOT ROGUECITY_BUILD_VISUALIZER)
 endif()
 
 if(ROGUECITY_BUILD_VISUALIZER)
-    set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
+set(ROGUECITY_GL3W_DIR "${CMAKE_SOURCE_DIR}/3rdparty/gl3w")
 
-    if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
-        message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Ensure 3rdparty/imvue submodules are initialized.")
-    endif()
+if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
+    message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Ensure 3rdparty/imvue submodules are initialized.")
+endif()
 
+# Only create RogueCityImGui if it doesn't already exist (from app layer)
+if(NOT TARGET RogueCityImGui)
     add_library(RogueCityImGui STATIC
         "${IMGUI_DIR}/imgui.cpp"
         "${IMGUI_DIR}/imgui_draw.cpp"
         "${IMGUI_DIR}/imgui_widgets.cpp"
+        "${IMGUI_DIR}/imgui_tables.cpp"
         "${IMGUI_DIR}/imgui_demo.cpp"
     )
 
     target_include_directories(RogueCityImGui PUBLIC "${IMGUI_DIR}")
     target_compile_features(RogueCityImGui PUBLIC cxx_std_20)
+endif()
 
     add_executable(RogueCityVisualizerHeadless
         # Hyper-reactive UI module sources.
@@ -80,6 +85,7 @@ if(ROGUECITY_BUILD_VISUALIZER)
                 src/ui/rc_ui_theme.cpp
                 # Panel sources
                 src/ui/panels/rc_panel_axiom_bar.cpp
+                src/ui/panels/rc_panel_axiom_editor.cpp  # NEW: Integrated axiom editor
                 src/ui/panels/rc_panel_system_map.cpp
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
@@ -89,24 +95,32 @@ if(ROGUECITY_BUILD_VISUALIZER)
                 src/ui/panels/rc_panel_lot_index.cpp
                 src/ui/panels/rc_panel_river_index.cpp
                 # ImGui backend implementations
-                "${IMGUI_DIR}/examples/imgui_impl_glfw.cpp"
-                "${IMGUI_DIR}/examples/imgui_impl_opengl3.cpp"
+                "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+                "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
             )
             
-            # Add gl3w.c as a separate C source (not C++)
-            target_sources(RogueCityVisualizerGui PRIVATE "${IMGUI_DIR}/examples/libs/gl3w/GL/gl3w.c")
-            set_source_files_properties("${IMGUI_DIR}/examples/libs/gl3w/GL/gl3w.c" PROPERTIES LANGUAGE C)
+            # Add gl3w.c as a separate C source (not C++).
+            # Newer Dear ImGui no longer ships the gl3w loader; we keep it vendored at 3rdparty/gl3w.
+            target_sources(RogueCityVisualizerGui PRIVATE "${ROGUECITY_GL3W_DIR}/GL/gl3w.c")
+            set_source_files_properties("${ROGUECITY_GL3W_DIR}/GL/gl3w.c" PROPERTIES LANGUAGE C)
 
             target_include_directories(RogueCityVisualizerGui PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"
                 "${IMGUI_DIR}"
-                "${IMGUI_DIR}/examples"
-                "${IMGUI_DIR}/examples/libs/gl3w"
+                "${IMGUI_DIR}/backends"
+                "${ROGUECITY_GL3W_DIR}"
                 "${GLFW_DIR}/include"
             )
 
             target_compile_definitions(RogueCityVisualizerGui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GL3W=1)
-            target_link_libraries(RogueCityVisualizerGui PRIVATE RogueCityCore RogueCityImGui OpenGL::GL glfw_bundled)
+            target_link_libraries(RogueCityVisualizerGui PRIVATE 
+                RogueCityCore 
+                RogueCityGenerators  # NEW: For CityGenerator integration
+                RogueCityApp         # NEW: For viewport and axiom tools
+                RogueCityImGui 
+                OpenGL::GL 
+                glfw_bundled
+            )
             
             # Link legacy_stdio_definitions for MSVC compatibility with older GLFW binaries
             if(MSVC AND MSVC_VERSION GREATER_EQUAL 1900)

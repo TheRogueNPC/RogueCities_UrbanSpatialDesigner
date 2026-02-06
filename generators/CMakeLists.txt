@@ -50,11 +50,19 @@ target_link_libraries(RogueCityGenerators
 # C++20 features
 target_compile_features(RogueCityGenerators PUBLIC cxx_std_20)
 
-# Optimization flags
+# Optimization flags (configuration-specific)
 if(MSVC)
-    target_compile_options(RogueCityGenerators PRIVATE /W4 /O2)
+    target_compile_options(RogueCityGenerators PRIVATE 
+        /W4
+        $<$<CONFIG:Release>:/O2>
+        $<$<CONFIG:Debug>:/Od>
+    )
 else()
-    target_compile_options(RogueCityGenerators PRIVATE -Wall -Wextra -O2)
+    target_compile_options(RogueCityGenerators PRIVATE 
+        -Wall -Wextra
+        $<$<CONFIG:Release>:-O2>
+        $<$<CONFIG:Debug>:-O0>
+    )
 endif()
 
 message(STATUS "Generators library configured: ${CMAKE_CURRENT_BINARY_DIR}")

@@ -118,6 +118,8 @@ endif()
 add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
+# === APP LAYER (Axiom Tool Integration - Phase 3) ===
+add_subdirectory(app)
 
 # === OUTPUT DIRECTORIES ===
 # Set all executables to go to the bin/ folder
@@ -144,6 +146,11 @@ target_compile_features(test_core PRIVATE cxx_std_20)
 add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
 target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
 target_compile_features(test_editor_hfsm PRIVATE cxx_std_20)
+
+# === VIEWPORT COORDINATE TESTS (Phase 2) ===
+add_executable(test_viewport tests/test_viewport.cpp)
+target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
+target_compile_features(test_viewport PRIVATE cxx_std_20)
 
 # === UI TOOLCHAIN PROBE (console, pre-ImGui) ===
 # This small executable is a console-only harness used to verify that

@@ -1,0 +1,27 @@
+[submodule "3rdparty/ImDesignManager"]
+	path = 3rdparty/ImDesignManager
+	url = https://github.com/Toikron/ImDesignManager.git
+
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = https://github.com/g-truc/glm.git
+
+[submodule "3rdparty/imvue"]
+	path = 3rdparty/imvue
+	url = https://github.com/Unix4ever/imvue.git
+
+[submodule "3rdparty/magic_enum"]
+	path = 3rdparty/magic_enum
+	url = https://github.com/Neargye/magic_enum.git
+
+[submodule "3rdparty/sol2"]
+	path = 3rdparty/sol2
+	url = https://github.com/ThePhD/sol2.git
+
+[submodule "3rdparty/tabulate"]
+	path = 3rdparty/tabulate
+	url = https://github.com/p-ranav/tabulate.git
+
+[submodule "3rdparty/ymery-cpp"]
+	path = 3rdparty/ymery-cpp
+	url = https://github.com/zokrezyl/ymery-cpp.git

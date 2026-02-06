@@ -51,10 +51,12 @@
   - Use: grep_search for assertions/logging, run_in_terminal for build/test, get_errors for compile issues.
 - If the request is docs or build instructions → consult Documentation Keeper Agent.
   - Use: read_file on [ReadMe.md](ReadMe.md) and docs, apply_patch for updates.
-- If the request touches Lua-facing APIs or signature stability → consult Commenter/API Alias Keeper.
+- If the request touches Lua-facing APIs or signature stability → consult Commenter/API Alias Keeper or Lua Overseer Agent.
   - Use: read_file on exposed headers, list_code_usages for impacted symbols, update comments/aliases.
-- If the request touches UI workflows or ImGui panels → consult ImGui Designer Agent.
-  - Use: read_file under app/, grep_search for ImGui panels, ensure Core stays UI-free.
+- If the request touches UI/UX, ImGui panels, motion design, state-reactive surfaces, or editor experience → consult UI/UX/ImGui/ImVue Master.
+  - Use: read_file under app/, grep_search for ImGui/HFSM integration, enforce Cockpit Doctrine (Vignelli structure, Y2K geometry, guided affordance).
+  - Critical: Ensure Core stays UI-free, validate state-reactive design, check motion has instructional purpose.
 
 ## Useful references
 - Design/architecture narrative: [ReadMe.md](ReadMe.md) and [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md).
+- Axiom tool integration roadmap: [docs/AxiomToolIntegrationRoadmap.md](docs/AxiomToolIntegrationRoadmap.md) (UI → Generator connection).

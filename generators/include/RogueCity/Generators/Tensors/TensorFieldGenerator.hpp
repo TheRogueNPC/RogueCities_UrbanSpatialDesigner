@@ -1,6 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
-#include "BasisFields.hpp"
+#include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include <vector>
 #include <memory>
 

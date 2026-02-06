@@ -1,0 +1,232 @@
+#include "RogueCity/App/Tools/AxiomVisual.hpp"
+#include "RogueCity/App/Tools/AxiomAnimationController.hpp"
+#include "RogueCity/App/Viewports/PrimaryViewport.hpp"
+#include <imgui.h>
+#include <cmath>
+
+namespace RogueCity::App {
+
+// AxiomVisual Implementation
+AxiomVisual::AxiomVisual(int id, AxiomType type)
+    : id_(id)
+    , type_(type)
+    , animator_(std::make_unique<AxiomAnimationController>())
+{
+    // Initialize rings with default radii
+    rings_[0] = { 100.0f, 100.0f, 0.0f, false };  // Inner
+    rings_[1] = { 200.0f, 200.0f, 0.0f, false };  // Middle
+    rings_[2] = { 300.0f, 300.0f, 0.0f, false };  // Outer
+
+    // Create control knobs at 90° intervals for each ring
+    for (int ring_idx = 0; ring_idx < 3; ++ring_idx) {
+        for (int i = 0; i < 4; ++i) {
+            auto knob = std::make_unique<RingControlKnob>();
+            knob->ring_index = ring_idx;
+            knob->angle = (M_PI / 2.0f) * i;  // 0°, 90°, 180°, 270°
+            knob->value = 1.0f;
+            knob->is_hovered = false;
+            knob->is_dragging = false;
+            knob->last_click_time = 0.0f;
+            knobs_.push_back(std::move(knob));
+        }
+    }
+}
+
+AxiomVisual::~AxiomVisual() = default;
+
+void AxiomVisual::update(float delta_time) {
+    if (!animation_enabled_) return;
+
+    // Update ring animations
+    for (auto& ring : rings_) {
+        if (ring.is_animating) {
+            // Lerp radius towards target
+            const float blend_speed = 3.0f;
+            ring.radius += (ring.target_radius - ring.radius) * (1.0f - expf(-blend_speed * delta_time));
+            
+            // Fade in opacity during expansion
+            ring.opacity += 2.0f * delta_time;
+            if (ring.opacity >= 1.0f) {
+                ring.opacity = 1.0f;
+                ring.is_animating = false;
+            }
+        }
+    }
+
+    // Update knob positions based on ring radii
+    for (auto& knob : knobs_) {
+        const float ring_radius = rings_[knob->ring_index].radius;
+        knob->world_position.x = position_.x + ring_radius * cosf(knob->angle);
+        knob->world_position.y = position_.y + ring_radius * sinf(knob->angle);
+    }
+}
+
+void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
+    // Render rings (from outer to inner for proper layering)
+    const ImU32 ring_colors[] = {
+        IM_COL32(255, 200, 0, 255),   // Inner: Amber
+        IM_COL32(0, 255, 200, 255),   // Middle: Cyan
+        IM_COL32(255, 0, 200, 255)    // Outer: Magenta
+    };
+
+    for (int i = 2; i >= 0; --i) {
+        const auto& ring = rings_[i];
+        if (ring.opacity <= 0.0f) continue;
+
+        const ImVec2 screen_center = viewport.world_to_screen(position_);
+        const float screen_radius = viewport.world_to_screen_scale(ring.radius);
+        
+        const ImU32 color_with_alpha = IM_COL32(
+            (ring_colors[i] >> IM_COL32_R_SHIFT) & 0xFF,
+            (ring_colors[i] >> IM_COL32_G_SHIFT) & 0xFF,
+            (ring_colors[i] >> IM_COL32_B_SHIFT) & 0xFF,
+            static_cast<int>(ring.opacity * 200)  // Semi-transparent
+        );
+
+        // Y2K Style: Hard geometric circles, not soft gradients
+        draw_list->AddCircle(screen_center, screen_radius, color_with_alpha, 64, 2.0f);
+        
+        // Add subtle pulsing inner fill when animating
+        if (ring.is_animating) {
+            const ImU32 fill_color = IM_COL32(
+                (ring_colors[i] >> IM_COL32_R_SHIFT) & 0xFF,
+                (ring_colors[i] >> IM_COL32_G_SHIFT) & 0xFF,
+                (ring_colors[i] >> IM_COL32_B_SHIFT) & 0xFF,
+                static_cast<int>(ring.opacity * 40)  // Very subtle fill
+            );
+            draw_list->AddCircleFilled(screen_center, screen_radius, fill_color, 64);
+        }
+    }
+
+    // Render center marker (Y2K capsule design)
+    {
+        const ImVec2 screen_center = viewport.world_to_screen(position_);
+        const float marker_size = hovered_ ? 10.0f : 8.0f;
+        const ImU32 marker_color = selected_ ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255);
+        
+        // Capsule: circle with cross
+        draw_list->AddCircleFilled(screen_center, marker_size, IM_COL32(0, 0, 0, 180), 16);
+        draw_list->AddCircle(screen_center, marker_size, marker_color, 16, 2.0f);
+        
+        // Cross hairs
+        draw_list->AddLine(
+            ImVec2(screen_center.x - marker_size * 0.6f, screen_center.y),
+            ImVec2(screen_center.x + marker_size * 0.6f, screen_center.y),
+            marker_color, 1.5f
+        );
+        draw_list->AddLine(
+            ImVec2(screen_center.x, screen_center.y - marker_size * 0.6f),
+            ImVec2(screen_center.x, screen_center.y + marker_size * 0.6f),
+            marker_color, 1.5f
+        );
+    }
+
+    // Render control knobs
+    for (auto& knob : knobs_) {
+        knob->render(draw_list, viewport);
+    }
+}
+
+bool AxiomVisual::is_hovered(const Core::Vec2& world_pos, float world_radius) const {
+    const float dx = world_pos.x - position_.x;
+    const float dy = world_pos.y - position_.y;
+    const float dist_sq = dx * dx + dy * dy;
+    return dist_sq <= (world_radius * world_radius);
+}
+
+RingControlKnob* AxiomVisual::get_hovered_knob(const Core::Vec2& world_pos) {
+    const float knob_world_radius = 5.0f;  // 5 meters interaction radius
+    
+    for (auto& knob : knobs_) {
+        if (knob->check_hover(world_pos, knob_world_radius)) {
+            return knob.get();
+        }
+    }
+    return nullptr;
+}
+
+void AxiomVisual::set_position(const Core::Vec2& pos) {
+    position_ = pos;
+}
+
+void AxiomVisual::set_radius(float radius) {
+    // Set all rings proportionally
+    rings_[0].radius = radius * 0.33f;
+    rings_[1].radius = radius * 0.67f;
+    rings_[2].radius = radius;
+}
+
+void AxiomVisual::set_type(AxiomType type) {
+    type_ = type;
+}
+
+void AxiomVisual::set_rotation(float theta) {
+    rotation_ = theta;
+}
+
+void AxiomVisual::set_delta_terminal(DeltaTerminal terminal) {
+    delta_terminal_ = terminal;
+}
+
+int AxiomVisual::id() const { return id_; }
+const Core::Vec2& AxiomVisual::position() const { return position_; }
+float AxiomVisual::radius() const { return rings_[2].radius; }
+AxiomVisual::AxiomType AxiomVisual::type() const { return type_; }
+float AxiomVisual::rotation() const { return rotation_; }
+
+void AxiomVisual::trigger_placement_animation() {
+    if (!animation_enabled_) return;
+
+    // Start from zero and expand to target radii
+    for (auto& ring : rings_) {
+        ring.radius = 0.0f;
+        ring.opacity = 0.0f;
+        ring.is_animating = true;
+    }
+}
+
+void AxiomVisual::set_animation_enabled(bool enabled) {
+    animation_enabled_ = enabled;
+}
+
+Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
+    Generators::CityGenerator::AxiomInput input;
+    input.type = type_;
+    input.position = position_;
+    input.radius = rings_[2].radius;  // Use outer ring as primary radius
+    input.theta = rotation_;
+    // Convert Editor DeltaTerminal to Generators DeltaTerminal
+    input.terminal = static_cast<Generators::DeltaTerminal>(delta_terminal_);
+    input.decay = decay_;
+    return input;
+}
+
+// RingControlKnob Implementation
+void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
+    const ImVec2 screen_pos = viewport.world_to_screen(world_position);
+    const float knob_size = is_hovered ? 8.0f : 6.0f;
+
+    // Y2K Capsule design: Rounded rect with hard edges
+    const ImU32 knob_color = is_dragging ? IM_COL32(255, 255, 0, 255) : 
+                             is_hovered  ? IM_COL32(255, 255, 255, 255) :
+                                           IM_COL32(180, 180, 180, 255);
+    
+    // Background capsule
+    draw_list->AddCircleFilled(screen_pos, knob_size, IM_COL32(0, 0, 0, 200), 12);
+    
+    // Outer ring
+    draw_list->AddCircle(screen_pos, knob_size, knob_color, 12, 2.0f);
+    
+    // Inner dot (affordance indicator)
+    draw_list->AddCircleFilled(screen_pos, knob_size * 0.4f, knob_color, 8);
+}
+
+bool RingControlKnob::check_hover(const Core::Vec2& world_pos, float world_radius) {
+    const float dx = world_pos.x - world_position.x;
+    const float dy = world_pos.y - world_position.y;
+    const float dist_sq = dx * dx + dy * dy;
+    is_hovered = dist_sq <= (world_radius * world_radius);
+    return is_hovered;
+}
+
+} // namespace RogueCity::App

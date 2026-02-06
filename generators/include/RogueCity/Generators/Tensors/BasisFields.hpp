@@ -1,1 +1,134 @@
-#pragma once\n#include "RogueCity/Core/Types.hpp"\n#include <cmath>\n#include <numbers>\n#include <memory>\n\nnamespace RogueCity::Generators {\n\n    using namespace Core;\n\n    /// Base class for tensor basis field types (Strategy pattern)\n    class BasisField {\n    public:\n        Vec2 center;\n        double radius;\n        double decay;\n\n        BasisField(const Vec2& center, double radius, double decay)\n            : center(center), radius(radius), decay(decay) {}\n\n        virtual ~BasisField() = default;\n\n        /// Sample tensor at world position\n        [[nodiscard]] virtual Tensor2D sample(const Vec2& p) const = 0;\n\n        /// Compute influence weight at position (exponential decay)\n        [[nodiscard]] double getWeight(const Vec2& p) const {\n            double dist = p.distanceTo(center);\n            if (dist > radius) return 0.0;\n            double norm_dist = dist / radius;\n            return std::exp(-decay * norm_dist);\n        }\n    };\n\n    // ===== RADIAL BASIS FIELD (Paris-style) =====\n\n    /// Generates concentric circular roads (e.g., Paris Arc de Triomphe)\n    class RadialField : public BasisField {\n    public:\n        RadialField(const Vec2& center, double radius, double decay)\n            : BasisField(center, radius, decay) {}\n\n        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {\n            Vec2 dir = p - center;\n            double angle = std::atan2(dir.y, dir.x);\n            // Tangent to circle (perpendicular to radius)\n            return Tensor2D::fromAngle(angle + std::numbers::pi * 0.5);\n        }\n    };\n\n    // ===== GRID BASIS FIELD (Manhattan-style) =====\n\n    /// Generates orthogonal grid roads (e.g., Manhattan, Chicago)\n    class GridField : public BasisField {\n    public:\n        double theta;  // Primary grid orientation (radians)\n\n        GridField(const Vec2& center, double radius, double theta, double decay)\n            : BasisField(center, radius, decay), theta(theta) {}\n\n        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {\n            // Alternate between theta and theta + π/2 based on position\n            // Creates orthogonal grid effect\n            int cell_x = static_cast<int>(p.x / 50.0);  // 50m grid cells\n            int cell_y = static_cast<int>(p.y / 50.0);\n            bool use_primary = (cell_x + cell_y) % 2 == 0;\n            \n            double angle = use_primary ? theta : (theta + std::numbers::pi * 0.5);\n            return Tensor2D::fromAngle(angle);\n        }\n    };\n\n    // ===== DELTA BASIS FIELD (Organic 3-way junctions) =====\n\n    enum class DeltaTerminal {\n        North, South, East, West,\n        NorthEast, NorthWest, SouthEast, SouthWest\n    };\n\n    /// Generates organic 3-way intersections (e.g., hillside towns)\n    class DeltaField : public BasisField {\n    public:\n        DeltaTerminal terminal;\n\n        DeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay)\n            : BasisField(center, radius, decay), terminal(terminal) {}\n\n        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {\n            // Point toward terminal direction from center\n            Vec2 terminal_dir = getTerminalDirection();\n            Vec2 to_p = p - center;\n            \n            // Blend between radial and terminal direction\n            double blend = std::min(1.0, to_p.length() / radius);\n            Vec2 dir = lerp(to_p, terminal_dir, blend);\n            \n            return Tensor2D::fromVector(dir);\n        }\n\n    private:\n        [[nodiscard]] Vec2 getTerminalDirection() const {\n            switch (terminal) {\n                case DeltaTerminal::North: return Vec2(0, -1);\n                case DeltaTerminal::South: return Vec2(0, 1);\n                case DeltaTerminal::East: return Vec2(1, 0);\n                case DeltaTerminal::West: return Vec2(-1, 0);\n                case DeltaTerminal::NorthEast: return Vec2(0.707, -0.707);\n                case DeltaTerminal::NorthWest: return Vec2(-0.707, -0.707);\n                case DeltaTerminal::SouthEast: return Vec2(0.707, 0.707);\n                case DeltaTerminal::SouthWest: return Vec2(-0.707, 0.707);\n                default: return Vec2(0, 1);\n            }\n        }\n    };\n\n    // ===== GRID CORRECTIVE FIELD (Straightens organic roads) =====\n\n    /// Straightens and gridifies nearby roads (e.g., hybrid planning like DC)\n    class GridCorrectiveField : public BasisField {\n    public:\n        double theta;  // Target grid orientation\n\n        GridCorrectiveField(const Vec2& center, double radius, double theta, double decay)\n            : BasisField(center, radius, decay), theta(theta) {}\n\n        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {\n            // Fix: remove unused parameter warning by casting to void\n            (void)p;\n            // Strong alignment to grid orientation\n            return Tensor2D::fromAngle(theta);\n        }\n    };\n\n} // namespace RogueCity::Generators\n
+#pragma once
+#include "RogueCity/Core/Types.hpp"
+#include <cmath>
+#include <numbers>
+#include <memory>
+
+namespace RogueCity::Generators {
+
+    using namespace Core;
+
+    /// Base class for tensor basis field types (Strategy pattern)
+    class BasisField {
+    public:
+        Vec2 center;
+        double radius;
+        double decay;
+
+        BasisField(const Vec2& center, double radius, double decay)
+            : center(center), radius(radius), decay(decay) {}
+
+        virtual ~BasisField() = default;
+
+        /// Sample tensor at world position
+        [[nodiscard]] virtual Tensor2D sample(const Vec2& p) const = 0;
+
+        /// Compute influence weight at position (exponential decay)
+        [[nodiscard]] double getWeight(const Vec2& p) const {
+            double dist = p.distanceTo(center);
+            if (dist > radius) return 0.0;
+            double norm_dist = dist / radius;
+            return std::exp(-decay * norm_dist);
+        }
+    };
+
+    // ===== RADIAL BASIS FIELD (Paris-style) =====
+
+    /// Generates concentric circular roads (e.g., Paris Arc de Triomphe)
+    class RadialField : public BasisField {
+    public:
+        RadialField(const Vec2& center, double radius, double decay)
+            : BasisField(center, radius, decay) {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            Vec2 dir = p - center;
+            double angle = std::atan2(dir.y, dir.x);
+            // Tangent to circle (perpendicular to radius)
+            return Tensor2D::fromAngle(angle + std::numbers::pi * 0.5);
+        }
+    };
+
+    // ===== GRID BASIS FIELD (Manhattan-style) =====
+
+    /// Generates orthogonal grid roads (e.g., Manhattan, Chicago)
+    class GridField : public BasisField {
+    public:
+        double theta;  // Primary grid orientation (radians)
+
+        GridField(const Vec2& center, double radius, double theta, double decay)
+            : BasisField(center, radius, decay), theta(theta) {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            // Alternate between theta and theta + ?/2 based on position
+            // Creates orthogonal grid effect
+            int cell_x = static_cast<int>(p.x / 50.0);  // 50m grid cells
+            int cell_y = static_cast<int>(p.y / 50.0);
+            bool use_primary = (cell_x + cell_y) % 2 == 0;
+            
+            double angle = use_primary ? theta : (theta + std::numbers::pi * 0.5);
+            return Tensor2D::fromAngle(angle);
+        }
+    };
+
+    // ===== DELTA BASIS FIELD (Organic 3-way junctions) =====
+
+    enum class DeltaTerminal {
+        North, South, East, West,
+        NorthEast, NorthWest, SouthEast, SouthWest
+    };
+
+    /// Generates organic 3-way intersections (e.g., hillside towns)
+    class DeltaField : public BasisField {
+    public:
+        DeltaTerminal terminal;
+
+        DeltaField(const Vec2& center, double radius, DeltaTerminal terminal, double decay)
+            : BasisField(center, radius, decay), terminal(terminal) {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            // Point toward terminal direction from center
+            Vec2 terminal_dir = getTerminalDirection();
+            Vec2 to_p = p - center;
+            
+            // Blend between radial and terminal direction
+            double blend = std::min(1.0, to_p.length() / radius);
+            Vec2 dir = lerp(to_p, terminal_dir, blend);
+            
+            return Tensor2D::fromVector(dir);
+        }
+
+    private:
+        [[nodiscard]] Vec2 getTerminalDirection() const {
+            switch (terminal) {
+                case DeltaTerminal::North: return Vec2(0, -1);
+                case DeltaTerminal::South: return Vec2(0, 1);
+                case DeltaTerminal::East: return Vec2(1, 0);
+                case DeltaTerminal::West: return Vec2(-1, 0);
+                case DeltaTerminal::NorthEast: return Vec2(0.707, -0.707);
+                case DeltaTerminal::NorthWest: return Vec2(-0.707, -0.707);
+                case DeltaTerminal::SouthEast: return Vec2(0.707, 0.707);
+                case DeltaTerminal::SouthWest: return Vec2(-0.707, 0.707);
+                default: return Vec2(0, 1);
+            }
+        }
+    };
+
+    // ===== GRID CORRECTIVE FIELD (Straightens organic roads) =====
+
+    /// Straightens and gridifies nearby roads (e.g., hybrid planning like DC)
+    class GridCorrectiveField : public BasisField {
+    public:
+        double theta;  // Target grid orientation
+
+        GridCorrectiveField(const Vec2& center, double radius, double theta, double decay)
+            : BasisField(center, radius, decay), theta(theta) {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            // Fix: remove unused parameter warning by casting to void
+            (void)p;
+            // Strong alignment to grid orientation
+            return Tensor2D::fromAngle(theta);
+        }
+    };
+
+} // namespace RogueCity::Generators
