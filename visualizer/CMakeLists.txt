@@ -121,6 +121,11 @@ endif()
                 OpenGL::GL 
                 glfw_bundled
             )
+
+            if(ROGUECITY_HAS_LINPUT)
+                target_link_libraries(RogueCityVisualizerGui PRIVATE LInput::LInput)
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUECITY_HAS_LINPUT=1)
+            endif()
             
             # Link legacy_stdio_definitions for MSVC compatibility with older GLFW binaries
             if(MSVC AND MSVC_VERSION GREATER_EQUAL 1900)

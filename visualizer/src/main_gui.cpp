@@ -9,6 +9,12 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+// Header-only input adapter (Win32 polling)
+#if __has_include(<LInput.h>)
+    #include <LInput.h>
+    #define ROGUECITY_HAS_LINPUT 1
+#endif
+
 // OpenGL loader - must be included before GLFW
 #include <GL/gl3w.h>
 
@@ -61,6 +67,7 @@ int main(int, char**)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // Apply custom theme
     RC_UI::ApplyTheme();
@@ -80,10 +87,34 @@ int main(int, char**)
     hfsm.handle_event(EditorEvent::ProjectLoaded, gs);
     hfsm.handle_event(EditorEvent::Tool_Roads, gs);
 
+    #if defined(ROGUECITY_HAS_LINPUT)
+    // LInput init
+    LInput::Input input;
+    input.Init();
+    #endif
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+
+        #if defined(ROGUECITY_HAS_LINPUT)
+        // Poll platform input and feed ImGui IO
+        input.Update();
+        io.MousePos = ImVec2(static_cast<float>(input.Mouse.X()), static_cast<float>(input.Mouse.Y()));
+        io.MouseDown[0] = input.Mouse.LeftButtonDown();
+        io.MouseDown[1] = input.Mouse.RightButtonDown();
+        io.MouseDown[2] = input.Mouse.MiddleButtonDown();
+
+        io.KeyCtrl = input.Keyboard.CtrlDown();
+        io.KeyShift = input.Keyboard.ShiftDown();
+        io.KeyAlt = input.Keyboard.AltDown();
+
+        // Legacy key array feed removed: this imgui build does not expose `io.KeysDown`.
+        // We still set modifier keys above (KeyCtrl/KeyShift/KeyAlt). If deterministic
+        // keyboard polling is required for this platform, adapt to the ImGui backend
+        // in use (use io.AddKeyEvent or platform-specific event injection).
+        #endif
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();

@@ -15,11 +15,15 @@
 #include "ui/rc_ui_theme.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
+#include <memory>
 
 namespace RC_UI {
 
 // Static minimap instance (Phase 5: Polish)
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
+static bool s_axiom_library_open = false;
+static bool s_dock_built = false;
 
 void InitializeMinim() {
     if (!s_minimap) {
@@ -29,84 +33,101 @@ void InitializeMinim() {
     }
 }
 
+bool IsAxiomLibraryOpen() {
+    return s_axiom_library_open;
+}
+
+void ToggleAxiomLibrary() {
+    s_axiom_library_open = !s_axiom_library_open;
+}
+
+static void BuildDockLayout(ImGuiID dockspace_id) {
+    ImGui::DockBuilderRemoveNode(dockspace_id);
+    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
+
+    ImGuiID dock_main = dockspace_id;
+    ImGuiID dock_right = 0;
+    ImGuiID dock_bottom = 0;
+    ImGuiID dock_top = 0;
+    ImGuiID dock_right_bottom = 0;
+    ImGuiID dock_tools = 0;
+    ImGuiID dock_bottom_tabs = 0;
+
+    dock_top = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Up, 0.10f, nullptr, &dock_main);
+    dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right, 0.27f, nullptr, &dock_main);
+    dock_bottom = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Down, 0.22f, nullptr, &dock_main);
+
+    dock_right_bottom = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
+    dock_tools = ImGui::DockBuilderSplitNode(dock_bottom, ImGuiDir_Down, 0.32f, nullptr, &dock_bottom_tabs);
+
+    ImGui::DockBuilderDockWindow("Axiom Bar", dock_top);
+    ImGui::DockBuilderDockWindow("RogueVisualizer", dock_main);
+    ImGui::DockBuilderDockWindow("Minimap", dock_right_bottom);
+    ImGui::DockBuilderDockWindow("Analytics", dock_right);
+
+    ImGui::DockBuilderDockWindow("Tools", dock_tools);
+    ImGui::DockBuilderDockWindow("Log", dock_bottom_tabs);
+    ImGui::DockBuilderDockWindow("District Index", dock_bottom_tabs);
+    ImGui::DockBuilderDockWindow("Road Index", dock_bottom_tabs);
+    ImGui::DockBuilderDockWindow("Lot Index", dock_bottom_tabs);
+    ImGui::DockBuilderDockWindow("River Index", dock_bottom_tabs);
+
+    ImGui::DockBuilderDockWindow("Axiom Library", dock_right);
+
+    ImGui::DockBuilderFinish(dockspace_id);
+}
+
 void DrawRoot(float dt)
 {
     // Initialize minimap on first call
     InitializeMinim();
-    
-    // Get display dimensions for window positioning
-    const ImGuiIO& io = ImGui::GetIO();
-    const float vp_width = io.DisplaySize.x;
-    const float vp_height = io.DisplaySize.y;
-    
-    // Window sizing
-    constexpr float kTopBarHeight = 60.0f;
-    constexpr float kBottomHeight = 250.0f;
-    constexpr float kLeftWidth = 220.0f;
-    constexpr float kRightWidth = 280.0f;
-    constexpr float kMinimapSize = 256.0f;  // NEW: Minimap dimensions
-    constexpr float kIndexWidth = 0.25f; // fraction of bottom area width
-    
-    // Top bar (Axiom Bar)
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(vp_width, kTopBarHeight));
+
+    // Dockspace host window
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+    const ImGuiWindowFlags host_flags =
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::Begin("RogueDockHost", nullptr, host_flags);
+    ImGui::PopStyleVar(2);
+
+    ImGuiID dockspace_id = ImGui::GetID("RogueDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    if (!s_dock_built) {
+        BuildDockLayout(dockspace_id);
+        s_dock_built = true;
+    }
+
+    ImGui::End();
+
+    // Panels/windows (docked by name)
     Panels::AxiomBar::Draw(dt);
-    
-    // Left panel (Tools)
-    ImGui::SetNextWindowPos(ImVec2(0.0f, kTopBarHeight));
-    ImGui::SetNextWindowSize(ImVec2(kLeftWidth, vp_height - kTopBarHeight - kBottomHeight));
-    Panels::Tools::Draw(dt);
-    
-    // Right panel (Analytics/Telemetry)
-    ImGui::SetNextWindowPos(ImVec2(vp_width - kRightWidth, kTopBarHeight));
-    ImGui::SetNextWindowSize(ImVec2(kRightWidth, vp_height - kTopBarHeight - kBottomHeight - kMinimapSize - 10));
+    Panels::AxiomEditor::Draw(dt);
     Panels::Telemetry::Draw(dt);
-    
-    // Minimap (NEW: Bottom-right above bottom panels)
-    const float minimap_x = vp_width - kMinimapSize - 10;
-    const float minimap_y = vp_height - kBottomHeight - kMinimapSize - 10;
-    ImGui::SetNextWindowPos(ImVec2(minimap_x, minimap_y));
-    ImGui::SetNextWindowSize(ImVec2(kMinimapSize, kMinimapSize));
-    
+    Panels::Tools::Draw(dt);
+    Panels::DistrictIndex::Draw(dt);
+    Panels::RoadIndex::Draw(dt);
+    Panels::LotIndex::Draw(dt);
+    Panels::RiverIndex::Draw(dt);
+    Panels::Log::Draw(dt);
+
     if (s_minimap) {
         s_minimap->update(dt);
         s_minimap->render();
     }
-    
-    // Center panel (Axiom Editor with integrated viewport)
-    const float center_x = kLeftWidth;
-    const float center_width = vp_width - kLeftWidth - kRightWidth;
-    const float center_height = vp_height - kTopBarHeight - kBottomHeight;
-    ImGui::SetNextWindowPos(ImVec2(center_x, kTopBarHeight));
-    ImGui::SetNextWindowSize(ImVec2(center_width, center_height));
-    Panels::AxiomEditor::Draw(dt);  // NEW: Use AxiomEditor instead of SystemMap
-    
-    // Bottom area - Index panels (4 equal-width panels)
-    const float bottom_y = vp_height - kBottomHeight;
-    const float index_height = kBottomHeight * 0.7f; // Leave room for log below
-    const float index_panel_width = vp_width * kIndexWidth;
-    
-    ImGui::SetNextWindowPos(ImVec2(0.0f, bottom_y));
-    ImGui::SetNextWindowSize(ImVec2(index_panel_width, index_height));
-    Panels::DistrictIndex::Draw(dt);
-    
-    ImGui::SetNextWindowPos(ImVec2(index_panel_width, bottom_y));
-    ImGui::SetNextWindowSize(ImVec2(index_panel_width, index_height));
-    Panels::RoadIndex::Draw(dt);
-    
-    ImGui::SetNextWindowPos(ImVec2(2 * index_panel_width, bottom_y));
-    ImGui::SetNextWindowSize(ImVec2(index_panel_width, index_height));
-    Panels::LotIndex::Draw(dt);
-    
-    ImGui::SetNextWindowPos(ImVec2(3 * index_panel_width, bottom_y));
-    ImGui::SetNextWindowSize(ImVec2(index_panel_width, index_height));
-    Panels::RiverIndex::Draw(dt);
-    
-    // Bottom log panel (full width)
-    const float log_height = kBottomHeight * 0.3f;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, bottom_y + index_height));
-    ImGui::SetNextWindowSize(ImVec2(vp_width, log_height));
-    Panels::Log::Draw(dt);
 }
 
 RogueCity::App::MinimapViewport* GetMinimapViewport() {

@@ -3,6 +3,7 @@
 #include "ui/panels/rc_panel_axiom_bar.h"
 
 #include "ui/rc_ui_anim.h"
+#include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 
 #include <imgui.h>
@@ -26,6 +27,9 @@ void Draw(float dt)
     constexpr float kChipHoverExpansion = 40.0f;
     const ImVec2 chip_box(160.0f, 28.0f);
     ImGui::InvisibleButton("AxiomChip", chip_box);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        RC_UI::ToggleAxiomLibrary();
+    }
     chip_hover.target = ImGui::IsItemHovered() ? 1.0f : 0.0f;
     chip_hover.Update(dt);
 

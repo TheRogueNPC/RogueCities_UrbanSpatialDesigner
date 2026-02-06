@@ -23,6 +23,8 @@ public:
     void set_camera_position(const Core::Vec2& xy, float z);
     [[nodiscard]] Core::Vec2 get_camera_xy() const;
     [[nodiscard]] float get_camera_z() const;
+    void set_camera_yaw(float radians);
+    [[nodiscard]] float get_camera_yaw() const;
 
     /// Mouse interaction
     [[nodiscard]] Core::Vec2 screen_to_world(const ImVec2& screen_pos) const;
@@ -35,6 +37,7 @@ private:
     Core::Vec2 camera_xy_{ 0.0, 0.0 };
     float camera_z_{ 500.0f };
     float zoom_{ 1.0f };
+    float yaw_{ 0.0f };
 };
 
 } // namespace RogueCity::App

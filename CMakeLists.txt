@@ -52,6 +52,22 @@ if(NOT TARGET magic_enum)
     target_include_directories(magic_enum INTERFACE "${MAGIC_ENUM_DIR}/include")
 endif()
 
+# === LInput (header-only) ===
+set(LINPUT_DIR "${CMAKE_SOURCE_DIR}/3rdparty/LInput")
+set(ROGUECITY_HAS_LINPUT OFF)
+if(EXISTS "${LINPUT_DIR}/include/LInput.h")
+    if(NOT TARGET LInput)
+        add_library(LInput INTERFACE)
+        target_include_directories(LInput INTERFACE "${LINPUT_DIR}/include")
+    endif()
+    if(NOT TARGET LInput::LInput)
+        add_library(LInput::LInput ALIAS LInput)
+    endif()
+    set(ROGUECITY_HAS_LINPUT ON)
+else()
+    message(STATUS "LInput not found (expected at: ${LINPUT_DIR}/include/LInput.h)")
+endif()
+
 # === UI TOOLCHAIN LIBS (console-safe) ===
 # These are wired for the `test_ui_toolchain` probe and future UI work.
 

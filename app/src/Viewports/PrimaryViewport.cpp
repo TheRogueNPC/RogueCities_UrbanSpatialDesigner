@@ -3,6 +3,17 @@
 
 namespace RogueCity::App {
 
+namespace {
+    [[nodiscard]] inline Core::Vec2 rotate(const Core::Vec2& v, float radians) {
+        const float c = std::cos(radians);
+        const float s = std::sin(radians);
+        return Core::Vec2(
+            v.x * c - v.y * s,
+            v.x * s + v.y * c
+        );
+    }
+}
+
 PrimaryViewport::PrimaryViewport() = default;
 PrimaryViewport::~PrimaryViewport() = default;
 
@@ -83,6 +94,14 @@ float PrimaryViewport::get_camera_z() const {
     return camera_z_;
 }
 
+void PrimaryViewport::set_camera_yaw(float radians) {
+    yaw_ = radians;
+}
+
+float PrimaryViewport::get_camera_yaw() const {
+    return yaw_;
+}
+
 Core::Vec2 PrimaryViewport::screen_to_world(const ImVec2& screen_pos) const {
     // Get viewport dimensions
     const ImVec2 viewport_pos = ImGui::GetWindowPos();
@@ -96,10 +115,13 @@ Core::Vec2 PrimaryViewport::screen_to_world(const ImVec2& screen_pos) const {
     // World units per screen pixel depends on zoom level
     const float world_scale = camera_z_ / zoom_;
     
-    return Core::Vec2(
-        camera_xy_.x + norm_x * viewport_size.x / zoom_,
-        camera_xy_.y + norm_y * viewport_size.y / zoom_
+    Core::Vec2 view(
+        norm_x * viewport_size.x / zoom_,
+        norm_y * viewport_size.y / zoom_
     );
+
+    const Core::Vec2 world_offset = rotate(view, yaw_);
+    return Core::Vec2(camera_xy_.x + world_offset.x, camera_xy_.y + world_offset.y);
 }
 
 ImVec2 PrimaryViewport::world_to_screen(const Core::Vec2& world_pos) const {
@@ -108,12 +130,12 @@ ImVec2 PrimaryViewport::world_to_screen(const Core::Vec2& world_pos) const {
     const ImVec2 viewport_size = ImGui::GetWindowSize();
     
     // Transform world position relative to camera
-    const float rel_x = world_pos.x - camera_xy_.x;
-    const float rel_y = world_pos.y - camera_xy_.y;
+    const Core::Vec2 rel(world_pos.x - camera_xy_.x, world_pos.y - camera_xy_.y);
+    const Core::Vec2 view = rotate(rel, -yaw_);
     
     // Apply zoom and convert to screen space
-    const float screen_x = viewport_pos.x + viewport_size.x * 0.5f + rel_x * zoom_;
-    const float screen_y = viewport_pos.y + viewport_size.y * 0.5f + rel_y * zoom_;
+    const float screen_x = viewport_pos.x + viewport_size.x * 0.5f + static_cast<float>(view.x) * zoom_;
+    const float screen_y = viewport_pos.y + viewport_size.y * 0.5f + static_cast<float>(view.y) * zoom_;
     
     return ImVec2(screen_x, screen_y);
 }
