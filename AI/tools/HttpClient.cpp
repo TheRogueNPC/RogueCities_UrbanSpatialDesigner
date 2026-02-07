@@ -1,4 +1,6 @@
 #include "HttpClient.h"
+#include "config/AiConfig.h"
+#include "tools/Url.h"
 #include <iostream>
 
 #ifdef _WIN32
@@ -11,9 +13,17 @@ namespace RogueCity::AI {
 
 std::string HttpClient::PostJson(const std::string& url, const std::string& bodyJson) {
 #ifdef _WIN32
-    std::cout << "[HttpClient] POST to " << url << std::endl;
+    const auto& config = AiConfigManager::Instance().GetConfig();
+    if (config.debugLogHttp) {
+        std::cout << "[HttpClient] POST " << url << std::endl;
+    }
+
+    ParsedUrl parsed = ParseUrl(url);
+    if (!parsed.valid) {
+        std::cerr << "[HttpClient] Invalid URL: " << url << std::endl;
+        return "[]";
+    }
     
-    // Parse URL (simplified for http://127.0.0.1:7077/endpoint)
     HINTERNET hSession = WinHttpOpen(
         L"RogueCity/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -27,23 +37,22 @@ std::string HttpClient::PostJson(const std::string& url, const std::string& body
         return "[]";
     }
     
-    HINTERNET hConnect = WinHttpConnect(hSession, L"127.0.0.1", 7077, 0);
+    std::wstring whost(parsed.host.begin(), parsed.host.end());
+    HINTERNET hConnect = WinHttpConnect(hSession, whost.c_str(), parsed.port, 0);
     if (!hConnect) {
         std::cerr << "[HttpClient] Failed to connect" << std::endl;
         WinHttpCloseHandle(hSession);
         return "[]";
     }
     
-    // Extract path from URL (everything after :7077)
-    size_t pathStart = url.find("/", url.find("7077") + 4);
-    std::string path = (pathStart != std::string::npos) ? url.substr(pathStart) : "/";
-    std::wstring wpath(path.begin(), path.end());
+    std::wstring wpath(parsed.path.begin(), parsed.path.end());
+    DWORD flags = parsed.secure ? WINHTTP_FLAG_SECURE : 0;
     
     HINTERNET hRequest = WinHttpOpenRequest(
         hConnect, L"POST", wpath.c_str(),
         nullptr, WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES,
-        0
+        flags
     );
     
     if (!hRequest) {
@@ -94,7 +103,9 @@ std::string HttpClient::PostJson(const std::string& url, const std::string& body
     WinHttpCloseHandle(hConnect);
     WinHttpCloseHandle(hSession);
     
-    std::cout << "[HttpClient] Response: " << response.substr(0, 100) << "..." << std::endl;
+    if (config.debugLogHttp) {
+        std::cout << "[HttpClient] Response: " << response.substr(0, 200) << std::endl;
+    }
     return response;
 #else
     std::cerr << "[HttpClient] Non-Windows not implemented yet" << std::endl;

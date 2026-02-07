@@ -30,6 +30,11 @@ bool AiConfigManager::LoadFromFile(const std::string& path) {
         m_config.preferPwsh = j.value("prefer_pwsh", true);
         m_config.healthCheckTimeoutSec = j.value("health_check_timeout_sec", 30);
         m_config.bridgeBaseUrl = j.value("bridge_base_url", "http://127.0.0.1:7077");
+
+        // Debug / diagnostics (optional)
+        m_config.debugLogHttp = j.value("debug_log_http", false);
+        m_config.debugWriteRoundtrips = j.value("debug_write_roundtrips", false);
+        m_config.debugRoundtripDir = j.value("debug_roundtrip_dir", "AI/logs");
         
         std::cout << "[AI] Config loaded successfully from " << path << std::endl;
         return true;

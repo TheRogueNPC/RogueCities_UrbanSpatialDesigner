@@ -33,7 +33,7 @@ private:
     bool TryStartWithPwsh(const std::string& scriptPath);
     bool TryStartWithPowershell(const std::string& scriptPath);
     bool PollHealthEndpoint(int timeoutSec);
-    bool ExecuteCommand(const std::string& command);
+    bool ExecuteCommand(const std::string& command, std::string* outError);
     
     std::atomic<BridgeStatus> m_status{BridgeStatus::Offline};
     std::string m_lastError;

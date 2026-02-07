@@ -2,10 +2,32 @@
 #include "config/AiConfig.h"
 #include "tools/HttpClient.h"
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 using json = nlohmann::json;
 
 namespace RogueCity::AI {
+
+static std::string TimestampForFilename() {
+    using namespace std::chrono;
+    auto now = system_clock::now();
+    auto t = system_clock::to_time_t(now);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    tm = *std::localtime(&t);
+#endif
+    auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << std::setw(3) << std::setfill('0') << ms.count();
+    return oss.str();
+}
 
 nlohmann::json CitySpecClient::ToJson(const Core::CitySpec& spec) {
     json j;
@@ -74,6 +96,22 @@ Core::CitySpec CitySpecClient::GenerateSpec(
     std::cout << "[AI] Generating CitySpec..." << std::endl;
     
     std::string responseStr = HttpClient::PostJson(url, requestBody.dump());
+
+    if (config.debugWriteRoundtrips) {
+        try {
+            std::filesystem::create_directories(config.debugRoundtripDir);
+            json log;
+            log["endpoint"] = "/city_spec";
+            log["url"] = url;
+            log["request"] = requestBody;
+            log["response_raw"] = responseStr;
+            std::string filename = config.debugRoundtripDir + "/city_spec_" + TimestampForFilename() + ".json";
+            std::ofstream f(filename, std::ios::binary);
+            if (f.is_open()) f << log.dump(2);
+        } catch (...) {
+            // best-effort only
+        }
+    }
     
     if (responseStr.empty() || responseStr == "[]") {
         std::cerr << "[AI] Empty response from CitySpec generator" << std::endl;

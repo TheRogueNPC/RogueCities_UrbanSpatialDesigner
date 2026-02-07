@@ -30,7 +30,7 @@ void AiConsolePanel::Render() {
     ImGui::Text("Status: %s", runtime.GetStatusString().c_str());
     ImGui::PopStyleColor();
     
-    if (!runtime.GetLastError().empty()) {
+    if (runtime.GetStatus() == AI::BridgeStatus::Failed && !runtime.GetLastError().empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::ErrorRed));
         ImGui::Text("Error: %s", runtime.GetLastError().c_str());
         ImGui::PopStyleColor();

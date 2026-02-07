@@ -1,8 +1,10 @@
 #include "AiBridgeRuntime.h"
 #include "config/AiConfig.h"
+#include "tools/Url.h"
 #include <iostream>
 #include <chrono>
 #include <cstdlib>
+#include <sstream>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -27,7 +29,24 @@ std::string AiBridgeRuntime::GetStatusString() const {
     }
 }
 
-bool AiBridgeRuntime::ExecuteCommand(const std::string& command) {
+static std::string Win32ErrorToString(DWORD err) {
+#ifdef _WIN32
+    if (err == 0) return {};
+    LPSTR buffer = nullptr;
+    DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+    DWORD len = FormatMessageA(flags, nullptr, err, 0, (LPSTR)&buffer, 0, nullptr);
+    std::string msg = (len && buffer) ? std::string(buffer, buffer + len) : std::string("Unknown error");
+    if (buffer) LocalFree(buffer);
+    // Trim trailing newlines from FormatMessage
+    while (!msg.empty() && (msg.back() == '\r' || msg.back() == '\n')) msg.pop_back();
+    return msg;
+#else
+    (void)err;
+    return {};
+#endif
+}
+
+bool AiBridgeRuntime::ExecuteCommand(const std::string& command, std::string* outError) {
 #ifdef _WIN32
     STARTUPINFOA si = {};
     PROCESS_INFORMATION pi = {};
@@ -42,7 +61,10 @@ bool AiBridgeRuntime::ExecuteCommand(const std::string& command) {
         CREATE_NO_WINDOW,
         nullptr, nullptr,
         &si, &pi)) {
-        m_lastError = "Failed to create process";
+        DWORD err = ::GetLastError();
+        std::ostringstream oss;
+        oss << "CreateProcess failed (" << err << "): " << Win32ErrorToString(err);
+        if (outError) *outError = oss.str();
         return false;
     }
     
@@ -58,18 +80,29 @@ bool AiBridgeRuntime::ExecuteCommand(const std::string& command) {
 bool AiBridgeRuntime::TryStartWithPwsh(const std::string& scriptPath) {
     std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
     std::cout << "[AI] Attempting to start with pwsh: " << command << std::endl;
-    return ExecuteCommand(command);
+    std::string err;
+    bool ok = ExecuteCommand(command, &err);
+    if (!ok && !err.empty()) std::cout << "[AI] pwsh start error: " << err << std::endl;
+    return ok;
 }
 
 bool AiBridgeRuntime::TryStartWithPowershell(const std::string& scriptPath) {
     std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
     std::cout << "[AI] Attempting to start with powershell: " << command << std::endl;
-    return ExecuteCommand(command);
+    std::string err;
+    bool ok = ExecuteCommand(command, &err);
+    if (!ok && !err.empty()) std::cout << "[AI] powershell start error: " << err << std::endl;
+    return ok;
 }
 
 bool AiBridgeRuntime::PollHealthEndpoint(int timeoutSec) {
     auto& config = AiConfigManager::Instance().GetConfig();
-    std::string healthUrl = config.bridgeBaseUrl + "/health";
+    std::string healthUrl = JoinUrlPath(config.bridgeBaseUrl, "/health");
+    ParsedUrl parsed = ParseUrl(healthUrl);
+    if (!parsed.valid) {
+        m_lastError = "Invalid bridge_base_url (cannot poll /health): " + config.bridgeBaseUrl;
+        return false;
+    }
     
     auto startTime = std::chrono::steady_clock::now();
     
@@ -94,13 +127,16 @@ bool AiBridgeRuntime::PollHealthEndpoint(int timeoutSec) {
         );
         
         if (hSession) {
-            HINTERNET hConnect = WinHttpConnect(hSession, L"127.0.0.1", 7077, 0);
+            std::wstring whost(parsed.host.begin(), parsed.host.end());
+            HINTERNET hConnect = WinHttpConnect(hSession, whost.c_str(), parsed.port, 0);
             if (hConnect) {
+                std::wstring wpath(parsed.path.begin(), parsed.path.end());
+                DWORD flags = parsed.secure ? WINHTTP_FLAG_SECURE : 0;
                 HINTERNET hRequest = WinHttpOpenRequest(
-                    hConnect, L"GET", L"/health",
+                    hConnect, L"GET", wpath.c_str(),
                     nullptr, WINHTTP_NO_REFERER,
                     WINHTTP_DEFAULT_ACCEPT_TYPES,
-                    0
+                    flags
                 );
                 
                 if (hRequest) {
@@ -122,6 +158,10 @@ bool AiBridgeRuntime::PollHealthEndpoint(int timeoutSec) {
                             if (statusCode == 200) {
                                 std::cout << "[AI] Bridge health check passed" << std::endl;
                                 return true;
+                            } else {
+                                if (config.debugLogHttp) {
+                                    std::cout << "[AI] Bridge health check status: " << statusCode << std::endl;
+                                }
                             }
                         }
                     }
@@ -150,23 +190,45 @@ bool AiBridgeRuntime::StartBridge() {
     std::string scriptPath = config.startScript;
     
     bool started = false;
+    std::string firstError;
+    std::string secondError;
+
+    auto tryPwsh = [&]() {
+        std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+        return ExecuteCommand(command, &firstError);
+    };
+    auto tryPowershell = [&]() {
+        std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+        return ExecuteCommand(command, &secondError);
+    };
+
     if (config.preferPwsh) {
-        started = TryStartWithPwsh(scriptPath);
+        std::cout << "[AI] Attempting to start with pwsh..." << std::endl;
+        started = tryPwsh();
         if (!started) {
             std::cout << "[AI] pwsh failed, trying powershell..." << std::endl;
-            started = TryStartWithPowershell(scriptPath);
+            started = tryPowershell();
         }
     } else {
-        started = TryStartWithPowershell(scriptPath);
+        std::cout << "[AI] Attempting to start with powershell..." << std::endl;
+        started = tryPowershell();
         if (!started) {
             std::cout << "[AI] powershell failed, trying pwsh..." << std::endl;
-            started = TryStartWithPwsh(scriptPath);
+            started = tryPwsh();
         }
     }
     
     if (!started) {
         m_status = BridgeStatus::Failed;
-        m_lastError = "Failed to start PowerShell process";
+        if (!firstError.empty() && !secondError.empty()) {
+            m_lastError = "pwsh: " + firstError + " | powershell: " + secondError;
+        } else if (!firstError.empty()) {
+            m_lastError = firstError;
+        } else if (!secondError.empty()) {
+            m_lastError = secondError;
+        } else {
+            m_lastError = "Failed to start PowerShell process";
+        }
         return false;
     }
     
@@ -174,6 +236,7 @@ bool AiBridgeRuntime::StartBridge() {
     m_startupThread = std::make_unique<std::thread>([this, &config]() {
         if (PollHealthEndpoint(config.healthCheckTimeoutSec)) {
             m_status = BridgeStatus::Online;
+            m_lastError.clear();
         } else {
             m_status = BridgeStatus::Failed;
         }
@@ -198,6 +261,7 @@ void AiBridgeRuntime::StopBridge() {
     }
     
     m_status = BridgeStatus::Offline;
+    m_lastError.clear();
     std::cout << "[AI] Bridge stopped" << std::endl;
 }
 

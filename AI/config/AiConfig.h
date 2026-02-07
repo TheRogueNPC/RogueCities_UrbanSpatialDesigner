@@ -15,6 +15,11 @@ struct AiConfig {
     bool preferPwsh = true;
     int healthCheckTimeoutSec = 30;
     std::string bridgeBaseUrl = "http://127.0.0.1:7077";
+
+    // Debug / diagnostics
+    bool debugLogHttp = false;              // Log HTTP request/response summaries to stdout/stderr
+    bool debugWriteRoundtrips = false;      // Write request/response payloads to disk (AI/logs)
+    std::string debugRoundtripDir = "AI/logs";
 };
 
 /// Singleton configuration manager

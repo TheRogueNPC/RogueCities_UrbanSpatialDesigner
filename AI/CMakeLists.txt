@@ -12,6 +12,7 @@ message(STATUS "Configuring AI Protocol Layer...")
 set(AI_SOURCES
     protocol/UiAgentProtocol.cpp
     tools/HttpClient.cpp
+    tools/Url.cpp
     integration/AiAssist.cpp
     config/AiConfig.cpp
     runtime/AiBridgeRuntime.cpp
@@ -23,6 +24,7 @@ set(AI_SOURCES
 set(AI_HEADERS
     protocol/UiAgentProtocol.h
     tools/HttpClient.h
+    tools/Url.h
     integration/AiAssist.h
     config/AiConfig.h
     runtime/AiBridgeRuntime.h

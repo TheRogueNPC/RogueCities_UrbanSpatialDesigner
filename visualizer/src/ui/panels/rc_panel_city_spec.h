@@ -1,6 +1,8 @@
 #pragma once
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include <string>
+#include <atomic>
+#include <mutex>
 
 namespace RogueCity::UI {
 
@@ -14,7 +16,9 @@ private:
     int m_scaleIndex = 2; // 0=hamlet, 1=town, 2=city, 3=metro
     Core::CitySpec m_currentSpec;
     bool m_hasSpec = false;
-    bool m_processing = false;
+    std::atomic<bool> m_processing{false};
+    float m_busyTime = 0.0f;
+    std::mutex m_specMutex;
 };
 
 } // namespace RogueCity::UI

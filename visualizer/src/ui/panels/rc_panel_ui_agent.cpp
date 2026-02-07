@@ -12,8 +12,23 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <cmath>
 
 namespace RogueCity::UI {
+
+static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeconds) {
+    if (!busyFlag.load()) return;
+
+    busyTimeSeconds += ImGui::GetIO().DeltaTime;
+    float t = (sinf(busyTimeSeconds * 3.14f) * 0.5f) + 0.5f; // 0..1
+    float alpha = 0.3f + 0.7f * t;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1.0f, alpha));
+    ImGui::Text("AI processing...");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+}
 
 // Helper to build snapshot with code-shape metadata
 static AI::UiSnapshot BuildEnhancedSnapshot() {
@@ -98,77 +113,119 @@ void UiAgentPanel::Render() {
     
     // === MODE 1: LAYOUT COMMANDS ===
     DesignSystem::SectionHeader("Layout Optimization");
+    RenderBusyIndicator(m_processing, m_busyTime);
     
     ImGui::Text("Ask AI to adjust the UI layout:");
     ImGui::InputTextMultiline("##goal", m_goalBuffer, sizeof(m_goalBuffer), ImVec2(-1, 60));
     
-    ImGui::BeginDisabled(m_processing);
+    ImGui::BeginDisabled(m_processing.load());
     if (DesignSystem::ButtonPrimary("Apply AI Layout", ImVec2(180, 30))) {
-        m_processing = true;
-        m_lastResult = "Processing...";
-        
-        auto snapshot = BuildEnhancedSnapshot();
-        auto commands = AI::UiAgentClient::QueryAgent(snapshot, std::string(m_goalBuffer));
-        
-        if (commands.empty()) {
-            m_lastResult = "No commands returned (check console for errors)";
-        } else {
-            m_lastResult = "Received " + std::to_string(commands.size()) + " commands:\n";
-            for (const auto& cmd : commands) {
-                m_lastResult += "- " + std::string(cmd.cmd) + "\n";
-                // TODO: Actually apply commands to the UI
+        if (!m_processing.exchange(true)) {
+            m_busyTime = 0.0f;
+            {
+                std::scoped_lock lock(m_resultMutex);
+                m_lastResult = "Processing...";
             }
+
+            std::string goal = std::string(m_goalBuffer);
+            std::thread([this, goal]() {
+                auto snapshot = BuildEnhancedSnapshot();
+                auto commands = AI::UiAgentClient::QueryAgent(snapshot, goal);
+
+                std::string result;
+                if (commands.empty()) {
+                    result = "No commands returned (check console for errors)";
+                } else {
+                    result = "Received " + std::to_string(commands.size()) + " commands:\n";
+                    for (const auto& cmd : commands) {
+                        result += "- " + cmd.cmd + "\n";
+                        // TODO: Actually apply commands to the UI
+                    }
+                }
+
+                {
+                    std::scoped_lock lock(m_resultMutex);
+                    m_lastResult = result;
+                }
+
+                m_processing = false;
+            }).detach();
         }
-        
-        m_processing = false;
     }
     ImGui::EndDisabled();
     
-    if (!m_lastResult.empty()) {
-        ImGui::TextWrapped("%s", m_lastResult.c_str());
+    {
+        std::scoped_lock lock(m_resultMutex);
+        if (!m_lastResult.empty()) {
+            ImGui::TextWrapped("%s", m_lastResult.c_str());
+        }
     }
     
     DesignSystem::Separator();
     
     // === MODE 2: DESIGN/REFACTOR PLANNING ===
     DesignSystem::SectionHeader("Design & Refactoring");
+    RenderBusyIndicator(m_designProcessing, m_designBusyTime);
     
     ImGui::Text("Ask AI to analyze UI structure and suggest refactorings:");
     ImGui::InputTextMultiline("##design_goal", m_designGoalBuffer, sizeof(m_designGoalBuffer), ImVec2(-1, 60));
     
-    ImGui::BeginDisabled(m_designProcessing);
+    ImGui::BeginDisabled(m_designProcessing.load());
     if (DesignSystem::ButtonSecondary("Generate Refactor Plan", ImVec2(180, 30))) {
-        m_designProcessing = true;
-        m_lastDesignResult = "Generating plan...";
-        
-        auto snapshot = BuildEnhancedSnapshot();
-        auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, std::string(m_designGoalBuffer));
-        
-        // Generate timestamped filename
-        auto now = std::chrono::system_clock::now();
-        auto time_t = std::chrono::system_clock::to_time_t(now);
-        std::stringstream ss;
-        ss << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
-        std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
-        
-        if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
-            m_lastDesignResult = "Saved plan to: " + filename + "\n\n";
-            m_lastDesignResult += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
-            m_lastDesignResult += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
-            
-            if (!plan.summary.empty()) {
-                m_lastDesignResult += "Summary:\n" + plan.summary;
+        if (!m_designProcessing.exchange(true)) {
+            m_designBusyTime = 0.0f;
+            {
+                std::scoped_lock lock(m_designResultMutex);
+                m_lastDesignResult = "Generating plan...";
             }
-        } else {
-            m_lastDesignResult = "Failed to save plan (check console)";
+
+            std::string goal = std::string(m_designGoalBuffer);
+            std::thread([this, goal]() {
+                auto snapshot = BuildEnhancedSnapshot();
+                auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, goal);
+
+                // Generate timestamped filename
+                auto now = std::chrono::system_clock::now();
+                auto t = std::chrono::system_clock::to_time_t(now);
+                std::tm tm{};
+#ifdef _WIN32
+                localtime_s(&tm, &t);
+#else
+                tm = *std::localtime(&t);
+#endif
+                std::stringstream ss;
+                ss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+                std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
+
+                std::string result;
+                if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
+                    result = "Saved plan to: " + filename + "\n\n";
+                    result += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
+                    result += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
+
+                    if (!plan.summary.empty()) {
+                        result += "Summary:\n" + plan.summary;
+                    }
+                } else {
+                    result = "Failed to save plan (check console)";
+                }
+
+                {
+                    std::scoped_lock lock(m_designResultMutex);
+                    m_lastDesignResult = result;
+                }
+
+                m_designProcessing = false;
+            }).detach();
         }
-        
-        m_designProcessing = false;
     }
     ImGui::EndDisabled();
     
-    if (!m_lastDesignResult.empty()) {
-        ImGui::TextWrapped("%s", m_lastDesignResult.c_str());
+    {
+        std::scoped_lock lock(m_designResultMutex);
+        if (!m_lastDesignResult.empty()) {
+            ImGui::TextWrapped("%s", m_lastDesignResult.c_str());
+        }
     }
     
     ImGui::End();

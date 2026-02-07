@@ -2,8 +2,13 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
 import json
+import os
 
 app = FastAPI()
+
+def _toolserver_mock_enabled() -> bool:
+    v = os.getenv("ROGUECITY_TOOLSERVER_MOCK", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
 
 # =======================================================================
 # HEALTH
@@ -41,6 +46,15 @@ Example:
 
 @app.post("/ui_agent")
 async def ui_agent(req: UiAgentRequest):
+    if _toolserver_mock_enabled():
+        return {
+            "commands": [
+                {"cmd": "SetHeader", "mode": "ROAD"},
+                {"cmd": "DockPanel", "panel": "Tools", "targetDock": "Left"}
+            ],
+            "mock": True
+        }
+
     prompt = f"{SYSTEM_PROMPT_UI}\n\nSnapshot:\n{json.dumps(req.snapshot, indent=2)}\n\nGoal: {req.goal}\n\nCommands:"
     ollama_url = "http://127.0.0.1:11434/api/generate"
     ollama_payload = {
@@ -93,6 +107,23 @@ Respond ONLY with valid JSON matching this schema.
 
 @app.post("/city_spec")
 async def city_spec(req: CitySpecRequest):
+    if _toolserver_mock_enabled():
+        scale = req.constraints.get("scale", "town")
+        return {
+            "spec": {
+                "intent": {
+                    "description": req.description,
+                    "scale": scale,
+                    "climate": "temperate",
+                    "style_tags": ["modern"]
+                },
+                "districts": [{"type": "downtown", "density": 0.9}],
+                "seed": 0,
+                "road_density": 0.5
+            },
+            "mock": True
+        }
+
     prompt = f"{CITYSPEC_SYSTEM_PROMPT}\n\nDescription: {req.description}\nConstraints: {json.dumps(req.constraints)}\n\nJSON:"
     ollama_url = "http://127.0.0.1:11434/api/generate"
     ollama_payload = {
