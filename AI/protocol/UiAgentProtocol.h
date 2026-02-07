@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <map>
 
 namespace RogueCity::AI {
 
@@ -14,6 +15,12 @@ struct UiPanelInfo {
     std::string id;       // e.g. "Analytics", "Inspector", "RogueVisualizer"
     std::string dock;     // "Left","Right","Bottom","Top","Center"
     bool visible = true;
+    
+    // === CODE-SHAPE METADATA (Phase 4: Refactoring) ===
+    std::string role;              // "inspector" | "toolbox" | "viewport" | "nav" | "log"
+    std::string owner_module;      // e.g. "rc_ui_panel_axiom_editor"
+    std::vector<std::string> data_bindings;      // ["axiom.selected_id", "road.brush_radius"]
+    std::vector<std::string> interaction_patterns; // ["list+detail", "toolbar+canvas"]
 };
 
 struct UiHeaderInfo {
@@ -29,6 +36,11 @@ struct UiStateInfo {
     uint64_t seed = 0;
     std::string activeTool;                // e.g. "AXIOM_MODE_ACTIVE"
     std::vector<std::string> selectedAxioms;
+    
+    // === STATE MODEL (Phase 4: Code-aware) ===
+    // Key-value pairs representing current application state
+    // e.g. {"axiom.selected_id": "A123", "road.brush_radius": "15.0"}
+    std::map<std::string, std::string> state_model;
 };
 
 struct UiSnapshot {

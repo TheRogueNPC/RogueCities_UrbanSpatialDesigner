@@ -26,11 +26,18 @@ static json ToJson(const UiSnapshot& snap) {
     
     json panels = json::array();
     for (const auto& p : snap.panels) {
-        panels.push_back({
-            {"id",      p.id},
-            {"dock",    p.dock},
-            {"visible", p.visible},
-        });
+        json panel;
+        panel["id"] = p.id;
+        panel["dock"] = p.dock;
+        panel["visible"] = p.visible;
+        
+        // Code-shape metadata (Phase 4)
+        if (!p.role.empty()) panel["role"] = p.role;
+        if (!p.owner_module.empty()) panel["owner_module"] = p.owner_module;
+        if (!p.data_bindings.empty()) panel["data_bindings"] = p.data_bindings;
+        if (!p.interaction_patterns.empty()) panel["interaction_patterns"] = p.interaction_patterns;
+        
+        panels.push_back(panel);
     }
     j["layout"]["panels"] = panels;
 
@@ -41,6 +48,12 @@ static json ToJson(const UiSnapshot& snap) {
     state["seed"]           = snap.state.seed;
     state["activeTool"]     = snap.state.activeTool;
     state["selectedAxioms"] = snap.state.selectedAxioms;
+    
+    // State model (Phase 4)
+    if (!snap.state.state_model.empty()) {
+        state["state_model"] = snap.state.state_model;
+    }
+    
     j["state"] = state;
 
     j["logTail"] = snap.logTail;

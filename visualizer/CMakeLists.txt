@@ -95,6 +95,8 @@ endif()
                 src/ui/panels/rc_panel_lot_index.cpp
                 src/ui/panels/rc_panel_river_index.cpp
                 src/ui/panels/rc_panel_ai_console.cpp  # NEW: AI bridge control
+                src/ui/panels/rc_panel_ui_agent.cpp    # NEW: UI Agent assistant (Phase 2)
+                src/ui/panels/rc_panel_city_spec.cpp   # NEW: CitySpec generator (Phase 3)
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
