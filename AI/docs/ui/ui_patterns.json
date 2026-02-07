@@ -1,172 +1,228 @@
 {
-  "version": "1.0.0",
-  "description": "UI Pattern Catalog for RogueCity Visualizer - Defines canonical patterns for AI-driven refactoring",
+  "protocol_version": "ui-patterns-v1",
+  "description": "Canonical UI pattern catalog for RogueCity Visualizer",
   
-  "roles": {
-    "inspector": {
-      "description": "Detail panel showing properties of selected entity",
-      "typical_data_bindings": ["selected_id", "properties.*"],
-      "interaction_patterns": ["list+detail"]
-    },
-    "toolbox": {
-      "description": "Action strip with tool buttons/controls",
-      "typical_data_bindings": ["active_tool", "tool_settings.*"],
-      "interaction_patterns": ["toolbar+canvas"]
-    },
-    "viewport": {
-      "description": "Primary 2D/3D visualization canvas",
-      "typical_data_bindings": ["camera.*", "view_mode", "selection"],
-      "interaction_patterns": ["canvas+overlay"]
-    },
-    "nav": {
-      "description": "Navigation/minimap overview",
-      "typical_data_bindings": ["camera.position", "zoom"],
-      "interaction_patterns": ["minimap"]
-    },
-    "log": {
-      "description": "Event log/console output",
-      "typical_data_bindings": ["log_entries[]"],
-      "interaction_patterns": ["scrolling_list"]
-    },
-    "index": {
-      "description": "Data table/list view (roads, districts, lots)",
-      "typical_data_bindings": ["entities[]", "selected_id"],
-      "interaction_patterns": ["table+selection"]
-    }
-  },
-  
-  "patterns": {
-    "InspectorPanel": {
-      "description": "Generic inspector panel with property editing",
+  "patterns": [
+    {
+      "name": "InspectorPanel",
       "template": "RcInspectorPanel<T>",
-      "props": ["selected_id", "properties"],
-      "example_instances": [
-        "axiom_inspector",
-        "road_inspector",
-        "district_inspector"
+      "roles": ["inspector"],
+      "description": "Detail view for a selected entity with labeled property fields",
+      "required_tags": ["detail", "selection"],
+      "suggested_widgets": ["property_editor", "readonly_label", "collapsing_header"],
+      "examples": [
+        "rc_axiom_inspector",
+        "rc_road_inspector"
       ]
     },
-    "ToolStrip": {
-      "description": "Horizontal/vertical toolbar with action buttons",
+    {
+      "name": "ToolStrip",
       "template": "RcToolStrip",
-      "props": ["actions[]", "active_tool"],
-      "example_instances": [
-        "road_toolbar",
-        "axiom_toolbar"
+      "roles": ["toolbox"],
+      "description": "Horizontal/vertical toolbar with grouped action buttons",
+      "required_tags": ["toolbar", "actions"],
+      "suggested_widgets": ["button", "button_group", "separator"],
+      "examples": [
+        "rc_axiom_toolbar",
+        "rc_road_toolbar",
+        "rc_panel_tools"
       ]
     },
-    "DataIndexPanel": {
-      "description": "Sortable/filterable table of entities",
+    {
+      "name": "DataIndexPanel",
       "template": "RcDataIndexPanel<T>",
-      "props": ["entities[]", "columns", "selected_id"],
-      "example_instances": [
-        "road_index",
-        "district_index",
-        "lot_index",
-        "river_index"
+      "roles": ["index"],
+      "description": "Sortable/filterable table of entities with selection",
+      "required_tags": ["table", "selection"],
+      "suggested_widgets": ["table", "filter_input", "column_header"],
+      "examples": [
+        "rc_panel_road_index",
+        "rc_panel_district_index",
+        "rc_panel_lot_index",
+        "rc_panel_river_index"
       ]
     },
-    "DockPreset": {
-      "description": "Named docking layout configuration",
-      "template": "RcDockPreset",
-      "props": ["panels[]"],
-      "example_instances": [
-        "axiom_editing_layout",
-        "road_editing_layout",
-        "district_analysis_layout"
+    {
+      "name": "MetricsPanel",
+      "template": "RcMetricsPanel",
+      "roles": ["inspector", "debug"],
+      "description": "Panel showing numeric metrics, trends, and performance data",
+      "required_tags": ["metrics", "readonly"],
+      "suggested_widgets": ["property_editor", "sparkline", "plot"],
+      "examples": [
+        "rc_panel_telemetry",
+        "rc_panel_analytics"
+      ]
+    },
+    {
+      "name": "LogPanel",
+      "template": "RcLogPanel",
+      "roles": ["log"],
+      "description": "Scrolling log output with filtering and level indicators",
+      "required_tags": ["log", "scrolling"],
+      "suggested_widgets": ["scrolling_list", "filter_input", "color_text"],
+      "examples": [
+        "rc_panel_log"
+      ]
+    },
+    {
+      "name": "PrimaryViewport",
+      "template": "RcPrimaryViewport",
+      "roles": ["viewport"],
+      "description": "Main 3D/2D visualization canvas with camera controls",
+      "required_tags": ["viewport", "canvas"],
+      "suggested_widgets": ["framebuffer", "camera_controls", "overlay"],
+      "examples": [
+        "rogue_visualizer"
+      ]
+    },
+    {
+      "name": "NavOverlay",
+      "template": "RcNavOverlay",
+      "roles": ["nav"],
+      "description": "Minimap or navigation overview panel",
+      "required_tags": ["minimap", "navigation"],
+      "suggested_widgets": ["framebuffer", "viewport_indicator"],
+      "examples": [
+        "minimap_viewport"
+      ]
+    },
+    {
+      "name": "ControlPanel",
+      "template": "RcControlPanel",
+      "roles": ["control"],
+      "description": "System control interface (start/stop, config)",
+      "required_tags": ["control", "system"],
+      "suggested_widgets": ["button", "status_indicator", "collapsing_header"],
+      "examples": [
+        "rc_panel_ai_console"
+      ]
+    },
+    {
+      "name": "GeneratorPanel",
+      "template": "RcGeneratorPanel",
+      "roles": ["generator"],
+      "description": "Input form for AI-driven generation with preview",
+      "required_tags": ["generator", "input"],
+      "suggested_widgets": ["text_input", "combo", "button", "preview"],
+      "examples": [
+        "rc_panel_city_spec",
+        "rc_panel_ui_agent"
       ]
     }
-  },
+  ],
   
   "current_panels": [
     {
-      "id": "axiom_inspector",
+      "id": "rc_axiom_inspector",
+      "pattern": "InspectorPanel",
       "role": "inspector",
       "owner_module": "rc_panel_axiom_editor",
-      "suggested_pattern": "InspectorPanel<Axiom>",
-      "data_bindings": ["axiom.selected_id", "axiom.properties.*"],
-      "interaction_patterns": ["list+detail"]
+      "tags": ["axiom", "detail", "selection"]
     },
     {
-      "id": "road_toolbar",
+      "id": "rc_panel_tools",
+      "pattern": "ToolStrip",
       "role": "toolbox",
       "owner_module": "rc_panel_tools",
-      "suggested_pattern": "ToolStrip",
-      "data_bindings": ["tool.active", "road.brush_settings"],
-      "interaction_patterns": ["toolbar+canvas"]
+      "tags": ["tools", "actions"]
     },
     {
-      "id": "road_index",
+      "id": "rc_panel_road_index",
+      "pattern": "DataIndexPanel",
       "role": "index",
       "owner_module": "rc_panel_road_index",
-      "suggested_pattern": "DataIndexPanel<Road>",
-      "data_bindings": ["roads[]", "roads.selected_id"],
-      "interaction_patterns": ["table+selection"]
+      "tags": ["road", "table", "selection"]
     },
     {
-      "id": "district_index",
+      "id": "rc_panel_district_index",
+      "pattern": "DataIndexPanel",
       "role": "index",
       "owner_module": "rc_panel_district_index",
-      "suggested_pattern": "DataIndexPanel<District>",
-      "data_bindings": ["districts[]", "districts.selected_id"],
-      "interaction_patterns": ["table+selection"]
+      "tags": ["district", "table", "selection"]
     },
     {
-      "id": "lot_index",
+      "id": "rc_panel_lot_index",
+      "pattern": "DataIndexPanel",
       "role": "index",
       "owner_module": "rc_panel_lot_index",
-      "suggested_pattern": "DataIndexPanel<Lot>",
-      "data_bindings": ["lots[]", "lots.selected_id"],
-      "interaction_patterns": ["table+selection"]
+      "tags": ["lot", "table", "selection"]
     },
     {
-      "id": "river_index",
+      "id": "rc_panel_river_index",
+      "pattern": "DataIndexPanel",
       "role": "index",
       "owner_module": "rc_panel_river_index",
-      "suggested_pattern": "DataIndexPanel<River>",
-      "data_bindings": ["rivers[]", "rivers.selected_id"],
-      "interaction_patterns": ["table+selection"]
+      "tags": ["river", "table", "selection"]
+    },
+    {
+      "id": "rc_panel_telemetry",
+      "pattern": "MetricsPanel",
+      "role": "inspector",
+      "owner_module": "rc_panel_telemetry",
+      "tags": ["metrics", "performance"]
+    },
+    {
+      "id": "rc_panel_log",
+      "pattern": "LogPanel",
+      "role": "log",
+      "owner_module": "rc_panel_log",
+      "tags": ["log", "debug"]
     },
     {
       "id": "rogue_visualizer",
+      "pattern": "PrimaryViewport",
       "role": "viewport",
       "owner_module": "rc_ui_rogue_visualizer",
-      "suggested_pattern": "PrimaryViewport",
-      "data_bindings": ["camera.*", "view_mode", "selection"],
-      "interaction_patterns": ["canvas+overlay"]
+      "tags": ["viewport", "3d"]
     },
     {
-      "id": "minimap",
-      "role": "nav",
-      "owner_module": "minimap_viewport",
-      "suggested_pattern": "NavOverlay",
-      "data_bindings": ["camera.position", "zoom"],
-      "interaction_patterns": ["minimap"]
+      "id": "rc_panel_ai_console",
+      "pattern": "ControlPanel",
+      "role": "control",
+      "owner_module": "rc_panel_ai_console",
+      "tags": ["ai", "control", "system"]
     },
     {
-      "id": "log",
-      "role": "log",
-      "owner_module": "rc_panel_log",
-      "suggested_pattern": "ScrollingLogPanel",
-      "data_bindings": ["log_entries[]"],
-      "interaction_patterns": ["scrolling_list"]
+      "id": "rc_panel_ui_agent",
+      "pattern": "GeneratorPanel",
+      "role": "generator",
+      "owner_module": "rc_panel_ui_agent",
+      "tags": ["ai", "layout", "input"]
+    },
+    {
+      "id": "rc_panel_city_spec",
+      "pattern": "GeneratorPanel",
+      "role": "generator",
+      "owner_module": "rc_panel_city_spec",
+      "tags": ["ai", "city", "input"]
     }
   ],
   
   "refactoring_opportunities": [
     {
       "name": "Extract common DataIndexPanel pattern",
-      "affected_panels": ["road_index", "district_index", "lot_index", "river_index"],
-      "suggested_action": "Create generic RcDataIndexPanel<T> template",
       "priority": "high",
-      "rationale": "4 panels with nearly identical code structure"
+      "affected_panels": [
+        "rc_panel_road_index",
+        "rc_panel_district_index",
+        "rc_panel_lot_index",
+        "rc_panel_river_index"
+      ],
+      "suggested_action": "Create generic RcDataIndexPanel<T> template in visualizer/src/ui/patterns/rc_ui_data_index_panel.h",
+      "rationale": "4 panels with nearly identical code structure (table + selection + filter)",
+      "estimated_reduction": "~80% code duplication"
     },
     {
-      "name": "Unify inspector panels",
-      "affected_panels": ["axiom_inspector", "road_inspector (future)", "district_inspector (future)"],
-      "suggested_action": "Create RcInspectorPanel<T> template",
+      "name": "Unify AI generator panels",
       "priority": "medium",
-      "rationale": "Consistent property editing UI pattern"
+      "affected_panels": [
+        "rc_panel_ui_agent",
+        "rc_panel_city_spec"
+      ],
+      "suggested_action": "Extract common RcAiGeneratorPanel base class",
+      "rationale": "Shared patterns: bridge status check, input field, generate button, result display",
+      "estimated_reduction": "~60% code duplication"
     }
   ]
 }

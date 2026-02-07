@@ -201,33 +201,50 @@ bool AiBridgeRuntime::StartBridge() {
         std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
         return ExecuteCommand(command, &secondError);
     };
+    
+    auto tryBatFallback = [&]() {
+        // Try BAT fallback script if PowerShell fails
+        std::string batScript = "tools/Start_Ai_Bridge_Fallback.bat";
+        std::string command = "cmd /c \"" + batScript + "\"";
+        std::string batError;
+        std::cout << "[AI] Attempting BAT fallback: " << batScript << std::endl;
+        return ExecuteCommand(command, &batError);
+    };
 
     if (config.preferPwsh) {
         std::cout << "[AI] Attempting to start with pwsh..." << std::endl;
         started = tryPwsh();
         if (!started) {
-            std::cout << "[AI] pwsh failed, trying powershell..." << std::endl;
+            std::cout << "[AI] pwsh failed (" << firstError << "), trying powershell..." << std::endl;
             started = tryPowershell();
+        }
+        if (!started) {
+            std::cout << "[AI] powershell failed (" << secondError << "), trying BAT fallback..." << std::endl;
+            started = tryBatFallback();
         }
     } else {
         std::cout << "[AI] Attempting to start with powershell..." << std::endl;
         started = tryPowershell();
         if (!started) {
-            std::cout << "[AI] powershell failed, trying pwsh..." << std::endl;
+            std::cout << "[AI] powershell failed (" << secondError << "), trying pwsh..." << std::endl;
             started = tryPwsh();
+        }
+        if (!started) {
+            std::cout << "[AI] Both PowerShell variants failed, trying BAT fallback..." << std::endl;
+            started = tryBatFallback();
         }
     }
     
     if (!started) {
         m_status = BridgeStatus::Failed;
         if (!firstError.empty() && !secondError.empty()) {
-            m_lastError = "pwsh: " + firstError + " | powershell: " + secondError;
+            m_lastError = "pwsh: " + firstError + " | powershell: " + secondError + " | BAT fallback also failed";
         } else if (!firstError.empty()) {
             m_lastError = firstError;
         } else if (!secondError.empty()) {
             m_lastError = secondError;
         } else {
-            m_lastError = "Failed to start PowerShell process";
+            m_lastError = "Failed to start bridge (all methods failed)";
         }
         return false;
     }

@@ -143,11 +143,18 @@ endif()
                 OpenGL::GL 
                 glfw_bundled
             )
+            
+            # Link sol2/lua if available (for UI scripting/toolchain)
+            if(TARGET sol2::sol2)
+                target_link_libraries(RogueCityVisualizerGui PRIVATE sol2::sol2)
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUECITY_HAS_SOL2=1)
+            endif()
 
             if(ROGUECITY_HAS_LINPUT)
                 target_link_libraries(RogueCityVisualizerGui PRIVATE LInput::LInput)
                 target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUECITY_HAS_LINPUT=1)
             endif()
+
             
             # Link legacy_stdio_definitions for MSVC compatibility with older GLFW binaries
             if(MSVC AND MSVC_VERSION GREATER_EQUAL 1900)

@@ -146,118 +146,203 @@ async def city_spec(req: CitySpecRequest):
             raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
 
 # =======================================================================
-# UI DESIGN ASSISTANT (Phase 4 - Refactoring/Patterns)
+# UI DESIGN ASSISTANT (Phase 4 - Refactoring/Patterns with Layout Diff)
 # =======================================================================
 
-class UiDesignRequest(BaseModel):
-    # Backward-compatible: accept either `snapshot` (current C++ client) or a raw `introspection_snapshot` dict.
-    snapshot: Optional[Dict[str, Any]] = None
-    introspection_snapshot: Optional[Dict[str, Any]] = None
-    pattern_catalog: Dict[str, Any] = {}
-    goal: str = ""
-    model: str = "qwen2.5:latest"
+class PanelChangeModel(BaseModel):
+    field: str
+    from_: Optional[Any] = None
+    to: Optional[Any] = None
 
+class PanelModifiedModel(BaseModel):
+    id: str
+    changes: List[PanelChangeModel]
+
+class PanelAddedModel(BaseModel):
+    id: str
+    role: str
+    dock_area: str
+    tags: List[str] = []
+    summary: str = ""
+
+class PanelRemovedModel(BaseModel):
+    id: str
+    reason: str = ""
+
+class ActionAddedModel(BaseModel):
+    id: str
+    panel_id: str
+    label: str
+    context_tags: List[str] = []
+
+class LayoutDiffModel(BaseModel):
+    panels_added: List[PanelAddedModel] = []
+    panels_removed: List[PanelRemovedModel] = []
+    panels_modified: List[PanelModifiedModel] = []
+    actions_added: List[ActionAddedModel] = []
 
 class ComponentPatternModel(BaseModel):
     name: str
-    template: str = ""
-    applies_to: List[str] = []
+    template: str
+    applies_to: List[str]
     props: List[str] = []
     description: str = ""
-
 
 class RefactorOpportunityModel(BaseModel):
     name: str
     description: str = ""
-    priority: str = "medium"
-    affected_panels: List[str] = []
-    suggested_action: str = ""
-    rationale: str = ""
+    priority: str
+    affected_panels: List[str]
+    suggested_action: str
+    rationale: str
 
+class UiDesignRequest(BaseModel):
+    snapshot: dict
+    pattern_catalog: dict
+    goal: str
+    model: str = "qwen2.5:latest"
 
 class UiDesignResponse(BaseModel):
-    component_patterns: List[ComponentPatternModel] = []
-    refactoring_opportunities: List[RefactorOpportunityModel] = []
-    suggested_files: List[str] = []
-    summary: str = ""
-
+    updated_layout: dict
+    layout_diff: LayoutDiffModel
+    component_patterns: List[ComponentPatternModel]
+    refactoring_opportunities: List[RefactorOpportunityModel]
+    suggested_files: List[str]
+    summary: str
 
 DESIGN_ASSISTANT_PROMPT = """You are a UI architecture assistant for RogueCity Visualizer.
-You receive:
-- snapshot OR introspection_snapshot: the authoritative description of the current UI.
-- pattern_catalog: known reusable UI patterns.
-- goal: what the developer wants.
+Given a UI snapshot with code-shape metadata and a pattern catalog, analyze for refactoring opportunities.
 
-Respond with VALID JSON matching this schema:
+Your response MUST be valid JSON matching this schema:
 {
-  "component_patterns": [
-    {"name": "...", "template": "...", "applies_to": ["..."], "props": ["..."], "description": "..."}
-  ],
-  "refactoring_opportunities": [
-    {"name": "...", "description": "...", "priority": "high|medium|low", "affected_panels": ["..."], "suggested_action": "...", "rationale": "..."}
-  ],
-  "suggested_files": ["..."],
-  "summary": "..."
+  "updated_layout": {
+    "panels": [ /* updated panel list */ ]
+  },
+  "layout_diff": {
+    "panels_added": [{
+      "id": "panel_id",
+      "role": "inspector|toolbox|viewport|nav|log|index",
+      "dock_area": "Left|Right|Center|Bottom",
+      "tags": ["tag1", "tag2"],
+      "summary": "Brief description"
+    }],
+    "panels_removed": [{
+      "id": "panel_id",
+      "reason": "Why it was removed"
+    }],
+    "panels_modified": [{
+      "id": "panel_id",
+      "changes": [{
+        "field": "dock_area",
+        "from_": "Left",
+        "to": "Right"
+      }]
+    }],
+    "actions_added": [{
+      "id": "action_id",
+      "panel_id": "panel_id",
+      "label": "Action Label",
+      "context_tags": ["mode:AXIOM", "selection:single"]
+    }]
+  },
+  "component_patterns": [{
+    "name": "PatternName",
+    "template": "RcPatternName<T>",
+    "applies_to": ["panel_id1", "panel_id2"],
+    "props": ["prop1", "prop2"],
+    "description": "..."
+  }],
+  "refactoring_opportunities": [{
+    "name": "Refactoring name",
+    "priority": "high|medium|low",
+    "affected_panels": ["panel_id1", ...],
+    "suggested_action": "Create RcTemplate<T> in path/to/file.h",
+    "rationale": "Why this refactoring improves the codebase"
+  }],
+  "suggested_files": ["path/to/file1.h", ...],
+  "summary": "High-level summary of findings"
 }
 
-Rules:
-- Keep panel IDs stable; only reference new ones when necessary.
-- Use roles and tags consistently.
-- Prefer proposing patterns that reduce duplication.
-- Be concrete (what to extract, where to move, why).
-"""
+Focus on:
+1. Code duplication - panels with similar structure
+2. Data binding patterns - common data access patterns
+3. Interaction patterns - reusable UI behaviors
+4. Role clustering - panels with the same role
 
+IMPORTANT: Always fill layout_diff to summarize changes. Keep IDs consistent with current_layout.
+"""
 
 @app.post("/ui_design_assistant", response_model=UiDesignResponse)
 async def ui_design_assistant(req: UiDesignRequest):
     if _toolserver_mock_enabled():
-        return {
-            "component_patterns": [
-                {
-                    "name": "InspectorPanel",
-                    "template": "RcInspectorPanel<T>",
-                    "applies_to": ["Analytics"],
-                    "props": ["selected_id", "properties"],
-                    "description": "Unify inspector-like panels under a shared template."
-                }
+        # Mock response with sample diff
+        return UiDesignResponse(
+            updated_layout={"panels": req.snapshot.get("panels", [])},
+            layout_diff=LayoutDiffModel(
+                panels_added=[
+                    PanelAddedModel(
+                        id="rc_axiom_metrics",
+                        role="inspector",
+                        dock_area="Right",
+                        tags=["axiom", "metrics"],
+                        summary="New metrics inspector for axioms"
+                    )
+                ],
+                panels_removed=[],
+                panels_modified=[
+                    PanelModifiedModel(
+                        id="rc_panel_tools",
+                        changes=[
+                            PanelChangeModel(field="dock_area", from_="Bottom", to="Left")
+                        ]
+                    )
+                ],
+                actions_added=[]
+            ),
+            component_patterns=[
+                ComponentPatternModel(
+                    name="DataIndexPanel<T>",
+                    template="RcDataIndexPanel<T>",
+                    applies_to=["rc_panel_road_index", "rc_panel_district_index"],
+                    props=["entities[]", "selected_id"],
+                    description="Generic sortable/filterable table"
+                )
             ],
-            "refactoring_opportunities": [
-                {
-                    "name": "Unify Inspector Controls",
-                    "description": "Extract repeated inspector widgets into a shared component.",
-                    "priority": "medium",
-                    "affected_panels": ["Analytics"],
-                    "suggested_action": "Extract common property editors into RcInspectorPanel<T>.",
-                    "rationale": "Reduces duplication and standardizes interaction patterns."
-                }
+            refactoring_opportunities=[
+                RefactorOpportunityModel(
+                    name="Extract common DataIndexPanel pattern",
+                    priority="high",
+                    affected_panels=["rc_panel_road_index", "rc_panel_district_index", "rc_panel_lot_index"],
+                    suggested_action="Create generic RcDataIndexPanel<T> template",
+                    rationale="3+ panels with 80% code duplication"
+                )
             ],
-            "suggested_files": ["visualizer/src/ui/panels/rc_panel_telemetry.cpp"],
-            "summary": "Mock response (ROGUECITY_TOOLSERVER_MOCK=1)."
-        }
-
-    snapshot = req.snapshot if req.snapshot is not None else req.introspection_snapshot
-    if snapshot is None:
-        raise HTTPException(status_code=400, detail="Missing snapshot/introspection_snapshot")
-
-    goal = req.goal.strip() or "Analyze UI for refactoring opportunities"
-    prompt = (
-        f"{DESIGN_ASSISTANT_PROMPT}\n\n"
-        f"goal:\n{goal}\n\n"
-        f"pattern_catalog:\n{json.dumps(req.pattern_catalog, indent=2)}\n\n"
-        f"snapshot:\n{json.dumps(snapshot, indent=2)}\n\n"
-        "JSON response:"
-    )
-
+            suggested_files=[
+                "visualizer/src/ui/patterns/rc_ui_data_index_panel.h",
+                "visualizer/src/ui/patterns/rc_ui_inspector_panel.h"
+            ],
+            summary="Found high-priority refactoring: extract DataIndexPanel template to eliminate duplication."
+        )
+    
+    prompt = f"{DESIGN_ASSISTANT_PROMPT}\n\nSnapshot:\n{json.dumps(req.snapshot, indent=2)}\n\nPattern Catalog:\n{json.dumps(req.pattern_catalog, indent=2)}\n\nGoal: {req.goal}\n\nJSON:"
+    
     ollama_url = "http://127.0.0.1:11434/api/generate"
-    ollama_payload = {"model": req.model, "prompt": prompt, "stream": False, "format": "json"}
-
+    ollama_payload = {
+        "model": req.model,
+        "prompt": prompt,
+        "stream": False,
+        "format": "json"
+    }
+    
     async with httpx.AsyncClient(timeout=180.0) as client:
         try:
-            r = await client.post(ollama_url, json=ollama_payload)
-            r.raise_for_status()
-            text = r.json().get("response", "")
-            data = json.loads(text)
-            # Let pydantic validate/shape the response
-            return UiDesignResponse.model_validate(data)
+            response = await client.post(ollama_url, json=ollama_payload)
+            response.raise_for_status()
+            ollama_response = response.json()
+            generated_text = ollama_response.get("response", "")
+            
+            plan = json.loads(generated_text)
+            return UiDesignResponse(**plan)
+                    
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
