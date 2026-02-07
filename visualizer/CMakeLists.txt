@@ -94,6 +94,7 @@ endif()
                 src/ui/panels/rc_panel_road_index.cpp
                 src/ui/panels/rc_panel_lot_index.cpp
                 src/ui/panels/rc_panel_river_index.cpp
+                src/ui/panels/rc_panel_ai_console.cpp  # NEW: AI bridge control
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"

@@ -6,6 +6,9 @@
 #include "ui/rc_ui_theme.h"
 #include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine theme
 
+// AI system includes
+#include "config/AiConfig.h"
+
 #include <imgui.h>
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -72,6 +75,9 @@ int main(int, char**)
 
     // Apply Cockpit Doctrine theme (MUST be before any UI rendering)
     RogueCity::UI::DesignSystem::ApplyCockpitTheme();
+    
+    // Load AI configuration
+    RogueCity::AI::AiConfigManager::Instance().LoadFromFile("AI/ai_config.json");
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);

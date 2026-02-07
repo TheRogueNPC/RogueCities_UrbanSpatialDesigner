@@ -1,0 +1,11 @@
+{
+  "start_script": "tools/Start_Ai_Bridge.ps1",
+  "stop_script": "tools/Stop_Ai_Bridge.ps1",
+  "ui_agent_model": "qwen2.5:latest",
+  "city_spec_model": "qwen2.5:latest",
+  "code_assistant_model": "qwen3-coder-optimized:latest",
+  "naming_model": "hermes3:8b",
+  "prefer_pwsh": true,
+  "health_check_timeout_sec": 30,
+  "bridge_base_url": "http://127.0.0.1:7077"
+}

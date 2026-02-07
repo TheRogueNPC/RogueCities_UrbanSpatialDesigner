@@ -11,6 +11,7 @@
 #include "ui/panels/rc_panel_road_index.h"
 #include "ui/panels/rc_panel_lot_index.h"
 #include "ui/panels/rc_panel_river_index.h"
+#include "ui/panels/rc_panel_ai_console.h"  // NEW: AI bridge control
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"  // NEW: Minimap integration
 #include "ui/rc_ui_theme.h"
 
@@ -19,6 +20,11 @@
 #include <memory>
 
 namespace RC_UI {
+
+// AI Console panel instance (static wrapper)
+namespace {
+    static RogueCity::UI::AiConsolePanel s_ai_console_instance;
+}
 
 // Static minimap instance (Phase 5: Polish)
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
@@ -123,6 +129,9 @@ void DrawRoot(float dt)
     Panels::LotIndex::Draw(dt);
     Panels::RiverIndex::Draw(dt);
     Panels::Log::Draw(dt);
+    
+    // AI Console (uses static instance)
+    s_ai_console_instance.Render();
 
     // Minimap is now embedded as overlay in RogueVisualizer (no separate panel)
     // Still update the minimap viewport for shared camera sync

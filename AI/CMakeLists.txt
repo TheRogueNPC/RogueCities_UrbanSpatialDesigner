@@ -13,12 +13,16 @@ set(AI_SOURCES
     protocol/UiAgentProtocol.cpp
     tools/HttpClient.cpp
     integration/AiAssist.cpp
+    config/AiConfig.cpp
+    runtime/AiBridgeRuntime.cpp
 )
 
 set(AI_HEADERS
     protocol/UiAgentProtocol.h
     tools/HttpClient.h
     integration/AiAssist.h
+    config/AiConfig.h
+    runtime/AiBridgeRuntime.h
 )
 
 # === LIBRARY TARGET ===
@@ -62,6 +66,11 @@ if(TARGET RogueCityImGui)
     message(STATUS "AI Protocol Layer: ImGui found, UI controls enabled")
 else()
     message(STATUS "AI Protocol Layer: ImGui not found, UI controls disabled")
+endif()
+
+# Windows-specific libraries for PowerShell execution and HTTP
+if(WIN32)
+    target_link_libraries(RogueCityAI PRIVATE winhttp)
 endif()
 
 message(STATUS "AI Protocol Layer configured successfully")
