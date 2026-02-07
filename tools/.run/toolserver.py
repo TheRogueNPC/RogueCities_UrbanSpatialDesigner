@@ -1,11 +1,4 @@
 # File: .run/toolserver.py
-# Local API for n8n Cloud -> your machine -> Ollama
-# Runs on localhost only: http://127.0.0.1:7077
-# Endpoints:
-# GET /health - Deep health check (verifies Ollama connectivity)
-# GET /models - List available Ollama models
-# POST /chat {prompt, model?, system?}
-
 from fastapi import FastAPI
 from pydantic import BaseModel
 import httpx
@@ -23,7 +16,6 @@ class ChatIn(BaseModel):
 
 @app.get("/health")
 async def health():
-    """Deep health check - verifies Ollama connectivity and model availability"""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get(f"{OLLAMA_URL}/api/tags")
@@ -39,21 +31,12 @@ async def health():
                 "default_model": DEFAULT_MODEL
             }
     except httpx.ConnectError:
-        return {
-            "ok": False,
-            "ollama": "disconnected",
-            "error": f"Cannot connect to Ollama at {OLLAMA_URL}"
-        }
+        return {"ok": False, "ollama": "disconnected", "error": f"Cannot connect to Ollama at {OLLAMA_URL}"}
     except Exception as e:
-        return {
-            "ok": False,
-            "ollama": "error",
-            "error": str(e)
-        }
+        return {"ok": False, "ollama": "error", "error": str(e)}
 
 @app.get("/models")
 async def list_models():
-    """List all available Ollama models"""
     async with httpx.AsyncClient(timeout=5.0) as client:
         r = await client.get(f"{OLLAMA_URL}/api/tags")
         r.raise_for_status()
@@ -71,4 +54,4 @@ async def chat(payload: ChatIn):
         return {"model": model, "response": data.get("response", "")}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=7077)
+    uvicorn.run(app, host="127.0.0.1", port=7077, log_level="warning")

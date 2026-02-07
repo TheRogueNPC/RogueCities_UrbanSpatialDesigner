@@ -24,7 +24,15 @@ $Model = "qwen3-coder-optimized:latest"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RunDir = Join-Path $Root ".run"
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
-$ToolServerPy = Join-Path $RunDir "toolserver.py"
+$RepoToolServer = Join-Path $Root "tools\toolserver.py"
+if (Test-Path $RepoToolServer) {
+    Write-Host "Found existing toolserver.py in repo: $RepoToolServer" -ForegroundColor Green
+    $ToolServerPy = $RepoToolServer
+    $UseRepoToolServer = $true
+} else {
+    $ToolServerPy = Join-Path $RunDir "toolserver.py"
+    $UseRepoToolServer = $false
+}
 $ToolServerPidFile = Join-Path $RunDir "toolserver.pid"
 $TunnelPidFile = Join-Path $RunDir "tunnel.pid"
 $OllamaPidFile = Join-Path $RunDir "ollama.pid"
@@ -241,11 +249,15 @@ function Test-ExistingToolServer {
 
 function Start-ToolServer {
     Write-Header "Starting toolserver on $ToolServerUrl"
-    Write-ToolServerFile
+    if ($UseRepoToolServer) {
+        Write-Host "Using repository toolserver.py at: $ToolServerPy" -ForegroundColor Green
+    } else {
+        Write-ToolServerFile
+    }
     Ensure-PythonDeps
     
     Write-Host "Launching Python process..." -ForegroundColor Yellow
-    $p = Start-Process -FilePath "python" -ArgumentList "`"$ToolServerPy`"" -PassThru -WindowStyle Hidden
+    $p = Start-Process -FilePath "python" -ArgumentList "-u", "`"$ToolServerPy`"" -PassThru -WindowStyle Hidden
     $p.Id | Out-File -FilePath $ToolServerPidFile -Encoding ascii
     Write-Host "  PID: $($p.Id)" -ForegroundColor Gray
     
