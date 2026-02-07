@@ -2,6 +2,7 @@
 #include "config/AiConfig.h"
 #include "tools/HttpClient.h"
 #include <fstream>
+#include <filesystem>
 #include <iostream>
 #include <chrono>
 #include <iomanip>
@@ -132,6 +133,106 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     return plan;
 }
 
+UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
+    const nlohmann::json& introspectionSnapshot,
+    const std::string& goal
+) {
+    auto& config = AiConfigManager::Instance().GetConfig();
+    std::string url = config.bridgeBaseUrl + "/ui_design_assistant";
+
+    // Load pattern catalog
+    json catalog = LoadPatternCatalog();
+
+    // Build request payload
+    json requestBody;
+    requestBody["introspection_snapshot"] = introspectionSnapshot;
+    requestBody["pattern_catalog"] = catalog;
+    requestBody["goal"] = goal.empty() ? "Analyze UI for refactoring opportunities" : goal;
+    requestBody["model"] = config.uiAgentModel;
+
+    std::cout << "[UiDesignAssistant] Generating design plan from introspection snapshot..." << std::endl;
+    if (!goal.empty()) {
+        std::cout << "[UiDesignAssistant] Goal: " << goal << std::endl;
+    }
+
+    std::string responseStr = HttpClient::PostJson(url, requestBody.dump());
+
+    UiDesignPlan plan;
+
+    if (responseStr.empty() || responseStr == "[]") {
+        std::cerr << "[UiDesignAssistant] Empty response from design assistant" << std::endl;
+        return plan;
+    }
+
+    try {
+        json response = json::parse(responseStr);
+
+        if (response.contains("error")) {
+            std::cerr << "[UiDesignAssistant] Error: " << response["error"] << std::endl;
+            return plan;
+        }
+
+        if (response.contains("component_patterns")) {
+            for (const auto& p : response["component_patterns"]) {
+                UiComponentPattern pattern;
+                pattern.name = p.value("name", "");
+                pattern.template_name = p.value("template", "");
+                pattern.description = p.value("description", "");
+
+                if (p.contains("applies_to")) {
+                    for (const auto& id : p["applies_to"]) {
+                        pattern.applies_to.push_back(id.get<std::string>());
+                    }
+                }
+
+                if (p.contains("props")) {
+                    for (const auto& prop : p["props"]) {
+                        pattern.props.push_back(prop.get<std::string>());
+                    }
+                }
+
+                plan.component_patterns.push_back(pattern);
+            }
+        }
+
+        if (response.contains("refactoring_opportunities")) {
+            for (const auto& r : response["refactoring_opportunities"]) {
+                UiDesignSuggestion suggestion;
+                suggestion.name = r.value("name", "");
+                suggestion.description = r.value("description", "");
+                suggestion.priority = r.value("priority", "medium");
+                suggestion.suggested_action = r.value("suggested_action", "");
+                suggestion.rationale = r.value("rationale", "");
+
+                if (r.contains("affected_panels")) {
+                    for (const auto& panel : r["affected_panels"]) {
+                        suggestion.affected_panels.push_back(panel.get<std::string>());
+                    }
+                }
+
+                plan.refactoring_opportunities.push_back(suggestion);
+            }
+        }
+
+        if (response.contains("suggested_files")) {
+            for (const auto& file : response["suggested_files"]) {
+                plan.suggested_files.push_back(file.get<std::string>());
+            }
+        }
+
+        plan.summary = response.value("summary", "");
+
+        std::cout << "[UiDesignAssistant] Generated " << plan.component_patterns.size()
+                  << " patterns, " << plan.refactoring_opportunities.size()
+                  << " refactoring opportunities" << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "[UiDesignAssistant] Failed to parse response: " << e.what() << std::endl;
+    }
+
+    return plan;
+}
+
 bool UiDesignAssistant::SaveDesignPlan(
     const UiDesignPlan& plan,
     const std::string& filename
@@ -176,6 +277,15 @@ bool UiDesignAssistant::SaveDesignPlan(
     j["generated_at"] = ss.str();
     
     // Write to file
+    try {
+        std::filesystem::path path(filename);
+        if (path.has_parent_path()) {
+            std::filesystem::create_directories(path.parent_path());
+        }
+    } catch (...) {
+        // best-effort; directory creation failure will be handled by file open below
+    }
+
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "[UiDesignAssistant] Failed to open file for writing: " << filename << std::endl;

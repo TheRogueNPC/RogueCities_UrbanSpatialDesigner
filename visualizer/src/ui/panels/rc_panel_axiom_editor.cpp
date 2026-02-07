@@ -14,6 +14,7 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
+#include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cstring>
@@ -390,14 +391,28 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
 }
 
 void Draw(float dt) {
-Initialize();
+ Initialize();
     
-// Use DesignSystem panel helper (enforces Cockpit Doctrine styling)
-DesignSystem::BeginPanel("RogueVisualizer", 
-    ImGuiWindowFlags_NoCollapse | 
-    ImGuiWindowFlags_NoScrollbar |
-    ImGuiWindowFlags_NoScrollWithMouse
-);
+ // Use DesignSystem panel helper (enforces Cockpit Doctrine styling)
+ DesignSystem::BeginPanel("RogueVisualizer", 
+     ImGuiWindowFlags_NoCollapse | 
+     ImGuiWindowFlags_NoScrollbar |
+     ImGuiWindowFlags_NoScrollWithMouse
+ );
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "RogueVisualizer",
+            "RogueVisualizer",
+            "viewport",
+            "Center",
+            "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+            {"viewport", "axiom", "minimap"}
+        },
+        true
+    );
+    uiint.RegisterWidget({"viewport", "Primary Viewport", "viewport.primary", {"viewport"}});
     
 // Get editor state to determine if axiom tool should be active
 auto& gs = RogueCity::Core::Editor::GetGlobalState();
@@ -460,7 +475,19 @@ ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f),
 
     // Axiom Library (palette) - toggled by "Axiom Deck"
     if (RC_UI::IsAxiomLibraryOpen()) {
-        ImGui::Begin("Axiom Library", nullptr, ImGuiWindowFlags_NoCollapse);
+        const bool open = ImGui::Begin("Axiom Library", nullptr, ImGuiWindowFlags_NoCollapse);
+
+        uiint.BeginPanel(
+            RogueCity::UIInt::PanelMeta{
+                "Axiom Library",
+                "Axiom Library",
+                "toolbox",
+                "Right",
+                "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+                {"axiom", "library"}
+            },
+            open
+        );
 
         ImGui::TextColored(ImVec4(1, 1, 1, 0.85f), "Axiom Library (Ctrl: apply to selection)");
 
@@ -508,6 +535,8 @@ ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f),
             ImGui::PopID();
         }
 
+        uiint.RegisterWidget({"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
+        uiint.EndPanel();
         ImGui::End();
     }
 
@@ -707,6 +736,7 @@ ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f),
     
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).
     
+    uiint.EndPanel();
     DesignSystem::EndPanel();  // Use DesignSystem helper (matches BeginPanel)
 }
 

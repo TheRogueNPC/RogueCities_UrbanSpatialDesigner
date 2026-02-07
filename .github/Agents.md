@@ -1,4 +1,24 @@
 # RogueCities Agents
+
+## Recent Updates (R0 - AI Integration)
+
+**Date**: February 6, 2026  
+**Status**: AI Assistant Integration Complete (Phases 1-4)
+
+### New AI Capabilities
+- **AI Bridge Runtime**: PowerShell-managed local AI toolserver with health monitoring
+- **UI Agent Protocol**: Natural language UI layout optimization with command generation
+- **CitySpec Generator**: AI-driven city design from natural language descriptions
+- **Design Assistant**: Code-shape aware refactoring with pattern catalog system
+
+### Integration Points
+- AI layer: `AI/` (config, runtime, protocol, clients)
+- Visualizer panels: `visualizer/src/ui/panels/rc_panel_ai_*`
+- Toolserver: `tools/toolserver.py` (FastAPI + Ollama)
+- Documentation: `docs/AI_Integration_*`
+
+---
+
 ## Master AI Director: The Architect (RogueCities Director)
 
 **Name:** The Architect
@@ -228,6 +248,43 @@ ImGui's immediate mode enables **what most UI frameworks cannot**:
 - Design state-reactive panel layouts that morph with HFSM transitions.
 - Implement motion-based affordances (wiggle, glow, pulse) for tool guidance.
 - Create diegetic control surfaces with Y2K geometric language.
+
+---
+
+### 9. AI Integration Agent (Assistant Tooling)
+**Role**: Maintain and extend the AI assistant integration layer for development workflow automation.
+**Primary focus**: Ensure AI toolserver, protocol types, and client APIs remain stable and well-documented.
+
+**Responsibilities**:
+- **Toolserver Management**: Maintain `tools/toolserver.py` endpoints (/health, /ui_agent, /city_spec, /ui_design_assistant)
+- **Protocol Stability**: Ensure `AI/protocol/UiAgentProtocol.*` types remain backward-compatible
+- **Client APIs**: Maintain `AI/client/*` implementations (UiAgentClient, CitySpecClient, UiDesignAssistant)
+- **Documentation**: Keep `docs/AI_Integration_*` and `AI/docs/*` synchronized with implementation
+
+**Key Files**:
+- Configuration: `AI/config/AiConfig.*`, `AI/ai_config.json`
+- Runtime: `AI/runtime/AiBridgeRuntime.*`
+- Clients: `AI/client/UiAgentClient.*`, `AI/client/CitySpecClient.*`, `AI/client/UiDesignAssistant.*`
+- UI Panels: `visualizer/src/ui/panels/rc_panel_ai_*.cpp`
+- Toolserver: `tools/toolserver.py`, `tools/Start_Ai_Bridge.ps1`
+
+**Integration Points**:
+- **Phase 1**: Bridge runtime control (PowerShell detection, health checks)
+- **Phase 2**: UI Agent Protocol (WinHTTP client, layout optimization)
+- **Phase 3**: CitySpec MVP (AI-driven city design)
+- **Phase 4**: Code-shape awareness (pattern catalog, refactoring suggestions)
+
+**Must follow**:
+- Keep toolserver endpoints versioned and backward-compatible
+- Ensure HTTP client error handling is robust
+- Maintain mock mode (`ROGUECITY_TOOLSERVER_MOCK`) for testing
+- Document all protocol changes in `AI/docs/`
+
+**Typical tasks**:
+- Add new toolserver endpoints with proper type validation
+- Extend UiSnapshot with new metadata fields
+- Update pattern catalog (`AI/docs/ui/ui_patterns.json`)
+- Generate design plans and validate AI suggestions
 - Build contextual inspectors that show only relevant data per selection.
 - Ensure data indices (Road/District/Lot) are always visible in UI chrome.
 - Animate transitions between editor modes (Axiom Placement → Road Tracing → District Zoning).

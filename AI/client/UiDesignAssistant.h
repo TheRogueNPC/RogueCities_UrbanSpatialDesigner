@@ -43,6 +43,14 @@ public:
         const UiSnapshot& snapshot,
         const std::string& goal = ""
     );
+
+    /// Generate a design/refactor plan from a UI introspection JSON snapshot (ui-introspect-v1)
+    /// @param introspectionSnapshot Runtime UI export as JSON (panels/widgets/actions/dock_tree)
+    /// @param goal Optional specific goal (e.g. "unify inspector panels into one pattern")
+    static UiDesignPlan GenerateDesignPlan(
+        const nlohmann::json& introspectionSnapshot,
+        const std::string& goal = ""
+    );
     
     /// Save design plan to JSON file
     static bool SaveDesignPlan(

@@ -5,6 +5,7 @@
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/introspection/UiIntrospection.h"
 
 #include <imgui.h>
 
@@ -13,7 +14,27 @@ namespace RC_UI::Panels::AxiomBar {
 void Draw(float dt)
 {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    ImGui::Begin("Axiom Bar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("Axiom Bar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Axiom Bar",
+            "Axiom Bar",
+            "nav",
+            "Top",
+            "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp",
+            {"axiom", "nav"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        ImGui::End();
+        ImGui::PopStyleColor();
+        return;
+    }
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
@@ -30,6 +51,8 @@ void Draw(float dt)
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
         RC_UI::ToggleAxiomLibrary();
     }
+    uiint.RegisterWidget({"button", "Axiom Deck", "action:axiom_library.toggle", {"action", "nav"}});
+    uiint.RegisterAction({"axiom_library.toggle", "Toggle Axiom Library", "Axiom Bar", {}, "RC_UI::ToggleAxiomLibrary"});
     chip_hover.target = ImGui::IsItemHovered() ? 1.0f : 0.0f;
     chip_hover.Update(dt);
 
@@ -40,6 +63,7 @@ void Draw(float dt)
     draw_list->AddText(ImVec2(chip_min.x + 12.0f, chip_min.y + 6.0f),
         ImGui::ColorConvertFloat4ToU32(ColorBG), "Axiom Deck");
 
+    uiint.EndPanel();
     ImGui::End();
     ImGui::PopStyleColor();
 }

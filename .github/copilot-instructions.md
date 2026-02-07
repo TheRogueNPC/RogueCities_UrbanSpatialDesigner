@@ -1,5 +1,52 @@
 # Copilot instructions for RogueCities_UrbanSatialDesigner
 
+## Recent Updates (R0 - AI Integration)
+
+**Date**: February 6, 2026  
+**Integration Status**: ✅ Complete (Phases 1-4)
+
+### AI Assistant Integration
+Four-phase AI assistant integration is now complete and production-ready:
+
+1. **Phase 1**: AI Bridge Runtime Control
+   - PowerShell bridge management with pwsh/powershell fallback
+   - Health check polling via WinHTTP
+   - AI Console panel for start/stop control
+   - Configuration: `AI/ai_config.json`, `AI/config/AiConfig.*`
+
+2. **Phase 2**: UI Agent Protocol
+   - Real WinHTTP client (replaced stub)
+   - UiAgentClient for layout optimization
+   - Natural language UI commands
+   - Protocol types: `AI/protocol/UiAgentProtocol.*`
+
+3. **Phase 3**: CitySpec MVP
+   - AI-driven city design from natural language
+   - CitySpec types in core: `core/include/RogueCity/Core/Data/CitySpec.hpp`
+   - CitySpecClient and generator panel
+   - JSON serialization for city specifications
+
+4. **Phase 4**: Code-Shape Awareness
+   - Enhanced UiSnapshot with code metadata (role, owner_module, data_bindings)
+   - UI Pattern Catalog: `AI/docs/ui/ui_patterns.json`
+   - Design Assistant for refactoring suggestions
+   - Dual-mode UI Agent (layout + design/refactor planning)
+
+### Key Components
+- **Runtime**: `AI/runtime/AiBridgeRuntime.*` - Bridge lifecycle management
+- **Clients**: `AI/client/*` - UiAgentClient, CitySpecClient, UiDesignAssistant
+- **Toolserver**: `tools/toolserver.py` - FastAPI endpoints for AI services
+- **UI Panels**: `visualizer/src/ui/panels/rc_panel_ai_*.cpp` - ImGui interfaces
+
+### Documentation
+- Summary: `docs/AI_Integration_Summary.md`
+- Phase 1: `docs/AI_Integration_Phase1_Complete.md`
+- Phases 2-3: `docs/AI_Integration_Phase2_3_Complete.md`
+- Phase 4: `docs/AI_Integration_Phase4_Complete.md`
+- Quick ref: `AI/docs/Phase4_QuickReference.md`
+
+---
+
 ## Big picture architecture
 - Three-layer layout: core (data types + math), generators (procedural algorithms), app (ImGui UI). See [ReadMe.md](ReadMe.md) and [core/CMakeLists.txt](core/CMakeLists.txt).
 - `RogueCityCore` is pure data/utility with zero UI deps; it hard-fails if imgui/glfw/glad are pulled in. See [core/CMakeLists.txt](core/CMakeLists.txt).
@@ -56,6 +103,10 @@
 - If the request touches UI/UX, ImGui panels, motion design, state-reactive surfaces, or editor experience → consult UI/UX/ImGui/ImVue Master.
   - Use: read_file under app/, grep_search for ImGui/HFSM integration, enforce Cockpit Doctrine (Vignelli structure, Y2K geometry, guided affordance).
   - Critical: Ensure Core stays UI-free, validate state-reactive design, check motion has instructional purpose.
+- If the request involves AI integration, toolserver endpoints, protocol types, or assistant workflows → consult AI Integration Agent.
+  - Use: read_file on [docs/AI_Integration_Summary.md](docs/AI_Integration_Summary.md), verify protocol compatibility, check toolserver.py endpoints.
+  - Key files: `AI/protocol/UiAgentProtocol.*`, `AI/client/*`, `tools/toolserver.py`
+  - Critical: Maintain backward compatibility, document protocol changes, ensure mock mode works.
 
 ## Useful references
 - Design/architecture narrative: [ReadMe.md](ReadMe.md) and [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md).

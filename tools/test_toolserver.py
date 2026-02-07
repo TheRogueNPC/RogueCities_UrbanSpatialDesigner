@@ -48,7 +48,16 @@ class ToolserverEndpointTests(unittest.TestCase):
         self.assertIn("intent", j["spec"])
         self.assertEqual(j["spec"]["intent"].get("scale"), "city")
 
+    def test_ui_design_assistant_mock(self):
+        payload = {"snapshot": {"app": "test", "layout": {}}, "pattern_catalog": {}, "goal": "refactor", "model": "x"}
+        r = self.client.post("/ui_design_assistant", json=payload)
+        self.assertEqual(r.status_code, 200)
+        j = r.json()
+        self.assertIn("component_patterns", j)
+        self.assertIn("refactoring_opportunities", j)
+        self.assertIn("suggested_files", j)
+        self.assertIn("summary", j)
+
 
 if __name__ == "__main__":
     unittest.main()
-

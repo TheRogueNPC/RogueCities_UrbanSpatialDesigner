@@ -2,6 +2,7 @@
 // PURPOSE: Stub log panel with reactive highlight.
 #include "ui/panels/rc_panel_log.h"
 
+#include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
 
@@ -12,7 +13,27 @@ namespace RC_UI::Panels::Log {
 void Draw(float dt)
 {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    ImGui::Begin("Log", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("Log", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Log",
+            "Log",
+            "log",
+            "Bottom",
+            "visualizer/src/ui/panels/rc_panel_log.cpp",
+            {"events", "telemetry"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        ImGui::End();
+        ImGui::PopStyleColor();
+        return;
+    }
 
     // TODO (visualizer/src/ui/panels/rc_panel_log.cpp): Wire log stream to generator events.
     static ReactiveF flash;
@@ -29,6 +50,9 @@ void Draw(float dt)
     ImGui::Text("↳ District solver idle");
     ImGui::EndChild();
     ImGui::PopStyleColor();
+
+    uiint.RegisterWidget({"tree", "LogStream", "log.tail", {"log"}});
+    uiint.EndPanel();
 
     ImGui::End();
     ImGui::PopStyleColor();

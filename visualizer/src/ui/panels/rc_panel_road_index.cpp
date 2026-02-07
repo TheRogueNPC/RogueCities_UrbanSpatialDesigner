@@ -2,6 +2,7 @@
 // PURPOSE: Implementation of road index panel.
 
 #include "ui/panels/rc_panel_road_index.h"
+#include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -13,7 +14,27 @@ void Draw(float /*dt*/)
 {
     using RogueCity::Core::Editor::GetGlobalState;
     auto& gs = GetGlobalState();
-    ImGui::Begin("Road Index", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("Road Index", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Road Index",
+            "Road Index",
+            "index",
+            "Bottom",
+            "visualizer/src/ui/panels/rc_panel_road_index.cpp",
+            {"roads", "index"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        ImGui::End();
+        return;
+    }
+
     ImGui::Text("Roads: %llu", static_cast<unsigned long long>(gs.roads.size()));
     ImGui::Separator();
     for (size_t i = 0; i < gs.roads.size(); ++i) {
@@ -24,6 +45,8 @@ void Draw(float /*dt*/)
         snprintf(label, sizeof(label), "Road %u (%s)", road.id, user_flag);
         ImGui::Selectable(label);
     }
+    uiint.RegisterWidget({"table", "Roads", "roads[]", {"index"}});
+    uiint.EndPanel();
     ImGui::End();
 }
 

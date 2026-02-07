@@ -14,8 +14,11 @@
 #include "ui/panels/rc_panel_ai_console.h"  // NEW: AI bridge control
 #include "ui/panels/rc_panel_ui_agent.h"    // NEW: UI Agent assistant (Phase 2)
 #include "ui/panels/rc_panel_city_spec.h"   // NEW: CitySpec generator (Phase 3)
+#include "ui/panels/rc_panel_dev_shell.h"
+#include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"  // NEW: Minimap integration
 #include "ui/rc_ui_theme.h"
+#include "RogueCity/Core/Editor/EditorState.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -34,6 +37,100 @@ namespace {
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
 static bool s_axiom_library_open = false;
 static bool s_dock_built = false;
+
+static std::string ActiveModeFromHFSM() {
+    using RogueCity::Core::Editor::EditorState;
+    const auto state = RogueCity::Core::Editor::GetEditorHFSM().state();
+
+    switch (state) {
+        case EditorState::Editing_Axioms:
+        case EditorState::Viewport_PlaceAxiom:
+            return "AXIOM";
+        case EditorState::Editing_Roads:
+        case EditorState::Viewport_DrawRoad:
+            return "ROAD";
+        case EditorState::Editing_Districts:
+            return "DISTRICT";
+        case EditorState::Editing_Lots:
+            return "LOT";
+        case EditorState::Editing_Buildings:
+            return "BUILDING";
+        default:
+            break;
+    }
+
+    return "IDLE";
+}
+
+static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
+    using RogueCity::UIInt::DockTreeNode;
+    DockTreeNode root;
+    root.id = "root";
+    root.orientation = "vertical";
+
+    DockTreeNode top;
+    top.id = "top";
+    top.panel_id = "Axiom Bar";
+
+    DockTreeNode center;
+    center.id = "center";
+    center.panel_id = "RogueVisualizer";
+
+    DockTreeNode analytics;
+    analytics.id = "analytics";
+    analytics.panel_id = "Analytics";
+
+    DockTreeNode axiom_library;
+    axiom_library.id = "axiom_library";
+    axiom_library.panel_id = "Axiom Library";
+
+    DockTreeNode right_column;
+    right_column.id = "right_column";
+    right_column.orientation = "vertical";
+    right_column.children = {analytics, axiom_library};
+
+    DockTreeNode main_row;
+    main_row.id = "main_row";
+    main_row.orientation = "horizontal";
+    main_row.children = {center, right_column};
+
+    DockTreeNode tools;
+    tools.id = "tools";
+    tools.panel_id = "Tools";
+
+    DockTreeNode log;
+    log.id = "log";
+    log.panel_id = "Log";
+
+    DockTreeNode district_index;
+    district_index.id = "district_index";
+    district_index.panel_id = "District Index";
+
+    DockTreeNode road_index;
+    road_index.id = "road_index";
+    road_index.panel_id = "Road Index";
+
+    DockTreeNode lot_index;
+    lot_index.id = "lot_index";
+    lot_index.panel_id = "Lot Index";
+
+    DockTreeNode river_index;
+    river_index.id = "river_index";
+    river_index.panel_id = "River Index";
+
+    DockTreeNode bottom_tabs;
+    bottom_tabs.id = "bottom_tabs";
+    bottom_tabs.orientation = "horizontal";
+    bottom_tabs.children = {log, district_index, road_index, lot_index, river_index};
+
+    DockTreeNode bottom;
+    bottom.id = "bottom";
+    bottom.orientation = "vertical";
+    bottom.children = {tools, bottom_tabs};
+
+    root.children = {top, main_row, bottom};
+    return root;
+}
 
 void InitializeMinim() {
     if (!s_minimap) {
@@ -93,6 +190,13 @@ void DrawRoot(float dt)
     // Initialize minimap on first call
     InitializeMinim();
 
+    // Begin UI introspection for this frame (dev-only tooling).
+    auto& introspector = RogueCity::UIInt::UiIntrospector::Instance();
+    introspector.BeginFrame(ActiveModeFromHFSM(), RC_UI::Panels::DevShell::IsOpen());
+    if (!s_dock_built) {
+        introspector.SetDockTree(DefaultDockTree());
+    }
+
     // Dockspace host window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->Pos);
@@ -138,6 +242,7 @@ void DrawRoot(float dt)
     s_ai_console_instance.Render();
     s_ui_agent_instance.Render();    // Phase 2
     s_city_spec_instance.Render();   // Phase 3
+    Panels::DevShell::Draw(dt);
 
     // Minimap is now embedded as overlay in RogueVisualizer (no separate panel)
     // Still update the minimap viewport for shared camera sync

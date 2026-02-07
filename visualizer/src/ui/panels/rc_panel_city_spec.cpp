@@ -5,6 +5,7 @@
 #include "client/CitySpecClient.h"
 #include "runtime/AiBridgeRuntime.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
 #include <thread>
@@ -26,7 +27,23 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
 }
 
 void CitySpecPanel::Render() {
-    if (!ImGui::Begin("City Spec Generator", nullptr, ImGuiWindowFlags_NoCollapse)) {
+    const bool open = ImGui::Begin("City Spec Generator", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "City Spec Generator",
+            "City Spec Generator",
+            "toolbox",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_city_spec.cpp",
+            {"ai", "city_spec"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
         ImGui::End();
         return;
     }
@@ -38,6 +55,8 @@ void CitySpecPanel::Render() {
         ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
         ImGui::Text("AI Bridge offline - start it in AI Console");
         ImGui::PopStyleColor();
+        uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
+        uiint.EndPanel();
         ImGui::End();
         return;
     }
@@ -47,9 +66,11 @@ void CitySpecPanel::Render() {
     
     ImGui::Text("Describe your city:");
     ImGui::InputTextMultiline("##desc", m_descBuffer, sizeof(m_descBuffer), ImVec2(-1, 120));
+    uiint.RegisterWidget({"text", "Description", "city_spec.description", {"input"}});
     
     const char* scales[] = { "Hamlet", "Town", "City", "Metro" };
     ImGui::Combo("Scale", &m_scaleIndex, scales, 4);
+    uiint.RegisterWidget({"combo", "Scale", "city_spec.scale", {"input"}});
     
     ImGui::BeginDisabled(m_processing.load());
     if (DesignSystem::ButtonPrimary("Generate CitySpec", ImVec2(180, 30))) {
@@ -73,6 +94,7 @@ void CitySpecPanel::Render() {
         }
     }
     ImGui::EndDisabled();
+    uiint.RegisterWidget({"button", "Generate CitySpec", "action:ai.city_spec.generate", {"action", "ai"}});
     
     Core::CitySpec specCopy;
     bool hasSpecCopy = false;
@@ -114,6 +136,7 @@ void CitySpecPanel::Render() {
             // TODO: Wire into actual city generator
             ImGui::OpenPopup("Not Implemented");
         }
+        uiint.RegisterWidget({"button", "Apply to Generator", "action:generator.apply_city_spec", {"action", "generator"}});
         
         if (ImGui::BeginPopupModal("Not Implemented", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::Text("CitySpec ? Generator integration coming in Phase 4");
@@ -123,7 +146,8 @@ void CitySpecPanel::Render() {
             ImGui::EndPopup();
         }
     }
-    
+
+    uiint.EndPanel();
     ImGui::End();
 }
 

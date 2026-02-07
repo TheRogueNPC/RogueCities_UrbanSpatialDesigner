@@ -37,8 +37,10 @@ endif()
         src/ui/rc_ui_anim.cpp
         src/ui/rc_ui_root.cpp
         src/ui/rc_ui_theme.cpp
+        src/ui/introspection/UiIntrospection.cpp
         # Panels
         src/ui/panels/rc_panel_axiom_bar.cpp
+        src/ui/panels/rc_panel_axiom_editor.cpp
         src/ui/panels/rc_panel_system_map.cpp
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
@@ -47,11 +49,24 @@ endif()
         src/ui/panels/rc_panel_road_index.cpp
         src/ui/panels/rc_panel_lot_index.cpp
         src/ui/panels/rc_panel_river_index.cpp
+        src/ui/panels/rc_panel_ai_console.cpp
+        src/ui/panels/rc_panel_ui_agent.cpp
+        src/ui/panels/rc_panel_city_spec.cpp
+        src/ui/panels/rc_panel_dev_shell.cpp
     )
 
-    target_link_libraries(RogueCityVisualizerHeadless PRIVATE RogueCityCore RogueCityImGui)
+    target_link_libraries(RogueCityVisualizerHeadless PRIVATE
+        RogueCityCore
+        RogueCityGenerators
+        RogueCityApp
+        RogueCityAI
+        RogueCityImGui
+    )
     # Expose UI module headers.
-    target_include_directories(RogueCityVisualizerHeadless PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_include_directories(RogueCityVisualizerHeadless PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
+    )
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
     
     # ==================================================
@@ -83,6 +98,7 @@ endif()
                 src/ui/rc_ui_anim.cpp
                 src/ui/rc_ui_root.cpp
                 src/ui/rc_ui_theme.cpp
+                src/ui/introspection/UiIntrospection.cpp
                 # Panel sources
                 src/ui/panels/rc_panel_axiom_bar.cpp
                 src/ui/panels/rc_panel_axiom_editor.cpp  # NEW: Integrated axiom editor
@@ -97,6 +113,7 @@ endif()
                 src/ui/panels/rc_panel_ai_console.cpp  # NEW: AI bridge control
                 src/ui/panels/rc_panel_ui_agent.cpp    # NEW: UI Agent assistant (Phase 2)
                 src/ui/panels/rc_panel_city_spec.cpp   # NEW: CitySpec generator (Phase 3)
+                src/ui/panels/rc_panel_dev_shell.cpp
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
@@ -109,6 +126,7 @@ endif()
 
             target_include_directories(RogueCityVisualizerGui PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"
+                "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
                 "${IMGUI_DIR}"
                 "${IMGUI_DIR}/backends"
                 "${ROGUECITY_GL3W_DIR}"

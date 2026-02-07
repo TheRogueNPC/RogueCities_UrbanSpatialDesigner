@@ -5,12 +5,29 @@
 #include "runtime/AiBridgeRuntime.h"
 #include "config/AiConfig.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 
 namespace RogueCity::UI {
 
 void AiConsolePanel::Render() {
-    if (!ImGui::Begin("AI Console", &m_showWindow, ImGuiWindowFlags_NoCollapse)) {
+    const bool open = ImGui::Begin("AI Console", &m_showWindow, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "AI Console",
+            "AI Console",
+            "settings",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_ai_console.cpp",
+            {"ai", "bridge", "control"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
         ImGui::End();
         return;
     }
@@ -45,6 +62,7 @@ void AiConsolePanel::Render() {
     if (DesignSystem::ButtonPrimary("Start AI Bridge", ImVec2(180, 30))) {
         runtime.StartBridge();
     }
+    uiint.RegisterWidget({"button", "Start AI Bridge", "action:ai.bridge.start", {"action", "ai"}});
     ImGui::EndDisabled();
     
     ImGui::SameLine();
@@ -53,6 +71,7 @@ void AiConsolePanel::Render() {
     if (DesignSystem::ButtonDanger("Stop AI Bridge", ImVec2(180, 30))) {
         runtime.StopBridge();
     }
+    uiint.RegisterWidget({"button", "Stop AI Bridge", "action:ai.bridge.stop", {"action", "ai"}});
     ImGui::EndDisabled();
     
     DesignSystem::Separator();
@@ -71,7 +90,8 @@ void AiConsolePanel::Render() {
         ImGui::Text("Health Check Timeout: %d sec", config.healthCheckTimeoutSec);
         ImGui::Text("PowerShell Preference: %s", config.preferPwsh ? "pwsh" : "powershell");
     }
-    
+
+    uiint.EndPanel();
     ImGui::End();
 }
 

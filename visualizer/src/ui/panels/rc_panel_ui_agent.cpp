@@ -6,6 +6,7 @@
 #include "client/UiDesignAssistant.h"
 #include "runtime/AiBridgeRuntime.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <magic_enum/magic_enum.hpp>
 #include <iostream>
@@ -95,7 +96,23 @@ static AI::UiSnapshot BuildEnhancedSnapshot() {
 }
 
 void UiAgentPanel::Render() {
-    if (!ImGui::Begin("UI Agent Assistant", nullptr, ImGuiWindowFlags_NoCollapse)) {
+    const bool open = ImGui::Begin("UI Agent Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "UI Agent Assistant",
+            "UI Agent Assistant",
+            "toolbox",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_ui_agent.cpp",
+            {"ai", "layout", "refactor"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
         ImGui::End();
         return;
     }
@@ -107,6 +124,8 @@ void UiAgentPanel::Render() {
         ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
         ImGui::Text("AI Bridge offline - start it in AI Console");
         ImGui::PopStyleColor();
+        uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
+        uiint.EndPanel();
         ImGui::End();
         return;
     }
@@ -117,6 +136,7 @@ void UiAgentPanel::Render() {
     
     ImGui::Text("Ask AI to adjust the UI layout:");
     ImGui::InputTextMultiline("##goal", m_goalBuffer, sizeof(m_goalBuffer), ImVec2(-1, 60));
+    uiint.RegisterWidget({"text", "Goal", "ui_agent.goal", {"input"}});
     
     ImGui::BeginDisabled(m_processing.load());
     if (DesignSystem::ButtonPrimary("Apply AI Layout", ImVec2(180, 30))) {
@@ -153,6 +173,7 @@ void UiAgentPanel::Render() {
         }
     }
     ImGui::EndDisabled();
+    uiint.RegisterWidget({"button", "Apply AI Layout", "action:ai.ui_agent.apply_layout", {"action", "ai"}});
     
     {
         std::scoped_lock lock(m_resultMutex);
@@ -169,6 +190,7 @@ void UiAgentPanel::Render() {
     
     ImGui::Text("Ask AI to analyze UI structure and suggest refactorings:");
     ImGui::InputTextMultiline("##design_goal", m_designGoalBuffer, sizeof(m_designGoalBuffer), ImVec2(-1, 60));
+    uiint.RegisterWidget({"text", "Design Goal", "ui_design.goal", {"input"}});
     
     ImGui::BeginDisabled(m_designProcessing.load());
     if (DesignSystem::ButtonSecondary("Generate Refactor Plan", ImVec2(180, 30))) {
@@ -220,6 +242,7 @@ void UiAgentPanel::Render() {
         }
     }
     ImGui::EndDisabled();
+    uiint.RegisterWidget({"button", "Generate Refactor Plan", "action:ai.ui_design.generate_plan", {"action", "ai"}});
     
     {
         std::scoped_lock lock(m_designResultMutex);
@@ -227,7 +250,8 @@ void UiAgentPanel::Render() {
             ImGui::TextWrapped("%s", m_lastDesignResult.c_str());
         }
     }
-    
+
+    uiint.EndPanel();
     ImGui::End();
 }
 

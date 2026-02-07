@@ -5,6 +5,7 @@
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/App/Tools/AxiomVisual.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
 
@@ -18,7 +19,27 @@ void Draw(float dt)
     // Color the panel background using the theme palette
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
     // The window title is "Analytics" to reflect its purpose
-    ImGui::Begin("Analytics", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("Analytics", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Analytics",
+            "Analytics",
+            "inspector",
+            "Right",
+            "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
+            {"analytics", "metrics"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        ImGui::End();
+        ImGui::PopStyleColor();
+        return;
+    }
 
     // TODO: Bind real metrics here. The following reactive bar animates using Pulse().
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -40,9 +61,11 @@ void Draw(float dt)
     ImGui::Dummy(size);
     ImGui::Text("Flow Rate");
     ImGui::TextColored(ColorAccentB, "%.2f", fill.v);
+    uiint.RegisterWidget({"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
 
     ImGui::Separator();
     if (ImGui::CollapsingHeader("Inspector", ImGuiTreeNodeFlags_DefaultOpen)) {
+        uiint.RegisterWidget({"tree", "Inspector", "inspector.axiom", {"inspector"}});
         auto* selected = AxiomEditor::GetSelectedAxiom();
         if (!selected) {
             ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 0.9f), "No axiom selected.");
@@ -75,18 +98,21 @@ void Draw(float dt)
                 selected->set_radius(radius);
                 modified = true;
             }
+            uiint.RegisterWidget({"slider", "Radius", "axiom.radius", {"axiom", "property"}});
 
             float pos[2] = { static_cast<float>(selected->position().x), static_cast<float>(selected->position().y) };
             if (ImGui::DragFloat2("Position", pos, 1.0f, 0.0f, 2000.0f, "%.0f")) {
                 selected->set_position(RogueCity::Core::Vec2(pos[0], pos[1]));
                 modified = true;
             }
+            uiint.RegisterWidget({"property_editor", "Position", "axiom.position", {"axiom", "property"}});
 
             float theta = selected->rotation();
             if (ImGui::DragFloat("Theta", &theta, 0.01f, -std::numbers::pi_v<float>, std::numbers::pi_v<float>, "%.2f")) {
                 selected->set_rotation(theta);
                 modified = true;
             }
+            uiint.RegisterWidget({"slider", "Theta", "axiom.theta", {"axiom", "property"}});
 
             switch (selected->type()) {
             case RogueCity::Generators::CityGenerator::AxiomInput::Type::Organic: {
@@ -147,6 +173,7 @@ void Draw(float dt)
         }
     }
 
+    uiint.EndPanel();
     ImGui::End();
     ImGui::PopStyleColor();
 }

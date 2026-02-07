@@ -4,6 +4,7 @@
 
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/introspection/UiIntrospection.h"
 
 #include <imgui.h>
 
@@ -12,7 +13,27 @@ namespace RC_UI::Panels::SystemMap {
 void Draw(float dt)
 {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorBG);
-    ImGui::Begin("System Map", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("System Map", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "System Map",
+            "System Map",
+            "nav",
+            "Left",
+            "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+            {"map", "nav"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        ImGui::End();
+        ImGui::PopStyleColor();
+        return;
+    }
 
     // TODO (visualizer/src/ui/panels/rc_panel_system_map.cpp): Replace placeholder map with live topology render.
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -36,6 +57,9 @@ void Draw(float dt)
 
     ImGui::SetCursorScreenPos(ImVec2(panel_pos.x + 24.0f, panel_pos.y + 20.0f));
     ImGui::Text("System Map (stub)");
+
+    uiint.RegisterWidget({"viewport", "System Map", "map.system", {"map"}});
+    uiint.EndPanel();
 
     ImGui::End();
     ImGui::PopStyleColor();

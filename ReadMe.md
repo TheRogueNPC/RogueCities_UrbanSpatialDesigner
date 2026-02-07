@@ -10,6 +10,29 @@
 
 ---
 
+## R0 Release: AI-Assisted Development Integration ✨
+
+> **NEW**: Integrated AI assistant for layout optimization, city design, and code refactoring
+
+### What's New in R0
+
+**🤖 AI Bridge System** - One-click AI assistant startup with automatic PowerShell detection and health monitoring
+
+**🎨 UI Agent** - Natural language UI layout optimization ("optimize layout for road editing") with real-time command generation
+
+**🏙️ CitySpec Generator** - AI-driven city design from natural language descriptions ("a coastal tech city with dense downtown")
+
+**🔧 Design Assistant** - Code-shape aware refactoring suggestions with pattern extraction and architecture analysis
+
+**📊 Pattern Catalog** - Canonical UI patterns (InspectorPanel<T>, DataIndexPanel<T>) with AI-guided refactoring opportunities
+
+**Status**: All 4 phases complete • Build: Passing • Integration: Working-WIP not all tools are properly hooked in yet, but the 
+AI bridge and clients are functional.
+
+[→ Read Full AI Integration Documentation](docs/AI_Integration_Summary.md)
+
+---
+
 ## Abstract
 
 Cities function as **complex adaptive systems** formed through the interplay of decentralized bottom-up self-organization and centralized top-down planning interventions. **Rogue City Designer** is a procedural generation framework that models this duality through:
@@ -273,16 +296,18 @@ cmake --build build_core --target RogueCityCore --config Release
 
 ## Project Status
 
-### Current Phase: **Phase 1 Complete** (Feb 4, 2026)
+### Current Phase: **R0 Complete** + **Phase 3 In Progress** (Feb 6, 2026)
 
 | Phase | Status | Description | Target Date |
 |-------|--------|-------------|-------------|
 | **Phase 1** | ✅ **Complete** | Core data layer (Vec2, Tensor2D, AESP types) | Feb 4 |
 | **Phase 2** | ✅ **Complete** | Generators library (tensor fields, roads, districts) | Feb 5-7 |
 | **Phase 3** | 💭 **Functional-WIP** | Minimal ImGui UI (axiom placement, visualization) | Feb 8-10 |
-| **Phase 4** | ⏳ In Progress| Export system (JSON, OBJ, GLTF) | Feb 11-12 |
+| **Phase 4** | ⏳ In Progress | Export system (JSON, OBJ, GLTF) | Feb 11-12 |
 | **Phase 5** | 🔜 Planned | MVP polish, presets, documentation | Feb 13-15 |
+| **R0** | ✅ **Complete** | AI-assisted development integration (4 sub-phases) | Feb 6 |
 
+**R0 Integration**: AI Bridge + UI Agent + CitySpec + Design Assistant  
 **MVP Target**: February 15, 2026
 
 ---
