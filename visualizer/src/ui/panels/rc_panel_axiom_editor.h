@@ -2,6 +2,10 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
+
+#include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 
 namespace RogueCity::App {
 class AxiomPlacementTool;
@@ -34,9 +38,20 @@ void SetDebounceSeconds(float seconds);
 [[nodiscard]] uint32_t GetSeed();
 void SetSeed(uint32_t seed);
 void RandomizeSeed();
+[[nodiscard]] float GetFlowRate();
+void SetFlowRate(float flowRate);
+
+[[nodiscard]] const char* GetRogueNavModeName();
+[[nodiscard]] const char* GetRogueNavFilterName();
+bool SetRogueNavModeByName(const std::string& mode);
+bool SetRogueNavFilterByName(const std::string& filter);
 
 [[nodiscard]] bool CanGenerate();
 void ForceGenerate();
+bool ApplyGeneratorRequest(
+    const std::vector<RogueCity::Generators::CityGenerator::AxiomInput>& axioms,
+    const RogueCity::Generators::CityGenerator::Config& config,
+    std::string* outError = nullptr);
 void MarkAxiomChanged();
 [[nodiscard]] const char* GetValidationError();
 

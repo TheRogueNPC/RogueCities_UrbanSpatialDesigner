@@ -17,6 +17,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <numbers>
 #include <string>
@@ -92,6 +93,7 @@ static std::unique_ptr<RogueCity::App::RealTimePreview> s_preview;
 static bool s_initialized = false;
 static bool s_live_preview = true;
 static float s_debounce_seconds = 0.30f;
+static float s_flow_rate = 1.0f;
 static uint32_t s_seed = 42u;
 static std::string s_validation_error;
 static bool s_external_dirty = false;
@@ -156,6 +158,8 @@ void SetDebounceSeconds(float seconds) {
 
 uint32_t GetSeed() { return s_seed; }
 void SetSeed(uint32_t seed) { s_seed = seed; }
+float GetFlowRate() { return s_flow_rate; }
+void SetFlowRate(float flowRate) { s_flow_rate = std::clamp(flowRate, 0.1f, 4.0f); }
 
 void RandomizeSeed() {
     s_seed = static_cast<uint32_t>(ImGui::GetTime() * 1000.0);
@@ -178,7 +182,7 @@ static bool BuildInputs(
     out_config.height = 2000;
     out_config.cell_size = 10.0;
     out_config.seed = s_seed;
-    out_config.num_seeds = std::max(10, static_cast<int>(axioms.size() * 6));
+    out_config.num_seeds = std::max(10, static_cast<int>(axioms.size() * 6 * s_flow_rate));
 
     if (!RogueCity::App::GeneratorBridge::validate_axioms(out_inputs, out_config)) {
         s_validation_error = "ERROR: Invalid axioms (bounds/overlap)";
@@ -203,6 +207,110 @@ void ForceGenerate() {
     if (!BuildInputs(inputs, cfg)) return;
 
     s_preview->force_regeneration(inputs, cfg);
+}
+
+const char* GetRogueNavModeName() {
+    switch (s_minimap_mode) {
+        case MinimapMode::Soliton: return "SOLITON";
+        case MinimapMode::Reactive: return "REACTIVE";
+        case MinimapMode::Satellite: return "SATELLITE";
+        case MinimapMode::Disabled: return "OFF";
+        default: return "OFF";
+    }
+}
+
+const char* GetRogueNavFilterName() {
+    switch (s_nav_alert_level) {
+        case RogueNavAlert::Normal: return "NORMAL";
+        case RogueNavAlert::Caution: return "CAUTION";
+        case RogueNavAlert::Evasion: return "EVASION";
+        case RogueNavAlert::Alert: return "ALERT";
+        default: return "NORMAL";
+    }
+}
+
+static std::string ToUpperCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return value;
+}
+
+bool SetRogueNavModeByName(const std::string& mode) {
+    const std::string value = ToUpperCopy(mode);
+    if (value == "SOLITON") {
+        s_minimap_mode = MinimapMode::Soliton;
+        return true;
+    }
+    if (value == "REACTIVE") {
+        s_minimap_mode = MinimapMode::Reactive;
+        return true;
+    }
+    if (value == "SATELLITE") {
+        s_minimap_mode = MinimapMode::Satellite;
+        return true;
+    }
+    if (value == "OFF" || value == "DISABLED") {
+        s_minimap_mode = MinimapMode::Disabled;
+        return true;
+    }
+    return false;
+}
+
+bool SetRogueNavFilterByName(const std::string& filter) {
+    const std::string value = ToUpperCopy(filter);
+    if (value == "NORMAL") {
+        s_nav_alert_level = RogueNavAlert::Normal;
+        return true;
+    }
+    if (value == "CAUTION") {
+        s_nav_alert_level = RogueNavAlert::Caution;
+        return true;
+    }
+    if (value == "EVASION") {
+        s_nav_alert_level = RogueNavAlert::Evasion;
+        return true;
+    }
+    if (value == "ALERT") {
+        s_nav_alert_level = RogueNavAlert::Alert;
+        return true;
+    }
+    return false;
+}
+
+bool ApplyGeneratorRequest(
+    const std::vector<RogueCity::Generators::CityGenerator::AxiomInput>& axioms,
+    const RogueCity::Generators::CityGenerator::Config& config,
+    std::string* outError) {
+    Initialize();
+    if (!s_preview) {
+        if (outError) {
+            *outError = "Realtime preview system is not initialized.";
+        }
+        return false;
+    }
+    if (axioms.empty()) {
+        if (outError) {
+            *outError = "No generation axioms were provided.";
+        }
+        return false;
+    }
+
+    if (!RogueCity::App::GeneratorBridge::validate_axioms(axioms, config)) {
+        if (outError) {
+            *outError = "Generator request failed axiom validation.";
+        }
+        s_validation_error = "ERROR: Invalid axioms (bounds/overlap)";
+        return false;
+    }
+
+    s_seed = config.seed;
+    RogueCity::Core::Editor::GetGlobalState().params.seed = config.seed;
+    s_validation_error.clear();
+    s_preview->force_regeneration(axioms, config);
+    s_external_dirty = false;
+
+    return true;
 }
 
 const char* GetValidationError() {
@@ -310,7 +418,6 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::Text("%s", alert_text);
     ImGui::PopStyleColor();
     
-    // TODO: Render actual minimap content (orthographic top-down view)
     // Get camera position for world-to-minimap conversion
     const auto camera_pos = s_primary_viewport ? s_primary_viewport->get_camera_xy() : RogueCity::Core::Vec2(1000.0f, 1000.0f);
     
@@ -418,10 +525,16 @@ void Draw(float dt) {
 auto& gs = RogueCity::Core::Editor::GetGlobalState();
 auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
 auto current_state = hfsm.state();
-    
-// Enable axiom mode by default for now (always allow placement)
-// TODO: Properly trigger HFSM transition to Editing_Axioms state
-bool axiom_mode = true;  // Always allow axiom placement for MVP
+
+if (current_state != RogueCity::Core::Editor::EditorState::Editing_Axioms &&
+    current_state != RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom) {
+    hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Axioms, gs);
+    current_state = hfsm.state();
+}
+
+const bool axiom_mode =
+    (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
+    (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
     
 // Debug: Show current state
 ImGui::SetCursorScreenPos(ImVec2(10, 10));

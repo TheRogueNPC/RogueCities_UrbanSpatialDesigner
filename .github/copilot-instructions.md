@@ -1,9 +1,9 @@
 # Copilot instructions for RogueCities_UrbanSatialDesigner
 
-## Recent Updates (R0 - AI Integration)
+## Recent Updates (RC-0.09-Test)
 
-**Date**: February 6, 2026  
-**Integration Status**: ✅ Complete (Phases 1-4)
+**Date**: February 7, 2026  
+**Integration Status**: ✅ Phase 2 Refactor + AI Bridge Startup Fixes Complete
 
 ### AI Assistant Integration
 Four-phase AI assistant integration is now complete and production-ready:
@@ -32,11 +32,21 @@ Four-phase AI assistant integration is now complete and production-ready:
    - Design Assistant for refactoring suggestions
    - Dual-mode UI Agent (layout + design/refactor planning)
 
+### Phase 2 (RC-0.09-Test) Additions
+- **Template Refactor**: `RcDataIndexPanel<T>` in `visualizer/src/ui/patterns/rc_ui_data_index_panel.h`
+- **Traits**: `visualizer/src/ui/panels/rc_panel_data_index_traits.h`
+- **Viewport Margins**: `visualizer/src/ui/rc_ui_viewport_config.h` for padding/margins
+- **Context Menus**: Right-click menus in index panels with HFSM hooks
+- **Lua Linking Fix**: Visualizer links `sol2::sol2` when available
+- **Startup Fixes**: New bridge scripts + 3-tier fallback
+
 ### Key Components
 - **Runtime**: `AI/runtime/AiBridgeRuntime.*` - Bridge lifecycle management
 - **Clients**: `AI/client/*` - UiAgentClient, CitySpecClient, UiDesignAssistant
 - **Toolserver**: `tools/toolserver.py` - FastAPI endpoints for AI services
 - **UI Panels**: `visualizer/src/ui/panels/rc_panel_ai_*.cpp` - ImGui interfaces
+- **Startup Scripts**: `tools/Start_Ai_Bridge_Fixed.ps1`, `tools/Stop_Ai_Bridge_Fixed.ps1`, `tools/Start_Ai_Bridge_Fallback.bat`
+- **Utilities**: `tools/Quick_Fix.ps1`, `tools/create_shortcut.ps1`, `tools/move_object_files.ps1`, `tools/build_verify_RC-0.09.bat`
 
 ### Documentation
 - Summary: `docs/AI_Integration_Summary.md`

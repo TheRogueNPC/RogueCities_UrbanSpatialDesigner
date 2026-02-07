@@ -4,11 +4,75 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include <nlohmann/json.hpp>
 #include <imgui.h>
+#include <algorithm>
+#include <cctype>
 #include <iostream>
+#include <map>
+#include <sstream>
 
 using json = nlohmann::json;
 
 namespace RogueCity::UI {
+
+namespace {
+
+struct PanelRuntimeEntry {
+    std::string windowName;
+    std::string dockArea;
+    bool visible = true;
+    std::string role;
+    std::string ownerModule;
+};
+
+struct RuntimeUiState {
+    std::string filter = "NORMAL";
+    double flowRate = 1.0;
+    bool livePreview = true;
+    double debounceSec = 0.2;
+    uint64_t seed = 123456;
+    std::map<std::string, PanelRuntimeEntry> panels{
+        {"Analytics", {"Analytics", "Right", true, "inspector", "rc_panel_telemetry"}},
+        {"Tools", {"Tools", "Bottom", true, "toolbox", "rc_panel_tools"}},
+        {"Axiom Bar", {"Axiom Bar", "Top", true, "toolbox", "rc_panel_axiom_bar"}},
+        {"Axiom Library", {"Axiom Library", "Right", false, "toolbox", "rc_panel_axiom_editor"}},
+        {"RogueVisualizer", {"RogueVisualizer", "Center", true, "viewport", "rc_panel_axiom_editor"}},
+        {"Log", {"Log", "Bottom", true, "log", "rc_panel_log"}},
+        {"District Index", {"District Index", "Bottom", true, "index", "rc_panel_district_index"}},
+        {"Road Index", {"Road Index", "Bottom", true, "index", "rc_panel_road_index"}},
+        {"Lot Index", {"Lot Index", "Bottom", true, "index", "rc_panel_lot_index"}},
+        {"River Index", {"River Index", "Bottom", true, "index", "rc_panel_river_index"}}
+    };
+};
+
+RuntimeUiState& GetRuntimeUiState() {
+    static RuntimeUiState state;
+    return state;
+}
+
+std::string ToUpperCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return value;
+}
+
+std::string ActiveModeFromHFSM() {
+    using RogueCity::Core::Editor::EditorState;
+    const auto state = RogueCity::Core::Editor::GetEditorHFSM().state();
+    switch (state) {
+        case EditorState::Editing_Axioms:
+        case EditorState::Viewport_PlaceAxiom: return "AXIOM";
+        case EditorState::Editing_Roads:
+        case EditorState::Viewport_DrawRoad: return "ROAD";
+        case EditorState::Editing_Districts: return "DISTRICT";
+        case EditorState::Editing_Lots: return "LOT";
+        case EditorState::Editing_Buildings: return "BUILDING";
+        case EditorState::Simulating: return "SIM";
+        default: return "IDLE";
+    }
+}
+
+} // namespace
 
 // ============================================================================
 // BUILD SNAPSHOT FROM CURRENT EDITOR STATE
@@ -17,42 +81,54 @@ namespace RogueCity::UI {
 AI::UiSnapshot AiAssist::BuildSnapshot() {
     AI::UiSnapshot s;
     s.app = "RogueCity Visualizer";
+    auto& runtime = GetRuntimeUiState();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
-    // TODO: Wire to actual RogueNav state
     s.header.left   = "ROGUENAV";
-    s.header.mode   = "SOLITON";  // TODO: Read from minimap mode
-    s.header.filter = "NORMAL";   // TODO: Read from alert level
+    s.header.mode   = ActiveModeFromHFSM();
+    s.header.filter = runtime.filter;
 
     // ImGui docking config
-    s.dockingEnabled       = ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable;
-    s.multiViewportEnabled = ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
+    const ImGuiIO& io = ImGui::GetIO();
+    s.dockingEnabled       = (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) != 0;
+    s.multiViewportEnabled = (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0;
 
-    // TODO: Replace with real panel visibility + dock position info
-    // For now, hardcode known panels from docs/Intergration Notes
-    s.panels.push_back({"Analytics",        "Right",  true});
-    s.panels.push_back({"Tools",            "Bottom", true});
-    s.panels.push_back({"AxiomBar",         "Top",    true});
-    s.panels.push_back({"AxiomLibrary",     "Right",  false});  // Hidden by default
-    s.panels.push_back({"RogueVisualizer",  "Center", true});
-    s.panels.push_back({"Log",              "Bottom", true});
-    s.panels.push_back({"DistrictIndex",    "Bottom", true});
-    s.panels.push_back({"RoadIndex",        "Bottom", true});
-    s.panels.push_back({"LotIndex",         "Bottom", true});
-    s.panels.push_back({"RiverIndex",       "Bottom", true});
+    for (const auto& [panelId, panel] : runtime.panels) {
+        AI::UiPanelInfo info;
+        info.id = panel.windowName;
+        info.dock = panel.dockArea;
+        info.visible = panel.visible;
+        info.role = panel.role;
+        info.owner_module = panel.ownerModule;
+        s.panels.push_back(std::move(info));
+    }
 
-    // TODO: Wire from your real state structs
-    s.state.flowRate       = 1.0;
-    s.state.livePreview    = true;
-    s.state.debounceSec    = 0.2;
-    s.state.seed           = 123456;
-    s.state.activeTool     = "AXIOM_MODE_ACTIVE";
-    s.state.selectedAxioms = {/* fill from selection */};
+    s.state.flowRate = runtime.flowRate;
+    s.state.livePreview = runtime.livePreview;
+    s.state.debounceSec = runtime.debounceSec;
+    s.state.seed = runtime.seed;
+    s.state.activeTool = s.header.mode;
+    s.state.state_model["frame_counter"] = std::to_string(gs.frame_counter);
+    s.state.state_model["roads.count"] = std::to_string(gs.roads.size());
+    s.state.state_model["districts.count"] = std::to_string(gs.districts.size());
+    s.state.state_model["lots.count"] = std::to_string(gs.lots.size());
 
-    // TODO: Hook into your logging system; last ~20 lines
+    if (gs.selection.selected_road) {
+        s.state.state_model["roads.selected"] = std::to_string(gs.selection.selected_road->id);
+    }
+    if (gs.selection.selected_district) {
+        s.state.state_model["district.selected"] = std::to_string(gs.selection.selected_district->id);
+    }
+    if (gs.selection.selected_lot) {
+        s.state.state_model["lot.selected"] = std::to_string(gs.selection.selected_lot->id);
+    }
+
     s.logTail = {
-        "Generator: Ready",
-        "Axiom placement mode active",
-        "Viewport: Rendering at 60 FPS",
+        "Mode: " + s.header.mode,
+        "Filter: " + s.header.filter,
+        "Roads: " + std::to_string(gs.roads.size()),
+        "Districts: " + std::to_string(gs.districts.size()),
+        "Lots: " + std::to_string(gs.lots.size())
     };
 
     return s;
@@ -63,31 +139,53 @@ AI::UiSnapshot AiAssist::BuildSnapshot() {
 // ============================================================================
 
 void AiAssist::ApplyCommand(const AI::UiCommand& c, const AI::UiSnapshot& snap) {
+    (void)snap;
+    auto& runtime = GetRuntimeUiState();
+    auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+
     if (c.cmd == "SetHeader") {
         if (c.mode) {
             std::cout << "[AI] SetHeader mode: " << *c.mode << "\n";
-            // TODO: set your current mode state from *c.mode
-            // e.g., s_minimap_mode = ParseMinimapMode(*c.mode);
+            const std::string mode = ToUpperCopy(*c.mode);
+            if (mode == "AXIOM") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Axioms, gs);
+            } else if (mode == "ROAD") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Roads, gs);
+            } else if (mode == "DISTRICT") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Districts, gs);
+            } else if (mode == "LOT") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Lots, gs);
+            } else if (mode == "BUILDING") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Buildings, gs);
+            } else if (mode == "IDLE") {
+                hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::GotoIdle, gs);
+            }
         }
         if (c.filter) {
             std::cout << "[AI] SetHeader filter: " << *c.filter << "\n";
-            // TODO: set your current filter state from *c.filter
-            // e.g., s_nav_alert_level = ParseAlertLevel(*c.filter);
+            runtime.filter = ToUpperCopy(*c.filter);
         }
     }
     else if (c.cmd == "RenamePanel") {
         if (c.from && c.to) {
             std::cout << "[AI] RenamePanel: " << *c.from << " -> " << *c.to << "\n";
-            // TODO: update your internal panel/window title/ID registry
-            // from *c.from to *c.to
+            auto it = runtime.panels.find(*c.from);
+            if (it != runtime.panels.end()) {
+                PanelRuntimeEntry entry = it->second;
+                entry.windowName = *c.to;
+                runtime.panels.erase(it);
+                runtime.panels[*c.to] = std::move(entry);
+            }
         }
     }
     else if (c.cmd == "DockPanel") {
         if (c.panel && c.targetDock) {
             std::cout << "[AI] DockPanel: " << *c.panel << " -> " << *c.targetDock << "\n";
-            // TODO: map targetDock ("Left","Right","Bottom","Top","Center")
-            // to your dockspace node IDs and move the panel accordingly.
-            // Use c.ownDockNode.value_or(false) to decide if it should be its own dock node.
+            auto it = runtime.panels.find(*c.panel);
+            if (it != runtime.panels.end()) {
+                it->second.dockArea = *c.targetDock;
+            }
         }
     }
     else if (c.cmd == "SetState") {
@@ -98,19 +196,20 @@ void AiAssist::ApplyCommand(const AI::UiCommand& c, const AI::UiSnapshot& snap) 
 
         if (key == "flowRate" && c.valueNumber) {
             std::cout << "[AI]   flowRate = " << *c.valueNumber << "\n";
-            // TODO: write into your real flowRate
+            runtime.flowRate = *c.valueNumber;
         }
         else if (key == "livePreview" && c.valueBool) {
             std::cout << "[AI]   livePreview = " << (*c.valueBool ? "true" : "false") << "\n";
-            // TODO: write into your livePreview flag
+            runtime.livePreview = *c.valueBool;
         }
         else if (key == "debounceSec" && c.valueNumber) {
             std::cout << "[AI]   debounceSec = " << *c.valueNumber << "\n";
-            // TODO: write into your debounce
+            runtime.debounceSec = *c.valueNumber;
         }
         else if (key == "seed" && c.valueNumber) {
             std::cout << "[AI]   seed = " << static_cast<uint64_t>(*c.valueNumber) << "\n";
-            // TODO: write into your seed
+            runtime.seed = static_cast<uint64_t>(*c.valueNumber);
+            gs.params.seed = static_cast<uint32_t>(runtime.seed);
         }
         // Extend with other keys as needed.
     }
@@ -195,9 +294,13 @@ void AiAssist::DrawControls(float dt) {
     if (!lastResult.empty()) {
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", lastResult.c_str());
     }
-    
-    ImGui::TextWrapped("Note: HTTP client is currently a stub. Implement AI/tools/HttpClient.cpp "
-                      "with your preferred HTTP library (cpr, httplib.h, WinHTTP, etc.)");
+
+    auto snapshot = BuildSnapshot();
+    std::ostringstream oss;
+    oss << "Mode: " << snapshot.header.mode
+        << " | Filter: " << snapshot.header.filter
+        << " | Panels: " << snapshot.panels.size();
+    ImGui::TextWrapped("%s", oss.str().c_str());
 }
 
 } // namespace RogueCity::UI

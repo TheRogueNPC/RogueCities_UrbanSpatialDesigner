@@ -13,6 +13,7 @@ namespace RogueCity::Core::Editor {
         [[nodiscard]] std::optional<EditorState> Parent(EditorState s)
         {
             switch (s) {
+            case EditorState::Editing_Axioms:
             case EditorState::Editing_Roads:
             case EditorState::Editing_Districts:
             case EditorState::Editing_Lots:
@@ -47,6 +48,7 @@ namespace RogueCity::Core::Editor {
         [[nodiscard]] bool IsEditingLeaf(EditorState s)
         {
             switch (s) {
+            case EditorState::Editing_Axioms:
             case EditorState::Editing_Roads:
             case EditorState::Editing_Districts:
             case EditorState::Editing_Lots:
@@ -128,6 +130,10 @@ namespace RogueCity::Core::Editor {
                 transition_to(EditorState::Idle, gs);
                 return;
             }
+            if (e == EditorEvent::Tool_Axioms) {
+                transition_to(EditorState::Editing_Axioms, gs);
+                return;
+            }
             if (e == EditorEvent::Tool_Roads) {
                 transition_to(EditorState::Editing_Roads, gs);
                 return;
@@ -177,6 +183,7 @@ namespace RogueCity::Core::Editor {
 
         case EditorState::Idle:
             switch (e) {
+            case EditorEvent::Tool_Axioms: transition_to(EditorState::Editing_Axioms, gs); break;
             case EditorEvent::Tool_Roads: transition_to(EditorState::Editing_Roads, gs); break;
             case EditorEvent::Tool_Districts: transition_to(EditorState::Editing_Districts, gs); break;
             case EditorEvent::Tool_Lots: transition_to(EditorState::Editing_Lots, gs); break;
@@ -196,12 +203,14 @@ namespace RogueCity::Core::Editor {
             break;
 
         case EditorState::Editing:
+        case EditorState::Editing_Axioms:
         case EditorState::Editing_Roads:
         case EditorState::Editing_Districts:
         case EditorState::Editing_Lots:
         case EditorState::Editing_Buildings:
             switch (e) {
             case EditorEvent::GotoIdle: transition_to(EditorState::Idle, gs); break;
+            case EditorEvent::Tool_Axioms: transition_to(EditorState::Editing_Axioms, gs); break;
             case EditorEvent::Tool_Roads: transition_to(EditorState::Editing_Roads, gs); break;
             case EditorEvent::Tool_Districts: transition_to(EditorState::Editing_Districts, gs); break;
             case EditorEvent::Tool_Lots: transition_to(EditorState::Editing_Lots, gs); break;

@@ -1,6 +1,7 @@
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
+#include <algorithm>
 #include <cmath>
 
 namespace RogueCity::App {
@@ -19,7 +20,9 @@ void ViewportSyncManager::update(float delta_time) {
 
     // Smooth interpolation to reduce jitter
     if (smooth_factor_ > 0.0f) {
-        const float blend = 1.0f - expf(-10.0f * smooth_factor_ * delta_time);
+        const float base_blend = std::clamp(smooth_factor_ + 0.1f, 0.0f, 1.0f);
+        const float frame_scale = std::max(1.0f, delta_time * 60.0f);
+        const float blend = 1.0f - std::pow(1.0f - base_blend, frame_scale);
         last_synced_xy_.x += (primary_xy.x - last_synced_xy_.x) * blend;
         last_synced_xy_.y += (primary_xy.y - last_synced_xy_.y) * blend;
     } else {

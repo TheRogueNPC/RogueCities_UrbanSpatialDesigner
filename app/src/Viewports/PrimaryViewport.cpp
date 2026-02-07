@@ -12,6 +12,20 @@ namespace {
             v.x * s + v.y * c
         );
     }
+
+    inline void ResolveViewportRect(ImVec2& outPos, ImVec2& outSize) {
+        if (ImGui::GetCurrentContext() != nullptr) {
+            outPos = ImGui::GetWindowPos();
+            outSize = ImGui::GetWindowSize();
+            if (outSize.x > 1.0f && outSize.y > 1.0f) {
+                return;
+            }
+        }
+
+        // Test/headless fallback when no active ImGui window is available.
+        outPos = ImVec2(0.0f, 0.0f);
+        outSize = ImVec2(1280.0f, 720.0f);
+    }
 }
 
 PrimaryViewport::PrimaryViewport() = default;
@@ -103,9 +117,9 @@ float PrimaryViewport::get_camera_yaw() const {
 }
 
 Core::Vec2 PrimaryViewport::screen_to_world(const ImVec2& screen_pos) const {
-    // Get viewport dimensions
-    const ImVec2 viewport_pos = ImGui::GetWindowPos();
-    const ImVec2 viewport_size = ImGui::GetWindowSize();
+    ImVec2 viewport_pos;
+    ImVec2 viewport_size;
+    ResolveViewportRect(viewport_pos, viewport_size);
     
     // Convert screen space to normalized viewport space [-0.5, 0.5]
     const float norm_x = (screen_pos.x - viewport_pos.x) / viewport_size.x - 0.5f;
@@ -113,8 +127,6 @@ Core::Vec2 PrimaryViewport::screen_to_world(const ImVec2& screen_pos) const {
     
     // Apply camera transform (orthographic projection for 2D)
     // World units per screen pixel depends on zoom level
-    const float world_scale = camera_z_ / zoom_;
-    
     Core::Vec2 view(
         norm_x * viewport_size.x / zoom_,
         norm_y * viewport_size.y / zoom_
@@ -125,9 +137,9 @@ Core::Vec2 PrimaryViewport::screen_to_world(const ImVec2& screen_pos) const {
 }
 
 ImVec2 PrimaryViewport::world_to_screen(const Core::Vec2& world_pos) const {
-    // Get viewport dimensions
-    const ImVec2 viewport_pos = ImGui::GetWindowPos();
-    const ImVec2 viewport_size = ImGui::GetWindowSize();
+    ImVec2 viewport_pos;
+    ImVec2 viewport_size;
+    ResolveViewportRect(viewport_pos, viewport_size);
     
     // Transform world position relative to camera
     const Core::Vec2 rel(world_pos.x - camera_xy_.x, world_pos.y - camera_xy_.y);

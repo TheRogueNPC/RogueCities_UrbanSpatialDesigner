@@ -1,21 +1,26 @@
 # RogueCities Agents
 
-## Recent Updates (R0 - AI Integration)
+## Recent Updates (RC-0.09-Test)
 
-**Date**: February 6, 2026  
-**Status**: AI Assistant Integration Complete (Phases 1-4)
+**Date**: February 7, 2026  
+**Status**: Phase 2 Refactor + AI Bridge Startup Fixes Complete
 
-### New AI Capabilities
+### New Capabilities
 - **AI Bridge Runtime**: PowerShell-managed local AI toolserver with health monitoring
 - **UI Agent Protocol**: Natural language UI layout optimization with command generation
 - **CitySpec Generator**: AI-driven city design from natural language descriptions
 - **Design Assistant**: Code-shape aware refactoring with pattern catalog system
+ - **Template Refactor**: `RcDataIndexPanel<T>` template reduces index panel duplication by ~85%
+ - **Viewport Margins**: Padding/margin helpers to prevent clipping (`rc_ui_viewport_config.h`)
+ - **Context Menus**: Right-click menus in index panels with HFSM hooks
 
 ### Integration Points
 - AI layer: `AI/` (config, runtime, protocol, clients)
 - Visualizer panels: `visualizer/src/ui/panels/rc_panel_ai_*`
 - Toolserver: `tools/toolserver.py` (FastAPI + Ollama)
 - Documentation: `docs/AI_Integration_*`
+ - Startup scripts: `tools/Start_Ai_Bridge_Fixed.ps1`, `tools/Stop_Ai_Bridge_Fixed.ps1`, `tools/Start_Ai_Bridge_Fallback.bat`
+ - Utilities: `tools/Quick_Fix.ps1`, `tools/create_shortcut.ps1`, `tools/move_object_files.ps1`
 
 ---
 

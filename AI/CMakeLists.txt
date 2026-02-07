@@ -8,6 +8,10 @@ project(RogueCityAI VERSION 0.1.0 LANGUAGES CXX)
 
 message(STATUS "Configuring AI Protocol Layer...")
 
+option(ROGUECITY_AI_ENABLE_UI_AGENT "Enable UI Agent protocol + client" ON)
+option(ROGUECITY_AI_ENABLE_CITYSPEC "Enable CitySpec generation client" ON)
+option(ROGUECITY_AI_ENABLE_DESIGN_ASSISTANT "Enable UI design assistant client" ON)
+
 # === SOURCE FILES ===
 set(AI_SOURCES
     protocol/UiAgentProtocol.cpp
@@ -35,6 +39,7 @@ set(AI_HEADERS
 
 # === LIBRARY TARGET ===
 add_library(RogueCityAI STATIC ${AI_SOURCES} ${AI_HEADERS})
+add_library(RogueCity::AI ALIAS RogueCityAI)
 
 target_include_directories(RogueCityAI 
     PUBLIC 
@@ -43,6 +48,12 @@ target_include_directories(RogueCityAI
 )
 
 target_compile_features(RogueCityAI PUBLIC cxx_std_20)
+target_compile_definitions(RogueCityAI
+    PUBLIC
+        ROGUECITY_AI_FEATURE_UI_AGENT=$<BOOL:${ROGUECITY_AI_ENABLE_UI_AGENT}>
+        ROGUECITY_AI_FEATURE_CITYSPEC=$<BOOL:${ROGUECITY_AI_ENABLE_CITYSPEC}>
+        ROGUECITY_AI_FEATURE_UI_DESIGN=$<BOOL:${ROGUECITY_AI_ENABLE_DESIGN_ASSISTANT}>
+)
 
 # === DEPENDENCIES ===
 # Core library (for Editor state)
@@ -71,14 +82,20 @@ endif()
 
 if(TARGET RogueCityImGui)
     target_link_libraries(RogueCityAI PUBLIC RogueCityImGui)
+    target_compile_definitions(RogueCityAI PUBLIC ROGUECITY_AI_HAS_IMGUI=1)
     message(STATUS "AI Protocol Layer: ImGui found, UI controls enabled")
 else()
+    target_compile_definitions(RogueCityAI PUBLIC ROGUECITY_AI_HAS_IMGUI=0)
     message(STATUS "AI Protocol Layer: ImGui not found, UI controls disabled")
 endif()
 
 # Windows-specific libraries for PowerShell execution and HTTP
 if(WIN32)
     target_link_libraries(RogueCityAI PRIVATE winhttp)
+    target_compile_definitions(RogueCityAI PUBLIC ROGUECITY_AI_HAS_WINHTTP=1)
+else()
+    target_compile_definitions(RogueCityAI PUBLIC ROGUECITY_AI_HAS_WINHTTP=0)
 endif()
 
+set_target_properties(RogueCityAI PROPERTIES FOLDER "RogueCity/AI")
 message(STATUS "AI Protocol Layer configured successfully")

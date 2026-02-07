@@ -86,6 +86,11 @@ int main()
     io.DisplaySize = ImVec2(1280.0f, 720.0f);
     // ADDED (visualizer/src/main.cpp): Enable ImGui docking for the RC_UI dockspace.
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.Fonts->Build();
+    unsigned char* font_pixels = nullptr;
+    int font_width = 0;
+    int font_height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
 
     // Headless "frame loop" demonstrating HFSM integration.
     auto run_frame = [&]() {

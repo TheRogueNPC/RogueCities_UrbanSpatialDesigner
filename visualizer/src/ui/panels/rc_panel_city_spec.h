@@ -19,6 +19,8 @@ private:
     std::atomic<bool> m_processing{false};
     float m_busyTime = 0.0f;
     std::mutex m_specMutex;
+    std::string m_applyResult;
+    bool m_applyError = false;
 };
 
 } // namespace RogueCity::UI

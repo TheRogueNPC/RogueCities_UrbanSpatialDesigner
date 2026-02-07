@@ -4,7 +4,9 @@
 #include "rc_panel_city_spec.h"
 #include "client/CitySpecClient.h"
 #include "runtime/AiBridgeRuntime.h"
+#include "ui/panels/rc_panel_axiom_editor.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
@@ -37,7 +39,7 @@ void CitySpecPanel::Render() {
             "toolbox",
             "Floating",
             "visualizer/src/ui/panels/rc_panel_city_spec.cpp",
-            {"ai", "city_spec"}
+            {"ai", "city_spec", "generator_bridge", "v0.0.9"}
         },
         open
     );
@@ -66,11 +68,11 @@ void CitySpecPanel::Render() {
     
     ImGui::Text("Describe your city:");
     ImGui::InputTextMultiline("##desc", m_descBuffer, sizeof(m_descBuffer), ImVec2(-1, 120));
-    uiint.RegisterWidget({"text", "Description", "city_spec.description", {"input"}});
+    uiint.RegisterWidget({"text", "Description", "city_spec.description", {"input", "ai", "city_spec"}});
     
     const char* scales[] = { "Hamlet", "Town", "City", "Metro" };
     ImGui::Combo("Scale", &m_scaleIndex, scales, 4);
-    uiint.RegisterWidget({"combo", "Scale", "city_spec.scale", {"input"}});
+    uiint.RegisterWidget({"combo", "Scale", "city_spec.scale", {"input", "ai", "city_spec"}});
     
     ImGui::BeginDisabled(m_processing.load());
     if (DesignSystem::ButtonPrimary("Generate CitySpec", ImVec2(180, 30))) {
@@ -94,7 +96,8 @@ void CitySpecPanel::Render() {
         }
     }
     ImGui::EndDisabled();
-    uiint.RegisterWidget({"button", "Generate CitySpec", "action:ai.city_spec.generate", {"action", "ai"}});
+    uiint.RegisterWidget({"button", "Generate CitySpec", "action:ai.city_spec.generate", {"action", "ai", "city_spec"}});
+    uiint.RegisterAction({"ai.city_spec.generate", "Generate CitySpec", "City Spec Generator", {"ai", "city_spec"}, "AI::CitySpecClient::GenerateSpec"});
     
     Core::CitySpec specCopy;
     bool hasSpecCopy = false;
@@ -133,17 +136,37 @@ void CitySpecPanel::Render() {
         ImGui::Text("Road Density: %.2f", specCopy.roadDensity);
         
         if (DesignSystem::ButtonPrimary("Apply to Generator", ImVec2(180, 30))) {
-            // TODO: Wire into actual city generator
-            ImGui::OpenPopup("Not Implemented");
-        }
-        uiint.RegisterWidget({"button", "Apply to Generator", "action:generator.apply_city_spec", {"action", "generator"}});
-        
-        if (ImGui::BeginPopupModal("Not Implemented", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::Text("CitySpec ? Generator integration coming in Phase 4");
-            if (ImGui::Button("OK")) {
-                ImGui::CloseCurrentPopup();
+            RogueCity::Generators::CitySpecGenerationRequest request;
+            std::string adapterError;
+            if (!RogueCity::Generators::CitySpecAdapter::TryBuildRequest(specCopy, request, &adapterError)) {
+                m_applyResult = adapterError.empty()
+                    ? "Failed to convert CitySpec to generator request."
+                    : adapterError;
+                m_applyError = true;
+            } else {
+                std::string applyError;
+                const bool applied = RC_UI::Panels::AxiomEditor::ApplyGeneratorRequest(
+                    request.axioms,
+                    request.config,
+                    &applyError);
+
+                if (applied) {
+                    m_applyResult = "Applied CitySpec to generator preview.";
+                    m_applyError = false;
+                } else {
+                    m_applyResult = applyError.empty()
+                        ? "Failed to apply generator request."
+                        : applyError;
+                    m_applyError = true;
+                }
             }
-            ImGui::EndPopup();
+        }
+        uiint.RegisterWidget({"button", "Apply to Generator", "action:generator.apply_city_spec", {"action", "generator", "city_spec"}});
+        uiint.RegisterAction({"generator.apply_city_spec", "Apply to Generator", "City Spec Generator", {"generator", "ai"}, "RC_UI::Panels::AxiomEditor::ApplyGeneratorRequest"});
+
+        if (!m_applyResult.empty()) {
+            DesignSystem::StatusMessage(m_applyResult.c_str(), m_applyError);
+            uiint.RegisterWidget({"text", "Apply Status", "city_spec.apply.status", {"status", m_applyError ? "error" : "success"}});
         }
     }
 

@@ -145,6 +145,7 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
 
     // Build request payload
     json requestBody;
+    requestBody["snapshot"] = introspectionSnapshot;
     requestBody["introspection_snapshot"] = introspectionSnapshot;
     requestBody["pattern_catalog"] = catalog;
     requestBody["goal"] = goal.empty() ? "Analyze UI for refactoring opportunities" : goal;

@@ -1,5 +1,7 @@
-﻿#include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include <iostream>
 
 using namespace RogueCity;
@@ -40,9 +42,9 @@ int main() {
     std::cout << "Generating city..." << std::endl;
     auto output = generator.generate(axioms, config);
 
-    std::cout << "✓ Tensor field generated: " << output.tensor_field.getWidth()
+    std::cout << "Tensor field generated: " << output.tensor_field.getWidth()
         << "x" << output.tensor_field.getHeight() << " cells" << std::endl;
-    std::cout << "✓ Roads traced: " << output.roads.size() << " roads" << std::endl;
+    std::cout << "Roads traced: " << output.roads.size() << " roads" << std::endl;
 
     // Sample tensors at test points
     Core::Vec2 test_points[] = {
@@ -77,6 +79,29 @@ int main() {
         std::cout << "  Total length: " << total_length << " meters" << std::endl;
     }
 
-    std::cout << "\n✓ Phase 2 generators test PASSED!" << std::endl;
+    std::cout << "\n=== CitySpec Adapter Test ===" << std::endl;
+    Core::CitySpec spec;
+    spec.intent.description = "Coastal mixed-use city with dense downtown";
+    spec.intent.scale = "city";
+    spec.intent.climate = "temperate";
+    spec.intent.styleTags = {"modern", "coastal"};
+    spec.districts.push_back({"downtown", 0.9f});
+    spec.districts.push_back({"residential", 0.55f});
+    spec.seed = 2026;
+    spec.roadDensity = 0.72f;
+
+    auto request = CitySpecAdapter::BuildRequest(spec);
+    if (request.axioms.empty()) {
+        std::cerr << "CitySpec adapter failed to produce axioms" << std::endl;
+        return 1;
+    }
+
+    auto spec_output = generator.generate(request.axioms, request.config);
+    std::cout << "CitySpec generated axioms: " << request.axioms.size() << std::endl;
+    std::cout << "CitySpec config: " << request.config.width << "x" << request.config.height
+              << " seeds=" << request.config.num_seeds << std::endl;
+    std::cout << "CitySpec roads traced: " << spec_output.roads.size() << std::endl;
+
+    std::cout << "\nPhase 2 generators test PASSED" << std::endl;
     return 0;
 }

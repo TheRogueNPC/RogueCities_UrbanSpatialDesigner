@@ -23,6 +23,8 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace RC_UI {
 
@@ -31,6 +33,25 @@ namespace {
     static RogueCity::UI::AiConsolePanel s_ai_console_instance;
     static RogueCity::UI::UiAgentPanel s_ui_agent_instance;     // Phase 2
     static RogueCity::UI::CitySpecPanel s_city_spec_instance;   // Phase 3
+
+    struct DockRequest {
+        std::string window_name;
+        std::string dock_area;
+        bool own_dock_node = false;
+    };
+
+    struct DockLayoutNodes {
+        ImGuiID root = 0;
+        ImGuiID top = 0;
+        ImGuiID left = 0;
+        ImGuiID right = 0;
+        ImGuiID center = 0;
+        ImGuiID bottom = 0;
+        ImGuiID bottom_tabs = 0;
+    };
+
+    static DockLayoutNodes s_dock_nodes{};
+    static std::vector<DockRequest> s_pending_dock_requests;
 }
 
 // Static minimap instance (Phase 5: Polish)
@@ -154,18 +175,17 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
 
     ImGuiID dock_main = dockspace_id;
+    ImGuiID dock_left = 0;
     ImGuiID dock_right = 0;
     ImGuiID dock_bottom = 0;
     ImGuiID dock_top = 0;
-    ImGuiID dock_right_bottom = 0;
     ImGuiID dock_tools = 0;
     ImGuiID dock_bottom_tabs = 0;
 
     dock_top = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Up, 0.10f, nullptr, &dock_main);
+    dock_left = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Left, 0.18f, nullptr, &dock_main);
     dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right, 0.27f, nullptr, &dock_main);
     dock_bottom = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Down, 0.22f, nullptr, &dock_main);
-
-    dock_right_bottom = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
     dock_tools = ImGui::DockBuilderSplitNode(dock_bottom, ImGuiDir_Down, 0.32f, nullptr, &dock_bottom_tabs);
 
     ImGui::DockBuilderDockWindow("Axiom Bar", dock_top);
@@ -183,6 +203,60 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     ImGui::DockBuilderDockWindow("Axiom Library", dock_right);
 
     ImGui::DockBuilderFinish(dockspace_id);
+
+    s_dock_nodes.root = dockspace_id;
+    s_dock_nodes.top = dock_top;
+    s_dock_nodes.left = dock_left;
+    s_dock_nodes.right = dock_right;
+    s_dock_nodes.center = dock_main;
+    s_dock_nodes.bottom = dock_bottom;
+    s_dock_nodes.bottom_tabs = dock_bottom_tabs;
+}
+
+static ImGuiID NodeForDockArea(const std::string& dock_area) {
+    if (dock_area == "Top") {
+        return s_dock_nodes.top;
+    }
+    if (dock_area == "Bottom") {
+        return s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs : s_dock_nodes.bottom;
+    }
+    if (dock_area == "Left") {
+        return s_dock_nodes.left;
+    }
+    if (dock_area == "Right") {
+        return s_dock_nodes.right;
+    }
+    return s_dock_nodes.center;
+}
+
+static void ProcessPendingDockRequests(ImGuiID dockspace_id) {
+    if (s_pending_dock_requests.empty()) {
+        return;
+    }
+
+    bool any_applied = false;
+    for (const DockRequest& request : s_pending_dock_requests) {
+        ImGuiID target = NodeForDockArea(request.dock_area);
+        if (target == 0) {
+            continue;
+        }
+
+        if (request.own_dock_node) {
+            ImGuiID new_target = 0;
+            ImGui::DockBuilderSplitNode(target, ImGuiDir_Down, 0.55f, &new_target, &target);
+            if (new_target != 0) {
+                target = new_target;
+            }
+        }
+
+        ImGui::DockBuilderDockWindow(request.window_name.c_str(), target);
+        any_applied = true;
+    }
+
+    s_pending_dock_requests.clear();
+    if (any_applied) {
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
 }
 
 void DrawRoot(float dt)
@@ -225,6 +299,8 @@ void DrawRoot(float dt)
         s_dock_built = true;
     }
 
+    ProcessPendingDockRequests(dockspace_id);
+
     ImGui::End();
 
     // Panels/windows (docked by name)
@@ -253,6 +329,20 @@ void DrawRoot(float dt)
 
 RogueCity::App::MinimapViewport* GetMinimapViewport() {
     return s_minimap.get();
+}
+
+bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockNode) {
+    if (!windowName || !dockArea) {
+        return false;
+    }
+
+    s_pending_dock_requests.push_back(
+        DockRequest{
+            std::string(windowName),
+            std::string(dockArea),
+            ownDockNode
+        });
+    return true;
 }
 
 } // namespace RC_UI

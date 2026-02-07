@@ -20,4 +20,7 @@ void ToggleAxiomLibrary();
 // Get minimap viewport for camera sync (Phase 5: Polish)
 RogueCity::App::MinimapViewport* GetMinimapViewport();
 
+// Queue a dock reassignment request for an existing panel/window.
+bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockNode = false);
+
 } // namespace RC_UI

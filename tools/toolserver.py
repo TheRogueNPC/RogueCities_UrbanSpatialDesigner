@@ -197,7 +197,8 @@ class RefactorOpportunityModel(BaseModel):
     rationale: str
 
 class UiDesignRequest(BaseModel):
-    snapshot: dict
+    snapshot: Optional[dict] = None
+    introspection_snapshot: Optional[dict] = None
     pattern_catalog: dict
     goal: str
     model: str = "qwen2.5:latest"
@@ -274,10 +275,12 @@ IMPORTANT: Always fill layout_diff to summarize changes. Keep IDs consistent wit
 
 @app.post("/ui_design_assistant", response_model=UiDesignResponse)
 async def ui_design_assistant(req: UiDesignRequest):
+    snapshot_payload = req.snapshot or req.introspection_snapshot or {}
+
     if _toolserver_mock_enabled():
         # Mock response with sample diff
         return UiDesignResponse(
-            updated_layout={"panels": req.snapshot.get("panels", [])},
+            updated_layout={"panels": snapshot_payload.get("panels", [])},
             layout_diff=LayoutDiffModel(
                 panels_added=[
                     PanelAddedModel(
@@ -324,7 +327,7 @@ async def ui_design_assistant(req: UiDesignRequest):
             summary="Found high-priority refactoring: extract DataIndexPanel template to eliminate duplication."
         )
     
-    prompt = f"{DESIGN_ASSISTANT_PROMPT}\n\nSnapshot:\n{json.dumps(req.snapshot, indent=2)}\n\nPattern Catalog:\n{json.dumps(req.pattern_catalog, indent=2)}\n\nGoal: {req.goal}\n\nJSON:"
+    prompt = f"{DESIGN_ASSISTANT_PROMPT}\n\nSnapshot:\n{json.dumps(snapshot_payload, indent=2)}\n\nPattern Catalog:\n{json.dumps(req.pattern_catalog, indent=2)}\n\nGoal: {req.goal}\n\nJSON:"
     
     ollama_url = "http://127.0.0.1:11434/api/generate"
     ollama_payload = {

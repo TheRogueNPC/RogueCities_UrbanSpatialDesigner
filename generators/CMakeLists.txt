@@ -15,6 +15,7 @@ set(GENERATOR_SOURCES
     src/Generators/Roads/RoadClassifier.cpp
     src/Generators/Districts/AESPClassifier.cpp
     src/Generators/Pipeline/CityGenerator.cpp
+    src/Generators/Pipeline/CitySpecAdapter.cpp
 )
 
 # Header files (for IDE integration)
@@ -25,6 +26,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Roads/RoadClassifier.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
+    include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp
 )
 
 # Create static library
@@ -49,6 +51,8 @@ target_link_libraries(RogueCityGenerators
 
 # C++20 features
 target_compile_features(RogueCityGenerators PUBLIC cxx_std_20)
+target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_GENERATORS_CITYSPEC_ADAPTER=1)
+add_library(RogueCity::Generators ALIAS RogueCityGenerators)
 
 # Optimization flags (configuration-specific)
 if(MSVC)

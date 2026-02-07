@@ -4,8 +4,7 @@
 namespace RogueCity::AI {
 
 /// Simple HTTP POST helper for JSON payloads
-/// TODO: Replace this stub with actual HTTP client implementation
-/// Options: cpr, libcurl, httplib.h, or WinHTTP on Windows
+/// Uses WinHTTP on Windows and returns "[]" on transport failure.
 class HttpClient {
 public:
     /// POST JSON to URL and return response body
