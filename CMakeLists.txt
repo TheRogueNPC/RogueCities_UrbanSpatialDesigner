@@ -134,6 +134,11 @@ endif()
 add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
+
+# === AI PROTOCOL LAYER ===
+# AI-driven UI control for editor automation
+add_subdirectory(AI)
+
 # === APP LAYER (Axiom Tool Integration - Phase 3) ===
 add_subdirectory(app)
 

@@ -117,6 +117,7 @@ endif()
                 RogueCityCore 
                 RogueCityGenerators  # NEW: For CityGenerator integration
                 RogueCityApp         # NEW: For viewport and axiom tools
+                RogueCityAI          # NEW: For AI assist controls
                 RogueCityImGui 
                 OpenGL::GL 
                 glfw_bundled

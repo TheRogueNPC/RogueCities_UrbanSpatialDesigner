@@ -3,12 +3,13 @@
 
 #include "ui/panels/rc_panel_tools.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "integration/AiAssist.h"
 
 #include <imgui.h>
 
 namespace RC_UI::Panels::Tools {
 
-void Draw(float /*dt*/)
+void Draw(float dt)
 {
     ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoCollapse);
 
@@ -47,6 +48,10 @@ void Draw(float /*dt*/)
 
     ImGui::SameLine();
     ImGui::Text("Seed: %u", AxiomEditor::GetSeed());
+    
+    // === AI ASSIST CONTROLS ===
+    ImGui::Separator();
+    RogueCity::UI::AiAssist::DrawControls(dt);
 
     // Status / errors
     const char* err = AxiomEditor::GetValidationError();
