@@ -31,6 +31,7 @@ set(APP_SOURCES
     # Integration (Generator bridge)
     src/Integration/GeneratorBridge.cpp
     src/Integration/RealTimePreview.cpp
+    src/Integration/ZoningBridge.cpp
 )
 
 set(APP_HEADERS
@@ -57,6 +58,7 @@ set(APP_HEADERS
     # Integration
     include/RogueCity/App/Integration/GeneratorBridge.hpp
     include/RogueCity/App/Integration/RealTimePreview.hpp
+    include/RogueCity/App/Integration/ZoningBridge.hpp
 )
 
 # === IMGUI LIBRARY TARGET ===

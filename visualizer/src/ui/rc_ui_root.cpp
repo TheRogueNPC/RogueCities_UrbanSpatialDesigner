@@ -11,6 +11,8 @@
 #include "ui/panels/rc_panel_road_index.h"
 #include "ui/panels/rc_panel_lot_index.h"
 #include "ui/panels/rc_panel_river_index.h"
+#include "ui/panels/rc_panel_building_index.h"  // NEW: Building index (RC-0.10)
+#include "ui/panels/rc_panel_zoning_control.h"   // NEW: Zoning control (RC-0.10)
 #include "ui/panels/rc_panel_ai_console.h"  // NEW: AI bridge control
 #include "ui/panels/rc_panel_ui_agent.h"    // NEW: UI Agent assistant (Phase 2)
 #include "ui/panels/rc_panel_city_spec.h"   // NEW: CitySpec generator (Phase 3)
@@ -312,6 +314,8 @@ void DrawRoot(float dt)
     Panels::RoadIndex::Draw(dt);
     Panels::LotIndex::Draw(dt);
     Panels::RiverIndex::Draw(dt);
+    Panels::BuildingIndex::Draw(dt);      // NEW: RC-0.10
+    Panels::ZoningControl::Draw(dt);      // NEW: RC-0.10
     Panels::Log::Draw(dt);
     
     // AI panels (use static instances)

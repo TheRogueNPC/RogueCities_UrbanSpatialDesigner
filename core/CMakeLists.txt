@@ -5,7 +5,7 @@
 # Pure data structures and math utilities
 # Zero dependencies on UI or generation logic
 
-project(RogueCityCore VERSION 0.09.0 LANGUAGES CXX)
+project(RogueCityCore VERSION 0.10.0 LANGUAGES CXX)
 
 # === SOURCE FILES ===
 set(CORE_HEADERS

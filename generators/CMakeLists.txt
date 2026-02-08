@@ -16,6 +16,7 @@ set(GENERATOR_SOURCES
     src/Generators/Districts/AESPClassifier.cpp
     src/Generators/Pipeline/CityGenerator.cpp
     src/Generators/Pipeline/CitySpecAdapter.cpp
+    src/Generators/Pipeline/ZoningGenerator.cpp
 )
 
 # Header files (for IDE integration)
@@ -27,6 +28,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
     include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp
+    include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
 )
 
 # Create static library

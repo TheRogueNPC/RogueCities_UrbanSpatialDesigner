@@ -45,6 +45,9 @@ struct DataIndexPanelTraits {
     
     // Optional: Custom selection callback
     static void OnEntitySelected(T& entity, size_t index) { /* no-op by default */ }
+
+    // Optional: Custom hover callback
+    static void OnEntityHovered(T& entity, size_t index) { /* no-op by default */ }
 };
 
 // Generic data index panel template
@@ -149,6 +152,10 @@ public:
                 if (ImGui::Selectable(label.c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
                     m_selected_index = static_cast<int>(idx);
                     Traits::OnEntitySelected(entity, idx);
+                }
+
+                if (ImGui::IsItemHovered()) {
+                    Traits::OnEntityHovered(entity, idx);
                 }
                 
                 // Right-click context menu

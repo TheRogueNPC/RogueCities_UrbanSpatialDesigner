@@ -121,3 +121,121 @@ Four-phase AI assistant integration is now complete and production-ready:
 ## Useful references
 - Design/architecture narrative: [ReadMe.md](ReadMe.md) and [docs/TheRogueCityDesignerSoft.md](docs/TheRogueCityDesignerSoft.md).
 - Axiom tool integration roadmap: [docs/AxiomToolIntegrationRoadmap.md](docs/AxiomToolIntegrationRoadmap.md) (UI → Generator connection).
+
+---
+
+## UI–Generator Scaffolding: Complete Integration Workflow
+
+This section defines the canonical pattern for adding new generators (zoning, lot placement, building generation) with full UI/HFSM/viewport integration following the Cockpit Doctrine and Rogue Protocol.
+
+### Overview: The Complete Flow
+
+When adding a new generator system (e.g., `ZoningGenerator`, `BuildingPlacementGenerator`), follow this 8-step workflow that ensures:
+- **Layer separation** (Core → Generators → App)
+- **HFSM integration** (state-driven UI)
+- **Cockpit Doctrine compliance** (state-reactive panels)
+- **Performance mandates** (RogueWorker for >10ms, FVA for stable IDs)
+- **Agent collaboration** (each agent prepares for the next)
+
+### Step 1: Define Generator Pipeline (Generators Layer)
+
+**Pattern**: Mirror `CityGenerator.hpp` structure in `generators/include/RogueCity/Generators/Pipeline/`
+
+**Create**:
+- `ZoningGenerator.hpp` with:
+  - `ZoningConfig` struct (input parameters)
+  - `ZoningInput` struct (axioms, roads, districts from prior stages)
+  - `ZoningOutput` struct (zones, lots, AESP metadata)
+  - Pipeline methods: `subdivideDistricts()`, `createLots()`, `allocateBudgets()`, `placeBuildingSites()`
+
+**Performance**:
+- Use **RogueWorker** for operations >10ms
+- Context-aware threading: Enable threading when `axiom_count * district_count > THRESHOLD` (e.g., 100)
+
+**Agent Handoff Question**: "What GlobalState containers and metadata fields do you need exposed for UI inspection?"
+
+### Step 2: Extend GlobalState (Core Layer)
+
+**File**: `core/include/RogueCity/Core/Editor/GlobalState.hpp`
+
+**Add containers**: Use FVA for UI-stable IDs, SIV for high-churn entities
+
+**Agent Handoff Question**: "What bridge API do you need to invoke this generator from UI?"
+
+### Step 3: Create Generator Bridge (App Integration Layer)
+
+**Pattern**: Mirror `GeneratorBridge.hpp` in `app/include/RogueCity/App/Integration/`
+
+**Purpose**: Translate UI parameters → Generator inputs → GlobalState population
+
+**Agent Handoff Question**: "What HFSM states and transitions do you need for this workflow?"
+
+### Step 4: Add HFSM States (App State Management)
+
+**Files**: `app/include/RogueCity/App/HFSM/HFSM.hpp`, `app/src/HFSM/HFSMStates.cpp`
+
+**Keep state transitions <10ms**; offload heavy work to RogueWorker
+
+**Agent Handoff Question**: "What UI panels and visual cues do you need for each state?"
+
+### Step 5: Create Index Panels (UI Layer)
+
+**Pattern**: Use `RcDataIndexPanel<T>` template from `visualizer/src/ui/patterns/rc_ui_data_index_panel.h`
+
+**Context menus**: Each entity type has context-specific actions
+
+**Agent Handoff Question**: "What viewport overlays and visualizations do you need?"
+
+### Step 6: Implement Viewport Overlays (Visualizer Layer)
+
+**File**: `visualizer/src/ui/rc_viewport_renderer.cpp`
+
+**Add overlays**: Zone colors, AESP heat maps, road labels, budget indicators
+
+**Agent Handoff Question**: "What control panel parameters and real-time previews do you need?"
+
+### Step 7: Add Generator Control Panel (UI Layer)
+
+**Pattern**: Follow `ControlPanel` pattern from `AI/docs/ui/ui_patterns.json`
+
+**Y2K geometry affordances**: Glow on hover, pulse on change, state-based color shifts
+
+**Agent Handoff Question**: "What metadata do you need in the AI pattern catalog for introspection?"
+
+### Step 8: Update AI Pattern Catalog (AI Integration Layer)
+
+**File**: `AI/docs/ui/ui_patterns.json`
+
+**Purpose**: Enable UiDesignAssistant code-shape awareness and refactoring suggestions
+
+---
+
+## Agent Collaboration Protocol
+
+Each agent asks the next agent what they need for success. Example questions:
+
+1. **Math Genius → Coder**: "What GlobalState containers do you need?"
+2. **Coder → UI/UX Master**: "What bridge API calls do you need?"
+3. **UI/UX Master → Coder**: "What panel visibility rules per state?"
+4. **UI/UX Master → AI Integration**: "What pattern catalog metadata is needed?"
+
+---
+
+## Context-Aware Performance (RogueWorker Usage)
+
+**Threshold-based threading**: Calculate `N = axiom_count * district_count * lot_density`. Enable RogueWorker when `N > THRESHOLD` (default: 100). Avoids threading overhead for small cities while enabling parallelism for complex ones.
+
+---
+
+## Agent Review Cadence
+
+| After Step | Consult Agent | For What |
+|------------|---------------|----------|
+| 1-3 | Coder Agent | Layer separation, build hygiene |
+| 2 | Math Genius | AESP formulas, metrics validation |
+| 1 | City Planner | Zoning semantics, district archetypes |
+| 5-7 | UI/UX Master | Cockpit Doctrine compliance |
+| 4 | Debug Manager | HFSM transition tests |
+| 8 | AI Integration | Pattern catalog metadata |
+| All | Resource Manager | Budget caps, performance thresholds |
+

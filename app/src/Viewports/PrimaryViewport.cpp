@@ -86,7 +86,7 @@ void PrimaryViewport::render() {
         ));
         ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 1.0f), "[City Preview Placeholder]");
     }
-    
+
     ImGui::End();
 }
 

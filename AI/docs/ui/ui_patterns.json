@@ -149,6 +149,24 @@
       "tags": ["lot", "table", "selection"]
     },
     {
+      "id": "rc_panel_building_index",
+      "pattern": "DataIndexPanel",
+      "role": "index",
+      "owner_module": "rc_panel_building_index",
+      "tags": ["building", "table", "selection"],
+      "data_bindings": ["buildings[]"],
+      "state_visibility": ["Editing_Buildings"]
+    },
+    {
+      "id": "rc_panel_zoning_control",
+      "pattern": "ControlPanel",
+      "role": "toolbox",
+      "owner_module": "rc_panel_zoning_control",
+      "tags": ["zoning", "generator", "control"],
+      "data_bindings": ["districts[]", "lots[]", "buildings[]", "aesp_scores"],
+      "state_visibility": ["Editing_Districts", "Editing_Lots", "Editing_Buildings"]
+    },
+    {
       "id": "rc_panel_river_index",
       "pattern": "DataIndexPanel",
       "role": "index",

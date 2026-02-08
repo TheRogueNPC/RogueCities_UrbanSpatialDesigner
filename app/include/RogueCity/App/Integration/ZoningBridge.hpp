@@ -1,0 +1,68 @@
+// FILE: ZoningBridge.hpp
+// PURPOSE: Translates UI parameters to ZoningGenerator inputs and populates GlobalState
+// LAYER: App Integration (bridges Generators ? Editor UI)
+
+#pragma once
+
+#include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
+
+namespace RogueCity::App::Integration {
+
+/// Bridge between UI and ZoningGenerator
+class ZoningBridge {
+public:
+    /// Configuration exposed to UI
+    struct UiConfig {
+        // Lot sizing (sliders in control panel)
+        int min_lot_width = 10;
+        int max_lot_width = 50;
+        int min_lot_depth = 15;
+        int max_lot_depth = 60;
+        
+        // Building constraints
+        float min_building_coverage = 0.3f;  // 30%
+        float max_building_coverage = 0.8f;  // 80%
+        
+        // Budget/Population
+        float budget_per_capita = 100000.0f;
+        int target_population = 50000;
+        
+        // Performance
+        bool auto_threading = true;  // Automatic threshold detection
+        int threading_threshold = 100;
+        
+        // Generation seed
+        uint32_t rng_seed = 42;
+    };
+    
+    /// Generate zones/lots/buildings and populate GlobalState
+    void Generate(const UiConfig& ui_cfg, Core::Editor::GlobalState& gs);
+    
+    /// Clear all zones/lots/buildings from GlobalState
+    void ClearAll(Core::Editor::GlobalState& gs);
+    
+    /// Get last generation statistics (for UI display)
+    struct Stats {
+        int lots_created = 0;
+        int buildings_placed = 0;
+        float total_budget_allocated = 0.0f;
+        int projected_population = 0;
+        float generation_time_ms = 0.0f;
+    };
+    Stats GetLastStats() const { return m_last_stats; }
+    
+private:
+    Stats m_last_stats;
+    
+    // Helper: Convert UiConfig ? Generators::ZoningGenerator::Config
+    Generators::ZoningGenerator::Config TranslateConfig(const UiConfig& ui_cfg);
+    
+    // Helper: Prepare input from GlobalState
+    Generators::ZoningGenerator::ZoningInput PrepareInput(const Core::Editor::GlobalState& gs);
+    
+    // Helper: Populate GlobalState from output
+    void PopulateGlobalState(const Generators::ZoningGenerator::ZoningOutput& output, Core::Editor::GlobalState& gs);
+};
+
+} // namespace RogueCity::App::Integration

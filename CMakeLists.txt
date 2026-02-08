@@ -4,7 +4,7 @@
 # This builds ONLY the new core library, ignoring broken src/
 
 cmake_minimum_required(VERSION 3.20)
-project(RogueCityMVP VERSION 0.09.0 LANGUAGES CXX)
+project(RogueCityMVP VERSION 0.10.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
