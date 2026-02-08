@@ -7,6 +7,7 @@
 
 #include "RogueCity/App/Integration/ZoningBridge.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include <string>
 
 namespace RC_UI::Panels::ZoningControl {
 
@@ -17,12 +18,14 @@ void Draw(float dt);
 struct PanelState {
     // UI parameters
     RogueCity::App::Integration::ZoningBridge::UiConfig config;
+    RogueCity::App::Integration::ZoningBridge bridge;
     
     // UI state
     bool parameters_changed = false;
     float glow_intensity = 0.0f;
     float pulse_phase = 0.0f;
     bool is_generating = false;
+    std::string last_error;
     
     // Preview
     bool show_preview = false;

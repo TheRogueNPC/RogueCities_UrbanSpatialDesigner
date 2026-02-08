@@ -152,6 +152,8 @@ namespace fva
 
 		uint64_t size() const;
 		void     clear();
+		Handle<T> createHandleFromData(uint64_t data_index);
+		Handle<T> createHandle(ID index);
 
 	private:
 		std::vector<T>  m_data;
@@ -269,6 +271,18 @@ namespace fva
 		m_data.clear();
 		m_index.clear();
 		m_reverse_index.clear();
+	}
+
+	template<class T>
+	inline Handle<T> Container<T>::createHandleFromData(uint64_t data_index)
+	{
+		return Handle<T>(m_reverse_index[data_index], *this);
+	}
+
+	template<class T>
+	inline Handle<T> Container<T>::createHandle(ID index)
+	{
+		return Handle<T>(index, *this);
 	}
 
 } // Namespace's end

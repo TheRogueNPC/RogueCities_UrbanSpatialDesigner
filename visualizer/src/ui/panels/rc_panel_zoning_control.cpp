@@ -22,6 +22,7 @@ void Draw(float dt) {
     auto& gs = GetGlobalState();
     auto& hfsm = GetEditorHFSM();
     auto& state = GetPanelState();
+    auto& bridge = state.bridge;
     
     // Panel visibility based on HFSM state (Cockpit Doctrine)
     auto editor_state = hfsm.state();
@@ -117,14 +118,19 @@ void Draw(float dt) {
     
     if (ImGui::Button("Generate Zones & Buildings", ImVec2(-1, 40))) {
         state.is_generating = true;
-        
-        // Invoke ZoningBridge
-        static RogueCity::App::Integration::ZoningBridge bridge;
-        bridge.Generate(state.config, gs);
-        
+
+        std::string pipeline_error;
+        bool pipeline_ok = true;
+        if (gs.active_city_spec.has_value()) {
+            pipeline_ok = bridge.GenerateFromCitySpec(*gs.active_city_spec, state.config, gs, &pipeline_error);
+        } else {
+            bridge.Generate(state.config, gs);
+        }
+
         state.is_generating = false;
-        state.parameters_changed = false;
+        state.parameters_changed = !pipeline_ok;
         state.pulse_phase = 0.0f;
+        state.last_error = pipeline_error;
     }
     
     ImGui::PopStyleColor();
@@ -133,14 +139,21 @@ void Draw(float dt) {
     ImGui::Separator();
     ImGui::Text("Last Generation:");
     
-    static RogueCity::App::Integration::ZoningBridge bridge;
     auto stats = bridge.GetLastStats();
-    
+
     ImGui::BulletText("Lots Created: %d", stats.lots_created);
     ImGui::BulletText("Buildings Placed: %d", stats.buildings_placed);
     ImGui::BulletText("Budget Allocated: $%.0f", stats.total_budget_allocated);
     ImGui::BulletText("Projected Population: %d", stats.projected_population);
     ImGui::BulletText("Generation Time: %.2f ms", stats.generation_time_ms);
+    if (gs.active_city_spec.has_value()) {
+        ImGui::BulletText("Pipeline: CitySpec -> Zoning");
+    } else {
+        ImGui::BulletText("Pipeline: Zoning only");
+    }
+    if (!state.last_error.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", state.last_error.c_str());
+    }
     
     uiint.RegisterWidget({"button", "Generate", "generate_button", {"action"}});
     uiint.EndPanel();

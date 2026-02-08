@@ -3,7 +3,10 @@
 
 #include "ui/viewport/rc_viewport_overlays.h"
 #include <imgui.h>
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <unordered_map>
 
 namespace RC_UI::Viewport {
 
@@ -73,7 +76,16 @@ void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalSt
         }
         
         glm::vec4 color = GetAESPGradientColor(score);
-        // TODO: DrawPolygon for lot boundary (need to add lot.boundary field to LotToken)
+        if (!lot.boundary.empty()) {
+            DrawPolygon(lot.boundary, color);
+            continue;
+        }
+
+        const ImVec2 pos = WorldToScreen(lot.centroid);
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+            pos,
+            std::max(2.0f, 3.0f * view_transform_.zoom),
+            ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, color.a)));
     }
 }
 
@@ -104,9 +116,21 @@ void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalSta
 }
 
 void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState& gs) {
-    // Render budget bars per district
-    // TODO: Add budget tracking to District struct
-    // For now, placeholder implementation
+    std::unordered_map<uint32_t, float> budget_by_district;
+    budget_by_district.reserve(gs.lots.size());
+    for (const auto& lot : gs.lots) {
+        budget_by_district[lot.district_id] += lot.budget_allocation;
+    }
+
+    float max_budget = 0.0f;
+    for (const auto& district : gs.districts) {
+        const float budget = district.budget_allocated > 0.0f
+            ? district.budget_allocated
+            : budget_by_district[district.id];
+        max_budget = std::max(max_budget, budget);
+    }
+    max_budget = std::max(1.0f, max_budget);
+
     for (const auto& district : gs.districts) {
         if (district.border.empty()) continue;
         
@@ -119,8 +143,20 @@ void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::Glo
         centroid.x /= static_cast<double>(district.border.size());
         centroid.y /= static_cast<double>(district.border.size());
         
-        // Placeholder ratio until budget tracking is wired
-        DrawBudgetBar(centroid, 0.5f, glm::vec4(0.9f, 0.8f, 0.2f, 0.9f), glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
+        const float budget = district.budget_allocated > 0.0f
+            ? district.budget_allocated
+            : budget_by_district[district.id];
+        const float ratio = budget / max_budget;
+
+        DrawBudgetBar(
+            centroid,
+            ratio,
+            glm::vec4(0.9f, 0.8f, 0.2f, 0.9f),
+            glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
+
+        char budget_label[64];
+        std::snprintf(budget_label, sizeof(budget_label), "$%.0f", budget);
+        DrawLabel(centroid, budget_label, glm::vec4(1.0f, 0.95f, 0.6f, 0.9f));
     }
 }
 

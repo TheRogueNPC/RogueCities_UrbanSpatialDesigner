@@ -14,6 +14,7 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
+#include "ui/viewport/rc_viewport_overlays.h"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
@@ -83,6 +84,40 @@ namespace {
 
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.95f), "AXIOM MODE ACTIVE");
     }
+
+    void SyncGlobalStateFromPreview(const RogueCity::Generators::CityGenerator::CityOutput& output) {
+        auto& gs = RogueCity::Core::Editor::GetGlobalState();
+
+        gs.roads.clear();
+        for (const auto& road : output.roads) {
+            gs.roads.add(road);
+        }
+
+        gs.districts.clear();
+        for (const auto& district : output.districts) {
+            gs.districts.add(district);
+        }
+
+        gs.blocks.clear();
+        for (const auto& block : output.blocks) {
+            gs.blocks.add(block);
+        }
+
+        gs.lots.clear();
+        for (const auto& lot : output.lots) {
+            gs.lots.add(lot);
+        }
+
+        gs.buildings.clear();
+        for (size_t i = 0; i < output.buildings.size(); ++i) {
+            gs.buildings.push_back(output.buildings[i]);
+        }
+
+        gs.generation_stats.roads_generated = static_cast<uint32_t>(gs.roads.size());
+        gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
+        gs.generation_stats.lots_generated = static_cast<uint32_t>(gs.lots.size());
+        gs.generation_stats.buildings_generated = static_cast<uint32_t>(gs.buildings.size());
+    }
 }
 
 // Singleton instances (owned by this panel)
@@ -122,6 +157,7 @@ void Initialize() {
     s_sync_manager->set_smooth_factor(0.2f);
 
     s_preview->set_on_complete([minimap](const RogueCity::Generators::CityGenerator::CityOutput& output) {
+        SyncGlobalStateFromPreview(output);
         if (s_primary_viewport) {
             s_primary_viewport->set_city_output(&output);
         }
@@ -586,28 +622,6 @@ const bool axiom_mode =
     }
     
     // Mouse interaction is handled after overlay windows are submitted so hover tests are correct.
-    if (RC_UI::IsAxiomLibraryOpen()) {
-        ImGui::Begin("Axiom Library", nullptr, ImGuiWindowFlags_NoCollapse);
-
-        // NEW: Check current tool mode
-        const auto tool_mode = RC_UI::ToolDeck::GetCurrentTool();
-
-        switch (tool_mode) {
-        case RC_UI::ToolDeck::ToolMode::Axioms:
-            DrawAxiomPalette();  // existing code
-            break;
-        case RC_UI::ToolDeck::ToolMode::Roads:
-            DrawRoadPalette();   // new
-            break;
-        case RC_UI::ToolDeck::ToolMode::Zones:
-            DrawZonePalette();   // new
-            break;
-            // ... etc
-        }
-
-        ImGui::End();
-    }
-
     bool ui_modified_axiom = false;
 
     // Axiom Library (palette) - toggled by "Axiom Deck"
@@ -830,6 +844,27 @@ const bool axiom_mode =
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 0.7f), 
             "Roads: %llu", roads.size());
     }
+
+    auto& overlays = RC_UI::Viewport::GetViewportOverlays();
+    RC_UI::Viewport::ViewportOverlays::ViewTransform transform{};
+    transform.camera_xy = s_primary_viewport->get_camera_xy();
+    transform.zoom = s_primary_viewport->world_to_screen_scale(1.0f);
+    transform.yaw = s_primary_viewport->get_camera_yaw();
+    transform.viewport_pos = viewport_pos;
+    transform.viewport_size = viewport_size;
+    overlays.SetViewTransform(transform);
+
+    RC_UI::Viewport::OverlayConfig overlay_config{};
+    overlay_config.show_zone_colors = gs.districts.size() != 0;
+    overlay_config.show_road_labels = gs.roads.size() != 0;
+    overlay_config.show_aesp_heatmap =
+        (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
+         current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) &&
+        gs.lots.size() != 0;
+    overlay_config.show_budget_bars =
+        current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings &&
+        gs.districts.size() != 0;
+    overlays.Render(gs, overlay_config);
     
     // === ROGUENAV MINIMAP OVERLAY ===
     // Render minimap as overlay in top-right corner

@@ -5,7 +5,9 @@
 #include "client/CitySpecClient.h"
 #include "runtime/AiBridgeRuntime.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "ui/panels/rc_panel_zoning_control.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
@@ -136,29 +138,35 @@ void CitySpecPanel::Render() {
         ImGui::Text("Road Density: %.2f", specCopy.roadDensity);
         
         if (DesignSystem::ButtonPrimary("Apply to Generator", ImVec2(180, 30))) {
-            RogueCity::Generators::CitySpecGenerationRequest request;
-            std::string adapterError;
-            if (!RogueCity::Generators::CitySpecAdapter::TryBuildRequest(specCopy, request, &adapterError)) {
-                m_applyResult = adapterError.empty()
-                    ? "Failed to convert CitySpec to generator request."
-                    : adapterError;
+            auto& gs = RogueCity::Core::Editor::GetGlobalState();
+            gs.active_city_spec = specCopy;
+
+            auto& zoning_state = RC_UI::Panels::ZoningControl::GetPanelState();
+            std::string pipeline_error;
+            const bool generated = zoning_state.bridge.GenerateFromCitySpec(
+                specCopy,
+                zoning_state.config,
+                gs,
+                &pipeline_error);
+
+            if (!generated) {
+                m_applyResult = pipeline_error.empty()
+                    ? "Failed to apply CitySpec through generation pipeline."
+                    : pipeline_error;
                 m_applyError = true;
             } else {
-                std::string applyError;
-                const bool applied = RC_UI::Panels::AxiomEditor::ApplyGeneratorRequest(
-                    request.axioms,
-                    request.config,
-                    &applyError);
-
-                if (applied) {
-                    m_applyResult = "Applied CitySpec to generator preview.";
-                    m_applyError = false;
-                } else {
-                    m_applyResult = applyError.empty()
-                        ? "Failed to apply generator request."
-                        : applyError;
-                    m_applyError = true;
+                RogueCity::Generators::CitySpecGenerationRequest request;
+                std::string adapter_error;
+                if (RogueCity::Generators::CitySpecAdapter::TryBuildRequest(specCopy, request, &adapter_error)) {
+                    std::string preview_error;
+                    RC_UI::Panels::AxiomEditor::ApplyGeneratorRequest(
+                        request.axioms,
+                        request.config,
+                        &preview_error);
                 }
+
+                m_applyResult = "Applied CitySpec to roads/districts/lots/buildings pipeline.";
+                m_applyError = false;
             }
         }
         uiint.RegisterWidget({"button", "Apply to Generator", "action:generator.apply_city_spec", {"action", "generator", "city_spec"}});

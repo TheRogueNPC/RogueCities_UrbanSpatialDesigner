@@ -4,6 +4,11 @@
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Urban/RoadGenerator.hpp"
+#include "RogueCity/Generators/Urban/DistrictGenerator.hpp"
+#include "RogueCity/Generators/Urban/BlockGenerator.hpp"
+#include "RogueCity/Generators/Urban/LotGenerator.hpp"
+#include "RogueCity/Generators/Urban/SiteGenerator.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
 #include <cstdint>
@@ -22,6 +27,9 @@ namespace RogueCity::Generators {
             double cell_size{ 10.0 };    // Tensor field resolution (meters)
             uint32_t seed{ 12345 };      // RNG seed
             int num_seeds{ 20 };         // Number of streamline seeds
+            uint32_t max_districts{ 256 };
+            uint32_t max_lots{ 50000 };
+            uint32_t max_buildings{ 100000 };
         };
 
         /// Axiom input (user-placed planning intent)
@@ -59,7 +67,9 @@ namespace RogueCity::Generators {
         struct CityOutput {
             fva::Container<Road> roads;
             std::vector<District> districts;
+            std::vector<BlockPolygon> blocks;
             std::vector<LotToken> lots;
+            siv::Vector<BuildingSite> buildings;
             TensorFieldGenerator tensor_field;
         };
 
@@ -85,7 +95,12 @@ namespace RogueCity::Generators {
         std::vector<Vec2> generateSeeds();
         fva::Container<Road> traceRoads(const TensorFieldGenerator& field, const std::vector<Vec2>& seeds);
         std::vector<District> classifyDistricts(const fva::Container<Road>& roads);
-        std::vector<LotToken> generateLots(const fva::Container<Road>& roads, const std::vector<District>& districts);
+        std::vector<BlockPolygon> generateBlocks(const std::vector<District>& districts);
+        std::vector<LotToken> generateLots(
+            const fva::Container<Road>& roads,
+            const std::vector<District>& districts,
+            const std::vector<BlockPolygon>& blocks);
+        siv::Vector<BuildingSite> generateBuildings(const std::vector<LotToken>& lots);
     };
 
 } // namespace RogueCity::Generators

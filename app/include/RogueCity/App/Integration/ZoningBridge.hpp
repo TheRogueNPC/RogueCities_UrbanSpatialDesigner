@@ -6,6 +6,7 @@
 
 #include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include <string>
 
 namespace RogueCity::App::Integration {
 
@@ -38,6 +39,14 @@ public:
     
     /// Generate zones/lots/buildings and populate GlobalState
     void Generate(const UiConfig& ui_cfg, Core::Editor::GlobalState& gs);
+
+    /// Full CitySpec pipeline: roads -> districts -> blocks -> lots -> buildings
+    /// Uses the same zoning stage as `Generate` for deterministic parity.
+    bool GenerateFromCitySpec(
+        const Core::CitySpec& city_spec,
+        const UiConfig& ui_cfg,
+        Core::Editor::GlobalState& gs,
+        std::string* out_error = nullptr);
     
     /// Clear all zones/lots/buildings from GlobalState
     void ClearAll(Core::Editor::GlobalState& gs);

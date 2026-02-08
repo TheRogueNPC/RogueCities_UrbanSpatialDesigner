@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include <algorithm>
 #include <cmath>
 
 namespace RogueCity::Generators {
@@ -22,11 +23,17 @@ namespace RogueCity::Generators {
         // Stage 3: Trace road network
         output.roads = traceRoads(output.tensor_field, seeds);
 
-        // Stage 4: Classify districts (Phase 3)
-        // output.districts = classifyDistricts(output.roads);
+        // Stage 4: Classify districts
+        output.districts = classifyDistricts(output.roads);
 
-        // Stage 5: Generate lots (Phase 3)
-        // output.lots = generateLots(output.roads, output.districts);
+        // Stage 5: Extract block polygons
+        output.blocks = generateBlocks(output.districts);
+
+        // Stage 6: Generate lots
+        output.lots = generateLots(output.roads, output.districts, output.blocks);
+
+        // Stage 7: Place buildings
+        output.buildings = generateBuildings(output.lots);
 
         return output;
     }
@@ -115,28 +122,55 @@ namespace RogueCity::Generators {
         const TensorFieldGenerator& field,
         const std::vector<Vec2>& seeds
     ) {
-        StreamlineTracer tracer;
-        StreamlineTracer::Params params;
-        params.step_size = 5.0;
-        params.max_length = 800.0;
-        params.bidirectional = true;
-
-        return tracer.traceNetwork(seeds, field, params);
+        Urban::RoadGenerator::Config road_cfg;
+        road_cfg.tracing.step_size = 5.0;
+        road_cfg.tracing.max_length = 800.0;
+        road_cfg.tracing.bidirectional = true;
+        road_cfg.tracing.max_iterations = 500;
+        return Urban::RoadGenerator::generate(seeds, field, road_cfg);
     }
 
     std::vector<District> CityGenerator::classifyDistricts(
         const fva::Container<Road>& roads
     ) {
-        // Placeholder for Phase 3 - block extraction + AESP classification
-        return std::vector<District>();
+        Urban::DistrictGenerator::Config district_cfg;
+        district_cfg.grid_resolution = std::clamp(
+            static_cast<int>(std::sqrt(std::max<size_t>(4, roads.size() / 4))),
+            4, 14);
+        district_cfg.max_districts = config_.max_districts;
+
+        Bounds bounds;
+        bounds.min = Vec2(0.0, 0.0);
+        bounds.max = Vec2(static_cast<double>(config_.width), static_cast<double>(config_.height));
+        return Urban::DistrictGenerator::generate(roads, bounds, district_cfg);
+    }
+
+    std::vector<BlockPolygon> CityGenerator::generateBlocks(
+        const std::vector<District>& districts
+    ) {
+        Urban::BlockGenerator::Config block_cfg;
+        block_cfg.prefer_road_cycles = false;
+        return Urban::BlockGenerator::generate(districts, block_cfg);
     }
 
     std::vector<LotToken> CityGenerator::generateLots(
         const fva::Container<Road>& roads,
-        const std::vector<District>& districts
+        const std::vector<District>& districts,
+        const std::vector<BlockPolygon>& blocks
     ) {
-        // Placeholder for Phase 3 - lot subdivision
-        return std::vector<LotToken>();
+        Urban::LotGenerator::Config lot_cfg;
+        lot_cfg.min_lot_width = 10.0f;
+        lot_cfg.max_lot_width = 45.0f;
+        lot_cfg.min_lot_depth = 12.0f;
+        lot_cfg.max_lot_depth = 55.0f;
+        lot_cfg.max_lots = config_.max_lots;
+        return Urban::LotGenerator::generate(roads, districts, blocks, lot_cfg, config_.seed);
+    }
+
+    siv::Vector<BuildingSite> CityGenerator::generateBuildings(const std::vector<LotToken>& lots) {
+        Urban::SiteGenerator::Config site_cfg;
+        site_cfg.max_buildings = config_.max_buildings;
+        return Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
     }
 
 } // namespace RogueCity::Generators

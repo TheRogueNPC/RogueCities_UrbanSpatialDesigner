@@ -1,6 +1,5 @@
 #include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
-#include "RogueCity/Core/Util/RogueWorker.hpp"
 #include <chrono>
 #include <algorithm>
 #include <cmath>
@@ -8,13 +7,71 @@
 namespace RogueCity::Generators {
 
     using namespace Core;
+    namespace {
+
+    ZoningGenerator::Config ApplyCitySpecOverrides(
+        ZoningGenerator::Config config,
+        const std::optional<CitySpec>& city_spec) {
+        if (!city_spec.has_value()) {
+            return config;
+        }
+
+        const CitySpec& spec = *city_spec;
+        if (spec.seed != 0) {
+            config.seed = spec.seed;
+        }
+
+        const auto& z = spec.zoningConstraints;
+        config.minLotWidth = std::max(1.0f, z.minLotWidth);
+        config.maxLotWidth = std::max(config.minLotWidth, z.maxLotWidth);
+        config.minLotDepth = std::max(1.0f, z.minLotDepth);
+        config.maxLotDepth = std::max(config.minLotDepth, z.maxLotDepth);
+        config.minLotArea = std::max(1.0f, z.minLotArea);
+        config.maxLotArea = std::max(config.minLotArea, z.maxLotArea);
+        config.frontSetback = std::max(0.0f, z.frontSetback);
+        config.sideSetback = std::max(0.0f, z.sideSetback);
+        config.rearSetback = std::max(0.0f, z.rearSetback);
+        config.residentialDensity = std::clamp(z.residentialDensity, 0.05f, 1.0f);
+        config.commercialDensity = std::clamp(z.commercialDensity, 0.05f, 1.0f);
+        config.industrialDensity = std::clamp(z.industrialDensity, 0.05f, 1.0f);
+        config.civicDensity = std::clamp(z.civicDensity, 0.05f, 1.0f);
+        config.allowRecursiveSubdivision = z.allowRecursiveSubdivision;
+        config.maxSubdivisionDepth = std::max<uint32_t>(1, z.maxSubdivisionDepth);
+
+        const auto& budget = spec.buildingBudget;
+        config.totalBuildingBudget = std::max(0.0f, budget.totalBudget);
+        config.residentialCost = std::max(0.01f, budget.residentialCost);
+        config.commercialCost = std::max(0.01f, budget.commercialCost);
+        config.industrialCost = std::max(0.01f, budget.industrialCost);
+        config.civicCost = std::max(0.01f, budget.civicCost);
+        config.luxuryCost = std::max(0.01f, budget.luxuryCost);
+
+        const auto& pop = spec.populationConfig;
+        config.residentialDensityPop = std::max(0.0f, pop.residentialDensity);
+        config.mixedUseDensityPop = std::max(0.0f, pop.mixedUseDensity);
+        config.rowhomeDensityPop = std::max(0.0f, pop.rowhomeDensity);
+        config.luxuryDensityPop = std::max(0.0f, pop.luxuryDensity);
+        config.commercialWorkers = std::max(0.0f, pop.commercialWorkers);
+        config.industrialWorkers = std::max(0.0f, pop.industrialWorkers);
+        config.civicWorkers = std::max(0.0f, pop.civicWorkers);
+
+        if (budget.maxBuildingsPerDistrict > 0) {
+            const uint32_t district_count = std::max<uint32_t>(1, static_cast<uint32_t>(spec.districts.size()));
+            const uint32_t city_cap = district_count * budget.maxBuildingsPerDistrict;
+            config.maxBuildings = std::min(config.maxBuildings, std::max<uint32_t>(district_count, city_cap));
+        }
+
+        return config;
+    }
+
+    } // namespace
 
     ZoningGenerator::ZoningOutput ZoningGenerator::generate(
         const ZoningInput& input,
         const Config& config
     ) {
-        config_ = config;
-        RNG rng(config.seed);
+        config_ = ApplyCitySpecOverrides(config, input.citySpec);
+        RNG rng(config_.seed);
         
         auto startTime = std::chrono::high_resolution_clock::now();
         
@@ -25,7 +82,8 @@ namespace RogueCity::Generators {
             ? static_cast<uint32_t>(input.citySpec->districts.size()) 
             : 0;
         const uint32_t districtCount = static_cast<uint32_t>(input.districts.size());
-        output.usedParallelization = shouldUseParallelization(axiomCount, districtCount);
+        const uint32_t lotDensity = std::max<uint32_t>(1, static_cast<uint32_t>(input.blocks.size()));
+        output.usedParallelization = shouldUseParallelization(axiomCount, districtCount, lotDensity);
         
         // Stage 1: Subdivide districts into lots (AESP-aware)
         auto lots = subdivideDistricts(input.districts, input.blocks, input.roads, rng);
@@ -54,10 +112,13 @@ namespace RogueCity::Generators {
 
     bool ZoningGenerator::shouldUseParallelization(
         uint32_t axiomCount,
-        uint32_t districtCount
+        uint32_t districtCount,
+        uint32_t lotDensity
     ) const {
-        const uint32_t totalWorkload = axiomCount + districtCount;
-        return totalWorkload >= config_.parallelizationThreshold;
+        const uint64_t workload = static_cast<uint64_t>(std::max<uint32_t>(1, axiomCount)) *
+            static_cast<uint64_t>(std::max<uint32_t>(1, districtCount)) *
+            static_cast<uint64_t>(std::max<uint32_t>(1, lotDensity));
+        return workload > static_cast<uint64_t>(config_.parallelizationThreshold);
     }
 
     std::vector<LotToken> ZoningGenerator::subdivideDistricts(
@@ -66,67 +127,22 @@ namespace RogueCity::Generators {
         const fva::Container<Road>& roads,
         RNG& rng
     ) {
-        std::vector<LotToken> lots;
-        lots.reserve(blocks.size() * 4); // Heuristic: avg 4 lots per block
-        
-        // Subdivide each block into lots
-        for (const auto& block : blocks) {
-            subdivideBlock(block, lots, rng, 0);
+        (void)rng;
+        std::vector<BlockPolygon> effective_blocks = blocks;
+        if (effective_blocks.empty()) {
+            effective_blocks = Urban::BlockGenerator::generate(districts);
         }
-        
-        // Assign lot IDs and compute AESP scores from adjacent roads
-        for (size_t i = 0; i < lots.size(); ++i) {
-            lots[i].id = static_cast<uint32_t>(i);
-            
-            // Compute AESP scores using AESPClassifier
-            AESPClassifier::AESPScores scores = AESPClassifier::computeScores(
-                lots[i].primary_road,
-                lots[i].secondary_road
-            );
-            
-            lots[i].access = scores.A;
-            lots[i].exposure = scores.E;
-            lots[i].serviceability = scores.S;
-            lots[i].privacy = scores.P;
-        }
-        
-        return lots;
-    }
 
-    void ZoningGenerator::subdivideBlock(
-        const BlockPolygon& block,
-        std::vector<LotToken>& outLots,
-        RNG& rng,
-        uint32_t depth
-    ) {
-        // Simple heuristic subdivision for MVP
-        // TODO: Implement OBB-based recursive subdivision per design doc
-        
-        if (depth >= config_.maxSubdivisionDepth) {
-            return;
-        }
-        
-        // Create a single lot from the block (placeholder logic)
-        LotToken lot{};
-        lot.district_id = block.district_id;
-        
-        // Compute centroid
-        Vec2 centroid{ 0.0, 0.0 };
-        for (const auto& pt : block.outer) {
-            centroid.x += pt.x;
-            centroid.y += pt.y;
-        }
-        if (!block.outer.empty()) {
-            centroid.x /= static_cast<double>(block.outer.size());
-            centroid.y /= static_cast<double>(block.outer.size());
-        }
-        lot.centroid = centroid;
-        
-        // Assign default road types (will be refined in AESP stage)
-        lot.primary_road = RoadType::Street;
-        lot.secondary_road = RoadType::Lane;
-        
-        outLots.push_back(lot);
+        Urban::LotGenerator::Config lot_cfg;
+        lot_cfg.min_lot_width = config_.minLotWidth;
+        lot_cfg.max_lot_width = config_.maxLotWidth;
+        lot_cfg.min_lot_depth = config_.minLotDepth;
+        lot_cfg.max_lot_depth = config_.maxLotDepth;
+        lot_cfg.min_lot_area = config_.minLotArea;
+        lot_cfg.max_lot_area = config_.maxLotArea;
+        lot_cfg.max_lots = config_.maxLots;
+
+        return Urban::LotGenerator::generate(roads, districts, effective_blocks, lot_cfg, config_.seed);
     }
 
     void ZoningGenerator::classifyLots(std::vector<LotToken>& lots) {
@@ -165,10 +181,11 @@ namespace RogueCity::Generators {
         std::vector<LotToken>& lots,
         float totalBudget
     ) {
+        if (lots.empty()) {
+            return 0.0f;
+        }
+
         float budgetUsed = 0.0f;
-        
-        // Simple uniform allocation for MVP
-        // TODO: Implement priority-based budget allocation (high AESP scores first)
         
         const float budgetPerLot = totalBudget / static_cast<float>(lots.size());
         
@@ -197,7 +214,7 @@ namespace RogueCity::Generators {
                     lotBudget *= config_.residentialCost;
                     break;
             }
-            
+            lot.budget_allocation = lotBudget;
             budgetUsed += lotBudget;
         }
         
@@ -208,48 +225,11 @@ namespace RogueCity::Generators {
         const std::vector<LotToken>& lots,
         RNG& rng
     ) {
-        siv::Vector<BuildingSite> buildings;
-        buildings.reserve(lots.size()); // One building per lot for MVP
-        
-        for (const auto& lot : lots) {
-            BuildingSite building{};
-            building.id = static_cast<uint32_t>(buildings.size());
-            building.lot_id = lot.id;
-            building.district_id = lot.district_id;
-            building.position = lot.centroid;
-            
-            // Map LotType to BuildingType
-            switch (lot.lot_type) {
-                case LotType::Residential:
-                    building.type = BuildingType::Residential;
-                    break;
-                case LotType::RowhomeCompact:
-                    building.type = BuildingType::Rowhome;
-                    break;
-                case LotType::RetailStrip:
-                    building.type = BuildingType::Retail;
-                    break;
-                case LotType::MixedUse:
-                    building.type = BuildingType::MixedUse;
-                    break;
-                case LotType::LogisticsIndustrial:
-                    building.type = BuildingType::Industrial;
-                    break;
-                case LotType::CivicCultural:
-                    building.type = BuildingType::Civic;
-                    break;
-                case LotType::LuxuryScenic:
-                    building.type = BuildingType::Luxury;
-                    break;
-                default:
-                    building.type = BuildingType::None;
-                    break;
-            }
-            
-            buildings.push_back(building);
-        }
-        
-        return buildings;
+        (void)rng;
+        Urban::SiteGenerator::Config site_cfg;
+        site_cfg.max_buildings = config_.maxBuildings;
+        site_cfg.randomize_sites = false;
+        return Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
     }
 
     void ZoningGenerator::calculatePopulation(

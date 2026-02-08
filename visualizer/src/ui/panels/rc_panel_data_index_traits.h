@@ -8,9 +8,31 @@
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "ui/viewport/rc_viewport_overlays.h"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
+#include <cstddef>
+#include <iterator>
 #include <sstream>
 
 namespace RC_UI::Panels {
+namespace {
+    using RogueCity::Core::Editor::GetGlobalState;
+
+    template <typename T, typename Predicate>
+    void EraseIfFva(fva::Container<T>& container, Predicate&& predicate) {
+        for (size_t data_index = container.size(); data_index > 0; --data_index) {
+            const size_t idx = data_index - 1;
+            auto it = container.begin();
+            std::advance(it, static_cast<std::ptrdiff_t>(idx));
+            if (!predicate(*it)) {
+                continue;
+            }
+
+            auto handle = container.createHandleFromData(idx);
+            container.remove(handle);
+        }
+    }
+
+} // namespace
 
 // ============================================================================
 // ROAD INDEX TRAITS
@@ -46,19 +68,33 @@ struct RoadIndexTraits {
     
     static void ShowContextMenu(EntityType& road, size_t index) {
         if (ImGui::MenuItem("Delete Road")) {
-            // TODO: Wire to delete function
+            auto& gs = GetGlobalState();
+            auto handle = gs.roads.createHandleFromData(index);
+            gs.roads.remove(handle);
+            gs.selection.selected_road = {};
         }
         if (ImGui::MenuItem("Focus on Map")) {
-            // TODO: Wire to camera focus
+            if (!road.points.empty()) {
+                const auto midpoint = road.points[road.points.size() / 2];
+                RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(midpoint);
+            }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Inspect Properties")) {
-            // TODO: Wire to inspector panel
+            auto& gs = GetGlobalState();
+            gs.selection.selected_road = gs.roads.createHandleFromData(index);
+            gs.selection.selected_district = {};
+            gs.selection.selected_lot = {};
+            gs.selection.selected_building = {};
         }
     }
     
     static void OnEntitySelected(EntityType& road, size_t index) {
-        (void)index;
+        auto& gs = GetGlobalState();
+        gs.selection.selected_road = gs.roads.createHandleFromData(index);
+        gs.selection.selected_district = {};
+        gs.selection.selected_lot = {};
+        gs.selection.selected_building = {};
         if (!road.points.empty()) {
             const auto midpoint = road.points[road.points.size() / 2];
             RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(midpoint);
@@ -108,22 +144,49 @@ struct DistrictIndexTraits {
     
     static void ShowContextMenu(EntityType& district, size_t index) {
         if (ImGui::MenuItem("Delete District")) {
-            // TODO: Wire to delete function
+            auto& gs = GetGlobalState();
+            const uint32_t district_id = district.id;
+
+            EraseIfFva(gs.blocks, [district_id](const RogueCity::Core::BlockPolygon& block) {
+                return block.district_id == district_id;
+            });
+            EraseIfFva(gs.lots, [district_id](const RogueCity::Core::LotToken& lot) {
+                return lot.district_id == district_id;
+            });
+            gs.buildings.remove_if([district_id](const RogueCity::Core::BuildingSite& building) {
+                return building.district_id == district_id;
+            });
+
+            auto handle = gs.districts.createHandleFromData(index);
+            gs.districts.remove(handle);
+            gs.selection.selected_district = {};
         }
         if (ImGui::MenuItem("Focus on Map")) {
-            // TODO: Wire to camera focus
+            if (!district.border.empty()) {
+                RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(district.border[0]);
+            }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show AESP Values")) {
-            // TODO: Wire to AESP visualization
+            if (!district.border.empty()) {
+                RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(district.border[0]);
+            }
         }
         if (ImGui::MenuItem("Inspect Properties")) {
-            // TODO: Wire to inspector panel
+            auto& gs = GetGlobalState();
+            gs.selection.selected_road = {};
+            gs.selection.selected_district = gs.districts.createHandleFromData(index);
+            gs.selection.selected_lot = {};
+            gs.selection.selected_building = {};
         }
     }
     
     static void OnEntitySelected(EntityType& district, size_t index) {
-        (void)index;
+        auto& gs = GetGlobalState();
+        gs.selection.selected_road = {};
+        gs.selection.selected_district = gs.districts.createHandleFromData(index);
+        gs.selection.selected_lot = {};
+        gs.selection.selected_building = {};
         if (!district.border.empty()) {
             RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(district.border[0]);
         }
@@ -171,22 +234,37 @@ struct LotIndexTraits {
     
     static void ShowContextMenu(EntityType& lot, size_t index) {
         if (ImGui::MenuItem("Delete Lot")) {
-            // TODO: Wire to delete function
+            auto& gs = GetGlobalState();
+            const uint32_t lot_id = lot.id;
+            gs.buildings.remove_if([lot_id](const RogueCity::Core::BuildingSite& building) {
+                return building.lot_id == lot_id;
+            });
+            auto handle = gs.lots.createHandleFromData(index);
+            gs.lots.remove(handle);
+            gs.selection.selected_lot = {};
         }
         if (ImGui::MenuItem("Focus on Map")) {
-            // TODO: Wire to camera focus
+            RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show Lot Details")) {
-            // TODO: Wire to lot detail view
+            RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
         }
         if (ImGui::MenuItem("Inspect Properties")) {
-            // TODO: Wire to inspector panel
+            auto& gs = GetGlobalState();
+            gs.selection.selected_road = {};
+            gs.selection.selected_district = {};
+            gs.selection.selected_lot = gs.lots.createHandleFromData(index);
+            gs.selection.selected_building = {};
         }
     }
     
     static void OnEntitySelected(EntityType& lot, size_t index) {
-        (void)index;
+        auto& gs = GetGlobalState();
+        gs.selection.selected_road = {};
+        gs.selection.selected_district = {};
+        gs.selection.selected_lot = gs.lots.createHandleFromData(index);
+        gs.selection.selected_building = {};
         RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
     }
 
@@ -233,25 +311,42 @@ struct BuildingIndexTraits {
     
     static void ShowContextMenu(EntityType& building, size_t index) {
         if (ImGui::MenuItem("Delete Building")) {
-            // TODO: Wire to delete function
+            auto& gs = GetGlobalState();
+            gs.buildings.eraseViaData(static_cast<uint32_t>(index));
+            gs.selection.selected_building = {};
         }
         if (ImGui::MenuItem("Focus on Map")) {
-            // TODO: Wire to camera focus
+            RC_UI::Viewport::GetViewportOverlays().SetSelectedBuilding(building.position);
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Change Type")) {
-            // TODO: Wire to type selector
+            using RogueCity::Core::BuildingType;
+            switch (building.type) {
+                case BuildingType::Residential: building.type = BuildingType::MixedUse; break;
+                case BuildingType::MixedUse: building.type = BuildingType::Retail; break;
+                case BuildingType::Retail: building.type = BuildingType::Industrial; break;
+                case BuildingType::Industrial: building.type = BuildingType::Civic; break;
+                default: building.type = BuildingType::Residential; break;
+            }
         }
         if (ImGui::MenuItem("Show Site Info")) {
-            // TODO: Wire to building detail view
+            RC_UI::Viewport::GetViewportOverlays().SetSelectedBuilding(building.position);
         }
         if (ImGui::MenuItem("Inspect Properties")) {
-            // TODO: Wire to inspector panel
+            auto& gs = GetGlobalState();
+            gs.selection.selected_road = {};
+            gs.selection.selected_district = {};
+            gs.selection.selected_lot = {};
+            gs.selection.selected_building = gs.buildings.createHandleFromData(index);
         }
     }
     
     static void OnEntitySelected(EntityType& building, size_t index) {
-        (void)index;
+        auto& gs = GetGlobalState();
+        gs.selection.selected_road = {};
+        gs.selection.selected_district = {};
+        gs.selection.selected_lot = {};
+        gs.selection.selected_building = gs.buildings.createHandleFromData(index);
         RC_UI::Viewport::GetViewportOverlays().SetSelectedBuilding(building.position);
     }
 

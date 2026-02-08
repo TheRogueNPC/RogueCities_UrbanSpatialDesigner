@@ -1,11 +1,13 @@
 #pragma once
 
 #include "RogueCity/Core/Data/CityTypes.hpp"
+#include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Core/Util/IndexVector.hpp"
 #include "RogueCity/Core/Util/StableIndexVector.hpp"
 
 #include <cstdint>
+#include <optional>
 
 namespace RogueCity::Core::Editor {
 
@@ -51,6 +53,7 @@ namespace RogueCity::Core::Editor {
         // Editor-facing data (stable handles)
         fva::Container<Road> roads;
         fva::Container<District> districts;
+        fva::Container<BlockPolygon> blocks;
         fva::Container<LotToken> lots;
         fva::Container<EditorAxiom> axioms;
 
@@ -61,7 +64,10 @@ namespace RogueCity::Core::Editor {
         civ::IndexVector<Vec2> scratch_points;
 
         EditorParameters params{};
+        CityGenerationParams generation{};
+        GenerationStats generation_stats{};
         Selection selection{};
+        std::optional<CitySpec> active_city_spec{};
 
         uint64_t frame_counter{ 0 };
     };

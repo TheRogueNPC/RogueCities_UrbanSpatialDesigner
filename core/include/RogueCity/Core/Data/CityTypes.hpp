@@ -114,6 +114,9 @@ namespace RogueCity::Core {
         DistrictType type{ DistrictType::Mixed };
         std::vector<Vec2> border;
         Vec2 orientation{};
+        float budget_allocated{ 0.0f };
+        uint32_t projected_population{ 0 };
+        float desirability{ 0.0f };
 
         [[nodiscard]] bool hasAxiom() const { return primary_axiom_id >= 0; }
     };
@@ -123,6 +126,7 @@ namespace RogueCity::Core {
         uint32_t id{ 0 };
         uint32_t district_id{ 0 };
         Vec2 centroid{};
+        std::vector<Vec2> boundary;
         RoadType primary_road{ RoadType::Street };
         RoadType secondary_road{ RoadType::Street };
 
@@ -131,6 +135,8 @@ namespace RogueCity::Core {
         float exposure{ 0.0f };
         float serviceability{ 0.0f };
         float privacy{ 0.0f };
+        float area{ 0.0f };
+        float budget_allocation{ 0.0f };
 
         LotType lot_type{ LotType::None };
         bool is_user_placed{ false };
@@ -150,6 +156,7 @@ namespace RogueCity::Core {
         BuildingType type{ BuildingType::None };
         bool is_user_placed{ false };
         bool locked_type{ false };
+        float estimated_cost{ 0.0f };
     };
 
     // ===== UTILITY STRUCTURES =====
@@ -201,6 +208,36 @@ namespace RogueCity::Core {
         uint32_t invalid_polygons{ 0 };
         uint32_t repaired_polygons{ 0 };
         uint32_t skipped_polygons{ 0 };
+    };
+
+    /// Canonical runtime generation parameters (normalized from legacy CityParams)
+    struct CityGenerationParams {
+        uint32_t seed{ 1 };
+        int width{ 2000 };
+        int height{ 2000 };
+        double cell_size{ 10.0 };
+
+        int min_lot_width{ 10 };
+        int max_lot_width{ 50 };
+        int min_lot_depth{ 15 };
+        int max_lot_depth{ 60 };
+        int min_lots_per_road_side{ 1 };
+
+        uint32_t max_road_segments{ 10000 };
+        uint32_t max_districts{ 500 };
+        uint32_t max_lots{ 50000 };
+        uint32_t max_buildings{ 100000 };
+
+        uint32_t rogueworker_threshold{ 100 };
+    };
+
+    struct GenerationStats {
+        uint32_t roads_generated{ 0 };
+        uint32_t districts_generated{ 0 };
+        uint32_t lots_generated{ 0 };
+        uint32_t buildings_generated{ 0 };
+        float generation_time_ms{ 0.0f };
+        bool used_parallelization{ false };
     };
 
 } // namespace RogueCity::Core

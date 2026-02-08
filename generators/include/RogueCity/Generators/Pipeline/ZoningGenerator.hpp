@@ -2,6 +2,9 @@
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Urban/BlockGenerator.hpp"
+#include "RogueCity/Generators/Urban/LotGenerator.hpp"
+#include "RogueCity/Generators/Urban/SiteGenerator.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Core/Util/StableIndexVector.hpp"
 #include <vector>
@@ -59,6 +62,8 @@ namespace RogueCity::Generators {
             // Subdivision settings
             bool allowRecursiveSubdivision{ true };
             uint32_t maxSubdivisionDepth{ 3 };
+            uint32_t maxLots{ 50000 };
+            uint32_t maxBuildings{ 100000 };
             
             uint32_t seed{ 12345 };
         };
@@ -140,16 +145,9 @@ namespace RogueCity::Generators {
         /// Determine if parallelization should be used (context-aware toggle)
         [[nodiscard]] bool shouldUseParallelization(
             uint32_t axiomCount,
-            uint32_t districtCount
+            uint32_t districtCount,
+            uint32_t lotDensity
         ) const;
-
-        /// Subdivide a single block into lots (recursive)
-        void subdivideBlock(
-            const BlockPolygon& block,
-            std::vector<LotToken>& outLots,
-            RNG& rng,
-            uint32_t depth = 0
-        );
 
         /// Get building cost from type
         [[nodiscard]] float getBuildingCost(BuildingType type) const;

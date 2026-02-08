@@ -14,6 +14,17 @@ set(GENERATOR_SOURCES
     src/Generators/Roads/StreamlineTracer.cpp
     src/Generators/Roads/RoadClassifier.cpp
     src/Generators/Districts/AESPClassifier.cpp
+    src/Generators/Urban/FrontageProfiles.cpp
+    src/Generators/Urban/Integrator.cpp
+    src/Generators/Urban/GridStorage.cpp
+    src/Generators/Urban/PolygonUtil.cpp
+    src/Generators/Urban/Graph.cpp
+    src/Generators/Urban/PolygonFinder.cpp
+    src/Generators/Urban/RoadGenerator.cpp
+    src/Generators/Urban/DistrictGenerator.cpp
+    src/Generators/Urban/BlockGenerator.cpp
+    src/Generators/Urban/LotGenerator.cpp
+    src/Generators/Urban/SiteGenerator.cpp
     src/Generators/Pipeline/CityGenerator.cpp
     src/Generators/Pipeline/CitySpecAdapter.cpp
     src/Generators/Pipeline/ZoningGenerator.cpp
@@ -26,6 +37,17 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Roads/StreamlineTracer.hpp
     include/RogueCity/Generators/Roads/RoadClassifier.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
+    include/RogueCity/Generators/Urban/FrontageProfiles.hpp
+    include/RogueCity/Generators/Urban/Integrator.hpp
+    include/RogueCity/Generators/Urban/GridStorage.hpp
+    include/RogueCity/Generators/Urban/PolygonUtil.hpp
+    include/RogueCity/Generators/Urban/Graph.hpp
+    include/RogueCity/Generators/Urban/PolygonFinder.hpp
+    include/RogueCity/Generators/Urban/RoadGenerator.hpp
+    include/RogueCity/Generators/Urban/DistrictGenerator.hpp
+    include/RogueCity/Generators/Urban/BlockGenerator.hpp
+    include/RogueCity/Generators/Urban/LotGenerator.hpp
+    include/RogueCity/Generators/Urban/SiteGenerator.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
     include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
