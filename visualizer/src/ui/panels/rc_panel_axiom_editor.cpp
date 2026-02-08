@@ -169,7 +169,7 @@ void RandomizeSeed() {
 void MarkAxiomChanged() {
     s_external_dirty = true;
 }
-
+//this function is called by the AxiomPlacementTool when axioms are modified, to trigger validation and preview updates
 static bool BuildInputs(
     std::vector<RogueCity::Generators::CityGenerator::AxiomInput>& out_inputs,
     RogueCity::Generators::CityGenerator::Config& out_config) {
@@ -505,6 +505,9 @@ void Draw(float dt) {
      ImGuiWindowFlags_NoCollapse | 
      ImGuiWindowFlags_NoScrollbar |
      ImGuiWindowFlags_NoScrollWithMouse
+     //#uncomment or add function to toggle these if needed otherwise leave off -R0
+     //ImGuiWindowFlags_NoInputs
+     //ImGuiWindowFlags_NoNav
  );
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
@@ -536,13 +539,13 @@ const bool axiom_mode =
     (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
     (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
     
-// Debug: Show current state
-ImGui::SetCursorScreenPos(ImVec2(10, 10));
-ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f), 
-    "Editor State: %d (Axiom Mode: %s)", 
-    static_cast<int>(current_state),
-    axiom_mode ? "ON" : "OFF"
-);
+    // Debug: Show current state
+    ImGui::SetCursorScreenPos(ImVec2(10, 10));
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f), 
+        "Editor State: %d (Axiom Mode: %s)", 
+        static_cast<int>(current_state),
+        axiom_mode ? "ON" : "OFF"
+    );
     
     // Update viewport sync + preview scheduler
     s_sync_manager->update(dt);
@@ -583,6 +586,27 @@ ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f),
     }
     
     // Mouse interaction is handled after overlay windows are submitted so hover tests are correct.
+    if (RC_UI::IsAxiomLibraryOpen()) {
+        ImGui::Begin("Axiom Library", nullptr, ImGuiWindowFlags_NoCollapse);
+
+        // NEW: Check current tool mode
+        const auto tool_mode = RC_UI::ToolDeck::GetCurrentTool();
+
+        switch (tool_mode) {
+        case RC_UI::ToolDeck::ToolMode::Axioms:
+            DrawAxiomPalette();  // existing code
+            break;
+        case RC_UI::ToolDeck::ToolMode::Roads:
+            DrawRoadPalette();   // new
+            break;
+        case RC_UI::ToolDeck::ToolMode::Zones:
+            DrawZonePalette();   // new
+            break;
+            // ... etc
+        }
+
+        ImGui::End();
+    }
 
     bool ui_modified_axiom = false;
 
