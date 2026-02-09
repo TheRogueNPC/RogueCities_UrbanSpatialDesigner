@@ -290,7 +290,7 @@ void DrawRoot(float dt)
         ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoNavFocus |
         ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_NoInputs |  // CRITICAL: Pass input through to docked windows!
+        // ImGuiWindowFlags_NoInputs removed - it blocks input instead of passing through!
         ImGuiWindowFlags_NoFocusOnAppearing;  // Don't steal focus
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
