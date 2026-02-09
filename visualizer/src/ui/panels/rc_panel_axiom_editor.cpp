@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
+#include "ui/rc_ui_viewport_config.h"
 #include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine enforcement
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
@@ -29,6 +30,7 @@ using namespace RogueCity::UI;  // For DesignSystem helpers
 
 namespace {
     using Preview = RogueCity::App::RealTimePreview;
+    static bool s_viewport_open = true;
     
     // === ROGUENAV MINIMAP CONFIGURATION ===
     enum class MinimapMode {
@@ -536,15 +538,14 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
 void Draw(float dt) {
  Initialize();
     
- // Use DesignSystem panel helper (enforces Cockpit Doctrine styling)
- DesignSystem::BeginPanel("RogueVisualizer", 
-     ImGuiWindowFlags_NoCollapse | 
-     ImGuiWindowFlags_NoScrollbar |
-     ImGuiWindowFlags_NoScrollWithMouse
-     //#uncomment or add function to toggle these if needed otherwise leave off -R0
-     //ImGuiWindowFlags_NoInputs
-     //ImGuiWindowFlags_NoNav
- );
+    RC_UI::ScopedViewportPadding viewport_padding;
+    static RC_UI::DockableWindowState s_viewport_window;
+    if (!RC_UI::BeginDockableWindow("RogueVisualizer", s_viewport_window, "Center",
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse)) {
+        return;
+    }
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -559,29 +560,21 @@ void Draw(float dt) {
         true
     );
     uiint.RegisterWidget({"viewport", "Primary Viewport", "viewport.primary", {"viewport"}});
-    
-// Get editor state to determine if axiom tool should be active
-auto& gs = RogueCity::Core::Editor::GetGlobalState();
-auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
-auto current_state = hfsm.state();
 
-if (current_state != RogueCity::Core::Editor::EditorState::Editing_Axioms &&
-    current_state != RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom) {
-    hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Axioms, gs);
-    current_state = hfsm.state();
-}
+    // Get editor state to determine if axiom tool should be active
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+    auto current_state = hfsm.state();
 
-const bool axiom_mode =
-    (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
-    (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
-    
-    // Debug: Show current state
-    ImGui::SetCursorScreenPos(ImVec2(10, 10));
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.7f), 
-        "Editor State: %d (Axiom Mode: %s)", 
-        static_cast<int>(current_state),
-        axiom_mode ? "ON" : "OFF"
-    );
+    if (current_state != RogueCity::Core::Editor::EditorState::Editing_Axioms &&
+        current_state != RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom) {
+        hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Axioms, gs);
+        current_state = hfsm.state();
+    }
+
+    const bool axiom_mode =
+        (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
+        (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
     
     // Update viewport sync + preview scheduler
     s_sync_manager->update(dt);
@@ -593,6 +586,8 @@ const bool axiom_mode =
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 viewport_pos = ImGui::GetCursorScreenPos();
     const ImVec2 viewport_size = ImGui::GetContentRegionAvail();
+    const ImVec2 viewport_max(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y);
+    draw_list->PushClipRect(viewport_pos, viewport_max, true);
     
     // Background (Y2K grid pattern)
     draw_list->AddRectFilled(
@@ -698,9 +693,17 @@ const bool axiom_mode =
     const ImVec2 vp_min = viewport_pos;
     const ImVec2 vp_max(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y);
     const bool in_viewport = ImGui::IsMouseHoveringRect(vp_min, vp_max);
-    const bool editor_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_None);
+    const bool editor_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
 
-    if (axiom_mode && editor_hovered && in_viewport && !ImGui::GetIO().WantCaptureMouse) {
+    const ImVec2 minimap_pos_bounds = ImVec2(
+        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+        viewport_pos.y + kMinimapPadding
+    );
+    const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
+    const bool minimap_hovered = (mouse_pos.x >= minimap_pos_bounds.x && mouse_pos.x <= minimap_max_bounds.x &&
+                                   mouse_pos.y >= minimap_pos_bounds.y && mouse_pos.y <= minimap_max_bounds.y);
+
+    if (axiom_mode && editor_hovered && in_viewport && !ImGui::IsAnyItemActive() && !minimap_hovered) {
         ImGuiIO& io = ImGui::GetIO();
         RogueCity::Core::Vec2 world_pos = s_primary_viewport->screen_to_world(mouse_pos);
 
@@ -910,9 +913,10 @@ const bool axiom_mode =
     }
     
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).
-    
+    draw_list->PopClipRect();
+
     uiint.EndPanel();
-    DesignSystem::EndPanel();  // Use DesignSystem helper (matches BeginPanel)
+    RC_UI::EndDockableWindow();
 }
 
 } // namespace RC_UI::Panels::AxiomEditor

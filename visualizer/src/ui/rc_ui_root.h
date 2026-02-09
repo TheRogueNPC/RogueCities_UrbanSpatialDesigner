@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <imgui.h>
+
 namespace RogueCity::App { class MinimapViewport; }
 
 namespace RC_UI {
@@ -25,5 +27,22 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
 
 // Reset dock layout to default (useful if user messes up docking)
 void ResetDockLayout();
+
+// Track last docked area for windows (for re-docking on close).
+void NotifyDockedWindow(const char* windowName, const char* dockArea);
+void ReturnWindowToLastDock(const char* windowName, const char* fallbackArea);
+
+struct DockableWindowState {
+    bool open = true;
+    bool was_docked = true;
+};
+
+// Begin a dockable window with unified behavior: X only when undocked, re-dock on close.
+bool BeginDockableWindow(const char* windowName,
+                         DockableWindowState& state,
+                         const char* fallbackDockArea,
+                         ImGuiWindowFlags flags = 0);
+
+void EndDockableWindow();
 
 } // namespace RC_UI

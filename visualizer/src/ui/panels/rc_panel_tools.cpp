@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_tools.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "ui/rc_ui_root.h"
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "integration/AiAssist.h"
@@ -44,7 +45,10 @@ static void RenderToolButton(
 
 void Draw(float dt)
 {
-    const bool open = ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoCollapse);
+    static RC_UI::DockableWindowState s_tools_window;
+    if (!RC_UI::BeginDockableWindow("Tools", s_tools_window, "Bottom", ImGuiWindowFlags_NoCollapse)) {
+        return;
+    }
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -56,28 +60,17 @@ void Draw(float dt)
             "visualizer/src/ui/panels/rc_panel_tools.cpp",
             {"generation", "controls", "cockpit"}
         },
-        open
+        true
     );
-
-    if (!open) {
-        uiint.EndPanel();
-        ImGui::End();
-        return;
-    }
 
     // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
     // === TOOL MODE BUTTONS (HFSM-driven) ===
     ImGui::SeparatorText("Editor Tools");
     
-    // Get HFSM and GlobalState (these should be accessible via a singleton or passed in)
-    // For now, we'll use the GetEditorHFSM() function
+    // Get HFSM and GlobalState
     using namespace RogueCity::Core::Editor;
     EditorHFSM& hfsm = GetEditorHFSM();
-    
-    // TODO: Get GlobalState from application context
-    // For now, create a dummy one (this should be fixed in future integration)
-    static GlobalState dummy_gs;
-    GlobalState& gs = dummy_gs;
+    GlobalState& gs = GetGlobalState();
     
     RenderToolButton("Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms, hfsm, gs);
     ImGui::SameLine();
@@ -157,20 +150,8 @@ void Draw(float dt)
         ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", err);
     }
 
-    // Input state indicators (from ImGui IO)
-    ImGuiIO& io = ImGui::GetIO();
-    ImGui::Separator();
-    ImGui::Text("Mouse: (%.0f, %.0f)  L:%d R:%d M:%d",
-        io.MousePos.x, io.MousePos.y,
-        io.MouseDown[0] ? 1 : 0,
-        io.MouseDown[1] ? 1 : 0,
-        io.MouseDown[2] ? 1 : 0);
-    ImGui::Text("Mods: Ctrl:%d Shift:%d Alt:%d  Capture: Mouse:%d Key:%d",
-        io.KeyCtrl ? 1 : 0, io.KeyShift ? 1 : 0, io.KeyAlt ? 1 : 0,
-        io.WantCaptureMouse ? 1 : 0, io.WantCaptureKeyboard ? 1 : 0);
-
     uiint.EndPanel();
-    ImGui::End();
+    RC_UI::EndDockableWindow();
 }
 
 } // namespace RC_UI::Panels::Tools

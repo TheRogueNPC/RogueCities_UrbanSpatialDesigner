@@ -10,6 +10,7 @@
 #include <functional>
 #include <algorithm>
 
+#include "ui/rc_ui_root.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
@@ -68,7 +69,10 @@ public:
         using RogueCity::Core::Editor::GetGlobalState;
         auto& gs = GetGlobalState();
         
-        const bool open = ImGui::Begin(m_panel_title, nullptr, ImGuiWindowFlags_NoCollapse);
+        static RC_UI::DockableWindowState s_index_window;
+        if (!RC_UI::BeginDockableWindow(m_panel_title, s_index_window, "Bottom", ImGuiWindowFlags_NoCollapse)) {
+            return;
+        }
         
         // Register with introspection system
         auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
@@ -81,14 +85,8 @@ public:
                 m_source_file,
                 Traits::GetTags()
             },
-            open
+            true
         );
-        
-        if (!open) {
-            uiint.EndPanel();
-            ImGui::End();
-            return;
-        }
         
         // Get data
         auto& data = Traits::GetData(gs);
@@ -178,7 +176,7 @@ public:
         
         uiint.RegisterWidget({"table", Traits::GetDataName(), std::string(Traits::GetDataName()) + "[]", {"index"}});
         uiint.EndPanel();
-        ImGui::End();
+        RC_UI::EndDockableWindow();
     }
     
     // Get currently selected index

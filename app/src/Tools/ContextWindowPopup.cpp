@@ -30,9 +30,9 @@ void ContextWindowPopup::close() {
 void ContextWindowPopup::update() {
     if (!is_open_) return;
 
-    // Position popup at stored screen position
-    ImGui::SetNextWindowPos(popup_pos_, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(200, 0), ImGuiCond_Always);
+    // Position popup at stored screen position (only when appearing)
+    ImGui::SetNextWindowPos(popup_pos_, ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(200, 0), ImGuiCond_Appearing);
 
     // Y2K styling: hard edges, warning stripe border
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);

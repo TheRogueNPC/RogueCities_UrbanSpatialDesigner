@@ -112,6 +112,8 @@ int main(int, char**)
     // LInput init
     LInput::Input input;
     input.Init();
+    // Disable legacy input injection by default while diagnosing capture conflicts
+    static bool g_disable_linput_injection = true;
     #endif
 
     // Main loop
@@ -120,21 +122,21 @@ int main(int, char**)
         glfwPollEvents();
 
         #if defined(ROGUECITY_HAS_LINPUT)
-        // Poll platform input and feed ImGui IO
+        // Poll platform input and (optionally) feed ImGui IO
         input.Update();
-        io.MousePos = ImVec2(static_cast<float>(input.Mouse.X()), static_cast<float>(input.Mouse.Y()));
-        io.MouseDown[0] = input.Mouse.LeftButtonDown();
-        io.MouseDown[1] = input.Mouse.RightButtonDown();
-        io.MouseDown[2] = input.Mouse.MiddleButtonDown();
+        if (!g_disable_linput_injection) {
+            io.MousePos = ImVec2(static_cast<float>(input.Mouse.X()), static_cast<float>(input.Mouse.Y()));
+            io.MouseDown[0] = input.Mouse.LeftButtonDown();
+            io.MouseDown[1] = input.Mouse.RightButtonDown();
+            io.MouseDown[2] = input.Mouse.MiddleButtonDown();
 
-        io.KeyCtrl = input.Keyboard.CtrlDown();
-        io.KeyShift = input.Keyboard.ShiftDown();
-        io.KeyAlt = input.Keyboard.AltDown();
+            io.KeyCtrl = input.Keyboard.CtrlDown();
+            io.KeyShift = input.Keyboard.ShiftDown();
+            io.KeyAlt = input.Keyboard.AltDown();
+        }
 
         // Legacy key array feed removed: this imgui build does not expose `io.KeysDown`.
-        // We still set modifier keys above (KeyCtrl/KeyShift/KeyAlt). If deterministic
-        // keyboard polling is required for this platform, adapt to the ImGui backend
-        // in use (use io.AddKeyEvent or platform-specific event injection).
+        // We still set modifier keys above (KeyCtrl/KeyShift/KeyAlt) when injection is enabled.
         #endif
 
         ImGui_ImplOpenGL3_NewFrame();

@@ -2,6 +2,7 @@
 // PURPOSE: Development-only cockpit panel for exporting UI introspection snapshots.
 
 #include "ui/panels/rc_panel_dev_shell.h"
+#include "ui/rc_ui_root.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
 
@@ -58,8 +59,8 @@ void Toggle() {
 void Draw(float /*dt*/) {
     if (!s_open) return;
 
-    if (!ImGui::Begin("Dev Shell", &s_open, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::End();
+    static RC_UI::DockableWindowState s_dev_shell_window;
+    if (!RC_UI::BeginDockableWindow("Dev Shell", s_dev_shell_window, "Right", ImGuiWindowFlags_NoCollapse)) {
         return;
     }
 
@@ -135,7 +136,21 @@ void Draw(float /*dt*/) {
     uiint.RegisterWidget({"tree", "Snapshot Preview", "uiint.preview", {"dev"}});
 
     ImGui::Separator();
+    ImGui::TextUnformatted("Input Debug");
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::Text("Mouse: (%.0f, %.0f)  L:%d R:%d M:%d",
+        io.MousePos.x, io.MousePos.y,
+        io.MouseDown[0] ? 1 : 0,
+        io.MouseDown[1] ? 1 : 0,
+        io.MouseDown[2] ? 1 : 0);
+    ImGui::Text("Mods: Ctrl:%d Shift:%d Alt:%d  Capture: Mouse:%d Key:%d",
+        io.KeyCtrl ? 1 : 0, io.KeyShift ? 1 : 0, io.KeyAlt ? 1 : 0,
+        io.WantCaptureMouse ? 1 : 0, io.WantCaptureKeyboard ? 1 : 0);
+    ImGui::Text("WantTextInput: %d", io.WantTextInput ? 1 : 0);
+
+    ImGui::Separator();
     ImGui::TextUnformatted("UI Design Assistant");
+
     ImGui::InputTextMultiline("Goal", s_designGoal, sizeof(s_designGoal), ImVec2(-1, 60));
     uiint.RegisterWidget({"text", "Goal", "ui_design.goal", {"dev", "input"}});
 
@@ -180,7 +195,7 @@ void Draw(float /*dt*/) {
     }
 
     uiint.EndPanel();
-    ImGui::End();
+    RC_UI::EndDockableWindow();
 }
 
 } // namespace RC_UI::Panels::DevShell

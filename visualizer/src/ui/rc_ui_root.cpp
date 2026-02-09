@@ -30,6 +30,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace RC_UI {
 
@@ -57,6 +58,7 @@ namespace {
 
     static DockLayoutNodes s_dock_nodes{};
     static std::vector<DockRequest> s_pending_dock_requests;
+    static std::unordered_map<std::string, std::string> s_last_dock_area;
 }
 
 // Static minimap instance (Phase 5: Polish)
@@ -365,6 +367,57 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
 void ResetDockLayout() {
     s_dock_built = false;
     s_pending_dock_requests.clear();
+}
+
+void NotifyDockedWindow(const char* windowName, const char* dockArea) {
+    if (!windowName || !dockArea || dockArea[0] == '\0') {
+        return;
+    }
+
+    s_last_dock_area[windowName] = dockArea;
+}
+
+void ReturnWindowToLastDock(const char* windowName, const char* fallbackArea) {
+    if (!windowName) {
+        return;
+    }
+
+    const auto it = s_last_dock_area.find(windowName);
+    const char* target = fallbackArea;
+    if (it != s_last_dock_area.end()) {
+        target = it->second.c_str();
+    }
+
+    QueueDockWindow(windowName, target);
+}
+
+bool BeginDockableWindow(const char* windowName,
+                         DockableWindowState& state,
+                         const char* fallbackDockArea,
+                         ImGuiWindowFlags flags) {
+    const bool show_close = !state.was_docked;
+    bool* p_open = show_close ? &state.open : nullptr;
+
+    const bool open = ImGui::Begin(windowName, p_open, flags);
+    const bool is_docked = ImGui::IsWindowDocked();
+    state.was_docked = is_docked;
+
+    if (is_docked) {
+        NotifyDockedWindow(windowName, fallbackDockArea);
+    }
+
+    if (!open || !state.open) {
+        ReturnWindowToLastDock(windowName, fallbackDockArea);
+        state.open = true;
+        ImGui::End();
+        return false;
+    }
+
+    return true;
+}
+
+void EndDockableWindow() {
+    ImGui::End();
 }
 
 } // namespace RC_UI
