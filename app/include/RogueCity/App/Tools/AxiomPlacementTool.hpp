@@ -2,6 +2,7 @@
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "AxiomVisual.hpp"
+#include "ContextWindowPopup.hpp"
 #include <vector>
 #include <memory>
 
@@ -76,6 +77,9 @@ private:
 
     bool animation_enabled_{ true };
     bool dirty_{ false };
+    ContextWindowPopup knob_popup_;
+    int popup_axiom_id_{ -1 };
+    int popup_ring_index_{ -1 };
 };
 
 } // namespace RogueCity::App

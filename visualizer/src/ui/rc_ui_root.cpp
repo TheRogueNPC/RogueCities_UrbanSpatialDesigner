@@ -65,6 +65,7 @@ namespace {
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
 static bool s_axiom_library_open = false;
 static bool s_dock_built = false;
+static bool s_dock_layout_dirty = true;
 
 static std::string ActiveModeFromHFSM() {
     using RogueCity::Core::Editor::EditorState;
@@ -177,6 +178,7 @@ void ToggleAxiomLibrary() {
 }
 
 static void BuildDockLayout(ImGuiID dockspace_id) {
+    ImGui::DockBuilderRemoveNodeDockedWindows(dockspace_id, true);
     ImGui::DockBuilderRemoveNode(dockspace_id);
     ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
@@ -209,8 +211,6 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
 
     ImGui::DockBuilderDockWindow("Axiom Library", dock_right);
 
-    ImGui::DockBuilderFinish(dockspace_id);
-
     s_dock_nodes.root = dockspace_id;
     s_dock_nodes.top = dock_top;
     s_dock_nodes.left = dock_left;
@@ -236,9 +236,9 @@ static ImGuiID NodeForDockArea(const std::string& dock_area) {
     return s_dock_nodes.center;
 }
 
-static void ProcessPendingDockRequests(ImGuiID dockspace_id) {
+static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
     if (s_pending_dock_requests.empty()) {
-        return;
+        return false;
     }
 
     bool any_applied = false;
@@ -261,7 +261,24 @@ static void ProcessPendingDockRequests(ImGuiID dockspace_id) {
     }
 
     s_pending_dock_requests.clear();
-    if (any_applied) {
+    return any_applied;
+}
+
+static void UpdateDockLayout(ImGuiID dockspace_id) {
+    bool layout_changed = false;
+
+    if (!s_dock_built || s_dock_layout_dirty) {
+        BuildDockLayout(dockspace_id);
+        s_dock_built = true;
+        s_dock_layout_dirty = false;
+        layout_changed = true;
+    }
+
+    if (ProcessPendingDockRequests(dockspace_id)) {
+        layout_changed = true;
+    }
+
+    if (layout_changed) {
         ImGui::DockBuilderFinish(dockspace_id);
     }
 }
@@ -304,12 +321,7 @@ void DrawRoot(float dt)
     ImGuiID dockspace_id = ImGui::GetID("RogueDockSpace");
     ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
 
-    if (!s_dock_built) {
-        BuildDockLayout(dockspace_id);
-        s_dock_built = true;
-    }
-
-    ProcessPendingDockRequests(dockspace_id);
+    UpdateDockLayout(dockspace_id);
 
     ImGui::End();
 
@@ -366,6 +378,7 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
 
 void ResetDockLayout() {
     s_dock_built = false;
+    s_dock_layout_dirty = true;
     s_pending_dock_requests.clear();
 }
 

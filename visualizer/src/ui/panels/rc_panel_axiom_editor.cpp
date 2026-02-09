@@ -566,12 +566,6 @@ void Draw(float dt) {
     auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
     auto current_state = hfsm.state();
 
-    if (current_state != RogueCity::Core::Editor::EditorState::Editing_Axioms &&
-        current_state != RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom) {
-        hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::Tool_Axioms, gs);
-        current_state = hfsm.state();
-    }
-
     const bool axiom_mode =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
         (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);

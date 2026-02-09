@@ -9,6 +9,7 @@ AxiomPlacementTool::AxiomPlacementTool() = default;
 AxiomPlacementTool::~AxiomPlacementTool() = default;
 
 void AxiomPlacementTool::update(float delta_time, PrimaryViewport& viewport) {
+    knob_popup_.update();
     // Update all axiom animations
     for (auto& axiom : axioms_) {
         axiom->update(delta_time);
@@ -69,10 +70,28 @@ void AxiomPlacementTool::render(ImDrawList* draw_list, const PrimaryViewport& vi
 }
 
 void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
+    if (knob_popup_.is_open()) {
+        return;
+    }
     if (mode_ == Mode::Idle) {
         // If a knob is hovered on the selected axiom, drag radius.
         if (auto* selected = get_selected_axiom()) {
             if (auto* knob = selected->get_hovered_knob(world_pos)) {
+                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    popup_axiom_id_ = selected->id();
+                    popup_ring_index_ = knob->ring_index;
+                    knob_popup_.set_on_apply([this](float new_value) {
+                        for (const auto& axiom : axioms_) {
+                            if (axiom->id() == popup_axiom_id_) {
+                                axiom->set_radius(new_value);
+                                dirty_ = true;
+                                break;
+                            }
+                        }
+                    });
+                    knob_popup_.open(ImGui::GetMousePos(), selected->radius(), 50.0f, 1000.0f, "Radius (m)");
+                    return;
+                }
                 dragging_knob_ = knob;
                 knob_drag_start_ = world_pos;
                 knob->is_dragging = true;
@@ -127,6 +146,9 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
 }
 
 void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
+    if (knob_popup_.is_open()) {
+        return;
+    }
     if (mode_ == Mode::DraggingSize) {
         // Update ghost radius based on drag distance
         const float dx = world_pos.x - placement_start_pos_.x;
