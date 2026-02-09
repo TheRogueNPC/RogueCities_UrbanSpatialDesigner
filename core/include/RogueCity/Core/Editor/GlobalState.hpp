@@ -56,6 +56,7 @@ namespace RogueCity::Core::Editor {
         fva::Container<BlockPolygon> blocks;
         fva::Container<LotToken> lots;
         fva::Container<EditorAxiom> axioms;
+        fva::Container<WaterBody> waterbodies;  // AI_INTEGRATION_TAG: V1_PASS1_TASK3_WATER_COLLECTION
 
         // High-churn entities (validity checking)
         siv::Vector<BuildingSite> buildings;

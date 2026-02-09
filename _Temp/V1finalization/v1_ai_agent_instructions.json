@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "purpose": "Quick reference for AI coding agent to execute V1 finalization",
+    "usage": "Load this JSON alongside v1_finalization_navigation.json",
+    "target_model": "Claude Sonnet 4.5"
+  },
+  "execution_strategy": {
+    "approach": "Two-pass chunked execution",
+    "reasoning": "V1finalizationSprint.md is ~91KB (0.91MB) - too large for single context",
+    "solution": "Use this JSON as navigation map + pull specific task details on-demand",
+    "workflow": [
+      "1. Load v1_finalization_navigation.json (this file)",
+      "2. Select task from execution_passes.pass1.tasks or pass2.tasks",
+      "3. Use search_keywords to locate section in V1finalizationSprint.md",
+      "4. Extract only relevant task section for implementation",
+      "5. Verify against validation criteria",
+      "6. Move to next task"
+    ]
+  },
+  "agent_prompt_templates": {
+    "debug_manager": {
+      "role": "Build System & Testing Lead",
+      "tasks": [
+        "Task 1.1",
+        "Task 2.5"
+      ],
+      "prompt_template": "You are the Debug Manager agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Duration:** {duration}\n**Agent Role:** {agent_role}\n\n**Objectives:**\n{objectives}\n\n**Files to Modify:**\n{files}\n\n**Search Keywords:** {search_keywords}\n\n**Validation Criteria:**\n{validation}\n\n**References:**\n- Navigation JSON: v1_finalization_navigation.json\n- Full Plan: V1finalizationSprint.md (search for: {search_keywords})\n- Agent Roles: Old-to-New.md\n\n**Rogue Protocol Mandates:**\n- NO blocking operations >10ms (use RogueWorker)\n- FVA for UI-stable collections (roads, districts, lots)\n- Core library MUST remain UI-free\n- All tests MUST pass before task completion\n\n**Deliverables:**\n{deliverables}\n\n**Handoff Question:** {handoff_question}\n\nBegin implementation. Confirm understanding before proceeding.",
+      "task_1_1_specific": {
+        "focus": "Fix build errors and warnings",
+        "key_files": [
+          "CMakeLists.txt",
+          "GeneratorBridge.cpp",
+          "viewport files"
+        ],
+        "critical_fixes": [
+          "Set CMAKE_MSVC_RUNTIME_LIBRARY to 'MultiThreaded$<$<CONFIG:Debug>:Debug>DLL'",
+          "Add /W4 /WX- to MSVC compile options",
+          "Add explicit static_cast<float>() for all double→float conversions"
+        ],
+        "validation_command": "cmake --build build --config Release"
+      }
+    },
+    "coder_agent": {
+      "role": "Primary Implementation Lead",
+      "tasks": [
+        "Task 1.2",
+        "Task 1.3",
+        "Task 1.4",
+        "Task 2.1",
+        "Task 2.3"
+      ],
+      "prompt_template": "You are the Coder Agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Duration:** {duration}\n**Collaboration:** {collaboration}\n\n**Objectives:**\n{objectives}\n\n**Implementation Pattern:**\n```cpp\n{code_pattern}\n```\n\n**Files to Create/Modify:**\n{files}\n\n**Search Keywords:** {search_keywords}\n\n**Container Type Enforcement:**\n- Roads: FVA<RoadSegment> (UI needs stable handles)\n- Districts: FVA<District> (UI selection)\n- Lots: FVA<Lot> (UI selection)\n- Buildings: SIV<Building> (high-churn, safety)\n\n**Performance Rules:**\n- Operations >10ms → delegate to RogueWorker\n- Add profiling markers for generator stages\n- Verify deterministic output with seeded RNG\n\n**Validation:**\n{validation}\n\n**Handoff to:** {handoff_to}\n**Handoff Question:** {handoff_question}\n\nReview existing code at {files} before implementing. Confirm approach before writing code.",
+      "task_1_3_specific": {
+        "focus": "Complete GeneratorBridge methods",
+        "methods_to_implement": [
+          "generateLots(const LotGenParams& params)",
+          "placeBuildingSites(const BuildingPlacementParams& params)",
+          "generateWaterbodies(const WaterGenParams& params)",
+          "traceRivers(const std::vector<glm::vec2>& control_points)"
+        ],
+        "pattern": "LotInput → LotGenerator::Generate() → LotOutput → GlobalState::lots",
+        "critical_requirement": "Call state->NotifyLotsChanged() after populating"
+      }
+    },
+    "uiux_master": {
+      "role": "UI/UX Design & Implementation",
+      "tasks": [
+        "Task 1.2",
+        "Task 1.4",
+        "Task 1.5",
+        "Task 2.2"
+      ],
+      "prompt_template": "You are the UI/UX Master agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Design Doctrine:** Cockpit Doctrine (state-reactive, Y2K affordances)\n\n**Objectives:**\n{objectives}\n\n**Cockpit Doctrine Requirements:**\n1. **Viewport is Sacred:** No obstruction, overlays only\n2. **Tools are Tactile:** Immediate responsive feedback\n3. **Properties are Contextual:** Show based on selection\n4. **Motion Teaches:** Animated entry points (pulse, glow, wiggle)\n\n**Y2K Motion Affordances:**\n- Pulse: float pulse = 0.5f + 0.5f * sinf(ImGui::GetTime() * 4.0f);\n- Glow: Apply to active tool button\n- Wiggle: First-time use hint\n\n**HFSM State-Reactive Design:**\n- Panel visibility controlled by HFSM state\n- Active tool button highlights in green (0.2, 0.8, 0.2)\n- Viewport overlays change per mode\n\n**Files to Modify:**\n{files}\n\n**Search Keywords:** {search_keywords}\n\n**Validation:**\n{validation}\n\n**Handoff to:** {handoff_to}\n**Question:** {handoff_question}\n\nDesign first, implement second. Confirm UI flow before coding.",
+      "task_1_5_specific": {
+        "focus": "Viewport overlay rendering",
+        "overlays_needed": [
+          "Water Bodies: blue polygons (IM_COL32(50, 120, 200, 180))",
+          "Rivers: flowing curves with direction arrows",
+          "Buildings: footprint outlines with height indicators",
+          "Lots: boundary lines color-coded by zoning"
+        ],
+        "rendering_location": "visualizer/src/ui/viewport/rc_viewport_overlays.cpp",
+        "performance_target": ">30 FPS with 500+ entities"
+      }
+    },
+    "city_planner": {
+      "role": "Urban Design & AESP Logic",
+      "tasks": [
+        "Task 2.1",
+        "Task 2.2"
+      ],
+      "prompt_template": "You are the City Planner agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Domain:** Urban spatial design, AESP zoning semantics\n\n**Objectives:**\n{objectives}\n\n**AESP Framework:**\n- Aesthetics: Visual appeal (parks, landscaping)\n- Economy: Commercial activity (shops, offices)\n- Social: Community spaces (schools, centers)\n- Prestige: High-value development (luxury)\n\n**District Archetypes:**\n- Downtown: High AESP, mixed-use\n- Industrial: Low aesthetics, high economy\n- Residential: High social, medium aesthetics\n- Slums: Low AESP across all axes\n\n**Water Feature Types:**\n- Lake: Closed polygon, shore generation\n- River: Spline curve, flowing direction\n- Ocean: Large boundary, wave detail\n\n**Files to Create/Modify:**\n{files}\n\n**Search Keywords:** {search_keywords}\n\n**Validation:**\n{validation}\n\n**Handoff to:** {handoff_to}\n**Question:** {handoff_question}\n\nEnsure urban coherence. Verify AESP semantics match design doc.",
+      "task_2_1_specific": {
+        "focus": "Interactive water/river editing",
+        "tool_modes": {
+          "Lake": "Click to add boundary points, auto-close near first point",
+          "River": "Click to place spline control points, Enter to finish",
+          "Ocean": "Large boundary with shore generation"
+        },
+        "interaction_pattern": "OnMouseDown → add point → OnKeyPress(Enter) → CommitWaterbody()"
+      }
+    },
+    "resource_manager": {
+      "role": "Performance & Memory Budgets",
+      "tasks": [
+        "Task 2.5 (collaboration)"
+      ],
+      "prompt_template": "You are the Resource Manager agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Domain:** Performance monitoring, memory budgets, container enforcement\n\n**Resource Budgets:**\n- Max Road Segments: 10,000\n- Max Districts: 500\n- Max Lots: 50,000\n- Max Buildings: 100,000\n- RogueWorker Threshold: 10ms blocking\n\n**Container Type Rules:**\n- FVA: UI-stable (roads, districts, lots) - stable memory addresses\n- SIV: High-churn + safety (buildings) - stable iteration\n- CIV: Internal scratch buffers - no external visibility\n\n**Performance Targets:**\n- 1000-road city: <100ms generation\n- Large city memory: <500MB\n- UI frame rate: >30 FPS\n- Tool switching: <16ms latency\n\n**Validation:**\n{validation}\n\n**Profiling Commands:**\n- Windows: PerfView, Visual Studio Profiler\n- Monitor: GetProcessMemoryUsage(), std::chrono::high_resolution_clock\n\nEnforce budgets strictly. Fail fast if limits exceeded."
+    },
+    "documentation_keeper": {
+      "role": "Documentation & Release Management",
+      "tasks": [
+        "Task 2.6"
+      ],
+      "prompt_template": "You are the Documentation Keeper agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Domain:** Technical writing, documentation, release management\n\n**Documentation Deliverables:**\n1. **V1_Complete.md**: Full feature list, architecture overview\n2. **V1_Tool_Guide.md**: User-facing tool instructions\n3. **V1_Export_Guide.md**: Export workflow for JSON/OBJ/GLTF\n4. **README.md**: Updated with V1 features\n\n**Documentation Standards:**\n- Clear, concise language\n- Code examples for all API usage\n- Screenshots for UI workflows\n- Troubleshooting section\n\n**_Temp Cleanup Gate:**\nOnly proceed when:\n- [ ] All generators ported\n- [ ] All tests pass\n- [ ] Export system verified\n- [ ] Documentation reviewed\n\n**Cleanup Script:**\n```powershell\n# Move to _Del/ for safety\nMove-Item \"_Temp\" \"_Del/_Temp_$(Get-Date -Format 'yyyyMMdd_HHmmss')\"\n```\n\n**Validation:**\n- All links work\n- Code examples compile\n- Screenshots match current UI\n- No references to deleted files\n\nWrite for developers and users. Make V1 easy to understand and use."
+    },
+    "ai_integration_agent": {
+      "role": "AI Protocol & Pattern Catalog",
+      "tasks": [
+        "Task 2.4"
+      ],
+      "prompt_template": "You are the AI Integration Agent for RogueCities V1 Finalization.\n\n**Your Current Task:** {task_name} ({task_id})\n**Priority:** {priority}\n**Domain:** AI protocol extensions, UI pattern recognition\n\n**Pattern Catalog Structure:**\n```json\n{\n  \"name\": \"PanelName\",\n  \"type\": \"ControlPanel|IndexPanel|InteractiveTool\",\n  \"role\": \"trigger_generation|data_display|geometry_editing\",\n  \"data_bindings\": [\"GlobalState.collection\"],\n  \"hfsm_states\": [\"StateNames\"],\n  \"refactor_opportunities\": [\"Suggestions\"]\n}\n```\n\n**Patterns to Document:**\n- WaterControlPanel\n- BuildingControlPanel\n- LotControlPanel\n- RcDataIndexPanel<District>\n- RcDataIndexPanel<Lot>\n- WaterTool\n- LotEditTool\n\n**Refactoring Suggestions Format:**\n- Priority: high|medium|low\n- Description: What to refactor\n- Affected files: List\n- Estimated savings: LOC or performance gain\n\n**File to Update:**\n- AI/docs/ui/ui_patterns.json\n\n**Validation:**\n- JSON is valid (use linter)\n- All new panels documented\n- Refactoring suggestions actionable\n\nMake patterns machine-readable for future automation."
+    }
+  },
+  "task_execution_checklist": {
+    "before_starting": [
+      "[ ] Load v1_finalization_navigation.json",
+      "[ ] Identify current task and assigned agent role",
+      "[ ] Read task objectives and validation criteria",
+      "[ ] Check files_to_modify list",
+      "[ ] Review existing code in target files"
+    ],
+    "during_implementation": [
+      "[ ] Follow Rogue Protocol mandates (FVA/SIV/CIV rules)",
+      "[ ] Use search_keywords to locate relevant sections",
+      "[ ] Add inline comments for complex logic",
+      "[ ] Respect Cockpit Doctrine for UI (state-reactive)",
+      "[ ] Profile any operations >10ms"
+    ],
+    "after_implementation": [
+      "[ ] Build with: cmake --build build --config Release",
+      "[ ] Run relevant tests",
+      "[ ] Verify validation criteria met",
+      "[ ] Update documentation if API changed",
+      "[ ] Commit with descriptive message"
+    ],
+    "validation_commands": {
+      "build": "cmake --build build --config Release 2>&1 | Tee-Object build_log.txt",
+      "test": "./build/Release/test_generators.exe",
+      "profile": "Measure-Command { ./build/Release/RogueCityApp.exe --benchmark }",
+      "lint": "clang-format -i **/*.cpp **/*.hpp"
+    }
+  },
+  "common_code_patterns": {
+    "generator_bridge_method": {
+      "template": "void GeneratorBridge::{method_name}(const {ParamsType}& params) {\n    using namespace Generators;\n\n    // 1. Prepare input from GlobalState\n    {InputType} input;\n    input.{field1} = state_->{collection1};\n    input.{field2} = params.{param1};\n\n    // 2. Execute generator (async if >10ms)\n    {OutputType} output = {generator_}->Generate(input);\n\n    // 3. Populate GlobalState\n    state_->{target_collection}.clear();\n    state_->{target_collection}.reserve(output.{result_field}.size());\n    for (const auto& item : output.{result_field}) {\n        state_->{target_collection}.push_back(item);\n    }\n\n    // 4. Notify UI\n    state_->Notify{Collection}Changed();\n}",
+      "example": "generateLots(const LotGenParams& params)"
+    },
+    "hfsm_state_implementation": {
+      "template": "struct {StateName}State : public HFSMState {\n    void Enter(GlobalState* state) override {\n        // Show relevant panels\n        state->ui_flags.show_{panel_name} = true;\n\n        // Set interaction mode\n        state->interaction_mode = InteractionMode::{Mode};\n\n        // Highlight selected entity\n        if (state->selected_{entity}_id != -1) {\n            state->{collection}[state->selected_{entity}_id].highlighted = true;\n        }\n    }\n\n    void Update(float dt, GlobalState* state) override {\n        // Handle input for this mode\n        // Delegate to tool classes if complex\n    }\n\n    void Exit(GlobalState* state) override {\n        // Hide panels\n        state->ui_flags.show_{panel_name} = false;\n\n        // Reset interaction mode\n        state->interaction_mode = InteractionMode::None;\n\n        // Unhighlight entities\n        for (auto& entity : state->{collection}) {\n            entity.highlighted = false;\n        }\n    }\n};",
+      "example": "RoadEditingState"
+    },
+    "control_panel_implementation": {
+      "template": "void Rc{Feature}ControlPanel::Render() {\n    // Only show if HFSM is in correct state\n    if (hfsm_->GetCurrentMode() != EditorMode::{Mode}) {\n        return;\n    }\n\n    ImGui::Begin(\"{Feature} Control\", nullptr, ImGuiWindowFlags_AlwaysAutoResize);\n\n    // === Parameters ===\n    ImGui::SeparatorText(\"Parameters\");\n    ImGui::SliderFloat(\"{Param1}\", &params_.{field1}, {min}, {max});\n    ImGui::SliderFloat(\"{Param2}\", &params_.{field2}, {min}, {max});\n    ImGui::Checkbox(\"{Param3}\", &params_.{field3});\n\n    ImGui::Spacing();\n\n    // === Generation Button (Y2K pulse) ===\n    if (is_generating_) {\n        float pulse = 0.5f + 0.5f * sinf(ImGui::GetTime() * 4.0f);\n        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, pulse, 0.2f, 1.0f));\n    }\n\n    if (ImGui::Button(\"Generate {Feature}s\", ImVec2(-1, 40))) {\n        bridge_->generate{Feature}s(params_);\n        is_generating_ = true;\n        gen_start_time_ = ImGui::GetTime();\n    }\n\n    if (is_generating_) {\n        ImGui::PopStyleColor();\n        if (ImGui::GetTime() - gen_start_time_ > 1.0f) {\n            is_generating_ = false;\n        }\n    }\n\n    ImGui::Spacing();\n\n    // === Status ===\n    ImGui::SeparatorText(\"Status\");\n    ImGui::Text(\"Total: %zu\", state_->{collection}.size());\n\n    ImGui::End();\n}",
+      "example": "LotControlPanel"
+    },
+    "viewport_overlay_rendering": {
+      "template": "void RcViewportOverlays::Render{Entity}s(const GlobalState& state) {\n    ImDrawList* draw_list = ImGui::GetWindowDrawList();\n\n    for (const auto& entity : state.{collection}) {\n        // Determine color (highlight if selected)\n        ImU32 color = entity.highlighted ? \n            IM_COL32(255, 200, 0, 255) :  // Yellow highlight\n            IM_COL32({r}, {g}, {b}, {a}); // Normal color\n\n        // Render geometry\n        for (size_t i = 0; i < entity.boundary.size(); ++i) {\n            glm::vec2 p1 = entity.boundary[i];\n            glm::vec2 p2 = entity.boundary[(i + 1) % entity.boundary.size()];\n\n            ImVec2 screen_p1 = WorldToScreen(p1);\n            ImVec2 screen_p2 = WorldToScreen(p2);\n\n            draw_list->AddLine(screen_p1, screen_p2, color, {thickness});\n        }\n\n        // Add label if enabled\n        if (viewport_->show_labels) {\n            glm::vec2 center = CalculateCentroid(entity.boundary);\n            ImVec2 screen_center = WorldToScreen(center);\n            draw_list->AddText(screen_center, IM_COL32(255, 255, 255, 255), \n                               entity.name.c_str());\n        }\n    }\n}",
+      "example": "RenderWaterbodies"
+    }
+  },
+  "file_location_map": {
+    "hfsm_definitions": "core/include/RogueCity/Core/Editor/HFSM.hpp",
+    "hfsm_states": "core/src/Editor/HFSMStates.cpp",
+    "generator_bridge_header": "app/include/RogueCity/App/Integration/GeneratorBridge.hpp",
+    "generator_bridge_impl": "app/src/Integration/GeneratorBridge.cpp",
+    "tool_definitions": "app/include/RogueCity/App/Tools/",
+    "tool_implementations": "app/src/Tools/",
+    "control_panels": "visualizer/src/ui/panels/",
+    "viewport_overlays": "visualizer/src/ui/viewport/rc_viewport_overlays.cpp",
+    "data_index_panels": "visualizer/src/ui/panels/rc_data_index_panel.cpp",
+    "global_state": "core/include/RogueCity/Core/Data/CityTypes.hpp",
+    "city_spec": "core/include/RogueCity/Core/Data/CitySpec.hpp",
+    "ui_patterns_catalog": "AI/docs/ui/ui_patterns.json"
+  },
+  "troubleshooting": {
+    "build_fails": {
+      "symptom": "CMake configuration fails or build errors",
+      "checklist": [
+        "Check CMakeLists.txt syntax",
+        "Verify all dependencies (vcpkg)",
+        "Check include paths",
+        "Verify target names match",
+        "Clean build: rm -rf build && cmake -B build"
+      ]
+    },
+    "hfsm_not_transitioning": {
+      "symptom": "Tool button doesn't change HFSM state",
+      "checklist": [
+        "Verify TransitionTo() is called",
+        "Check state factory CreateState() includes new state",
+        "Verify EditorMode enum has new mode",
+        "Add debug logging to Enter()/Exit() methods"
+      ]
+    },
+    "ui_not_updating": {
+      "symptom": "Generator runs but UI doesn't show results",
+      "checklist": [
+        "Call state->Notify*Changed() after populating",
+        "Verify panel is visible (check HFSM state)",
+        "Check GlobalState collection has data",
+        "Verify viewport overlay is rendering collection"
+      ]
+    },
+    "performance_issues": {
+      "symptom": "UI freezes or low frame rate",
+      "checklist": [
+        "Profile with Visual Studio Profiler",
+        "Check for blocking operations >10ms",
+        "Verify RogueWorker is being used",
+        "Reduce entity counts for testing",
+        "Use instanced rendering for large collections"
+      ]
+    }
+  }
+}

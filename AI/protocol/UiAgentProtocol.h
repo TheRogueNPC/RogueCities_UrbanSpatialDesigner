@@ -12,21 +12,21 @@ namespace RogueCity::AI {
 // These types capture the current state of the editor UI for AI analysis
 
 struct UiPanelInfo {
-    std::string id;       // e.g. "Analytics", "Inspector", "RogueVisualizer"
-    std::string dock;     // "Left","Right","Bottom","Top","Center"
+    std::string id{};       // e.g. "Analytics", "Inspector", "RogueVisualizer"
+    std::string dock{};     // "Left","Right","Bottom","Top","Center"
     bool visible = true;
     
     // === CODE-SHAPE METADATA (Phase 4: Refactoring) ===
-    std::string role;              // "inspector" | "toolbox" | "viewport" | "nav" | "log"
-    std::string owner_module;      // e.g. "rc_ui_panel_axiom_editor"
-    std::vector<std::string> data_bindings;      // ["axiom.selected_id", "road.brush_radius"]
-    std::vector<std::string> interaction_patterns; // ["list+detail", "toolbar+canvas"]
+    std::string role{};              // "inspector" | "toolbox" | "viewport" | "nav" | "log"
+    std::string owner_module{};      // e.g. "rc_ui_panel_axiom_editor"
+    std::vector<std::string> data_bindings{};      // ["axiom.selected_id", "road.brush_radius"]
+    std::vector<std::string> interaction_patterns{}; // ["list+detail", "toolbar+canvas"]
 };
 
 struct UiHeaderInfo {
-    std::string left;     // e.g. "ROGUENAV"
-    std::string mode;     // e.g. "SOLITON", "REACTIVE", "SATELLITE"
-    std::string filter;   // e.g. "NORMAL", "CAUTION", "EVASION", "ALERT"
+    std::string left{};     // e.g. "ROGUENAV"
+    std::string mode{};     // e.g. "SOLITON", "REACTIVE", "SATELLITE"
+    std::string filter{};   // e.g. "NORMAL", "CAUTION", "EVASION", "ALERT"
 };
 
 struct UiStateInfo {
@@ -34,23 +34,23 @@ struct UiStateInfo {
     bool livePreview = false;
     double debounceSec = 0.0;
     uint64_t seed = 0;
-    std::string activeTool;                // e.g. "AXIOM_MODE_ACTIVE"
-    std::vector<std::string> selectedAxioms;
+    std::string activeTool{};                // e.g. "AXIOM_MODE_ACTIVE"
+    std::vector<std::string> selectedAxioms{};
     
     // === STATE MODEL (Phase 4: Code-aware) ===
     // Key-value pairs representing current application state
     // e.g. {"axiom.selected_id": "A123", "road.brush_radius": "15.0"}
-    std::map<std::string, std::string> state_model;
+    std::map<std::string, std::string> state_model{};
 };
 
 struct UiSnapshot {
-    std::string app;                       // "RogueCity Visualizer"
-    UiHeaderInfo header;
+    std::string app{};                       // "RogueCity Visualizer"
+    UiHeaderInfo header{};
     bool dockingEnabled = true;
     bool multiViewportEnabled = false;
-    std::vector<UiPanelInfo> panels;
-    UiStateInfo state;
-    std::vector<std::string> logTail;      // Last ~20 log lines
+    std::vector<UiPanelInfo> panels{};
+    UiStateInfo state{};
+    std::vector<std::string> logTail{};      // Last ~20 log lines
 };
 
 // ============================================================================

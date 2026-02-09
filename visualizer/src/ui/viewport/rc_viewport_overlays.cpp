@@ -48,6 +48,19 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_budget_bars) {
         RenderBudgetIndicators(gs);
     }
+    
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK5_RENDER_NEW_OVERLAYS
+    if (config.show_lot_boundaries) {
+        RenderLotBoundaries(gs);
+    }
+    
+    if (config.show_water_bodies) {
+        RenderWaterBodies(gs);
+    }
+    
+    if (config.show_building_sites) {
+        RenderBuildingSites(gs);
+    }
 
     RenderHighlights();
 }
@@ -254,6 +267,192 @@ void ViewportOverlays::RenderHighlights() {
     if (highlights_.has_hovered_building) {
         const ImVec2 pos = WorldToScreen(highlights_.hovered_building_pos);
         draw_list->AddRect(ImVec2(pos.x - 5, pos.y - 5), ImVec2(pos.x + 5, pos.y + 5), IM_COL32(120, 255, 180, 200), 2.0f, 0, 2.0f);
+    }
+}
+
+// AI_INTEGRATION_TAG: V1_PASS1_TASK5_WATER_OVERLAY
+void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs) {
+    using RogueCity::Core::WaterType;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    
+    for (const auto& water : gs.waterbodies) {
+        if (water.boundary.empty()) continue;
+        
+        // Determine color based on water type
+        glm::vec4 water_color;
+        switch (water.type) {
+            case WaterType::River:
+                water_color = glm::vec4(0.31f, 0.59f, 0.86f, 0.7f);  // Light blue
+                break;
+            case WaterType::Lake:
+                water_color = glm::vec4(0.20f, 0.47f, 0.78f, 0.6f);  // Medium blue
+                break;
+            case WaterType::Ocean:
+                water_color = glm::vec4(0.12f, 0.35f, 0.71f, 0.65f); // Dark blue
+                break;
+            case WaterType::Pond:
+            default:
+                water_color = glm::vec4(0.25f, 0.50f, 0.75f, 0.6f);  // Default blue
+                break;
+        }
+        
+        // Render boundary polygon/polyline
+        if (water.type == WaterType::River && water.boundary.size() >= 2) {
+            // Rivers are rendered as polylines (flowing paths)
+            std::vector<ImVec2> screen_points;
+            screen_points.reserve(water.boundary.size());
+            for (const auto& pt : water.boundary) {
+                screen_points.push_back(WorldToScreen(pt));
+            }
+            
+            ImU32 river_color = ImGui::ColorConvertFloat4ToU32(ImVec4(water_color.r, water_color.g, water_color.b, water_color.a));
+            float line_width = 3.0f + water.depth * 0.5f; // Width based on depth
+            draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), river_color, false, line_width);
+            
+            // Add direction arrows (optional, for visual clarity)
+            for (size_t i = 0; i < water.boundary.size() - 1; ++i) {
+                if (i % 10 == 0) { // Every 10th segment
+                    RogueCity::Core::Vec2 dir = water.boundary[i + 1] - water.boundary[i];
+                    float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+                    if (len > 1.0) {
+                        dir.x /= len;
+                        dir.y /= len;
+                        RogueCity::Core::Vec2 mid = (water.boundary[i] + water.boundary[i + 1]) * 0.5;
+                        RogueCity::Core::Vec2 arrow_tip = mid + dir * 5.0;
+                        ImVec2 screen_tip = WorldToScreen(arrow_tip);
+                        draw_list->AddCircleFilled(screen_tip, 2.0f, IM_COL32(200, 220, 255, 180));
+                    }
+                }
+            }
+        } else {
+            // Lakes, ponds, oceans are rendered as filled polygons
+            DrawPolygon(water.boundary, water_color);
+            
+            // Shore detail rendering (if enabled)
+            if (water.generate_shore) {
+                std::vector<ImVec2> screen_shore;
+                screen_shore.reserve(water.boundary.size());
+                for (const auto& pt : water.boundary) {
+                    screen_shore.push_back(WorldToScreen(pt));
+                }
+                
+                // Draw shore outline with lighter color
+                glm::vec4 shore_color(0.78f, 0.71f, 0.55f, 0.8f); // Sandy color
+                ImU32 shore = ImGui::ColorConvertFloat4ToU32(ImVec4(shore_color.r, shore_color.g, shore_color.b, shore_color.a));
+                draw_list->AddPolyline(screen_shore.data(), static_cast<int>(screen_shore.size()), shore, true, 1.5f);
+            }
+        }
+        
+        // Label water body type (only if large enough)
+        if (water.boundary.size() >= 3) {
+            // Calculate centroid
+            RogueCity::Core::Vec2 centroid{};
+            for (const auto& pt : water.boundary) {
+                centroid.x += pt.x;
+                centroid.y += pt.y;
+            }
+            centroid.x /= static_cast<double>(water.boundary.size());
+            centroid.y /= static_cast<double>(water.boundary.size());
+            
+            const char* type_name = "Water";
+            switch (water.type) {
+                case WaterType::River: type_name = "River"; break;
+                case WaterType::Lake: type_name = "Lake"; break;
+                case WaterType::Ocean: type_name = "Ocean"; break;
+                case WaterType::Pond: type_name = "Pond"; break;
+            }
+            
+            DrawWorldText(centroid, type_name, glm::vec4(1.0f, 1.0f, 1.0f, 0.9f));
+        }
+    }
+}
+
+// AI_INTEGRATION_TAG: V1_PASS1_TASK5_BUILDING_OVERLAY
+void ViewportOverlays::RenderBuildingSites(const RogueCity::Core::Editor::GlobalState& gs) {
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    
+    for (const auto& building : gs.buildings) {
+        // Render building as a simple marker/circle for now
+        // In future, this could be footprint polygons with height
+        ImVec2 screen_pos = WorldToScreen(building.position);
+        
+        // Building color based on type
+        glm::vec4 building_color;
+        using RogueCity::Core::BuildingType;
+        switch (building.type) {
+            case BuildingType::Residential:
+                building_color = glm::vec4(0.4f, 0.6f, 0.95f, 0.85f); // Blue
+                break;
+            case BuildingType::Retail:
+            case BuildingType::MixedUse:
+                building_color = glm::vec4(0.4f, 0.95f, 0.6f, 0.85f); // Green
+                break;
+            case BuildingType::Industrial:
+                building_color = glm::vec4(0.95f, 0.4f, 0.4f, 0.85f); // Red
+                break;
+            case BuildingType::Civic:
+                building_color = glm::vec4(0.95f, 0.8f, 0.4f, 0.85f); // Yellow
+                break;
+            case BuildingType::Luxury:
+                building_color = glm::vec4(0.8f, 0.4f, 0.95f, 0.85f); // Purple
+                break;
+            default:
+                building_color = glm::vec4(0.7f, 0.7f, 0.7f, 0.85f); // Gray
+                break;
+        }
+        
+        ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(building_color.r, building_color.g, building_color.b, building_color.a));
+        
+        // Draw building marker (square for now)
+        float size = 4.0f * std::max(1.0f, view_transform_.zoom);
+        draw_list->AddRectFilled(
+            ImVec2(screen_pos.x - size, screen_pos.y - size),
+            ImVec2(screen_pos.x + size, screen_pos.y + size),
+            color
+        );
+        
+        // Outline for visibility
+        ImU32 outline = IM_COL32(255, 255, 255, 100);
+        draw_list->AddRect(
+            ImVec2(screen_pos.x - size, screen_pos.y - size),
+            ImVec2(screen_pos.x + size, screen_pos.y + size),
+            outline,
+            0.0f,
+            0,
+            1.0f
+        );
+        
+        // Height indicator (vertical line) - only if enabled in config
+        // For now, we'll skip this as it requires config check in Render()
+    }
+}
+
+// AI_INTEGRATION_TAG: V1_PASS1_TASK5_LOT_OVERLAY
+void ViewportOverlays::RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs) {
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    
+    for (const auto& lot : gs.lots) {
+        if (lot.boundary.empty()) continue;
+        
+        // Lot boundary color (subtle, so it doesn't overwhelm)
+        glm::vec4 lot_color(0.8f, 0.8f, 0.8f, 0.3f); // Light gray, semi-transparent
+        
+        // Convert to screen space
+        std::vector<ImVec2> screen_points;
+        screen_points.reserve(lot.boundary.size());
+        for (const auto& pt : lot.boundary) {
+            screen_points.push_back(WorldToScreen(pt));
+        }
+        
+        // Draw boundary lines
+        ImU32 line_color = ImGui::ColorConvertFloat4ToU32(ImVec4(lot_color.r, lot_color.g, lot_color.b, lot_color.a));
+        draw_list->AddPolyline(
+            screen_points.data(),
+            static_cast<int>(screen_points.size()),
+            line_color,
+            true, // Closed loop
+            1.0f
+        );
     }
 }
 

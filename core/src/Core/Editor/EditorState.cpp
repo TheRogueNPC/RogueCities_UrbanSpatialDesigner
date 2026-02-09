@@ -18,6 +18,7 @@ namespace RogueCity::Core::Editor {
             case EditorState::Editing_Districts:
             case EditorState::Editing_Lots:
             case EditorState::Editing_Buildings:
+            case EditorState::Editing_Water:
             case EditorState::Viewport_Pan:
             case EditorState::Viewport_Select:
             case EditorState::Viewport_PlaceAxiom:
@@ -53,6 +54,7 @@ namespace RogueCity::Core::Editor {
             case EditorState::Editing_Districts:
             case EditorState::Editing_Lots:
             case EditorState::Editing_Buildings:
+            case EditorState::Editing_Water:
                 return true;
             default:
                 return false;
@@ -150,6 +152,10 @@ namespace RogueCity::Core::Editor {
                 transition_to(EditorState::Editing_Buildings, gs);
                 return;
             }
+            if (e == EditorEvent::Tool_Water) {
+                transition_to(EditorState::Editing_Water, gs);
+                return;
+            }
             if (e == EditorEvent::Viewport_Select) {
                 transition_to(m_viewport_return_state, gs);
                 return;
@@ -188,6 +194,7 @@ namespace RogueCity::Core::Editor {
             case EditorEvent::Tool_Districts: transition_to(EditorState::Editing_Districts, gs); break;
             case EditorEvent::Tool_Lots: transition_to(EditorState::Editing_Lots, gs); break;
             case EditorEvent::Tool_Buildings: transition_to(EditorState::Editing_Buildings, gs); break;
+            case EditorEvent::Tool_Water: transition_to(EditorState::Editing_Water, gs); break;
             case EditorEvent::BeginSim: transition_to(EditorState::Simulating, gs); break;
             case EditorEvent::BeginPlayback: transition_to(EditorState::Playback, gs); break;
             case EditorEvent::Export:
@@ -208,6 +215,7 @@ namespace RogueCity::Core::Editor {
         case EditorState::Editing_Districts:
         case EditorState::Editing_Lots:
         case EditorState::Editing_Buildings:
+        case EditorState::Editing_Water:
             switch (e) {
             case EditorEvent::GotoIdle: transition_to(EditorState::Idle, gs); break;
             case EditorEvent::Tool_Axioms: transition_to(EditorState::Editing_Axioms, gs); break;
@@ -215,6 +223,7 @@ namespace RogueCity::Core::Editor {
             case EditorEvent::Tool_Districts: transition_to(EditorState::Editing_Districts, gs); break;
             case EditorEvent::Tool_Lots: transition_to(EditorState::Editing_Lots, gs); break;
             case EditorEvent::Tool_Buildings: transition_to(EditorState::Editing_Buildings, gs); break;
+            case EditorEvent::Tool_Water: transition_to(EditorState::Editing_Water, gs); break;
             case EditorEvent::Viewport_Pan:
                 m_viewport_return_state = IsEditingLeaf(m_state) ? m_state : EditorState::Editing_Roads;
                 transition_to(EditorState::Viewport_Pan, gs);

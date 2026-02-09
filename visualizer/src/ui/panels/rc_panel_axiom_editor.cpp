@@ -857,6 +857,7 @@ const bool axiom_mode =
     RC_UI::Viewport::OverlayConfig overlay_config{};
     overlay_config.show_zone_colors = gs.districts.size() != 0;
     overlay_config.show_road_labels = gs.roads.size() != 0;
+    overlay_config.show_lot_boundaries = gs.lots.size() != 0;  // Enable lot boundaries
     overlay_config.show_aesp_heatmap =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
          current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) &&
@@ -870,39 +871,41 @@ const bool axiom_mode =
     // Render minimap as overlay in top-right corner
     RenderMinimapOverlay(draw_list, viewport_pos, viewport_size);
     
-    // === PHASE 1: MINIMAP INTERACTION ===
-    const ImVec2 minimap_pos_bounds = ImVec2(
-        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
-        viewport_pos.y + kMinimapPadding
-    );
-    const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
+    // === MINIMAP INTERACTION (only if viewport window is hovered) ===
+    const bool viewport_window_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
     
-    // Check if mouse is over minimap
-    const ImVec2 mouse_screen = ImGui::GetMousePos();
-    const bool minimap_hovered = (mouse_screen.x >= minimap_pos_bounds.x && mouse_screen.x <= minimap_max_bounds.x &&
-                                   mouse_screen.y >= minimap_pos_bounds.y && mouse_screen.y <= minimap_max_bounds.y);
-    
-    if (minimap_hovered && s_minimap_visible) {
-        // Phase 1: Scroll to zoom
-        float scroll = ImGui::GetIO().MouseWheel;
-        if (scroll != 0.0f) {
-            s_minimap_zoom *= (1.0f + scroll * 0.1f);
-            s_minimap_zoom = std::clamp(s_minimap_zoom, 0.5f, 3.0f);  // Min 0.5x, max 3x
-        }
+    if (viewport_window_hovered && s_minimap_visible) {
+        const ImVec2 minimap_pos_bounds = ImVec2(
+            viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+            viewport_pos.y + kMinimapPadding
+        );
+        const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
         
-        // Phase 1: Click to teleport camera
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            const auto camera_pos = s_primary_viewport->get_camera_xy();
-            const auto camera_z = s_primary_viewport->get_camera_z();
-            const auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_pos_bounds, camera_pos);
+        // Check if mouse is over minimap
+        const ImVec2 mouse_screen = ImGui::GetMousePos();
+        const bool minimap_hovered = (mouse_screen.x >= minimap_pos_bounds.x && mouse_screen.x <= minimap_max_bounds.x &&
+                                       mouse_screen.y >= minimap_pos_bounds.y && mouse_screen.y <= minimap_max_bounds.y);
+        
+        if (minimap_hovered) {
+            // Scroll to zoom
+            float scroll = ImGui::GetIO().MouseWheel;
+            if (scroll != 0.0f) {
+                s_minimap_zoom *= (1.0f + scroll * 0.1f);
+                s_minimap_zoom = std::clamp(s_minimap_zoom, 0.5f, 3.0f);
+            }
             
-            // Set camera to clicked position
-            s_primary_viewport->set_camera_position(world_pos, camera_z);
+            // Click to teleport camera
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                const auto camera_pos = s_primary_viewport->get_camera_xy();
+                const auto camera_z = s_primary_viewport->get_camera_z();
+                const auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_pos_bounds, camera_pos);
+                s_primary_viewport->set_camera_position(world_pos, camera_z);
+            }
         }
     }
     
-    // Minimap toggle hotkey (M key)
-    if (ImGui::IsKeyPressed(ImGuiKey_M) && !ImGui::GetIO().WantTextInput) {
+    // Minimap toggle hotkey (M key) - only when viewport has focus
+    if (viewport_window_hovered && ImGui::IsKeyPressed(ImGuiKey_M) && !ImGui::GetIO().WantTextInput) {
         s_minimap_visible = !s_minimap_visible;
     }
     

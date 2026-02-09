@@ -1,0 +1,801 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "target_model": "Claude Sonnet 4.5",
+    "plan_source": "V1finalizationSprint.md",
+    "plan_size_mb": 0.91,
+    "execution_strategy": "two_pass_chunked",
+    "agent_roles_source": "Old-to-New.md"
+  },
+  "navigation": {
+    "quick_index": {
+      "pass1_start": "Line ~100: PASS 1 EXECUTION PLAN",
+      "pass2_start": "Line ~1200: PASS 2 EXECUTION PLAN",
+      "validation_checklist": "Line ~1800: V1 COMPLETE CHECKLIST",
+      "execution_timeline": "Line ~1900: EXECUTION TIMELINE",
+      "immediate_next_steps": "Line ~2000: IMMEDIATE NEXT STEPS"
+    },
+    "section_markers": {
+      "current_status": "## Current Status Analysis",
+      "outstanding_issues": "## Outstanding Issues",
+      "pass1_tasks": "## Task 1.1 through Task 1.5",
+      "pass2_tasks": "## Task 2.1 through Task 2.6",
+      "success_criteria": "Search for: '### Success Criteria'",
+      "implementation_patterns": "Search for: '### Implementation Pattern'"
+    }
+  },
+  "execution_passes": {
+    "pass1": {
+      "name": "Build Stability + Tool-Generator Wiring",
+      "goal": "Zero build errors, all tools functional, deterministic pipeline",
+      "duration_estimate": "14-19 hours (2-3 work days)",
+      "critical_path": [
+        "Task 1.1",
+        "Task 1.2",
+        "Task 1.3",
+        "Task 1.4",
+        "Task 1.5"
+      ],
+      "tasks": {
+        "task_1_1": {
+          "name": "Build System Hardening",
+          "priority": "CRITICAL",
+          "duration": "2-3 hours",
+          "agent_assignments": [
+            "Debug Manager",
+            "Coder Agent"
+          ],
+          "objectives": [
+            "Fix LNK4098 (MSVCRT conflict)",
+            "Resolve float narrowing warnings",
+            "Verify link dependencies"
+          ],
+          "deliverables": [
+            "CMakeLists.txt with consistent MSVC runtime",
+            "Zero build errors/warnings",
+            "All targets link successfully"
+          ],
+          "files_to_modify": [
+            "CMakeLists.txt (root)",
+            "app/src/Integration/GeneratorBridge.cpp",
+            "visualizer/src/ui/viewport/*.cpp"
+          ],
+          "search_keywords": [
+            "LNK4098",
+            "MSVCRT",
+            "float narrowing",
+            "/W4"
+          ],
+          "validation": "cmake --build build --config Release → 0 errors, 0 warnings"
+        },
+        "task_1_2": {
+          "name": "HFSM Tool-Mode Unification",
+          "priority": "CRITICAL",
+          "duration": "3-4 hours",
+          "agent_assignments": [
+            "Coder Agent",
+            "UI/UX Master"
+          ],
+          "objectives": [
+            "Wire 6 editor tools through HFSM",
+            "Implement state transitions",
+            "Add state-reactive UI highlighting"
+          ],
+          "tools_to_wire": [
+            "AxiomPlacement → AxiomPlacementState",
+            "RoadEditing → RoadEditingState (NEW)",
+            "DistrictZoning → DistrictZoningState (NEW)",
+            "LotSubdivision → LotSubdivisionState (NEW)",
+            "BuildingPlacement → BuildingPlacementState (NEW)",
+            "WaterEditing → WaterEditingState (NEW)"
+          ],
+          "files_to_create": [
+            "core/include/RogueCity/Core/Editor/HFSM.hpp (modify)",
+            "core/src/Editor/HFSMStates.cpp (add new states)",
+            "visualizer/src/ui/panels/rc_panel_tools.cpp (modify)"
+          ],
+          "search_keywords": [
+            "EditorMode",
+            "HFSM",
+            "TransitionTo",
+            "state-reactive"
+          ],
+          "validation": "Each tool button triggers HFSM transition, highlighting works"
+        },
+        "task_1_3": {
+          "name": "Generator Bridge Completion",
+          "priority": "HIGH",
+          "duration": "4-5 hours",
+          "agent_assignments": [
+            "Coder Agent",
+            "Math Genius"
+          ],
+          "objectives": [
+            "Complete 7 generator bridge methods",
+            "Connect UI → Generators → GlobalState"
+          ],
+          "methods_status": {
+            "completed": [
+              "generateTensorField()",
+              "traceRoads()",
+              "subdivideDistricts()"
+            ],
+            "needs_completion": [
+              "generateLots()",
+              "placeBuildingSites()",
+              "generateWaterbodies()",
+              "traceRivers()"
+            ]
+          },
+          "files_to_modify": [
+            "app/include/RogueCity/App/Integration/GeneratorBridge.hpp",
+            "app/src/Integration/GeneratorBridge.cpp"
+          ],
+          "search_keywords": [
+            "GeneratorBridge",
+            "LotGenParams",
+            "BuildingPlacementParams",
+            "WaterGenParams"
+          ],
+          "validation": "All 7 methods compile and update GlobalState"
+        },
+        "task_1_4": {
+          "name": "UI Panel → Generator Wiring",
+          "priority": "HIGH",
+          "duration": "3-4 hours",
+          "agent_assignments": [
+            "UI/UX Master",
+            "Coder Agent"
+          ],
+          "objectives": [
+            "Connect all control panels to generator bridge",
+            "Implement parameter flow UI → Bridge → Generator"
+          ],
+          "panel_mappings": {
+            "AxiomControlPanel": "generateTensorField()",
+            "RoadControlPanel": "traceRoads()",
+            "DistrictControlPanel": "subdivideDistricts()",
+            "LotControlPanel": "generateLots()",
+            "BuildingControlPanel": "placeBuildingSites()",
+            "WaterControlPanel": "generateWaterbodies()"
+          },
+          "files_to_modify": [
+            "visualizer/src/ui/panels/rc_panel_lot_control.cpp",
+            "visualizer/src/ui/panels/rc_panel_building_control.cpp",
+            "visualizer/src/ui/panels/rc_panel_water_control.cpp"
+          ],
+          "search_keywords": [
+            "ControlPanel",
+            "Y2K affordance",
+            "pulse",
+            "ImGui::Button"
+          ],
+          "validation": "All panels trigger generators, Y2K motion implemented"
+        },
+        "task_1_5": {
+          "name": "Viewport Overlay Completion",
+          "priority": "MEDIUM",
+          "duration": "2-3 hours",
+          "agent_assignments": [
+            "UI/UX Master"
+          ],
+          "objectives": [
+            "Add missing overlays for water, rivers, buildings, lots"
+          ],
+          "overlays_needed": [
+            "Water Bodies (blue polygons)",
+            "River Paths (flowing curves)",
+            "Building Sites (footprint outlines)",
+            "Lot Boundaries (verify existing)"
+          ],
+          "files_to_modify": [
+            "visualizer/src/ui/viewport/rc_viewport_overlays.cpp"
+          ],
+          "search_keywords": [
+            "RenderWaterbodies",
+            "RenderBuildingSites",
+            "RenderLots",
+            "ImDrawList"
+          ],
+          "validation": "All entity types render with selection highlighting"
+        }
+      },
+      "validation_gates": {
+        "build_system": [
+          "cmake --build build --config Release → 0 errors, 0 warnings",
+          "All targets link successfully"
+        ],
+        "hfsm_integration": [
+          "All 6 tool buttons exist",
+          "State transitions work",
+          "Active tool highlights correctly"
+        ],
+        "generator_bridge": [
+          "All 7 methods compile",
+          "GlobalState updates work",
+          "No crashes when calling generators"
+        ],
+        "ui_wiring": [
+          "All control panels render",
+          "Generate buttons work",
+          "Status displays show counts"
+        ],
+        "viewport": [
+          "All overlays render",
+          "Selection highlighting works",
+          "Performance >30 FPS"
+        ]
+      }
+    },
+    "pass2": {
+      "name": "Feature Completion + Export + Polish",
+      "goal": "Full editor capabilities, export system, documentation, cleanup",
+      "duration_estimate": "19-27 hours (3-4 work days)",
+      "critical_path": [
+        "Task 2.1",
+        "Task 2.2",
+        "Task 2.3",
+        "Task 2.5",
+        "Task 2.6"
+      ],
+      "tasks": {
+        "task_2_1": {
+          "name": "Water/River Editing Tools",
+          "priority": "HIGH",
+          "duration": "4-5 hours",
+          "agent_assignments": [
+            "City Planner",
+            "Coder Agent"
+          ],
+          "objectives": [
+            "Implement interactive water editing",
+            "Add polygon drawing for lakes",
+            "Add spline control for rivers"
+          ],
+          "tool_modes": [
+            "Lake",
+            "River",
+            "Ocean"
+          ],
+          "files_to_create": [
+            "app/include/RogueCity/App/Tools/WaterTool.hpp",
+            "app/src/Tools/WaterTool.cpp",
+            "visualizer/src/ui/panels/rc_panel_water_control.cpp"
+          ],
+          "search_keywords": [
+            "WaterTool",
+            "polygon drawing",
+            "spline",
+            "control points"
+          ],
+          "validation": "Can draw lakes, place river control points, shore generation works"
+        },
+        "task_2_2": {
+          "name": "District/Lot Manual Editing",
+          "priority": "MEDIUM",
+          "duration": "3-4 hours",
+          "agent_assignments": [
+            "City Planner",
+            "UI/UX Master"
+          ],
+          "objectives": [
+            "Enable district type override",
+            "Implement lot merging/splitting",
+            "Add AESP manual adjustment"
+          ],
+          "features": [
+            "District Type Override (context menu)",
+            "Lot Merging Tool",
+            "Lot Splitting Tool",
+            "AESP Manual Adjustment"
+          ],
+          "files_to_create": [
+            "app/include/RogueCity/App/Tools/LotEditTool.hpp",
+            "app/src/Tools/LotEditTool.cpp"
+          ],
+          "files_to_modify": [
+            "visualizer/src/ui/panels/rc_data_index_panel.cpp"
+          ],
+          "search_keywords": [
+            "context menu",
+            "merge lots",
+            "split lot",
+            "AESP"
+          ],
+          "validation": "Can change district types, merge/split lots, AESP propagates"
+        },
+        "task_2_3": {
+          "name": "Export System",
+          "priority": "HIGH",
+          "duration": "4-6 hours",
+          "agent_assignments": [
+            "Coder Agent",
+            "Documentation Keeper"
+          ],
+          "objectives": [
+            "Implement JSON export/import",
+            "Implement OBJ export (Blender)",
+            "Implement GLTF export (basic)"
+          ],
+          "export_formats": [
+            "JSON",
+            "OBJ",
+            "GLTF"
+          ],
+          "files_to_create": [
+            "generators/include/RogueCity/Generators/Export/CityExporter.hpp",
+            "generators/src/Export/CityExporter.cpp",
+            "visualizer/src/ui/panels/rc_panel_export.cpp"
+          ],
+          "search_keywords": [
+            "ExportJSON",
+            "ExportOBJ",
+            "ExportGLTF",
+            "SerializeGlobalState"
+          ],
+          "validation": "JSON roundtrip works, OBJ opens in Blender, GLTF valid"
+        },
+        "task_2_4": {
+          "name": "AI Pattern Catalog Update",
+          "priority": "MEDIUM",
+          "duration": "2-3 hours",
+          "agent_assignments": [
+            "AI Integration Agent"
+          ],
+          "objectives": [
+            "Document all new UI panels",
+            "Update pattern catalog",
+            "Add refactoring suggestions"
+          ],
+          "files_to_modify": [
+            "AI/docs/ui/ui_patterns.json"
+          ],
+          "patterns_to_add": [
+            "WaterControlPanel",
+            "BuildingControlPanel",
+            "LotControlPanel",
+            "RcDataIndexPanel<District>",
+            "RcDataIndexPanel<Lot>",
+            "WaterTool",
+            "LotEditTool"
+          ],
+          "search_keywords": [
+            "ui_patterns.json",
+            "ControlPanel",
+            "IndexPanel",
+            "InteractiveTool"
+          ],
+          "validation": "All panels documented, UiDesignAssistant recognizes patterns"
+        },
+        "task_2_5": {
+          "name": "Testing & Polish",
+          "priority": "HIGH",
+          "duration": "4-6 hours",
+          "agent_assignments": [
+            "Debug Manager",
+            "Resource Manager"
+          ],
+          "objectives": [
+            "Create deterministic generation test",
+            "Add performance regression tests",
+            "Implement memory budget tests",
+            "Add UI polish (tooltips, shortcuts, progress bars)"
+          ],
+          "test_files": [
+            "tests/test_full_pipeline.cpp",
+            "tests/test_performance.cpp",
+            "tests/test_memory_budgets.cpp"
+          ],
+          "polish_items": [
+            "Add tooltips to all tool buttons",
+            "Implement keyboard shortcuts (Ctrl+1-6)",
+            "Add progress bars for long operations",
+            "Implement basic undo/redo"
+          ],
+          "search_keywords": [
+            "TEST_CASE",
+            "deterministic",
+            "performance",
+            "tooltip",
+            "shortcuts"
+          ],
+          "validation": "All tests pass, no performance regressions, UI feels polished"
+        },
+        "task_2_6": {
+          "name": "Documentation & _Temp Cleanup",
+          "priority": "MEDIUM",
+          "duration": "2-3 hours",
+          "agent_assignments": [
+            "Documentation Keeper"
+          ],
+          "objectives": [
+            "Update ReadMe.md",
+            "Create V1_Complete.md",
+            "Create V1_Tool_Guide.md",
+            "Create V1_Export_Guide.md",
+            "Cleanup _Temp/ directory"
+          ],
+          "files_to_create": [
+            "docs/V1_Complete.md",
+            "docs/V1_Tool_Guide.md",
+            "docs/V1_Export_Guide.md"
+          ],
+          "files_to_modify": [
+            "README.md"
+          ],
+          "cleanup_gate": [
+            "All generators ported",
+            "All tests pass",
+            "Export system works",
+            "Documentation complete"
+          ],
+          "search_keywords": [
+            "documentation",
+            "_Temp",
+            "cleanup",
+            "V1 features"
+          ],
+          "validation": "Documentation matches implementation, _Temp/ moved to _Del/"
+        }
+      },
+      "validation_gates": {
+        "water_editing": [
+          "Can draw lake boundaries",
+          "Can place river control points",
+          "Shore generation works"
+        ],
+        "manual_editing": [
+          "District type override works",
+          "Lot merge/split works",
+          "AESP adjustments propagate"
+        ],
+        "export_system": [
+          "JSON export/import works",
+          "OBJ opens in Blender",
+          "GLTF generates valid file"
+        ],
+        "testing": [
+          "Deterministic test passes",
+          "Performance tests pass",
+          "Memory budget respected"
+        ],
+        "documentation": [
+          "All docs created",
+          "ReadMe updated",
+          "_Temp/ cleanup complete"
+        ]
+      }
+    }
+  },
+  "agent_roles": {
+    "source": "Old-to-New.md",
+    "hierarchy": {
+      "the_architect": {
+        "role": "Master AI Director",
+        "responsibilities": [
+          "Validate integration architecture",
+          "Review layer separation compliance",
+          "Approve phase transitions",
+          "Final approval for V1 completion"
+        ],
+        "tasks_assigned": [
+          "Architecture validation",
+          "Phase approvals"
+        ]
+      },
+      "debug_manager": {
+        "role": "Build System & Testing Lead",
+        "responsibilities": [
+          "Fix build errors/warnings",
+          "Create test infrastructure",
+          "Performance profiling",
+          "Integration testing"
+        ],
+        "tasks_assigned": [
+          "Task 1.1",
+          "Task 2.5"
+        ],
+        "collaboration": [
+          "Resource Manager (budgets)",
+          "Coder Agent (fixes)"
+        ]
+      },
+      "coder_agent": {
+        "role": "Primary Implementation Lead",
+        "responsibilities": [
+          "Implement data models",
+          "Integrate generators",
+          "Create bridge layers",
+          "Update build systems"
+        ],
+        "tasks_assigned": [
+          "Task 1.2",
+          "Task 1.3",
+          "Task 1.4",
+          "Task 2.1",
+          "Task 2.3"
+        ],
+        "collaboration": [
+          "Math Genius (algorithms)",
+          "UI/UX Master (UI integration)"
+        ]
+      },
+      "uiux_master": {
+        "role": "UI/UX Design & Implementation",
+        "responsibilities": [
+          "Design Cockpit Doctrine UI",
+          "Implement state-reactive panels",
+          "Create viewport overlays",
+          "Ensure Y2K affordances"
+        ],
+        "tasks_assigned": [
+          "Task 1.2",
+          "Task 1.4",
+          "Task 1.5",
+          "Task 2.2"
+        ],
+        "design_principles": [
+          "Viewport is sacred (no obstruction)",
+          "Tools are tactile (responsive feedback)",
+          "Properties are contextual (selection-driven)",
+          "Motion teaches (animated entry points)"
+        ]
+      },
+      "city_planner": {
+        "role": "Urban Design & AESP Logic",
+        "responsibilities": [
+          "Validate AESP zoning logic",
+          "Verify district archetypes",
+          "Implement water/river tools",
+          "Ensure urban planning coherence"
+        ],
+        "tasks_assigned": [
+          "Task 2.1",
+          "Task 2.2"
+        ],
+        "validation": [
+          "AESP semantics",
+          "District formation",
+          "Urban coherence"
+        ]
+      },
+      "resource_manager": {
+        "role": "Performance & Memory Budgets",
+        "responsibilities": [
+          "Define resource budgets",
+          "Enforce container types (FVA/SIV/CIV)",
+          "Monitor RogueWorker activation",
+          "Memory profiling"
+        ],
+        "tasks_assigned": [
+          "Task 2.5 (collaboration)"
+        ],
+        "budgets": {
+          "max_road_segments": 10000,
+          "max_districts": 500,
+          "max_lots": 50000,
+          "max_buildings": 100000,
+          "rogue_worker_threshold_ms": 10
+        }
+      },
+      "math_genius": {
+        "role": "Spatial Math & Algorithms",
+        "responsibilities": [
+          "Validate spatial systems",
+          "Ensure numerical stability",
+          "Verify algorithms",
+          "Document math formulas"
+        ],
+        "tasks_assigned": [
+          "Task 1.3 (collaboration)"
+        ],
+        "validation": [
+          "TensorField math",
+          "RK4 integration",
+          "Grid indexing"
+        ]
+      },
+      "ai_integration_agent": {
+        "role": "AI Protocol & Pattern Catalog",
+        "responsibilities": [
+          "Extend CitySpec protocol",
+          "Update UI pattern catalog",
+          "Maintain toolserver endpoints",
+          "Document refactoring opportunities"
+        ],
+        "tasks_assigned": [
+          "Task 2.4"
+        ],
+        "protocols": [
+          "CitySpec",
+          "UiSnapshot",
+          "GeneratorState"
+        ]
+      },
+      "documentation_keeper": {
+        "role": "Documentation & Release Management",
+        "responsibilities": [
+          "Create integration documentation",
+          "Update README and guides",
+          "Manage _Temp cleanup",
+          "Write release notes"
+        ],
+        "tasks_assigned": [
+          "Task 2.6"
+        ],
+        "deliverables": [
+          "V1_Complete.md",
+          "V1_Tool_Guide.md",
+          "V1_Export_Guide.md"
+        ]
+      }
+    }
+  },
+  "code_references": {
+    "repository_structure": {
+      "core": "Data types, HFSM, math utilities (UI-free)",
+      "generators": "Algorithm layer (roads, districts, lots, buildings)",
+      "app": "Integration layer (GeneratorBridge, tools)",
+      "visualizer": "ImGui frontend (panels, viewport)",
+      "AI": "AI protocol layer (CitySpec, toolserver)",
+      "tests": "Test infrastructure"
+    },
+    "key_files": {
+      "global_state": "core/include/RogueCity/Core/Data/CityTypes.hpp",
+      "city_spec": "core/include/RogueCity/Core/Data/CitySpec.hpp",
+      "hfsm": "core/include/RogueCity/Core/Editor/HFSM.hpp",
+      "generator_bridge": "app/include/RogueCity/App/Integration/GeneratorBridge.hpp",
+      "root_cmake": "CMakeLists.txt",
+      "ui_patterns": "AI/docs/ui/ui_patterns.json"
+    },
+    "search_patterns": {
+      "find_hfsm_states": "grep -r 'HFSMState' core/src/Editor/",
+      "find_generators": "grep -r 'Generator' generators/src/",
+      "find_panels": "grep -r 'Panel' visualizer/src/ui/panels/",
+      "find_bridge_methods": "grep -r 'generateTensorField\\|traceRoads\\|subdivideDistricts' app/",
+      "find_todos": "grep -r 'TODO\\|FIXME\\|XXX' ."
+    }
+  },
+  "build_commands": {
+    "configure": "cmake -B build -S . -DCMAKE_BUILD_TYPE=Release",
+    "build_all": "cmake --build build --config Release",
+    "build_clean": "cmake --build build --target clean",
+    "build_verbose": "cmake --build build --config Release --verbose",
+    "build_generators": "cmake --build build --target RogueCityGenerators --config Release",
+    "build_app": "cmake --build build --target RogueCityApp --config Release"
+  },
+  "test_commands": {
+    "run_core_tests": "./build/Release/test_core.exe",
+    "run_generator_tests": "./build/Release/test_generators.exe",
+    "run_hfsm_tests": "./build/Release/test_editor_hfsm.exe",
+    "run_viewport_tests": "./build/Release/test_viewport.exe",
+    "run_ai_tests": "./build/Release/test_ai.exe",
+    "run_all_tests": "foreach ($test in Get-ChildItem ./build/Release/test_*.exe) { & $test }"
+  },
+  "git_workflow": {
+    "pass1_branch": "git checkout -b pass1-build-stability",
+    "pass2_branch": "git checkout -b pass2-features-export",
+    "commit_pass1": "git add . && git commit -m 'PASS 1: Build stability + HFSM wiring complete'",
+    "commit_pass2": "git add . && git commit -m 'PASS 2: V1 feature completion + export + polish'",
+    "tag_v1": "git tag v1.0.0",
+    "merge_to_main": "git checkout main && git merge pass2-features-export"
+  },
+  "performance_targets": {
+    "build_time": "<2 minutes for full rebuild",
+    "road_generation_1000": "<100ms",
+    "ui_frame_rate": ">30 FPS with 500+ buildings",
+    "tool_switching_latency": "<16ms (60 FPS)",
+    "memory_large_city": "<500MB",
+    "rogue_worker_threshold": "10ms blocking operations"
+  },
+  "common_issues": {
+    "lnk4098_msvcrt": {
+      "description": "MSVCRT conflict during linking",
+      "solution": "Set CMAKE_MSVC_RUNTIME_LIBRARY to consistent value",
+      "file": "CMakeLists.txt (root)",
+      "search": "LNK4098"
+    },
+    "float_narrowing": {
+      "description": "Implicit conversion from double to float",
+      "solution": "Add static_cast<float>() explicit casts",
+      "files": [
+        "GeneratorBridge.cpp",
+        "viewport/*.cpp"
+      ],
+      "search": "warning C4244"
+    },
+    "missing_sol2_link": {
+      "description": "sol2::sol2 target not found",
+      "solution": "Conditional linking based on ROGUECITY_HAS_SOL2",
+      "file": "app/CMakeLists.txt",
+      "search": "sol2::sol2"
+    },
+    "hfsm_state_not_transitioning": {
+      "description": "Tool button doesn't change HFSM state",
+      "solution": "Verify TransitionTo() call and state factory",
+      "files": [
+        "rc_panel_tools.cpp",
+        "HFSM.cpp"
+      ],
+      "search": "TransitionTo"
+    },
+    "generator_not_updating_globalstate": {
+      "description": "Generator runs but UI doesn't update",
+      "solution": "Call state->Notify*Changed() after populating collections",
+      "file": "GeneratorBridge.cpp",
+      "search": "NotifyLotsChanged"
+    }
+  },
+  "ai_tips": {
+    "context_management": [
+      "Process one task at a time to avoid context overflow",
+      "Reference this JSON for navigation instead of loading full plan",
+      "Use search_keywords to jump to relevant sections in V1finalizationSprint.md",
+      "Request specific task details only when implementing"
+    ],
+    "code_generation": [
+      "Always check existing code before generating new implementations",
+      "Follow naming conventions from CityTypes.hpp",
+      "Use FVA for UI-exposed collections (roads, districts, lots)",
+      "Use SIV for high-churn data (buildings)",
+      "Delegate operations >10ms to RogueWorker",
+      "Add null checks when accessing GlobalState collections"
+    ],
+    "verification": [
+      "Build after each task completion",
+      "Run relevant tests before moving to next task",
+      "Check validation_gates for task completion criteria",
+      "Verify no regressions in existing functionality"
+    ],
+    "documentation": [
+      "Update inline comments for complex algorithms",
+      "Document all public API methods",
+      "Add usage examples for new tools/panels",
+      "Keep README.md synchronized with features"
+    ]
+  },
+  "agent_handoff_questions": {
+    "debug_manager_to_coder": [
+      "What HFSM infrastructure exists? Do we need new state types?",
+      "What test fixtures and profiling harnesses do you need?"
+    ],
+    "coder_to_uiux_master": [
+      "What panel visibility and animation behaviors per state?",
+      "What viewport overlays and visualizations do you need?"
+    ],
+    "coder_to_resource_manager": [
+      "What memory budgets and caps do we need for road/district counts?",
+      "Where should we add these caps in CityParams and config validation?"
+    ],
+    "uiux_master_to_coder": [
+      "What bridge APIs do you need to connect panels to generators?"
+    ],
+    "city_planner_to_coder": [
+      "Do the generated districts match AESP zoning semantics?"
+    ],
+    "ai_integration_to_documentation": [
+      "What protocol extensions needed for CitySpec to drive generators?",
+      "What documentation updates are needed for Phase completion?"
+    ]
+  },
+  "quick_reference": {
+    "pass1_goal": "Zero build errors, all tools functional, deterministic pipeline",
+    "pass2_goal": "Full editor, export system, documentation, cleanup",
+    "total_time_estimate": "33-46 hours (5-7 work days)",
+    "critical_files": [
+      "CMakeLists.txt",
+      "GeneratorBridge.hpp/cpp",
+      "HFSM.hpp",
+      "HFSMStates.cpp",
+      "rc_panel_tools.cpp",
+      "rc_viewport_overlays.cpp"
+    ],
+    "v1_deliverables": [
+      "6 interactive editor tools",
+      "Full generator pipeline",
+      "Export system (JSON/OBJ/GLTF)",
+      "Comprehensive documentation",
+      "Clean codebase (no _Temp/)"
+    ]
+  }
+}

@@ -55,7 +55,10 @@ int main(int, char**)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "RogueCity Visualizer", NULL, NULL);
+    // Keep OS decorations for now (custom chrome is complex)
+    // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);  // Disabled for easier window management
+
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "RC-USD", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -71,7 +74,18 @@ int main(int, char**)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    
+    // CRITICAL: Enable docking + multi-viewport for floating windows
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    
+    // When viewports are enabled, tweak WindowRounding/WindowBg for platform windows
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        style.WindowRounding = 0.0f;  // Y2K hard edges
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;  // Opaque backgrounds for OS windows
+    }
 
     // Apply Cockpit Doctrine theme (MUST be before any UI rendering)
     RogueCity::UI::DesignSystem::ApplyCockpitTheme();
@@ -130,6 +144,25 @@ int main(int, char**)
         // Update HFSM and draw all panels with docking enabled
         float dt = io.DeltaTime;
         hfsm.update(gs, dt);
+        
+        // Add main menu bar for window management
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("Window")) {
+                if (ImGui::MenuItem("Reset Layout", "Ctrl+R")) {
+                    RC_UI::ResetDockLayout();
+                }
+                ImGui::Separator();
+                ImGui::Text("Tip: Drag panel titles to dock/undock");
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+        
+        // Hotkey for reset layout
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+            RC_UI::ResetDockLayout();
+        }
+        
         RC_UI::DrawRoot(dt);
 
         // Rendering
@@ -140,6 +173,15 @@ int main(int, char**)
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and render platform windows (multi-viewport support)
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
 
         glfwSwapBuffers(window);
     }

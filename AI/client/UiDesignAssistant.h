@@ -7,29 +7,29 @@ namespace RogueCity::AI {
 
 /// Design/refactoring suggestions from AI (not immediate commands)
 struct UiDesignSuggestion {
-    std::string name;
-    std::string description;
-    std::string priority;  // "high", "medium", "low"
-    std::vector<std::string> affected_panels;
-    std::string suggested_action;
-    std::string rationale;
+    std::string name{};
+    std::string description{};
+    std::string priority{};  // "high", "medium", "low"
+    std::vector<std::string> affected_panels{};
+    std::string suggested_action{};
+    std::string rationale{};
 };
 
 /// Component pattern recommendation
 struct UiComponentPattern {
-    std::string name;
-    std::string template_name;
-    std::vector<std::string> applies_to;
-    std::vector<std::string> props;
-    std::string description;
+    std::string name{};
+    std::string template_name{};
+    std::vector<std::string> applies_to{};
+    std::vector<std::string> props{};
+    std::string description{};
 };
 
 /// Full design/refactor plan
 struct UiDesignPlan {
-    std::vector<UiComponentPattern> component_patterns;
-    std::vector<UiDesignSuggestion> refactoring_opportunities;
-    std::vector<std::string> suggested_files;
-    std::string summary;
+    std::vector<UiComponentPattern> component_patterns{};
+    std::vector<UiDesignSuggestion> refactoring_opportunities{};
+    std::vector<std::string> suggested_files{};
+    std::string summary{};
 };
 
 /// Client for AI-driven UI design and refactoring assistance

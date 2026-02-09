@@ -131,3 +131,5 @@ move_Temp only after all gates pass. to dir _Del
   - `LNK4098`: defaultlib `MSVCRT` conflicts with other libs.
 - Existing float narrowing warnings remain in several app files (`GeneratorBridge.cpp`, tool/viewports files).
 - HFSM tool-mode switching UX is still fragmented (tool transitions mostly via UI Agent panel); consider adding explicit tool-switch controls in main cockpit panels.
+
+

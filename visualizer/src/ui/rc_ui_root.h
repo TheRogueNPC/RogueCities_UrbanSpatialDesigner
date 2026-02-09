@@ -23,4 +23,7 @@ RogueCity::App::MinimapViewport* GetMinimapViewport();
 // Queue a dock reassignment request for an existing panel/window.
 bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockNode = false);
 
+// Reset dock layout to default (useful if user messes up docking)
+void ResetDockLayout();
+
 } // namespace RC_UI

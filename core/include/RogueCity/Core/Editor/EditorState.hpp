@@ -19,6 +19,7 @@ namespace RogueCity::Core::Editor {
         Editing_Districts,
         Editing_Lots,
         Editing_Buildings,
+        Editing_Water,      // AI_INTEGRATION_TAG: V1_PASS1_TASK2_WATER_STATE
 
         Viewport_Pan,
         Viewport_Select,
@@ -54,6 +55,7 @@ namespace RogueCity::Core::Editor {
         Tool_Districts,
         Tool_Lots,
         Tool_Buildings,
+        Tool_Water,         // AI_INTEGRATION_TAG: V1_PASS1_TASK2_WATER_EVENT
 
         AxiomPlaced,        // NEW: User placed axiom
         AxiomModified,      // NEW: Ring/knob adjusted

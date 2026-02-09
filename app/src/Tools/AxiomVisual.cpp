@@ -258,4 +258,16 @@ bool RingControlKnob::check_hover(const Core::Vec2& world_pos, float world_radiu
     return is_hovered;
 }
 
+void RingControlKnob::start_drag() {
+    is_dragging = true;
+}
+
+void RingControlKnob::end_drag() {
+    is_dragging = false;
+}
+
+void RingControlKnob::update_value(float new_value) {
+    value = std::clamp(new_value, 0.0f, 2.0f);  // 0-200% range
+}
+
 } // namespace RogueCity::App

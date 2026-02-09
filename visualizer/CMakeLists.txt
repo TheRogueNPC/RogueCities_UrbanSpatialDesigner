@@ -53,6 +53,13 @@ endif()
         src/ui/panels/rc_panel_ui_agent.cpp
         src/ui/panels/rc_panel_city_spec.cpp
         src/ui/panels/rc_panel_dev_shell.cpp
+        # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
+        src/ui/panels/rc_panel_lot_control.cpp
+        src/ui/panels/rc_panel_building_control.cpp
+        src/ui/panels/rc_panel_water_control.cpp
+        # RC-0.10: Zoning control and viewport overlays
+        src/ui/panels/rc_panel_zoning_control.cpp
+        src/ui/viewport/rc_viewport_overlays.cpp
     )
 
     target_link_libraries(RogueCityVisualizerHeadless PRIVATE
@@ -115,6 +122,10 @@ endif()
                 src/ui/panels/rc_panel_city_spec.cpp   # NEW: CitySpec generator (Phase 3)
                 src/ui/panels/rc_panel_building_index.cpp  # NEW: Building index panel (RC-0.10)
                 src/ui/panels/rc_panel_zoning_control.cpp  # NEW: Zoning control panel (RC-0.10)
+                # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
+                src/ui/panels/rc_panel_lot_control.cpp
+                src/ui/panels/rc_panel_building_control.cpp
+                src/ui/panels/rc_panel_water_control.cpp
                 src/ui/panels/rc_panel_dev_shell.cpp
                 # Viewport overlays (RC-0.10)
                 src/ui/viewport/rc_viewport_overlays.cpp

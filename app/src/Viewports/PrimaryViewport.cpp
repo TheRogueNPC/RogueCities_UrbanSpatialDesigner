@@ -78,13 +78,89 @@ void PrimaryViewport::render() {
     
     // Render city output (if available)
     if (city_output_) {
-        // TODO: Render roads, districts, lots
-        // For now, just show placeholder text
+        // Render roads
+        const ImU32 road_color = IM_COL32(0, 255, 255, 255);  // Cyan
+        for (const auto& road : city_output_->roads) {
+            if (road.points.size() < 2) continue;
+            
+            const ImVec2 start_screen = world_to_screen(road.startPoint());
+            const ImVec2 end_screen = world_to_screen(road.endPoint());
+            
+            float thickness = 2.0f;
+            if (road.type == Core::RoadType::Highway) {
+                thickness = 6.0f;
+            } else if (road.type == Core::RoadType::Arterial) {
+                thickness = 4.0f;
+            }
+            
+            draw_list->AddLine(start_screen, end_screen, road_color, thickness);
+        }
+        
+        // Render districts (wireframe polygons)
+        const ImU32 district_color = IM_COL32(255, 0, 255, 150);  // Magenta
+        for (const auto& district : city_output_->districts) {
+            if (district.border.empty()) continue;
+            
+            std::vector<ImVec2> screen_points;
+            screen_points.reserve(district.border.size());
+            for (const auto& point : district.border) {
+                screen_points.push_back(world_to_screen(point));
+            }
+            
+            // Draw district boundary
+            for (size_t i = 0; i < screen_points.size(); ++i) {
+                const ImVec2& p1 = screen_points[i];
+                const ImVec2& p2 = screen_points[(i + 1) % screen_points.size()];
+                draw_list->AddLine(p1, p2, district_color, 2.0f);
+            }
+            
+            // Draw district label at centroid
+            if (!screen_points.empty()) {
+                ImVec2 centroid = ImVec2(0, 0);
+                for (const auto& p : screen_points) {
+                    centroid.x += p.x;
+                    centroid.y += p.y;
+                }
+                centroid.x /= screen_points.size();
+                centroid.y /= screen_points.size();
+                
+                const char* district_type = "???";
+                switch (district.type) {
+                    case Core::DistrictType::Residential: district_type = "RES"; break;
+                    case Core::DistrictType::Commercial: district_type = "COM"; break;
+                    case Core::DistrictType::Industrial: district_type = "IND"; break;
+                    case Core::DistrictType::Mixed: district_type = "MIX"; break;
+                    default: break;
+                }
+                
+                draw_list->AddText(centroid, IM_COL32(255, 255, 255, 255), district_type);
+            }
+        }
+        
+        // Render lots (smaller subdivisions)
+        const ImU32 lot_color = IM_COL32(255, 200, 0, 100);  // Yellow-amber
+        for (const auto& lot : city_output_->lots) {
+            if (lot.boundary.empty()) continue;
+            
+            std::vector<ImVec2> screen_points;
+            screen_points.reserve(lot.boundary.size());
+            for (const auto& point : lot.boundary) {
+                screen_points.push_back(world_to_screen(point));
+            }
+            
+            for (size_t i = 0; i < screen_points.size(); ++i) {
+                const ImVec2& p1 = screen_points[i];
+                const ImVec2& p2 = screen_points[(i + 1) % screen_points.size()];
+                draw_list->AddLine(p1, p2, lot_color, 1.0f);
+            }
+        }
+    } else {
+        // No city output - show placeholder
         ImGui::SetCursorScreenPos(ImVec2(
             viewport_pos.x + viewport_size.x * 0.5f - 100,
             viewport_pos.y + viewport_size.y * 0.5f - 10
         ));
-        ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 1.0f), "[City Preview Placeholder]");
+        ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 1.0f), "[No City Generated]");
     }
 
     ImGui::End();

@@ -113,6 +113,11 @@ struct RingControlKnob {
 
     /// Check if mouse is over knob
     [[nodiscard]] bool check_hover(const Core::Vec2& world_pos, float world_radius);
+    
+    /// Drag state management
+    void start_drag();
+    void end_drag();
+    void update_value(float new_value);
 };
 
 } // namespace RogueCity::App

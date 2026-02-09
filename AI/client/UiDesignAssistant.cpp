@@ -8,7 +8,17 @@
 #include <iomanip>
 #include <sstream>
 
+// Suppress warnings from third-party headers
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26819) // Unannotated fallthrough
+#endif
+
 using json = nlohmann::json;
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 namespace RogueCity::AI {
 
@@ -274,7 +284,13 @@ bool UiDesignAssistant::SaveDesignPlan(
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
-    ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+    std::tm tm_buf{};
+#if defined(_MSC_VER)
+    localtime_s(&tm_buf, &time_t);
+#else
+    tm_buf = *std::localtime(&time_t);
+#endif
+    ss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
     j["generated_at"] = ss.str();
     
     // Write to file

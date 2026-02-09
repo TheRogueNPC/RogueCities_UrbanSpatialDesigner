@@ -13,6 +13,9 @@
 #include "ui/panels/rc_panel_river_index.h"
 #include "ui/panels/rc_panel_building_index.h"  // NEW: Building index (RC-0.10)
 #include "ui/panels/rc_panel_zoning_control.h"   // NEW: Zoning control (RC-0.10)
+#include "ui/panels/rc_panel_lot_control.h"      // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
+#include "ui/panels/rc_panel_building_control.h" // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
+#include "ui/panels/rc_panel_water_control.h"    // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
 #include "ui/panels/rc_panel_ai_console.h"  // NEW: AI bridge control
 #include "ui/panels/rc_panel_ui_agent.h"    // NEW: UI Agent assistant (Phase 2)
 #include "ui/panels/rc_panel_city_spec.h"   // NEW: CitySpec generator (Phase 3)
@@ -286,12 +289,15 @@ void DrawRoot(float dt)
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
+        ImGuiWindowFlags_NoBackground |
+        ImGuiWindowFlags_NoInputs |  // CRITICAL: Pass input through to docked windows!
+        ImGuiWindowFlags_NoFocusOnAppearing;  // Don't steal focus
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));  // No padding for dockspace
     ImGui::Begin("RogueDockHost", nullptr, host_flags);
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
 
     ImGuiID dockspace_id = ImGui::GetID("RogueDockSpace");
     ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
@@ -316,6 +322,13 @@ void DrawRoot(float dt)
     Panels::RiverIndex::Draw(dt);
     Panels::BuildingIndex::Draw(dt);      // NEW: RC-0.10
     Panels::ZoningControl::Draw(dt);      // NEW: RC-0.10
+    
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
+    // State-reactive control panels (show based on HFSM mode)
+    Panels::LotControl::Draw(dt);
+    Panels::BuildingControl::Draw(dt);
+    Panels::WaterControl::Draw(dt);
+    
     Panels::Log::Draw(dt);
     
     // AI panels (use static instances)
@@ -347,6 +360,11 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
             ownDockNode
         });
     return true;
+}
+
+void ResetDockLayout() {
+    s_dock_built = false;
+    s_pending_dock_requests.clear();
 }
 
 } // namespace RC_UI

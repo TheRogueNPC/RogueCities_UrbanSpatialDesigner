@@ -159,6 +159,28 @@ namespace RogueCity::Core {
         float estimated_cost{ 0.0f };
     };
 
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK3_WATER_BODY
+    /// Water body types
+    enum class WaterType : uint8_t {
+        Lake = 0,
+        River,
+        Ocean,
+        Pond
+    };
+
+    /// Water body feature (lakes, rivers, oceans)
+    struct WaterBody {
+        uint32_t id{ 0 };
+        WaterType type{ WaterType::Lake };
+        std::vector<Vec2> boundary;  // Polygon for lakes, polyline for rivers
+        float depth{ 5.0f };          // Meters
+        bool generate_shore{ true };  // Generate coastal detail
+        bool is_user_placed{ false };
+        
+        [[nodiscard]] bool empty() const { return boundary.empty(); }
+        [[nodiscard]] size_t size() const { return boundary.size(); }
+    };
+
     // ===== UTILITY STRUCTURES =====
 
     /// Axis-aligned bounding box

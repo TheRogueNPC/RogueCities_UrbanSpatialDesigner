@@ -7,9 +7,40 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "integration/AiAssist.h"
 
+#include <RogueCity/Core/Editor/EditorState.hpp>
+#include <RogueCity/Core/Editor/GlobalState.hpp>
+
 #include <imgui.h>
 
 namespace RC_UI::Panels::Tools {
+
+// AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_BUTTONS
+// Helper to render a tool button with state-reactive highlighting
+static void RenderToolButton(
+    const char* label, 
+    RogueCity::Core::Editor::EditorEvent event,
+    RogueCity::Core::Editor::EditorState active_state,
+    RogueCity::Core::Editor::EditorHFSM& hfsm,
+    RogueCity::Core::Editor::GlobalState& gs)
+{
+    using namespace RogueCity::Core::Editor;
+    
+    bool is_active = (hfsm.state() == active_state);
+    
+    // Y2K affordance: glow when active
+    if (is_active) {
+        float pulse = 0.5f + 0.5f * sinf(ImGui::GetTime() * 4.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f * pulse + 0.2f, 0.2f, 1.0f));
+    }
+    
+    if (ImGui::Button(label, ImVec2(100, 40))) {
+        hfsm.handle_event(event, gs);
+    }
+    
+    if (is_active) {
+        ImGui::PopStyleColor();
+    }
+}
 
 void Draw(float dt)
 {
@@ -33,6 +64,40 @@ void Draw(float dt)
         ImGui::End();
         return;
     }
+
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
+    // === TOOL MODE BUTTONS (HFSM-driven) ===
+    ImGui::SeparatorText("Editor Tools");
+    
+    // Get HFSM and GlobalState (these should be accessible via a singleton or passed in)
+    // For now, we'll use the GetEditorHFSM() function
+    using namespace RogueCity::Core::Editor;
+    EditorHFSM& hfsm = GetEditorHFSM();
+    
+    // TODO: Get GlobalState from application context
+    // For now, create a dummy one (this should be fixed in future integration)
+    static GlobalState dummy_gs;
+    GlobalState& gs = dummy_gs;
+    
+    RenderToolButton("Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms, hfsm, gs);
+    ImGui::SameLine();
+    
+    RenderToolButton("Road", EditorEvent::Tool_Roads, EditorState::Editing_Roads, hfsm, gs);
+    ImGui::SameLine();
+    
+    RenderToolButton("District", EditorEvent::Tool_Districts, EditorState::Editing_Districts, hfsm, gs);
+    ImGui::SameLine();
+    
+    RenderToolButton("Lot", EditorEvent::Tool_Lots, EditorState::Editing_Lots, hfsm, gs);
+    ImGui::SameLine();
+    
+    RenderToolButton("Building", EditorEvent::Tool_Buildings, EditorState::Editing_Buildings, hfsm, gs);
+    ImGui::SameLine();
+    
+    RenderToolButton("Water", EditorEvent::Tool_Water, EditorState::Editing_Water, hfsm, gs);
+    
+    ImGui::Spacing();
+    ImGui::Separator();
 
     // Generation controls
     const bool can_generate = AxiomEditor::CanGenerate();

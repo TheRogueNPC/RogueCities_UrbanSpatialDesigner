@@ -1,0 +1,375 @@
+{
+  "actions": [
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleAxiomLibrary",
+      "id": "axiom_library.toggle",
+      "label": "Toggle Axiom Library",
+      "panel_id": "Axiom Bar"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::ForceGenerate",
+      "id": "generator.regenerate",
+      "label": "Generate / Regenerate",
+      "panel_id": "Tools"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::RandomizeSeed",
+      "id": "seed.randomize",
+      "label": "Random Seed",
+      "panel_id": "Tools"
+    }
+  ],
+  "active_mode": "AXIOM",
+  "app_name": "RogueCity Visualizer",
+  "context_tags": [
+    "mode:AXIOM",
+    "devshell:active"
+  ],
+  "panels": [
+    {
+      "dock_area": "Top",
+      "id": "Axiom Bar",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp",
+      "role": "nav",
+      "tags": [
+        "axiom",
+        "nav"
+      ],
+      "title": "Axiom Bar",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "action:axiom_library.toggle",
+          "label": "Axiom Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "dock_area": "Center",
+      "id": "RogueVisualizer",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+      "role": "viewport",
+      "tags": [
+        "viewport",
+        "axiom",
+        "minimap"
+      ],
+      "title": "RogueVisualizer",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "viewport.primary",
+          "label": "Primary Viewport",
+          "tags": [
+            "viewport"
+          ],
+          "type": "viewport"
+        }
+      ]
+    },
+    {
+      "dock_area": "Right",
+      "id": "Axiom Library",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+      "role": "toolbox",
+      "tags": [
+        "axiom",
+        "library"
+      ],
+      "title": "Axiom Library",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "axiom.types[]",
+          "label": "Axiom Types",
+          "tags": [
+            "axiom",
+            "library"
+          ],
+          "type": "table"
+        }
+      ]
+    },
+    {
+      "dock_area": "Right",
+      "id": "Analytics",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
+      "role": "inspector",
+      "tags": [
+        "analytics",
+        "metrics"
+      ],
+      "title": "Analytics",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Tools",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_tools.cpp",
+      "role": "toolbox",
+      "tags": [
+        "generation",
+        "controls",
+        "cockpit"
+      ],
+      "title": "Tools",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "action:generator.regenerate",
+          "label": "Generate / Regenerate",
+          "tags": [
+            "action",
+            "generator"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "preview.live",
+          "label": "Live Preview",
+          "tags": [
+            "preview"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "preview.debounce_sec",
+          "label": "Debounce",
+          "tags": [
+            "preview",
+            "timing"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "action:seed.randomize",
+          "label": "Random Seed",
+          "tags": [
+            "action",
+            "seed"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:devshell.toggle",
+          "label": "Dev Shell",
+          "tags": [
+            "dev",
+            "toggle"
+          ],
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "District Index",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_district_index.cpp",
+      "role": "index",
+      "tags": [
+        "districts",
+        "index"
+      ],
+      "title": "District Index",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Road Index",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_road_index.cpp",
+      "role": "index",
+      "tags": [
+        "roads",
+        "index"
+      ],
+      "title": "Road Index",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Lot Index",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_lot_index.cpp",
+      "role": "index",
+      "tags": [
+        "lots",
+        "index"
+      ],
+      "title": "Lot Index",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "River Index",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_river_index.cpp",
+      "role": "index",
+      "tags": [
+        "rivers",
+        "index"
+      ],
+      "title": "River Index",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Building Index",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_building_index.cpp",
+      "role": "index",
+      "tags": [
+        "buildings",
+        "index"
+      ],
+      "title": "Building Index",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Log",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_log.cpp",
+      "role": "log",
+      "tags": [
+        "events",
+        "telemetry"
+      ],
+      "title": "Log",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "log.tail",
+          "label": "LogStream",
+          "tags": [
+            "log"
+          ],
+          "type": "tree"
+        }
+      ]
+    },
+    {
+      "dock_area": "Floating",
+      "id": "AI Console",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_ai_console.cpp",
+      "role": "settings",
+      "tags": [
+        "ai",
+        "bridge",
+        "control"
+      ],
+      "title": "AI Console",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "action:ai.bridge.start",
+          "label": "Start AI Bridge",
+          "tags": [
+            "action",
+            "ai"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:ai.bridge.stop",
+          "label": "Stop AI Bridge",
+          "tags": [
+            "action",
+            "ai"
+          ],
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "dock_area": "Floating",
+      "id": "UI Agent Assistant",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_ui_agent.cpp",
+      "role": "toolbox",
+      "tags": [
+        "ai",
+        "layout",
+        "refactor",
+        "v0.0.9"
+      ],
+      "title": "UI Agent Assistant",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "ai.bridge.status",
+          "label": "AI Bridge offline",
+          "tags": [
+            "ai",
+            "status"
+          ],
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "dock_area": "Floating",
+      "id": "City Spec Generator",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_city_spec.cpp",
+      "role": "toolbox",
+      "tags": [
+        "ai",
+        "city_spec",
+        "generator_bridge",
+        "v0.0.9"
+      ],
+      "title": "City Spec Generator",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "ai.bridge.status",
+          "label": "AI Bridge offline",
+          "tags": [
+            "ai",
+            "status"
+          ],
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "dock_area": "Floating",
+      "id": "Dev Shell",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_dev_shell.cpp",
+      "role": "settings",
+      "tags": [
+        "dev",
+        "introspection"
+      ],
+      "title": "Dev Shell",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "uiint.include_dock_tree",
+          "label": "Include dock_tree",
+          "tags": [
+            "dev"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "uiint.output_dir",
+          "label": "Output dir",
+          "tags": [
+            "dev"
+          ],
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "protocol_version": "ui-introspect-v1"
+}

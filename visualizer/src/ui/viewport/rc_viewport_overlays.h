@@ -20,6 +20,12 @@ struct OverlayConfig {
     bool show_road_labels = true;
     bool show_budget_bars = false;
     
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK5_OVERLAY_CONFIG
+    bool show_water_bodies = true;
+    bool show_building_sites = true;
+    bool show_lot_boundaries = true;
+    bool show_height_indicators = true;
+    
     // AESP component selection (for heatmap)
     enum class AESPComponent {
         Access,
@@ -73,6 +79,11 @@ public:
     void RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState& gs, OverlayConfig::AESPComponent component);
     void RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState& gs);
+    
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK5_VIEWPORT_OVERLAYS
+    void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderBuildingSites(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs);
 
     void SetViewTransform(const ViewTransform& transform) { view_transform_ = transform; }
     const ViewTransform& GetViewTransform() const { return view_transform_; }
