@@ -120,6 +120,7 @@ public:
     float WorldToScreenScale(float world_distance) const;
 
     void RenderHighlights();
+    void RenderSelectionOutlines(const RogueCity::Core::Editor::GlobalState& gs);
 
 private:
     ViewTransform view_transform_{};

@@ -16,6 +16,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Data/CitySpec.hpp
     include/RogueCity/Core/Editor/EditorState.hpp
     include/RogueCity/Core/Editor/GlobalState.hpp
+    include/RogueCity/Core/Editor/SelectionSync.hpp
     include/RogueCity/Core/Util/FastVectorArray.hpp
     include/RogueCity/Core/Util/IndexVector.hpp
     include/RogueCity/Core/Util/StableIndexVector.hpp

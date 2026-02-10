@@ -92,6 +92,40 @@ void Draw(float dt)
     ImGui::Spacing();
     ImGui::Separator();
 
+    // Undo / Redo (Axiom tool command history)
+    const bool can_undo = AxiomEditor::CanUndo();
+    const bool can_redo = AxiomEditor::CanRedo();
+    if (!can_undo) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button("Undo")) {
+        AxiomEditor::Undo();
+    }
+    if (!can_undo) {
+        ImGui::EndDisabled();
+    }
+    uiint.RegisterWidget({"button", "Undo", "action:editor.undo", {"action", "history"}});
+    uiint.RegisterAction({"editor.undo", "Undo", "Tools", {}, "AxiomEditor::Undo"});
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", AxiomEditor::GetUndoLabel());
+    }
+
+    ImGui::SameLine();
+    if (!can_redo) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button("Redo")) {
+        AxiomEditor::Redo();
+    }
+    if (!can_redo) {
+        ImGui::EndDisabled();
+    }
+    uiint.RegisterWidget({"button", "Redo", "action:editor.redo", {"action", "history"}});
+    uiint.RegisterAction({"editor.redo", "Redo", "Tools", {}, "AxiomEditor::Redo"});
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", AxiomEditor::GetRedoLabel());
+    }
+
     // Generation controls
     const bool can_generate = AxiomEditor::CanGenerate();
     if (!can_generate) {
@@ -104,6 +138,25 @@ void Draw(float dt)
     uiint.RegisterAction({"generator.regenerate", "Generate / Regenerate", "Tools", {}, "AxiomEditor::ForceGenerate"});
     if (!can_generate) {
         ImGui::EndDisabled();
+    }
+
+    // Dirty-layer propagation status (edit -> dirty downstream layers -> regenerate).
+    const bool dirty_any = gs.dirty_layers.AnyDirty();
+    ImGui::SameLine();
+    ImGui::TextColored(
+        dirty_any ? ImVec4(1.0f, 0.8f, 0.2f, 1.0f) : ImVec4(0.6f, 0.85f, 0.6f, 1.0f),
+        dirty_any ? "Dirty Layers: pending" : "Dirty Layers: clean");
+
+    if (dirty_any && ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Axioms)) ImGui::BulletText("Axioms");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Tensor)) ImGui::BulletText("Tensor");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Roads)) ImGui::BulletText("Roads");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Districts)) ImGui::BulletText("Districts");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Lots)) ImGui::BulletText("Lots");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::Buildings)) ImGui::BulletText("Buildings");
+        if (gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex)) ImGui::BulletText("Viewport Index");
+        ImGui::EndTooltip();
     }
 
     ImGui::SameLine();

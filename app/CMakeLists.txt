@@ -19,6 +19,10 @@ set(APP_SOURCES
     src/Tools/AxiomPlacementTool.cpp
     src/Tools/AxiomIcon.cpp
     src/Tools/ContextWindowPopup.cpp
+
+    # Editor infrastructure
+    src/Editor/CommandHistory.cpp
+    src/Editor/ViewportIndexBuilder.cpp
     
     # Viewports (3D/2D hybrid rendering)
     src/Viewports/PrimaryViewport.cpp
@@ -44,6 +48,10 @@ set(APP_HEADERS
     include/RogueCity/App/Tools/AxiomPlacementTool.hpp
     include/RogueCity/App/Tools/AxiomIcon.hpp
     include/RogueCity/App/Tools/ContextWindowPopup.hpp
+
+    # Editor infrastructure
+    include/RogueCity/App/Editor/CommandHistory.hpp
+    include/RogueCity/App/Editor/ViewportIndexBuilder.hpp
     
     # Viewports
     include/RogueCity/App/Viewports/PrimaryViewport.hpp

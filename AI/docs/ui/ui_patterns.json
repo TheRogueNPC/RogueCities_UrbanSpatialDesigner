@@ -16,6 +16,17 @@
       ]
     },
     {
+      "name": "PropertyEditor",
+      "template": "RcPropertyEditor",
+      "roles": ["context_sensitive_inspector", "inspector"],
+      "description": "Context-sensitive property grid that renders manual per-type fields",
+      "required_tags": ["detail", "selection", "property_editor"],
+      "suggested_widgets": ["property_editor", "combo", "checkbox", "input"],
+      "examples": [
+        "rc_panel_inspector"
+      ]
+    },
+    {
       "name": "ToolStrip",
       "template": "RcToolStrip",
       "roles": ["toolbox"],
@@ -126,6 +137,14 @@
       "role": "toolbox",
       "owner_module": "rc_panel_tools",
       "tags": ["tools", "actions"]
+    },
+    {
+      "id": "rc_panel_inspector",
+      "pattern": "PropertyEditor",
+      "role": "inspector",
+      "owner_module": "rc_panel_inspector",
+      "tags": ["detail", "selection", "property_editor"],
+      "data_bindings": ["selection_manager"]
     },
     {
       "id": "rc_panel_road_index",

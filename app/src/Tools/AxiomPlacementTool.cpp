@@ -2,8 +2,91 @@
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Tools/ContextWindowPopup.hpp"
 #include <imgui.h>
+#include <algorithm>
+#include <cmath>
 
 namespace RogueCity::App {
+
+namespace {
+
+struct PlaceAxiomCommand : public ICommand {
+    AxiomPlacementTool* tool{ nullptr };
+    AxiomPlacementTool::AxiomSnapshot snapshot{};
+    const char* desc{ "Place Axiom" };
+
+    void Execute() override {
+        if (tool) {
+            tool->add_axiom_from_snapshot(snapshot);
+        }
+    }
+
+    void Undo() override {
+        if (tool) {
+            tool->remove_axiom(snapshot.id);
+        }
+    }
+
+    const char* GetDescription() const override { return desc; }
+};
+
+struct DeleteAxiomCommand : public ICommand {
+    AxiomPlacementTool* tool{ nullptr };
+    AxiomPlacementTool::AxiomSnapshot snapshot{};
+    const char* desc{ "Delete Axiom" };
+
+    void Execute() override {
+        if (tool) {
+            tool->remove_axiom(snapshot.id);
+        }
+    }
+
+    void Undo() override {
+        if (tool) {
+            tool->add_axiom_from_snapshot(snapshot);
+        }
+    }
+
+    const char* GetDescription() const override { return desc; }
+};
+
+struct ModifyAxiomCommand : public ICommand {
+    AxiomPlacementTool* tool{ nullptr };
+    AxiomPlacementTool::AxiomSnapshot before{};
+    AxiomPlacementTool::AxiomSnapshot after{};
+    const char* desc{ "Modify Axiom" };
+
+    void Execute() override {
+        if (tool) {
+            tool->apply_snapshot(after);
+        }
+    }
+
+    void Undo() override {
+        if (tool) {
+            tool->apply_snapshot(before);
+        }
+    }
+
+    const char* GetDescription() const override { return desc; }
+};
+
+static bool SnapshotsEqual(const AxiomPlacementTool::AxiomSnapshot& a,
+                           const AxiomPlacementTool::AxiomSnapshot& b) {
+    return a.id == b.id &&
+        a.type == b.type &&
+        a.position.x == b.position.x &&
+        a.position.y == b.position.y &&
+        a.radius == b.radius &&
+        a.rotation == b.rotation &&
+        a.organic_curviness == b.organic_curviness &&
+        a.radial_spokes == b.radial_spokes &&
+        a.loose_grid_jitter == b.loose_grid_jitter &&
+        a.suburban_loop_strength == b.suburban_loop_strength &&
+        a.stem_branch_angle == b.stem_branch_angle &&
+        a.superblock_block_size == b.superblock_block_size;
+}
+
+} // namespace
 
 AxiomPlacementTool::AxiomPlacementTool() = default;
 AxiomPlacementTool::~AxiomPlacementTool() = default;
@@ -80,11 +163,21 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     popup_axiom_id_ = selected->id();
                     popup_ring_index_ = knob->ring_index;
-                    knob_popup_.set_on_apply([this](float new_value) {
+                    const auto before = snapshot_axiom(*selected);
+                    knob_popup_.set_on_apply([this, before](float new_value) {
                         for (const auto& axiom : axioms_) {
                             if (axiom->id() == popup_axiom_id_) {
                                 axiom->set_radius(new_value);
                                 dirty_ = true;
+                                const auto after = snapshot_axiom(*axiom);
+                                if (!SnapshotsEqual(before, after)) {
+                                    auto cmd = std::make_unique<ModifyAxiomCommand>();
+                                    cmd->tool = this;
+                                    cmd->before = before;
+                                    cmd->after = after;
+                                    cmd->desc = "Resize Axiom";
+                                    history_.Commit(std::move(cmd));
+                                }
                                 break;
                             }
                         }
@@ -96,6 +189,7 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
                 knob_drag_start_ = world_pos;
                 knob->is_dragging = true;
                 mode_ = Mode::DraggingKnob;
+                drag_start_snapshot_ = snapshot_axiom(*selected);
                 return;
             }
         }
@@ -106,6 +200,7 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
                 selected_axiom_id_ = (*it)->id();
                 axiom_drag_offset_ = world_pos - (*it)->position();
                 mode_ = Mode::DraggingAxiom;
+                drag_start_snapshot_ = snapshot_axiom(*(*it));
                 return;
             }
         }
@@ -127,13 +222,33 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
         axiom->trigger_placement_animation();
         
         selected_axiom_id_ = axiom->id();
+        const auto snapshot = snapshot_axiom(*axiom);
         axioms_.push_back(std::move(axiom));
         dirty_ = true;
+        auto place_cmd = std::make_unique<PlaceAxiomCommand>();
+        place_cmd->tool = this;
+        place_cmd->snapshot = snapshot;
+        place_cmd->desc = "Place Axiom";
+        history_.Commit(std::move(place_cmd));
         
         mode_ = Mode::Idle;
     } else if (mode_ == Mode::DraggingAxiom) {
         (void)world_pos;
         dirty_ = true;
+        if (drag_start_snapshot_) {
+            if (auto* axiom = get_selected_axiom()) {
+                const auto after = snapshot_axiom(*axiom);
+                if (!SnapshotsEqual(*drag_start_snapshot_, after)) {
+                    auto move_cmd = std::make_unique<ModifyAxiomCommand>();
+                    move_cmd->tool = this;
+                    move_cmd->before = *drag_start_snapshot_;
+                    move_cmd->after = after;
+                    move_cmd->desc = "Move Axiom";
+                    history_.Commit(std::move(move_cmd));
+                }
+            }
+            drag_start_snapshot_.reset();
+        }
         mode_ = Mode::Idle;
     } else if (mode_ == Mode::DraggingKnob) {
         if (dragging_knob_) {
@@ -141,6 +256,20 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
             dragging_knob_ = nullptr;
         }
         dirty_ = true;
+        if (drag_start_snapshot_) {
+            if (auto* axiom = get_selected_axiom()) {
+                const auto after = snapshot_axiom(*axiom);
+                if (!SnapshotsEqual(*drag_start_snapshot_, after)) {
+                    auto resize_cmd = std::make_unique<ModifyAxiomCommand>();
+                    resize_cmd->tool = this;
+                    resize_cmd->before = *drag_start_snapshot_;
+                    resize_cmd->after = after;
+                    resize_cmd->desc = "Resize Axiom";
+                    history_.Commit(std::move(resize_cmd));
+                }
+            }
+            drag_start_snapshot_.reset();
+        }
         mode_ = Mode::Idle;
     }
 }
@@ -179,13 +308,22 @@ void AxiomPlacementTool::on_right_click(const Core::Vec2& world_pos) {
     // Delete top-most axiom under cursor
     for (auto it = axioms_.rbegin(); it != axioms_.rend(); ++it) {
         if ((*it)->is_hovered(world_pos, 15.0f)) {
+            const auto snapshot = snapshot_axiom(*(*it));
             remove_axiom((*it)->id());
+            auto delete_cmd = std::make_unique<DeleteAxiomCommand>();
+            delete_cmd->tool = this;
+            delete_cmd->snapshot = snapshot;
+            delete_cmd->desc = "Delete Axiom";
+            history_.Commit(std::move(delete_cmd));
             break;
         }
     }
 }
 
 void AxiomPlacementTool::add_axiom(std::unique_ptr<AxiomVisual> axiom) {
+    if (axiom) {
+        next_axiom_id_ = std::max(next_axiom_id_, axiom->id() + 1);
+    }
     axioms_.push_back(std::move(axiom));
 }
 
@@ -210,6 +348,7 @@ void AxiomPlacementTool::clear_axioms() {
     selected_axiom_id_ = -1;
     hovered_axiom_id_ = -1;
     dirty_ = true;
+    history_.Clear();
 }
 
 const std::vector<std::unique_ptr<AxiomVisual>>& AxiomPlacementTool::axioms() const {
@@ -256,6 +395,99 @@ bool AxiomPlacementTool::consume_dirty() {
 
 bool AxiomPlacementTool::is_interacting() const {
     return mode_ == Mode::Placing || mode_ == Mode::DraggingSize || mode_ == Mode::DraggingAxiom || mode_ == Mode::DraggingKnob;
+}
+
+void AxiomPlacementTool::add_axiom_from_snapshot(const AxiomSnapshot& snapshot) {
+    auto axiom = std::make_unique<AxiomVisual>(snapshot.id, snapshot.type);
+    axiom->set_position(snapshot.position);
+    axiom->set_radius(snapshot.radius);
+    axiom->set_rotation(snapshot.rotation);
+    axiom->set_organic_curviness(snapshot.organic_curviness);
+    axiom->set_radial_spokes(snapshot.radial_spokes);
+    axiom->set_loose_grid_jitter(snapshot.loose_grid_jitter);
+    axiom->set_suburban_loop_strength(snapshot.suburban_loop_strength);
+    axiom->set_stem_branch_angle(snapshot.stem_branch_angle);
+    axiom->set_superblock_block_size(snapshot.superblock_block_size);
+    axiom->set_animation_enabled(animation_enabled_);
+    axioms_.push_back(std::move(axiom));
+    next_axiom_id_ = std::max(next_axiom_id_, snapshot.id + 1);
+    dirty_ = true;
+}
+
+AxiomPlacementTool::AxiomSnapshot AxiomPlacementTool::snapshot_axiom(const AxiomVisual& axiom) const {
+    AxiomSnapshot snapshot{};
+    snapshot.id = axiom.id();
+    snapshot.type = axiom.type();
+    snapshot.position = axiom.position();
+    snapshot.radius = axiom.radius();
+    snapshot.rotation = axiom.rotation();
+    snapshot.organic_curviness = axiom.organic_curviness();
+    snapshot.radial_spokes = axiom.radial_spokes();
+    snapshot.loose_grid_jitter = axiom.loose_grid_jitter();
+    snapshot.suburban_loop_strength = axiom.suburban_loop_strength();
+    snapshot.stem_branch_angle = axiom.stem_branch_angle();
+    snapshot.superblock_block_size = axiom.superblock_block_size();
+    return snapshot;
+}
+
+void AxiomPlacementTool::apply_snapshot(const AxiomSnapshot& snapshot) {
+    auto* axiom = find_axiom(snapshot.id);
+    if (!axiom) {
+        add_axiom_from_snapshot(snapshot);
+        return;
+    }
+    axiom->set_type(snapshot.type);
+    axiom->set_position(snapshot.position);
+    axiom->set_radius(snapshot.radius);
+    axiom->set_rotation(snapshot.rotation);
+    axiom->set_organic_curviness(snapshot.organic_curviness);
+    axiom->set_radial_spokes(snapshot.radial_spokes);
+    axiom->set_loose_grid_jitter(snapshot.loose_grid_jitter);
+    axiom->set_suburban_loop_strength(snapshot.suburban_loop_strength);
+    axiom->set_stem_branch_angle(snapshot.stem_branch_angle);
+    axiom->set_superblock_block_size(snapshot.superblock_block_size);
+    dirty_ = true;
+}
+
+AxiomVisual* AxiomPlacementTool::find_axiom(int axiom_id) {
+    for (auto& axiom : axioms_) {
+        if (axiom->id() == axiom_id) {
+            return axiom.get();
+        }
+    }
+    return nullptr;
+}
+
+bool AxiomPlacementTool::can_undo() const {
+    return history_.CanUndo();
+}
+
+bool AxiomPlacementTool::can_redo() const {
+    return history_.CanRedo();
+}
+
+void AxiomPlacementTool::undo() {
+    history_.Undo();
+    dirty_ = true;
+}
+
+void AxiomPlacementTool::redo() {
+    history_.Redo();
+    dirty_ = true;
+}
+
+const char* AxiomPlacementTool::undo_label() const {
+    if (const auto* cmd = history_.PeekUndo()) {
+        return cmd->GetDescription();
+    }
+    return "Undo";
+}
+
+const char* AxiomPlacementTool::redo_label() const {
+    if (const auto* cmd = history_.PeekRedo()) {
+        return cmd->GetDescription();
+    }
+    return "Redo";
 }
 
 } // namespace RogueCity::App

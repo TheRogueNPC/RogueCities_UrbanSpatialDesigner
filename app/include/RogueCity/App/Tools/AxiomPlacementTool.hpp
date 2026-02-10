@@ -1,10 +1,12 @@
 #pragma once
+#include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "AxiomVisual.hpp"
 #include "ContextWindowPopup.hpp"
 #include <vector>
 #include <memory>
+#include <optional>
 
 namespace RogueCity::App {
 
@@ -14,6 +16,8 @@ class PrimaryViewport;
 /// Active during EditorState::Editing_Axioms
 class AxiomPlacementTool {
 public:
+    struct AxiomSnapshot;
+
     enum class Mode {
         Idle,              // No interaction
         Placing,           // Click to place new axiom
@@ -42,6 +46,8 @@ public:
     void add_axiom(std::unique_ptr<AxiomVisual> axiom);
     void remove_axiom(int axiom_id);
     void clear_axioms();
+    void add_axiom_from_snapshot(const AxiomSnapshot& snapshot);
+    void apply_snapshot(const AxiomSnapshot& snapshot);
 
     [[nodiscard]] const std::vector<std::unique_ptr<AxiomVisual>>& axioms() const;
     [[nodiscard]] AxiomVisual* get_selected_axiom();
@@ -60,7 +66,32 @@ public:
     /// True while the user is manipulating the tool (placing/dragging)
     [[nodiscard]] bool is_interacting() const;
 
+    // Undo/Redo support
+    [[nodiscard]] bool can_undo() const;
+    [[nodiscard]] bool can_redo() const;
+    void undo();
+    void redo();
+    [[nodiscard]] const char* undo_label() const;
+    [[nodiscard]] const char* redo_label() const;
+
+    struct AxiomSnapshot {
+        int id{ 0 };
+        AxiomVisual::AxiomType type{ AxiomVisual::AxiomType::Radial };
+        Core::Vec2 position{ 0.0, 0.0 };
+        float radius{ 100.0f };
+        float rotation{ 0.0f };
+        float organic_curviness{ 0.5f };
+        int radial_spokes{ 8 };
+        float loose_grid_jitter{ 0.15f };
+        float suburban_loop_strength{ 0.7f };
+        float stem_branch_angle{ 0.7f };
+        float superblock_block_size{ 250.0f };
+    };
+
 private:
+    AxiomSnapshot snapshot_axiom(const AxiomVisual& axiom) const;
+    AxiomVisual* find_axiom(int axiom_id);
+
     std::vector<std::unique_ptr<AxiomVisual>> axioms_;
     int next_axiom_id_{ 1 };
     int selected_axiom_id_{ -1 };
@@ -80,6 +111,8 @@ private:
     ContextWindowPopup knob_popup_;
     int popup_axiom_id_{ -1 };
     int popup_ring_index_{ -1 };
+    std::optional<AxiomSnapshot> drag_start_snapshot_{};
+    CommandHistory history_{};
 };
 
 } // namespace RogueCity::App

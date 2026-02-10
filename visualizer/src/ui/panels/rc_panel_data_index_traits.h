@@ -16,6 +16,19 @@
 namespace RC_UI::Panels {
 namespace {
     using RogueCity::Core::Editor::GetGlobalState;
+    using RogueCity::Core::Editor::SelectionManager;
+    using RogueCity::Core::Editor::VpEntityKind;
+
+    void ApplySelectionModifier(SelectionManager& selection, VpEntityKind kind, uint32_t id) {
+        const ImGuiIO& io = ImGui::GetIO();
+        if (io.KeyShift) {
+            selection.Add(kind, id);
+        } else if (io.KeyCtrl) {
+            selection.Toggle(kind, id);
+        } else {
+            selection.Select(kind, id);
+        }
+    }
 
     template <typename T, typename Predicate>
     void EraseIfFva(fva::Container<T>& container, Predicate&& predicate) {
@@ -72,6 +85,7 @@ struct RoadIndexTraits {
             auto handle = gs.roads.createHandleFromData(index);
             gs.roads.remove(handle);
             gs.selection.selected_road = {};
+            gs.selection_manager.Clear();
         }
         if (ImGui::MenuItem("Focus on Map")) {
             if (!road.points.empty()) {
@@ -86,6 +100,7 @@ struct RoadIndexTraits {
             gs.selection.selected_district = {};
             gs.selection.selected_lot = {};
             gs.selection.selected_building = {};
+            gs.selection_manager.Select(VpEntityKind::Road, road.id);
         }
     }
     
@@ -95,6 +110,7 @@ struct RoadIndexTraits {
         gs.selection.selected_district = {};
         gs.selection.selected_lot = {};
         gs.selection.selected_building = {};
+        ApplySelectionModifier(gs.selection_manager, VpEntityKind::Road, road.id);
         if (!road.points.empty()) {
             const auto midpoint = road.points[road.points.size() / 2];
             RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(midpoint);
@@ -160,6 +176,7 @@ struct DistrictIndexTraits {
             auto handle = gs.districts.createHandleFromData(index);
             gs.districts.remove(handle);
             gs.selection.selected_district = {};
+            gs.selection_manager.Clear();
         }
         if (ImGui::MenuItem("Focus on Map")) {
             if (!district.border.empty()) {
@@ -178,6 +195,7 @@ struct DistrictIndexTraits {
             gs.selection.selected_district = gs.districts.createHandleFromData(index);
             gs.selection.selected_lot = {};
             gs.selection.selected_building = {};
+            gs.selection_manager.Select(VpEntityKind::District, district.id);
         }
     }
     
@@ -187,6 +205,7 @@ struct DistrictIndexTraits {
         gs.selection.selected_district = gs.districts.createHandleFromData(index);
         gs.selection.selected_lot = {};
         gs.selection.selected_building = {};
+        ApplySelectionModifier(gs.selection_manager, VpEntityKind::District, district.id);
         if (!district.border.empty()) {
             RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(district.border[0]);
         }
@@ -242,6 +261,7 @@ struct LotIndexTraits {
             auto handle = gs.lots.createHandleFromData(index);
             gs.lots.remove(handle);
             gs.selection.selected_lot = {};
+            gs.selection_manager.Clear();
         }
         if (ImGui::MenuItem("Focus on Map")) {
             RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
@@ -256,6 +276,7 @@ struct LotIndexTraits {
             gs.selection.selected_district = {};
             gs.selection.selected_lot = gs.lots.createHandleFromData(index);
             gs.selection.selected_building = {};
+            gs.selection_manager.Select(VpEntityKind::Lot, lot.id);
         }
     }
     
@@ -265,6 +286,7 @@ struct LotIndexTraits {
         gs.selection.selected_district = {};
         gs.selection.selected_lot = gs.lots.createHandleFromData(index);
         gs.selection.selected_building = {};
+        ApplySelectionModifier(gs.selection_manager, VpEntityKind::Lot, lot.id);
         RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
     }
 
@@ -314,6 +336,7 @@ struct BuildingIndexTraits {
             auto& gs = GetGlobalState();
             gs.buildings.eraseViaData(static_cast<uint32_t>(index));
             gs.selection.selected_building = {};
+            gs.selection_manager.Clear();
         }
         if (ImGui::MenuItem("Focus on Map")) {
             RC_UI::Viewport::GetViewportOverlays().SetSelectedBuilding(building.position);
@@ -338,6 +361,7 @@ struct BuildingIndexTraits {
             gs.selection.selected_district = {};
             gs.selection.selected_lot = {};
             gs.selection.selected_building = gs.buildings.createHandleFromData(index);
+            gs.selection_manager.Select(VpEntityKind::Building, building.id);
         }
     }
     
@@ -347,6 +371,7 @@ struct BuildingIndexTraits {
         gs.selection.selected_district = {};
         gs.selection.selected_lot = {};
         gs.selection.selected_building = gs.buildings.createHandleFromData(index);
+        ApplySelectionModifier(gs.selection_manager, VpEntityKind::Building, building.id);
         RC_UI::Viewport::GetViewportOverlays().SetSelectedBuilding(building.position);
     }
 

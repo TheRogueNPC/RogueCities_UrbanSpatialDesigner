@@ -46,6 +46,13 @@ void SetFlowRate(float flowRate);
 bool SetRogueNavModeByName(const std::string& mode);
 bool SetRogueNavFilterByName(const std::string& filter);
 
+[[nodiscard]] bool CanUndo();
+[[nodiscard]] bool CanRedo();
+void Undo();
+void Redo();
+[[nodiscard]] const char* GetUndoLabel();
+[[nodiscard]] const char* GetRedoLabel();
+
 [[nodiscard]] bool CanGenerate();
 void ForceGenerate();
 bool ApplyGeneratorRequest(

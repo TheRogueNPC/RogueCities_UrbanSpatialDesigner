@@ -4,6 +4,7 @@
 
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/panels/rc_property_editor.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Data/CityTypes.hpp"
@@ -47,60 +48,9 @@ void Draw(float dt)
         true
     );
 
-    if (gs.selection.selected_building) {
-        auto& building = *gs.selection.selected_building;
-        ImGui::Text("Selection: Building");
-        ImGui::Separator();
-        ImGui::InputScalar("Building ID", ImGuiDataType_U32, &building.id);
-        ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &building.lot_id);
-        ImGui::InputScalar("District ID", ImGuiDataType_U32, &building.district_id);
-        float pos_xy[2] = { static_cast<float>(building.position.x), static_cast<float>(building.position.y) };
-        if (ImGui::InputFloat2("Position", pos_xy)) {
-            building.position.x = pos_xy[0];
-            building.position.y = pos_xy[1];
-        }
-        ImGui::Checkbox("User Placed", &building.is_user_placed);
-        ImGui::Checkbox("Locked Type", &building.locked_type);
-        uiint.RegisterWidget({"property_editor", "Building", "buildings[]", {"detail"}});
-    } else if (gs.selection.selected_lot) {
-        auto& lot = *gs.selection.selected_lot;
-        ImGui::Text("Selection: Lot");
-        ImGui::Separator();
-        ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &lot.id);
-        ImGui::InputScalar("District ID", ImGuiDataType_U32, &lot.district_id);
-        float centroid_xy[2] = { static_cast<float>(lot.centroid.x), static_cast<float>(lot.centroid.y) };
-        if (ImGui::InputFloat2("Centroid", centroid_xy)) {
-            lot.centroid.x = centroid_xy[0];
-            lot.centroid.y = centroid_xy[1];
-        }
-        ImGui::Checkbox("User Placed", &lot.is_user_placed);
-        ImGui::Checkbox("Locked Type", &lot.locked_type);
-        ImGui::SeparatorText("AESP Scores");
-        ImGui::Text("Access: %.2f", lot.access);
-        ImGui::Text("Exposure: %.2f", lot.exposure);
-        ImGui::Text("Service: %.2f", lot.serviceability);
-        ImGui::Text("Privacy: %.2f", lot.privacy);
-        uiint.RegisterWidget({"property_editor", "Lot", "lots[]", {"detail"}});
-    } else if (gs.selection.selected_district) {
-        auto& district = *gs.selection.selected_district;
-        ImGui::Text("Selection: District");
-        ImGui::Separator();
-        ImGui::InputScalar("District ID", ImGuiDataType_U32, &district.id);
-        ImGui::InputInt("Primary Axiom", &district.primary_axiom_id);
-        ImGui::InputInt("Secondary Axiom", &district.secondary_axiom_id);
-        ImGui::Text("Border Points: %zu", district.border.size());
-        uiint.RegisterWidget({"property_editor", "District", "districts[]", {"detail"}});
-    } else if (gs.selection.selected_road) {
-        auto& road = *gs.selection.selected_road;
-        ImGui::Text("Selection: Road");
-        ImGui::Separator();
-        ImGui::InputScalar("Road ID", ImGuiDataType_U32, &road.id);
-        ImGui::Checkbox("User Created", &road.is_user_created);
-        ImGui::Text("Point Count: %zu", road.points.size());
-        uiint.RegisterWidget({"property_editor", "Road", "roads[]", {"detail"}});
-    } else {
-        ImGui::TextColored(ColorAccentA, "No selection");
-    }
+    static PropertyEditor editor;
+    editor.Draw(gs);
+    uiint.RegisterWidget({"property_editor", "Selection", "selection_manager", {"detail"}});
 
     uiint.EndPanel();
 

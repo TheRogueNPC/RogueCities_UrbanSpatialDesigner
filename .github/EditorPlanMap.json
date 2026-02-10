@@ -1,0 +1,938 @@
+{
+  "document_metadata": {
+    "title": "RogueCities Urban Spatial Designer Editor Implementation Plan",
+    "version": "1.0",
+    "date": "2026-02-10",
+    "source": "Editor-Plans.md",
+    "project": "RogueCities_UrbanSpatialDesigner",
+    "repository": "https://github.com/TheRogueNPC/RogueCities_UrbanSpatialDesigner"
+  },
+  
+  "current_implementation": {
+    "core_systems": {
+      "state_management": {
+        "type": "Hierarchical Finite State Machine (HFSM)",
+        "file": "EditorState.hpp",
+        "states": {
+          "modal_states": [
+            "Editing_Axioms",
+            "Editing_Roads",
+            "Editing_Districts",
+            "Editing_Lots",
+            "Editing_Buildings",
+            "Editing_Water"
+          ],
+          "viewport_interaction_states": [
+            "Viewport_Pan",
+            "Viewport_Select",
+            "Viewport_PlaceAxiom",
+            "Viewport_DrawRoad",
+            "Viewport_BoxSelect"
+          ],
+          "simulation_states": [
+            "Simulating",
+            "Simulation_Paused",
+            "Simulation_Stepping"
+          ],
+          "workflow_states": [
+            "Startup",
+            "NoProject",
+            "ProjectLoading",
+            "Idle",
+            "Shutdown"
+          ]
+        }
+      }
+    },
+    
+    "ui_panels": {
+      "feature_specific_editors": [
+        {
+          "name": "Axiom Editor",
+          "file": "rc_panel_axiom_editor.cpp",
+          "size_kb": 36,
+          "description": "Comprehensive axiom placement/modification",
+          "status": "complete"
+        },
+        {
+          "name": "Axiom Bar",
+          "file": "rc_panel_axiom_bar.cpp",
+          "size_kb": 3,
+          "description": "Quick axiom tool selection",
+          "status": "complete"
+        },
+        {
+          "name": "Water Control",
+          "file": "rc_panel_water_control.cpp",
+          "size_kb": 2,
+          "description": "River/water feature editing",
+          "status": "complete"
+        },
+        {
+          "name": "Zoning Control",
+          "file": "rc_panel_zoning_control.cpp",
+          "size_kb": 6,
+          "description": "District zoning management",
+          "status": "complete"
+        },
+        {
+          "name": "Building Control",
+          "file": "rc_panel_building_control.cpp",
+          "size_kb": 5,
+          "description": "Building placement parameters",
+          "status": "complete"
+        },
+        {
+          "name": "Lot Control",
+          "file": "rc_panel_lot_control.cpp",
+          "size_kb": 5,
+          "description": "Lot subdivision editing",
+          "status": "complete"
+        }
+      ],
+      
+      "data_index_panels": [
+        {
+          "name": "Road Index",
+          "type": "view_only",
+          "pattern": "trait_based",
+          "trait_file": "rc_panel_data_index_traits.h"
+        },
+        {
+          "name": "District Index",
+          "type": "view_only"
+        },
+        {
+          "name": "Lot Index",
+          "type": "view_only"
+        },
+        {
+          "name": "Building Index",
+          "type": "view_only"
+        },
+        {
+          "name": "River Index",
+          "type": "view_only"
+        }
+      ],
+      
+      "utility_debug_panels": [
+        {
+          "name": "Inspector",
+          "file": "rc_panel_inspector.cpp",
+          "purpose": "Property inspection",
+          "status": "needs_enhancement"
+        },
+        {
+          "name": "Dev Shell",
+          "file": "rc_panel_dev_shell.cpp",
+          "purpose": "Developer console",
+          "status": "complete"
+        },
+        {
+          "name": "Telemetry",
+          "file": "rc_panel_telemetry.cpp",
+          "purpose": "Performance monitoring",
+          "status": "complete"
+        },
+        {
+          "name": "System Map",
+          "file": "rc_panel_system_map.cpp",
+          "purpose": "System-level overview",
+          "status": "complete"
+        },
+        {
+          "name": "Log",
+          "file": "rc_panel_log.cpp",
+          "purpose": "Message logging",
+          "status": "complete"
+        },
+        {
+          "name": "AI Console",
+          "file": "rc_panel_ai_console.cpp",
+          "purpose": "AI Bridge integration",
+          "status": "complete"
+        },
+        {
+          "name": "UI Agent",
+          "file": "rc_panel_ui_agent.cpp",
+          "size_kb": 16,
+          "purpose": "AI-driven UI optimization",
+          "status": "complete"
+        },
+        {
+          "name": "City Spec",
+          "file": "rc_panel_city_spec.cpp",
+          "purpose": "High-level city parameters",
+          "status": "complete"
+        },
+        {
+          "name": "Tools",
+          "file": "rc_panel_tools.cpp",
+          "purpose": "Tool palette",
+          "status": "complete"
+        }
+      ]
+    }
+  },
+  
+  "required_implementations": {
+    "critical_priority": [
+      {
+        "name": "Unified Property Editor/Inspector",
+        "priority": "BLOCKING",
+        "current_gap": "Context-sensitive property grid missing",
+        "requirements": [
+          "Automatically display editable properties for selected entity",
+          "Reduce UI clutter by showing only relevant properties",
+          "Consistent editing interface across all entity types",
+          "Undo/redo integration at property level",
+          "Batch editing support for multiple selections"
+        ],
+        "implementation_pattern": {
+          "language": "cpp",
+          "class": "PropertyEditor",
+          "methods": [
+            "Render(SelectionContext& selection)",
+            "PropertyGrid<T>(const char* label, T& obj)"
+          ],
+          "approach": "manual_property_grids",
+          "rationale": "C++ lacks native reflection; manual grids are explicit, typesafe, and customizable"
+        },
+        "roundtable_consensus": "Do NOT attempt C++ reflection - use manual property grids"
+      },
+      
+      {
+        "name": "Road Network Editor (Interactive)",
+        "priority": "CRITICAL",
+        "current_gap": "Road generation exists, but interactive editing missing",
+        "features_needed": [
+          "Vertex manipulation (drag intersection points)",
+          "Edge splitting/merging",
+          "Road type conversion (arterial → boulevard)",
+          "Curve editing for organic road shapes"
+        ],
+        "mvp_justification": "Roads are system backbone - users need fine control for fixing intersections, adding shortcuts, creating ramps, adjusting curves",
+        "implementation_pattern": {
+          "language": "cpp",
+          "class": "RoadNetworkEditor",
+          "base_class": "IEditorPanel",
+          "edit_modes": [
+            "Select",
+            "AddVertex",
+            "SplitEdge",
+            "Merge",
+            "Convert"
+          ],
+          "methods": [
+            "HandleViewportClick(Vec2 worldPos)",
+            "HandleVertexDrag(RoadVertex* v, Vec2 delta)",
+            "DrawGizmos()"
+          ]
+        }
+      },
+      
+      {
+        "name": "Timeline/History Editor (Undo System)",
+        "priority": "BLOCKING",
+        "current_gap": "No undo/redo implementation found",
+        "requirements": [
+          "Command pattern for all mutations",
+          "Visual timeline scrubbing",
+          "Branch/fork support for what-if scenarios"
+        ],
+        "mvp_requirement": "At minimum, implement basic undo/redo for axiom placement",
+        "implementation_pattern": {
+          "language": "cpp",
+          "classes": [
+            {
+              "name": "ICommand",
+              "methods": [
+                "Execute()",
+                "Undo()",
+                "Redo()",
+                "GetDescription() const"
+              ]
+            },
+            {
+              "name": "CommandHistory",
+              "members": [
+                "std::vector<std::unique_ptr<ICommand>> m_history",
+                "size_t m_current_index"
+              ],
+              "methods": [
+                "Execute(std::unique_ptr<ICommand> cmd)",
+                "Undo()",
+                "Redo()",
+                "CanUndo() const",
+                "CanRedo() const"
+              ]
+            },
+            {
+              "name": "PlaceAxiomCommand",
+              "base_class": "ICommand",
+              "example": true
+            }
+          ]
+        },
+        "roundtable_consensus": "Move from Critical to BLOCKING - implement FIRST before any interactive editing"
+      },
+      
+      {
+        "name": "Selection Manager",
+        "priority": "CRITICAL",
+        "requirements": [
+          "Hierarchical selection with keyboard modifiers",
+          "Click: Select entity",
+          "Shift+Click: Add to selection",
+          "Ctrl+Click: Toggle selection",
+          "Alt+Drag: Lasso select",
+          "Shift+Alt+Drag: Box select through layers"
+        ],
+        "selection_types": [
+          {
+            "type": "Bounding Box",
+            "pros": "Fast",
+            "cons": "Imprecise for overlapping geometry"
+          },
+          {
+            "type": "Lasso",
+            "pros": "Good for irregular groups"
+          },
+          {
+            "type": "Layer-based",
+            "pros": "Filter by layer (roads/districts/buildings)"
+          },
+          {
+            "type": "Query",
+            "example": "Select all residential lots > 500m²"
+          }
+        ],
+        "implementation_pattern": {
+          "language": "cpp",
+          "class": "SelectionManager",
+          "methods": [
+            "SelectFromIndex(uint32_t index_id)",
+            "AddToSelection(uint32_t index_id)",
+            "ToggleSelection(uint32_t index_id)",
+            "ClearSelection()",
+            "GetAs<T>() const",
+            "IsMultiSelect() const",
+            "GetSelectedIndices() const"
+          ]
+        }
+      },
+      
+      {
+        "name": "Viewport Index Integration",
+        "priority": "CRITICAL",
+        "description": "All UI depends on viewport index system",
+        "requirements": [
+          "Generator → index population pipeline",
+          "Called after each generation pass",
+          "Stable ID mapping (FVA/SIV backing)",
+          "Integration with viewport picking",
+          "Hierarchical parent-child traversal support"
+        ]
+      }
+    ],
+    
+    "high_priority": [
+      {
+        "name": "Preset/Template System",
+        "priority": "HIGH",
+        "current_state": "rc_panel_city_spec.cpp handles city-level parameters",
+        "enhancements_needed": [
+          "Save/load axiom configurations as presets",
+          "District type templates",
+          "Building style palettes",
+          "Complete city templates (Medieval European, Modern Grid, etc.)"
+        ],
+        "justification": "Dramatically reduces user onboarding friction",
+        "implementation_pattern": {
+          "language": "cpp",
+          "structs": [
+            {
+              "name": "PresetData",
+              "members": [
+                "std::string name",
+                "std::string description",
+                "std::vector<AxiomInput> axioms",
+                "CityScaleConfig scale"
+              ]
+            }
+          ],
+          "classes": [
+            {
+              "name": "PresetManager",
+              "methods": [
+                "SavePreset(const std::string& name, const PresetData& data)",
+                "LoadPreset(const std::string& name)",
+                "ListPresets() const"
+              ]
+            }
+          ]
+        },
+        "roundtable_update": "Maintain HIGH priority"
+      },
+      
+      {
+        "name": "Validation & Constraints System",
+        "priority": "HIGH",
+        "purpose": "Real-time feedback for invalid operations",
+        "validation_checks": [
+          "Axiom radius overlap detection",
+          "Road intersection validation",
+          "Minimum lot sizes",
+          "Building footprint conflicts"
+        ],
+        "implementation_pattern": {
+          "language": "cpp",
+          "class": "ValidationSystem",
+          "methods": [
+            "ValidateAxioms()",
+            "ValidateRoadNetwork()",
+            "RenderErrorGizmos()"
+          ],
+          "structs": [
+            {
+              "name": "ValidationError",
+              "members": [
+                "Severity severity",
+                "uint32_t entity_index",
+                "std::string message",
+                "Vec2 world_position"
+              ],
+              "enums": [
+                {
+                  "name": "Severity",
+                  "values": ["Warning", "Error", "Critical"]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      
+      {
+        "name": "Gizmo System",
+        "priority": "HIGH",
+        "purpose": "Visual manipulation widgets",
+        "requirements": [
+          "Axiom position/radius adjustment",
+          "Road vertex dragging",
+          "Building rotation/scale"
+        ],
+        "recommended_integration": {
+          "library": "ImGuizmo",
+          "url": "https://github.com/CedricGuillemet/ImGuizmo",
+          "rationale": "Header-only, works perfectly with ImGui"
+        },
+        "implementation_pattern": {
+          "language": "cpp",
+          "class": "GizmoRenderer",
+          "enums": [
+            {
+              "name": "Operation",
+              "values": ["Translate", "Rotate", "Scale"]
+            },
+            {
+              "name": "Mode",
+              "values": ["Local", "World"]
+            }
+          ],
+          "methods": [
+            "Render(const Selection& selection, const Camera& camera)",
+            "Manipulate(glm::mat4& transform)"
+          ]
+        }
+      },
+      
+      {
+        "name": "Keyboard Shortcuts",
+        "priority": "HIGH",
+        "purpose": "Efficiency and workflow speed",
+        "shortcuts": {
+          "A": "Axiom tool",
+          "R": "Road tool",
+          "D": "District tool",
+          "G": "Grab/move",
+          "S": "Scale",
+          "Delete": "Remove selected",
+          "Ctrl+Z": "Undo",
+          "Ctrl+Y": "Redo",
+          "Space": "Pan mode"
+        }
+      }
+    ],
+    
+    "medium_priority": [
+      {
+        "name": "District Boundary Editor",
+        "priority": "MEDIUM",
+        "roundtable_update": "Recommend bump to HIGH",
+        "current_state": "Districts derived from AESP road analysis",
+        "features_needed": [
+          "Draw custom district polygons",
+          "Override AESP-based classification",
+          "Set district-specific building rules",
+          "Define transition zones"
+        ],
+        "justification": "When needed post-MVP when users want more control than procedural generation",
+        "roundtable_rationale": "Users will want manual overrides for historical districts, zoning policy changes, landmark placement",
+        "recommended_implementation": {
+          "type": "overlay_editor",
+          "steps": [
+            "Show AESP-generated districts as baseline",
+            "Allow polygon drawing to override",
+            "Support soft boundaries (blend AESP weights at edges)"
+          ]
+        }
+      },
+      
+      {
+        "name": "Layer Manager Panel",
+        "priority": "MEDIUM",
+        "purpose": "Support multi-layer editing for bridges/tunnels/elevated structures",
+        "features": [
+          "Layer visibility toggles",
+          "Active layer concept (which layer receives new geometry)",
+          "Visual differentiation (different colors/opacity per layer)",
+          "Portal creation tools"
+        ],
+        "implementation_mandate": "Add during Phase 4-5"
+      },
+      
+      {
+        "name": "Curve/Spline Editor",
+        "priority": "CRITICAL",
+        "roundtable_note": "Contradicts medium priority - needs clarification",
+        "current_state": "Axiom system uses radial/delta axioms for organic shapes",
+        "enhancement": "Direct curve editing would enhance authoring",
+        "features": [
+          "Bezier/Catmull-Rom splines for roads",
+          "Elevation profile editing",
+          "River path design"
+        ]
+      },
+      
+      {
+        "name": "Query Selection",
+        "priority": "MEDIUM",
+        "purpose": "Power users",
+        "example": "Select all residential lots > 500m²"
+      }
+    ],
+    
+    "low_priority": [
+      {
+        "name": "Timeline Scrubbing",
+        "priority": "LOW",
+        "purpose": "Advanced undo UI"
+      },
+      {
+        "name": "Branch/Fork Support",
+        "priority": "LOW",
+        "purpose": "What-if scenarios"
+      },
+      {
+        "name": "Asset Browser",
+        "priority": "LOW",
+        "purpose": "Content management",
+        "features": [
+          "Preview and select assets",
+          "Hot-reload without restart",
+          "External editing with file watching"
+        ]
+      },
+      {
+        "name": "Tutorial System",
+        "priority": "LOW",
+        "purpose": "Onboarding"
+      }
+    ]
+  },
+  
+  "architectural_considerations": {
+    "viewport_index_system": {
+      "design_principle": "If UI needs data not in the index, the index is wrong — not the UI",
+      "purpose": "Flat, cache-friendly table for hover, selection, inspection, outlining, mode filtering",
+      "struct_definition": {
+        "name": "VpProbeData",
+        "members": [
+          {
+            "name": "kind",
+            "type": "VpEntityKind",
+            "size": "uint8_t"
+          },
+          {
+            "name": "id",
+            "type": "uint32_t",
+            "description": "Stable per-generation ID (FVA/SIV backed)"
+          },
+          {
+            "name": "parent",
+            "type": "uint32_t",
+            "description": "Index into viewport_index"
+          },
+          {
+            "name": "first_child",
+            "type": "uint32_t",
+            "description": "Child span start"
+          },
+          {
+            "name": "child_count",
+            "type": "uint16_t"
+          },
+          {
+            "name": "axiom_id",
+            "type": "uint32_t",
+            "description": "Causal lineage link (stable id)"
+          },
+          {
+            "name": "road_id",
+            "type": "uint32_t"
+          },
+          {
+            "name": "district_id",
+            "type": "uint32_t"
+          },
+          {
+            "name": "block_id",
+            "type": "uint32_t"
+          },
+          {
+            "name": "slope",
+            "type": "float",
+            "category": "cached_metric"
+          },
+          {
+            "name": "flood",
+            "type": "float",
+            "category": "cached_metric"
+          },
+          {
+            "name": "aesp",
+            "type": "float[4]",
+            "category": "cached_metric"
+          },
+          {
+            "name": "frontage_family",
+            "type": "uint8_t"
+          },
+          {
+            "name": "afg_preset",
+            "type": "uint8_t"
+          },
+          {
+            "name": "afg_band",
+            "type": "float"
+          },
+          {
+            "name": "road_hierarchy",
+            "type": "uint8_t"
+          },
+          {
+            "name": "zone_mask",
+            "type": "uint8_t"
+          },
+          {
+            "name": "label",
+            "type": "char[32]",
+            "example": "Road #42"
+          }
+        ],
+        "performance_analysis": {
+          "current_size_bytes": 88,
+          "cache_line_64_fit": 0.72,
+          "cache_line_128_fit": 1.45,
+          "optimization_recommendation": "Don't optimize prematurely - memory not a bottleneck even for metropolis (6 MB)"
+        }
+      },
+      "hover_select_path": "auto &e = viewport_index[hit_index]; draw_probe(e);",
+      "rule": "No pointer chasing. No generator calls. No allocations."
+    },
+    
+    "editor_panel_pattern": {
+      "interface_definition": {
+        "name": "IEditorPanel",
+        "methods": [
+          "OnSelectionChanged(const Selection& sel)",
+          "OnEditorStateChanged(EditorState newState)",
+          "Render(float dt)",
+          "IsDirty() const",
+          "OnEnable() [optional]",
+          "OnDisable() [optional]",
+          "OnProjectLoaded() [optional]"
+        ]
+      },
+      "communication_considerations": [
+        "Panel state persistence (save panel layouts)",
+        "Panel communication via event bus (avoid tight coupling)"
+      ]
+    },
+    
+    "spatial_partitioning": {
+      "purpose": [
+        "Viewport culling (only render visible entities)",
+        "Selection queries (only test nearby objects)",
+        "Update optimization (dirty rectangles)"
+      ],
+      "recommendation": "Use existing grid structures + quadtree/octree for fast spatial queries"
+    }
+  },
+  
+  "performance_mandates": {
+    "10ms_rule": {
+      "description": "Any editor operation >10ms must go through RogueWorker or feel laggy",
+      "applies_to": "HFSM state transitions",
+      "enforcement_question": "How to enforce? Need instrumentation in HFSM transitions?"
+    },
+    
+    "context_aware_threading": {
+      "rule": "Enable threading when axiom_count * district_count > threshold",
+      "default_threshold": 100,
+      "code_example": "if (axiom_count * district_count > 100) { use_rogue_worker(); } else { run_single_threaded(); }",
+      "rationale": "Avoids threading overhead for small cities while enabling parallelism for complex ones"
+    },
+    
+    "memory_projections": {
+      "settlement_tiers": [
+        {
+          "tier": "Village",
+          "road_count": 150,
+          "districts": 10,
+          "lots": 50,
+          "buildings": 100,
+          "total_entities": 310,
+          "index_size_88b": "27 KB",
+          "index_size_56b_optimized": "17 KB"
+        },
+        {
+          "tier": "Large City",
+          "road_count": 2000,
+          "districts": 80,
+          "lots": 1000,
+          "buildings": 5000,
+          "total_entities": 8080,
+          "index_size_88b": "711 KB",
+          "index_size_56b_optimized": "452 KB"
+        },
+        {
+          "tier": "Metropolis",
+          "road_count": 10000,
+          "districts": 200,
+          "lots": 8000,
+          "buildings": 50000,
+          "total_entities": 68200,
+          "index_size_88b": "6 MB",
+          "index_size_56b_optimized": "3.8 MB"
+        }
+      ]
+    }
+  },
+  
+  "testing_requirements": {
+    "viewport_index_integrity": [
+      {
+        "test_name": "StableIds",
+        "description": "Generate city twice with same seed - IDs must match",
+        "assertion": "ASSERT_EQ(city1.index[0].id, city2.index[0].id)"
+      },
+      {
+        "test_name": "ParentChildConsistency",
+        "description": "Verify all children point back to parent",
+        "implementation": "Loop through entities, validate parent references for all children"
+      }
+    ],
+    
+    "dirty_layer_propagation": [
+      {
+        "test_name": "AxiomEdit",
+        "description": "Edit axiom → mark layers dirty → regenerate → verify only downstream layers rebuilt",
+        "expected": "Roads regenerate, terrain does NOT"
+      }
+    ],
+    
+    "undo_redo_determinism": [
+      {
+        "test_name": "RoundTrip",
+        "description": "Execute → Undo → verify bit-identical restoration",
+        "assertion": "ASSERT_EQ(initial, restored)"
+      }
+    ]
+  },
+  
+  "user_experience_features": {
+    "visual_feedback": [
+      {
+        "name": "Hover highlights",
+        "description": "Glow on mouseover"
+      },
+      {
+        "name": "Selection outlines",
+        "description": "Bright borders for selected entities"
+      },
+      {
+        "name": "Ghost previews",
+        "description": "Semi-transparent when placing new entities"
+      },
+      {
+        "name": "Snap indicators",
+        "description": "Show snap points/grid alignment"
+      }
+    ],
+    
+    "motion_design_specs": {
+      "hover_glow_fade_in": "0.15s",
+      "hover_glow_fade_out": "0.25s",
+      "selection_outline_pulse_hz": 2.0,
+      "ghost_preview_alpha": 0.4,
+      "snap_indicator_flash_duration": "0.2s",
+      "question": "Should timing be user-configurable (accessibility) or fixed design constants?"
+    },
+    
+    "discoverability": [
+      {
+        "feature": "Tooltip system",
+        "description": "Hover hints for all tools"
+      },
+      {
+        "feature": "Contextual help",
+        "description": "Right-click menus with descriptions"
+      },
+      {
+        "feature": "Tutorial overlays",
+        "description": "First-run guided tour"
+      }
+    ],
+    
+    "error_recovery": [
+      {
+        "feature": "Auto-save",
+        "description": "Every N minutes"
+      },
+      {
+        "feature": "Crash recovery",
+        "description": "Save temporary files"
+      },
+      {
+        "feature": "Export checkpoints",
+        "description": "Incremental saves during long operations"
+      }
+    ]
+  },
+  
+  "ai_integration_opportunities": {
+    "undo_redo": "AI can suggest 'rewind to before road X was added'",
+    "property_editor": "AI can recommend property values ('typical arterial width is...')",
+    "preset_system": "AI can generate presets from natural language ('Create a medieval market town preset')",
+    "validation_system": "AI can explain why validation failed ('Road too close to axiom - try 50m radius')",
+    
+    "pattern_catalog_update_required": {
+      "file": "AI/docs/ui/ui_patterns.json",
+      "new_patterns": [
+        {
+          "name": "PropertyEditor",
+          "role": "context_sensitive_inspector",
+          "data_bindings": ["selection_manager"],
+          "typical_panels": ["Inspector"],
+          "refactor_opportunities": [
+            "Extract per-type property grids into separate components",
+            "Add undo integration at property level"
+          ]
+        }
+      ]
+    }
+  },
+  
+  "implementation_roadmap": {
+    "phase_1_foundation": {
+      "duration": "Week 1-2",
+      "tasks": [
+        "Implement VpProbeData struct + storage",
+        "Add generator → index population hooks",
+        "Wire up viewport picking to index",
+        "Basic selection visualization (outline shader)"
+      ]
+    },
+    
+    "phase_2_interaction": {
+      "duration": "Week 3-4",
+      "tasks": [
+        "Command pattern undo system",
+        "Selection manager (single + multi-select)",
+        "Manual property editor for axioms",
+        "Dirty layer propagation + Regenerate button"
+      ]
+    },
+    
+    "phase_3_editing_tools": {
+      "duration": "Week 5-6",
+      "tasks": [
+        "Road network editor (vertex dragging)",
+        "Gizmo system (position/scale handles)",
+        "Validation feedback overlays",
+        "Keyboard shortcuts"
+      ]
+    },
+    
+    "phase_4_polish": {
+      "duration": "Week 7-8",
+      "tasks": [
+        "Preset/template system",
+        "District boundary overrides",
+        "Context menus + HFSM integration",
+        "Motion design (hover glows, selection pulses)"
+      ]
+    }
+  },
+  
+  "agent_handoff_questions": {
+    "architect_to_coder": "Are FVA/SIV containers implemented?",
+    "coder_to_ui_ux": "What's minimum viable property editor without reflection?",
+    "math_genius_to_resource_manager": "Expected max entity count per scene?",
+    "resource_manager_to_debug_manager": "How to enforce 10ms HFSM rule?",
+    "debug_manager_to_coder": "Index validation - debug assert or always-on?",
+    "ui_ux_to_architect": "Motion timing - user-configurable or fixed?",
+    "city_planner_to_math_genius": "District boundary blending formula?",
+    "ai_integration_to_documentation_keeper": "Pattern catalog update workflow?",
+    "api_keeper_to_lua_overseer": "Do Lua scripts reference entities by ID?"
+  },
+  
+  "roundtable_consensus": {
+    "approved_architecture": "Viewport Index as causal compiler output is brilliant design",
+    "critical_mandate": "Do NOT attempt C++ reflection for property editing - use manual grids",
+    
+    "priority_adjustments": [
+      {
+        "feature": "Undo/Redo System",
+        "change": "Move from Critical to BLOCKING - implement FIRST"
+      },
+      {
+        "feature": "District Boundary Editor",
+        "change": "Bump from Medium to HIGH"
+      },
+      {
+        "feature": "Property Editor Reflection",
+        "change": "DON'T DO IT - use manual grids"
+      }
+    ],
+    
+    "must_implement_before_mvp": [
+      "Viewport Index Builder (generator → index pipeline)",
+      "Selection Manager (with hierarchical traversal)",
+      "Command Pattern Undo (at least for axioms)",
+      "Context-Sensitive Property Editor (manual, not reflection-based)",
+      "Validation System (real-time error feedback)"
+    ],
+    
+    "can_defer_post_mvp": [
+      "Timeline Scrubbing (advanced undo UI)",
+      "Branch/Fork Support",
+      "Lua Bindings",
+      "Asset Browser",
+      "Tutorial System"
+    ]
+  }
+}

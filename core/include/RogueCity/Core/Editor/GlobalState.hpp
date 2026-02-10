@@ -2,12 +2,16 @@
 
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
+#include "RogueCity/Core/Editor/SelectionManager.hpp"
+#include "RogueCity/Core/Editor/ViewportIndex.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Core/Util/IndexVector.hpp"
 #include "RogueCity/Core/Util/StableIndexVector.hpp"
 
+#include <array>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace RogueCity::Core::Editor {
 
@@ -23,6 +27,51 @@ namespace RogueCity::Core::Editor {
         fva::Handle<District> selected_district{};
         fva::Handle<LotToken> selected_lot{};
         siv::Handle<BuildingSite> selected_building{};
+    };
+
+    enum class DirtyLayer : uint8_t {
+        Axioms = 0,
+        Tensor,
+        Roads,
+        Districts,
+        Lots,
+        Buildings,
+        ViewportIndex,
+        Count
+    };
+
+    struct DirtyLayerState {
+        std::array<bool, static_cast<size_t>(DirtyLayer::Count)> flags{};
+
+        void MarkAllClean() { flags.fill(false); }
+
+        void MarkDirty(DirtyLayer layer) {
+            flags[static_cast<size_t>(layer)] = true;
+        }
+
+        [[nodiscard]] bool IsDirty(DirtyLayer layer) const {
+            return flags[static_cast<size_t>(layer)];
+        }
+
+        [[nodiscard]] bool AnyDirty() const {
+            for (bool v : flags) {
+                if (v) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Editing planner intent requires rebuilding downstream pipeline layers.
+        void MarkFromAxiomEdit() {
+            MarkDirty(DirtyLayer::Axioms);
+            MarkDirty(DirtyLayer::Tensor);
+            MarkDirty(DirtyLayer::Roads);
+            MarkDirty(DirtyLayer::Districts);
+            MarkDirty(DirtyLayer::Lots);
+            MarkDirty(DirtyLayer::Buildings);
+            MarkDirty(DirtyLayer::ViewportIndex);
+        }
     };
 
     struct EditorAxiom {
@@ -68,6 +117,10 @@ namespace RogueCity::Core::Editor {
         CityGenerationParams generation{};
         GenerationStats generation_stats{};
         Selection selection{};
+        SelectionManager selection_manager{};
+        std::optional<SelectionItem> hovered_entity{};
+        std::vector<VpProbeData> viewport_index{};
+        DirtyLayerState dirty_layers{};
         std::optional<CitySpec> active_city_spec{};
         WorldConstraintField world_constraints{};
         SiteProfile site_profile{};

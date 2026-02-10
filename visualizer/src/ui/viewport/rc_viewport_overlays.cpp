@@ -10,6 +10,46 @@
 
 namespace RC_UI::Viewport {
 
+namespace {
+
+const RogueCity::Core::Road* FindRoadById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (const auto& road : gs.roads) {
+        if (road.id == id) {
+            return &road;
+        }
+    }
+    return nullptr;
+}
+
+const RogueCity::Core::District* FindDistrictById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (const auto& district : gs.districts) {
+        if (district.id == id) {
+            return &district;
+        }
+    }
+    return nullptr;
+}
+
+const RogueCity::Core::LotToken* FindLotById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (const auto& lot : gs.lots) {
+        if (lot.id == id) {
+            return &lot;
+        }
+    }
+    return nullptr;
+}
+
+const RogueCity::Core::BuildingSite* FindBuildingById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (const auto& building : gs.buildings) {
+        if (building.id == id) {
+            return &building;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
 glm::vec4 DistrictColorScheme::GetColorForType(RogueCity::Core::DistrictType type) {
     using RogueCity::Core::DistrictType;
     switch (type) {
@@ -74,6 +114,7 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
         RenderBuildingSites(gs);
     }
 
+    RenderSelectionOutlines(gs);
     RenderHighlights();
 }
 
@@ -378,6 +419,114 @@ void ViewportOverlays::RenderHighlights() {
     if (highlights_.has_hovered_building) {
         const ImVec2 pos = WorldToScreen(highlights_.hovered_building_pos);
         draw_list->AddRect(ImVec2(pos.x - 5, pos.y - 5), ImVec2(pos.x + 5, pos.y + 5), IM_COL32(120, 255, 180, 200), 2.0f, 0, 2.0f);
+    }
+}
+
+void ViewportOverlays::RenderSelectionOutlines(const RogueCity::Core::Editor::GlobalState& gs) {
+    const auto pulse = 0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 2.0f * 3.1415926f * 2.0f);
+    const float thickness = 1.5f + pulse * 1.75f;
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    auto draw_road = [&](const RogueCity::Core::Road& road, const ImU32 color) {
+        if (road.points.size() < 2) {
+            return;
+        }
+        std::vector<ImVec2> screen_points;
+        screen_points.reserve(road.points.size());
+        for (const auto& point : road.points) {
+            screen_points.push_back(WorldToScreen(point));
+        }
+        draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, false, thickness);
+    };
+
+    auto draw_district = [&](const RogueCity::Core::District& district, const ImU32 color) {
+        if (district.border.size() < 3) {
+            return;
+        }
+        std::vector<ImVec2> screen_points;
+        screen_points.reserve(district.border.size());
+        for (const auto& point : district.border) {
+            screen_points.push_back(WorldToScreen(point));
+        }
+        draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, true, thickness);
+    };
+
+    auto draw_lot = [&](const RogueCity::Core::LotToken& lot, const ImU32 color) {
+        if (lot.boundary.size() >= 3) {
+            std::vector<ImVec2> screen_points;
+            screen_points.reserve(lot.boundary.size());
+            for (const auto& point : lot.boundary) {
+                screen_points.push_back(WorldToScreen(point));
+            }
+            draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, true, thickness);
+            return;
+        }
+        draw_list->AddCircle(WorldToScreen(lot.centroid), 10.0f, color, 24, thickness);
+    };
+
+    auto draw_building = [&](const RogueCity::Core::BuildingSite& building, const ImU32 color) {
+        const ImVec2 pos = WorldToScreen(building.position);
+        const float radius = 7.0f + pulse * 2.0f;
+        draw_list->AddRect(ImVec2(pos.x - radius, pos.y - radius), ImVec2(pos.x + radius, pos.y + radius), color, 2.0f, 0, thickness);
+    };
+
+    const ImU32 selected_color = IM_COL32(255, 220, 60, 230);
+    for (const auto& item : gs.selection_manager.Items()) {
+        switch (item.kind) {
+        case RogueCity::Core::Editor::VpEntityKind::Road:
+            if (const auto* road = FindRoadById(gs, item.id)) {
+                draw_road(*road, selected_color);
+            }
+            break;
+        case RogueCity::Core::Editor::VpEntityKind::District:
+            if (const auto* district = FindDistrictById(gs, item.id)) {
+                draw_district(*district, selected_color);
+            }
+            break;
+        case RogueCity::Core::Editor::VpEntityKind::Lot:
+            if (const auto* lot = FindLotById(gs, item.id)) {
+                draw_lot(*lot, selected_color);
+            }
+            break;
+        case RogueCity::Core::Editor::VpEntityKind::Building:
+            if (const auto* building = FindBuildingById(gs, item.id)) {
+                draw_building(*building, selected_color);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (!gs.hovered_entity.has_value()) {
+        return;
+    }
+
+    const auto& hover = *gs.hovered_entity;
+    const ImU32 hover_color = IM_COL32(120, 220, 255, 220);
+    switch (hover.kind) {
+    case RogueCity::Core::Editor::VpEntityKind::Road:
+        if (const auto* road = FindRoadById(gs, hover.id)) {
+            draw_road(*road, hover_color);
+        }
+        break;
+    case RogueCity::Core::Editor::VpEntityKind::District:
+        if (const auto* district = FindDistrictById(gs, hover.id)) {
+            draw_district(*district, hover_color);
+        }
+        break;
+    case RogueCity::Core::Editor::VpEntityKind::Lot:
+        if (const auto* lot = FindLotById(gs, hover.id)) {
+            draw_lot(*lot, hover_color);
+        }
+        break;
+    case RogueCity::Core::Editor::VpEntityKind::Building:
+        if (const auto* building = FindBuildingById(gs, hover.id)) {
+            draw_building(*building, hover_color);
+        }
+        break;
+    default:
+        break;
     }
 }
 

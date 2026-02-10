@@ -22,6 +22,32 @@
  - Startup scripts: `tools/Start_Ai_Bridge_Fixed.ps1`, `tools/Stop_Ai_Bridge_Fixed.ps1`, `tools/Start_Ai_Bridge_Fallback.bat`
  - Utilities: `tools/Quick_Fix.ps1`, `tools/create_shortcut.ps1`, `tools/move_object_files.ps1`
 
+### Decision Log (Started February 10, 2026)
+- **2026-02-10: Viewport Selection Uses Viewport Index**
+  - **Problem**: Canvas selection was not wired to the generated viewport index.
+  - **Decision**: Add index-backed hit-testing + area selection (lasso/box) in viewport interaction flow.
+  - **Result**: Selection and inspection now share the same entity IDs and selection source.
+- **2026-02-10: Property Editing Is Command-History Driven**
+  - **Problem**: Property edits were immediate and non-recoverable.
+  - **Decision**: Add property-level command history with undo/redo and batch edit support for multi-select.
+  - **Result**: Inspector edits are reversible and safe for iterative workflows.
+- **2026-02-10: Dirty-Layer Propagation Is Explicit**
+  - **Problem**: Regeneration lacked visible dirty-state tracking.
+  - **Decision**: Track downstream dirty layers from axiom/property edits and clear on successful rebuild.
+  - **Result**: Tools panel now exposes dirty-layer status and regeneration intent.
+
+### Implementation Checklist (Active)
+- [x] Viewport index selection/picking integration
+- [x] Selection visualization overlays (selected + hover outlines)
+- [x] Lasso (`Alt+Drag`) and box-through-layers (`Shift+Alt+Drag`) region selection
+- [x] Property-level undo/redo in Inspector
+- [x] Batch editing for multi-selection
+- [x] Query-based selection controls in Inspector
+- [x] Dirty-layer propagation state + UI status
+- [x] Regression tests for viewport index integrity / dirty-layer propagation / undo-redo determinism
+- [ ] Lua/Serialization compatibility bridge for viewport IDs
+  - TODO: Add compatibility alias/mapping layer before Lua-facing ID exposure and persisted entity references.
+
 ---
 
 ## Master AI Director: The Architect (RogueCities Director)
@@ -157,11 +183,47 @@ You are armed with the Rogue City Designer research paper. Do not hallucinate de
 **Role:** Maintains accurate docs for pipeline stages, data contracts, and build steps.
 **Primary focus:** Keep `ReadMe.md` and `docs\TheRogueCityDesignerSoft.md` aligned with actual code.
 **Typical tasks:** Update architecture diagrams, build instructions, and design rationale links.
+**Documentation Keeper Agent: Plan** Readability
+**Document Quality:** ✅ Excellent structure
+**Suggestions**
+Add Glossary Section
+ex:
+```text
+FVA = Fixed Vertex Array
+SIV = Stable ID Vector
+RU = Rogue Unit (world space)
+AESP = Access/Exposure/Serviceability/Privacy
+Add Decision Log
+Track why decisions were made:
+```
+## Decision Log
+
+**2026-02-07: Viewport Index as Single Source of Truth**
+- **Problem**: UI was querying generators directly, causing pointer chasing
+- **Solution**: Flat index array populated at generation time
+- **Tradeoff**: Extra memory (< 10MB for metropolis), but 10x faster hover/select
+Add Implementation Checklist
+Convert priority matrix into checkbox-driven roadmap.
 
 ### 7. Commenter / API Alias Keeper (Lua Scripting Compatibility)
 **Role:** Ensures C++ API surfaces remain stable and properly documented for Lua binding.
 **Primary focus:** Preserve function names, document aliases, and avoid breaking Lua-facing signatures.
 **Typical tasks:** Maintain API comment blocks, track deprecated names, define alias maps for Lua.
+Viewport Index introduces new IDs (uint32_t id in VpProbeData). This could break:
+Existing serialization (if you save entity references)
+Lua scripts (if they cache entity handles)
+
+Recommendation: Add alias layer:
+```cpp
+// Old API (preserved for compatibility)
+class LegacyEntityHandle {
+    uint32_t internal_index;  // Maps to viewport_index
+public:
+    static LegacyEntityHandle FromViewportId(uint32_t id);
+};
+```
+Handoff Question to Lua Overseer: "Do any Lua scripts currently reference entities by pointer/ID? Need migration plan."
+
 
 ### 8. UI/UX/ImGui/ImVue Master (Interface Architect & Experience Director)
 **Role:** Design and enforce a **state-reactive, affordance-rich control surface** that transforms the editor into an immersive, tactile cockpit for procedural city generation.
@@ -308,6 +370,28 @@ ImGui's immediate mode enables **what most UI frameworks cannot**:
   - Create sample automation scripts and documented examples in `lua/`.
   - Audit script-exposed APIs for potential unsafe operations or blocking calls.
   - Coordinate with the Commenter/API Alias Keeper to keep aliases and compatibility layers current.
+
+
+Current Status: for the future 
+Should Lua Bindings Exist?
+Advantages of exposing viewport index to Lua:
+Scripted validators ("No residential next to industrial")
+Custom overlays (modders can add their own visualizations)
+Procedural rules ("Always place parks near schools")
+Risks:
+Lua can't directly access std::vector<VpProbeData> efficiently
+Need thin C API wrapper
+Recommendation: Defer Lua bindings until MVP is stable. When ready:
+lua
+-- Example future Lua API
+local entities = roguecity.viewport.query({kind="District", zone_mask=ZoneMask.Residential})
+for _, entity in ipairs(entities) do
+    if entity.aesp.privacy < 0.5 then
+        roguecity.log.warn("Low privacy residential district: " .. entity.label)
+    end
+end
+
+comments the lua binding 
 
 ---
 

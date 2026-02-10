@@ -45,6 +45,7 @@ endif()
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
         src/ui/panels/rc_panel_inspector.cpp
+        src/ui/panels/rc_property_editor.cpp
         src/ui/panels/rc_panel_tools.cpp
         src/ui/panels/rc_panel_district_index.cpp
         src/ui/panels/rc_panel_road_index.cpp
@@ -114,6 +115,7 @@ endif()
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
                 src/ui/panels/rc_panel_inspector.cpp
+                src/ui/panels/rc_property_editor.cpp
                 src/ui/panels/rc_panel_tools.cpp
                 src/ui/panels/rc_panel_district_index.cpp
                 src/ui/panels/rc_panel_road_index.cpp

@@ -203,6 +203,11 @@ add_executable(test_viewport tests/test_viewport.cpp)
 target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
 target_compile_features(test_viewport PRIVATE cxx_std_20)
 
+# === EDITOR PLAN GAP TESTS (viewport index + dirty layers + undo determinism) ===
+add_executable(test_editor_plan tests/test_editor_plan.cpp)
+target_link_libraries(test_editor_plan PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
+target_compile_features(test_editor_plan PRIVATE cxx_std_20)
+
 # === AI LAYER TESTS ===
 add_executable(test_ai tests/test_ai.cpp)
 target_link_libraries(test_ai PRIVATE RogueCityAI)
