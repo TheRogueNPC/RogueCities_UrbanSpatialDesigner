@@ -31,10 +31,16 @@ struct RuntimeUiState {
     double debounceSec = 0.2;
     uint64_t seed = 123456;
     std::map<std::string, PanelRuntimeEntry> panels{
-        {"Analytics", {"Analytics", "Right", true, "inspector", "rc_panel_telemetry"}},
+        {"Analytics", {"Analytics", "ToolDeck", true, "analytics", "rc_panel_telemetry"}},
         {"Tools", {"Tools", "Bottom", true, "toolbox", "rc_panel_tools"}},
-        {"Axiom Bar", {"Axiom Bar", "Top", true, "toolbox", "rc_panel_axiom_bar"}},
-        {"Axiom Library", {"Axiom Library", "Right", false, "toolbox", "rc_panel_axiom_editor"}},
+        {"Tool Deck", {"Tool Deck", "ToolDeck", true, "toolbox", "rc_panel_axiom_bar"}},
+        {"Inspector", {"Inspector", "ToolDeck", true, "inspector", "rc_panel_inspector"}},
+        {"Axiom Library", {"Axiom Library", "Library", false, "toolbox", "rc_panel_axiom_editor"}},
+        {"Water Library", {"Water Library", "Library", false, "toolbox", "rc_ui_root"}},
+        {"Road Library", {"Road Library", "Library", false, "toolbox", "rc_ui_root"}},
+        {"District Library", {"District Library", "Library", false, "toolbox", "rc_ui_root"}},
+        {"Lot Library", {"Lot Library", "Library", false, "toolbox", "rc_ui_root"}},
+        {"Building Library", {"Building Library", "Library", false, "toolbox", "rc_ui_root"}},
         {"RogueVisualizer", {"RogueVisualizer", "Center", true, "viewport", "rc_panel_axiom_editor"}},
         {"Log", {"Log", "Bottom", true, "log", "rc_panel_log"}},
         {"District Index", {"District Index", "Bottom", true, "index", "rc_panel_district_index"}},

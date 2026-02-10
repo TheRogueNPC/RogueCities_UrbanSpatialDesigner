@@ -13,6 +13,7 @@
 #include "ui/panels/rc_panel_river_index.h"
 #include "ui/panels/rc_panel_building_index.h"  // NEW: Building index (RC-0.10)
 #include "ui/panels/rc_panel_zoning_control.h"   // NEW: Zoning control (RC-0.10)
+#include "ui/panels/rc_panel_inspector.h"
 #include "ui/panels/rc_panel_lot_control.h"      // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
 #include "ui/panels/rc_panel_building_control.h" // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
 #include "ui/panels/rc_panel_water_control.h"    // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
@@ -29,8 +30,11 @@
 #include <imgui_internal.h>
 #include <memory>
 #include <string>
+#include <array>
 #include <vector>
 #include <unordered_map>
+#include <span>
+#include <cmath>
 
 namespace RC_UI {
 
@@ -48,9 +52,10 @@ namespace {
 
     struct DockLayoutNodes {
         ImGuiID root = 0;
-        ImGuiID top = 0;
         ImGuiID left = 0;
         ImGuiID right = 0;
+        ImGuiID tool_deck = 0;
+        ImGuiID library = 0;
         ImGuiID center = 0;
         ImGuiID bottom = 0;
         ImGuiID bottom_tabs = 0;
@@ -61,11 +66,135 @@ namespace {
     static std::unordered_map<std::string, std::string> s_last_dock_area;
 }
 
+static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const ImVec2& center, float size) {
+    const ImU32 color = IM_COL32(220, 220, 220, 255);
+    const float half = size * 0.5f;
+    switch (tool) {
+        case ToolLibrary::Water:
+            draw_list->AddTriangleFilled(
+                ImVec2(center.x, center.y - half),
+                ImVec2(center.x - half, center.y + half),
+                ImVec2(center.x + half, center.y + half),
+                color);
+            break;
+        case ToolLibrary::Road:
+            draw_list->AddLine(
+                ImVec2(center.x - half, center.y + half),
+                ImVec2(center.x + half, center.y - half),
+                color, 2.5f);
+            break;
+        case ToolLibrary::District:
+            draw_list->AddRect(
+                ImVec2(center.x - half, center.y - half),
+                ImVec2(center.x + half, center.y + half),
+                color, 3.0f, 0, 2.0f);
+            break;
+        case ToolLibrary::Lot:
+            draw_list->AddRect(
+                ImVec2(center.x - half, center.y - half),
+                ImVec2(center.x + half, center.y + half),
+                color, 0.0f, 0, 2.0f);
+            draw_list->AddLine(
+                ImVec2(center.x, center.y - half),
+                ImVec2(center.x, center.y + half),
+                color, 1.5f);
+            draw_list->AddLine(
+                ImVec2(center.x - half, center.y),
+                ImVec2(center.x + half, center.y),
+                color, 1.5f);
+            break;
+        case ToolLibrary::Building:
+            draw_list->AddRectFilled(
+                ImVec2(center.x - half, center.y - half),
+                ImVec2(center.x + half, center.y + half),
+                color, 2.0f);
+            draw_list->AddRect(
+                ImVec2(center.x - half, center.y - half),
+                ImVec2(center.x + half, center.y + half),
+                color, 2.0f, 0, 2.0f);
+            break;
+        case ToolLibrary::Axiom:
+            draw_list->AddCircle(center, half, color, 12, 2.0f);
+            draw_list->AddCircleFilled(center, half * 0.35f, color, 12);
+            break;
+    }
+}
+
+static void RenderToolLibraryWindow(ToolLibrary tool,
+                                    const char* window_name,
+                                    const char* owner_module,
+                                    const char* dock_area,
+                                    std::span<const char* const> entries,
+                                    std::span<const char* const> spline_entries) {
+    if (!IsToolLibraryOpen(tool)) {
+        return;
+    }
+
+    const bool open = ImGui::Begin(window_name, nullptr, ImGuiWindowFlags_NoCollapse);
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            window_name,
+            window_name,
+            "toolbox",
+            dock_area,
+            owner_module,
+            {"tool", "library"}
+        },
+        open
+    );
+
+    if (open) {
+        BeginWindowContainer("##tool_library_container");
+        const ImVec2 library_avail = ImGui::GetContentRegionAvail();
+        if (library_avail.x < 80.0f || library_avail.y < 80.0f) {
+            EndWindowContainer();
+            uiint.EndPanel();
+            ImGui::End();
+            return;
+        }
+
+        const float icon_size = ImClamp(library_avail.x / 4.0f, 28.0f, 46.0f);
+        const int columns = static_cast<int>(std::max(1.0f, std::floor(library_avail.x / (icon_size + 12.0f))));
+        for (size_t i = 0; i < entries.size(); ++i) {
+            if (i > 0 && (i % columns) != 0) {
+                ImGui::SameLine();
+            }
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::InvisibleButton("ToolEntry", ImVec2(icon_size, icon_size));
+            const ImVec2 bmin = ImGui::GetItemRectMin();
+            const ImVec2 bmax = ImGui::GetItemRectMax();
+            const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+            draw_list->AddRectFilled(bmin, bmax, IM_COL32(20, 20, 20, 180), 8.0f);
+            draw_list->AddRect(bmin, bmax, IM_COL32(120, 140, 160, 200), 8.0f, 0, 1.5f);
+            DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", entries[i]);
+            }
+            ImGui::PopID();
+        }
+        uiint.RegisterWidget({"table", window_name, std::string(window_name) + ".tools[]", {"tool", "library"}});
+
+        if (!spline_entries.empty()) {
+            ImGui::SeparatorText("Spline Tools");
+            for (size_t i = 0; i < spline_entries.size(); ++i) {
+                ImGui::BulletText("%s", spline_entries[i]);
+            }
+            uiint.RegisterWidget({"table", "Spline Tools", std::string(window_name) + ".splines[]", {"tool", "spline"}});
+        }
+        EndWindowContainer();
+    }
+
+    uiint.EndPanel();
+    ImGui::End();
+}
+
 // Static minimap instance (Phase 5: Polish)
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
-static bool s_axiom_library_open = false;
 static bool s_dock_built = false;
 static bool s_dock_layout_dirty = true;
+static std::array<bool, kToolLibraryOrder.size()> s_tool_library_open = {};
 
 static std::string ActiveModeFromHFSM() {
     using RogueCity::Core::Editor::EditorState;
@@ -97,26 +226,22 @@ static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
     root.id = "root";
     root.orientation = "vertical";
 
-    DockTreeNode top;
-    top.id = "top";
-    top.panel_id = "Axiom Bar";
-
     DockTreeNode center;
     center.id = "center";
     center.panel_id = "RogueVisualizer";
 
-    DockTreeNode analytics;
-    analytics.id = "analytics";
-    analytics.panel_id = "Analytics";
+    DockTreeNode tool_deck;
+    tool_deck.id = "tool_deck";
+    tool_deck.panel_id = "Tool Deck";
 
-    DockTreeNode axiom_library;
-    axiom_library.id = "axiom_library";
-    axiom_library.panel_id = "Axiom Library";
+    DockTreeNode library;
+    library.id = "library";
+    library.panel_id = "Axiom Library";
 
     DockTreeNode right_column;
     right_column.id = "right_column";
     right_column.orientation = "vertical";
-    right_column.children = {analytics, axiom_library};
+    right_column.children = {tool_deck, library};
 
     DockTreeNode main_row;
     main_row.id = "main_row";
@@ -157,7 +282,7 @@ static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
     bottom.orientation = "vertical";
     bottom.children = {tools, bottom_tabs};
 
-    root.children = {top, main_row, bottom};
+    root.children = {main_row, bottom};
     return root;
 }
 
@@ -170,11 +295,83 @@ void InitializeMinim() {
 }
 
 bool IsAxiomLibraryOpen() {
-    return s_axiom_library_open;
+    return IsToolLibraryOpen(ToolLibrary::Axiom);
 }
 
 void ToggleAxiomLibrary() {
-    s_axiom_library_open = !s_axiom_library_open;
+    ToggleToolLibrary(ToolLibrary::Axiom);
+}
+
+static size_t ToolLibraryIndex(ToolLibrary tool) {
+    switch (tool) {
+        case ToolLibrary::Axiom: return 0;
+        case ToolLibrary::Water: return 1;
+        case ToolLibrary::Road: return 2;
+        case ToolLibrary::District: return 3;
+        case ToolLibrary::Lot: return 4;
+        case ToolLibrary::Building: return 5;
+    }
+    return 0;
+}
+
+static const char* ToolLibraryWindowName(ToolLibrary tool) {
+    switch (tool) {
+        case ToolLibrary::Axiom: return "Axiom Library";
+        case ToolLibrary::Water: return "Water Library";
+        case ToolLibrary::Road: return "Road Library";
+        case ToolLibrary::District: return "District Library";
+        case ToolLibrary::Lot: return "Lot Library";
+        case ToolLibrary::Building: return "Building Library";
+    }
+    return "Tool Library";
+}
+
+bool IsToolLibraryOpen(ToolLibrary tool) {
+    return s_tool_library_open[ToolLibraryIndex(tool)];
+}
+
+void ToggleToolLibrary(ToolLibrary tool) {
+    const size_t index = ToolLibraryIndex(tool);
+    s_tool_library_open[index] = !s_tool_library_open[index];
+    if (s_tool_library_open[index]) {
+        QueueDockWindow(ToolLibraryWindowName(tool), "Library", true);
+    }
+}
+
+void ApplyUnifiedWindowSchema(const ImVec2& baseSize, float padding) {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const ImVec2 viewportSize = viewport ? viewport->Size : ImVec2(1920.0f, 1080.0f);
+    const ImVec2 maxSize(
+        std::max(320.0f, viewportSize.x - padding * 2.0f),
+        std::max(240.0f, viewportSize.y - padding * 2.0f));
+    const ImVec2 clampedBase(
+        std::min(baseSize.x, maxSize.x),
+        std::min(baseSize.y, maxSize.y));
+
+    ImGui::SetNextWindowSize(clampedBase, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(320.0f, 240.0f), maxSize);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(padding, padding));
+}
+
+void PopUnifiedWindowSchema() {
+    ImGui::PopStyleVar();
+}
+
+void BeginUnifiedTextWrap(float padding) {
+    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x - padding);
+}
+
+void EndUnifiedTextWrap() {
+    ImGui::PopTextWrapPos();
+}
+
+bool BeginWindowContainer(const char* id, ImGuiWindowFlags flags) {
+    const ImGuiWindowFlags child_flags = flags | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    return ImGui::BeginChild(id, ImVec2(0.0f, 0.0f), true, child_flags);
+}
+
+void EndWindowContainer() {
+    ImGui::EndChild();
 }
 
 static void BuildDockLayout(ImGuiID dockspace_id) {
@@ -187,20 +384,29 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     ImGuiID dock_left = 0;
     ImGuiID dock_right = 0;
     ImGuiID dock_bottom = 0;
-    ImGuiID dock_top = 0;
     ImGuiID dock_tools = 0;
     ImGuiID dock_bottom_tabs = 0;
+    ImGuiID dock_tool_deck = 0;
+    ImGuiID dock_library = 0;
 
-    dock_top = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Up, 0.10f, nullptr, &dock_main);
     dock_left = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Left, 0.18f, nullptr, &dock_main);
     dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right, 0.27f, nullptr, &dock_main);
     dock_bottom = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Down, 0.22f, nullptr, &dock_main);
     dock_tools = ImGui::DockBuilderSplitNode(dock_bottom, ImGuiDir_Down, 0.32f, nullptr, &dock_bottom_tabs);
 
-    ImGui::DockBuilderDockWindow("Axiom Bar", dock_top);
     ImGui::DockBuilderDockWindow("RogueVisualizer", dock_main);
     // Minimap is now embedded as overlay in RogueVisualizer (removed from docking)
-    ImGui::DockBuilderDockWindow("Analytics", dock_right);
+    {
+        ImGuiID dock_right_down = 0;
+        ImGuiID dock_right_up = 0;
+        ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.55f, &dock_right_down, &dock_right_up);
+        dock_library = dock_right_down;
+        dock_tool_deck = dock_right_up;
+    }
+
+    ImGui::DockBuilderDockWindow("Tool Deck", dock_tool_deck);
+    ImGui::DockBuilderDockWindow("Inspector", dock_tool_deck);
+    ImGui::DockBuilderDockWindow("Analytics", dock_tool_deck);
 
     ImGui::DockBuilderDockWindow("Tools", dock_tools);
     ImGui::DockBuilderDockWindow("Log", dock_bottom_tabs);
@@ -209,12 +415,18 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     ImGui::DockBuilderDockWindow("Lot Index", dock_bottom_tabs);
     ImGui::DockBuilderDockWindow("River Index", dock_bottom_tabs);
 
-    ImGui::DockBuilderDockWindow("Axiom Library", dock_right);
+    ImGui::DockBuilderDockWindow("Axiom Library", dock_library);
+    ImGui::DockBuilderDockWindow("Water Library", dock_library);
+    ImGui::DockBuilderDockWindow("Road Library", dock_library);
+    ImGui::DockBuilderDockWindow("District Library", dock_library);
+    ImGui::DockBuilderDockWindow("Lot Library", dock_library);
+    ImGui::DockBuilderDockWindow("Building Library", dock_library);
 
     s_dock_nodes.root = dockspace_id;
-    s_dock_nodes.top = dock_top;
     s_dock_nodes.left = dock_left;
     s_dock_nodes.right = dock_right;
+    s_dock_nodes.tool_deck = dock_tool_deck;
+    s_dock_nodes.library = dock_library;
     s_dock_nodes.center = dock_main;
     s_dock_nodes.bottom = dock_bottom;
     s_dock_nodes.bottom_tabs = dock_bottom_tabs;
@@ -222,7 +434,7 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
 
 static ImGuiID NodeForDockArea(const std::string& dock_area) {
     if (dock_area == "Top") {
-        return s_dock_nodes.top;
+        return s_dock_nodes.center;
     }
     if (dock_area == "Bottom") {
         return s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs : s_dock_nodes.bottom;
@@ -232,6 +444,12 @@ static ImGuiID NodeForDockArea(const std::string& dock_area) {
     }
     if (dock_area == "Right") {
         return s_dock_nodes.right;
+    }
+    if (dock_area == "ToolDeck") {
+        return s_dock_nodes.tool_deck;
+    }
+    if (dock_area == "Library") {
+        return s_dock_nodes.library;
     }
     return s_dock_nodes.center;
 }
@@ -266,6 +484,10 @@ static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
 
 static void UpdateDockLayout(ImGuiID dockspace_id) {
     bool layout_changed = false;
+    if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
+        s_dock_built = false;
+        s_dock_layout_dirty = true;
+    }
 
     if (!s_dock_built || s_dock_layout_dirty) {
         BuildDockLayout(dockspace_id);
@@ -278,7 +500,7 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
         layout_changed = true;
     }
 
-    if (layout_changed) {
+    if (layout_changed && ImGui::DockBuilderGetNode(dockspace_id) != nullptr) {
         ImGui::DockBuilderFinish(dockspace_id);
     }
 }
@@ -325,10 +547,62 @@ void DrawRoot(float dt)
 
     ImGui::End();
 
+    static const std::array<const char*, 6> water_tools = {
+        "Flow", "Contour", "Erode", "Select", "Mask", "Inspect"
+    };
+    static const std::array<const char*, 9> road_tools = {
+        "Spline", "Grid", "Bridge", "Select", "Disconnect", "Stub", "Curve", "Strengthen", "Inspect"
+    };
+    static const std::array<const char*, 6> district_tools = {
+        "Zone", "Paint", "Split", "Select", "Merge", "Inspect"
+    };
+    static const std::array<const char*, 6> lot_tools = {
+        "Plot", "Slice", "Align", "Select", "Merge", "Inspect"
+    };
+    static const std::array<const char*, 6> building_tools = {
+        "Place", "Scale", "Rotate", "Select", "Assign", "Inspect"
+    };
+    static const std::array<const char*, 9> spline_tools = {
+        "Selection", "Direct Select", "Pen", "Convert Anchor", "Add/Remove Anchor",
+        "Handle Tangents", "Snap/Align", "Join/Split", "Simplify"
+    };
+
+    RenderToolLibraryWindow(ToolLibrary::Water,
+        "Water Library",
+        "visualizer/src/ui/rc_ui_root.cpp",
+        "Library",
+        water_tools,
+        spline_tools);
+    RenderToolLibraryWindow(ToolLibrary::Road,
+        "Road Library",
+        "visualizer/src/ui/rc_ui_root.cpp",
+        "Library",
+        road_tools,
+        spline_tools);
+    RenderToolLibraryWindow(ToolLibrary::District,
+        "District Library",
+        "visualizer/src/ui/rc_ui_root.cpp",
+        "Library",
+        district_tools,
+        std::span<const char* const>{});
+    RenderToolLibraryWindow(ToolLibrary::Lot,
+        "Lot Library",
+        "visualizer/src/ui_root.cpp",
+        "Library",
+        lot_tools,
+        std::span<const char* const>{});
+    RenderToolLibraryWindow(ToolLibrary::Building,
+        "Building Library",
+        "visualizer/src/ui/rc_ui_root.cpp",
+        "Library",
+        building_tools,
+        std::span<const char* const>{});
+
     // Panels/windows (docked by name)
     Panels::AxiomBar::Draw(dt);
     Panels::AxiomEditor::Draw(dt);
     Panels::Telemetry::Draw(dt);
+    Panels::Inspector::Draw(dt);
     Panels::Tools::Draw(dt);
     Panels::DistrictIndex::Draw(dt);
     Panels::RoadIndex::Draw(dt);
@@ -426,10 +700,12 @@ bool BeginDockableWindow(const char* windowName,
         return false;
     }
 
+    BeginWindowContainer();
     return true;
 }
 
 void EndDockableWindow() {
+    EndWindowContainer();
     ImGui::End();
 }
 

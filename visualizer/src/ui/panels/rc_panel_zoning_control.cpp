@@ -10,6 +10,23 @@
 
 namespace RC_UI::Panels::ZoningControl {
 
+namespace {
+
+const char* GenerationModeLabel(RogueCity::Core::GenerationMode mode) {
+    using RogueCity::Core::GenerationMode;
+    switch (mode) {
+        case GenerationMode::Standard: return "Standard";
+        case GenerationMode::HillTown: return "HillTown";
+        case GenerationMode::ConservationOnly: return "ConservationOnly";
+        case GenerationMode::BrownfieldCore: return "BrownfieldCore";
+        case GenerationMode::CompromisePlan: return "CompromisePlan";
+        case GenerationMode::Patchwork: return "Patchwork";
+        default: return "Unknown";
+    }
+}
+
+} // namespace
+
 PanelState& GetPanelState() {
     static PanelState state;
     return state;
@@ -153,6 +170,33 @@ void Draw(float dt) {
     }
     if (!state.last_error.empty()) {
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", state.last_error.c_str());
+    }
+
+    if (gs.world_constraints.isValid()) {
+        ImGui::SeparatorText("Site Diagnostics");
+        ImGui::BulletText("Mode: %s", GenerationModeLabel(gs.site_profile.mode));
+        ImGui::BulletText("Buildable Area: %.1f%%", gs.site_profile.buildable_fraction * 100.0f);
+        ImGui::BulletText("Avg Buildable Slope: %.1f deg", gs.site_profile.average_buildable_slope);
+        ImGui::BulletText("Fragmentation: %.2f", gs.site_profile.buildable_fragmentation);
+        ImGui::BulletText("Policy Friction: %.2f", gs.site_profile.policy_friction);
+
+        const ImVec4 status_color = gs.plan_approved
+            ? ImVec4(0.35f, 0.95f, 0.45f, 1.0f)
+            : ImVec4(1.0f, 0.42f, 0.35f, 1.0f);
+        ImGui::TextColored(
+            status_color,
+            "Plan %s (%zu violations)",
+            gs.plan_approved ? "APPROVED" : "NEEDS REVIEW",
+            gs.plan_violations.size());
+
+        const int max_preview = 5;
+        for (int i = 0; i < static_cast<int>(gs.plan_violations.size()) && i < max_preview; ++i) {
+            const auto& violation = gs.plan_violations[static_cast<size_t>(i)];
+            ImGui::BulletText(
+                "[%.2f] %s",
+                violation.severity,
+                violation.message.empty() ? "Validation issue" : violation.message.c_str());
+        }
     }
     
     uiint.RegisterWidget({"button", "Generate", "generate_button", {"action"}});

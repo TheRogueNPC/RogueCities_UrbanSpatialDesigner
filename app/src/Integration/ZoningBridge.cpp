@@ -5,17 +5,15 @@
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
+#include "RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp"
 #include "RogueCity/Generators/Urban/BlockGenerator.hpp"
 #include <limits>
-#include <chrono>
 #include <algorithm>
 #include <unordered_map>
 
 namespace RogueCity::App::Integration {
 
 void ZoningBridge::Generate(const UiConfig& ui_cfg, Core::Editor::GlobalState& gs) {
-    auto start_time = std::chrono::high_resolution_clock::now();
-    
     // Translate UI config to generator config
     auto gen_config = TranslateConfig(ui_cfg);
     
@@ -34,6 +32,7 @@ void ZoningBridge::Generate(const UiConfig& ui_cfg, Core::Editor::GlobalState& g
     
     // Populate GlobalState with output
     PopulateGlobalState(output, gs);
+    RunPlanValidation(gs);
 
     gs.generation_stats.roads_generated = static_cast<uint32_t>(gs.roads.size());
     gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
@@ -43,7 +42,6 @@ void ZoningBridge::Generate(const UiConfig& ui_cfg, Core::Editor::GlobalState& g
     gs.generation_stats.used_parallelization = output.usedParallelization;
     
     // Record statistics
-    auto end_time = std::chrono::high_resolution_clock::now();
     m_last_stats.lots_created = static_cast<int>(output.lots.size());
     m_last_stats.buildings_placed = static_cast<int>(output.buildings.size());
     m_last_stats.total_budget_allocated = output.totalBudgetUsed;
@@ -93,6 +91,11 @@ bool ZoningBridge::GenerateFromCitySpec(
         gs.blocks.add(block);
     }
 
+    gs.world_constraints = city_output.world_constraints;
+    gs.site_profile = city_output.site_profile;
+    gs.plan_violations = city_output.plan_violations;
+    gs.plan_approved = city_output.plan_approved;
+
     gs.generation_stats.roads_generated = static_cast<uint32_t>(gs.roads.size());
     gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
 
@@ -104,6 +107,10 @@ void ZoningBridge::ClearAll(Core::Editor::GlobalState& gs) {
     gs.blocks.clear();
     gs.lots.clear();
     gs.buildings.clear();
+    gs.world_constraints = Core::WorldConstraintField{};
+    gs.site_profile = Core::SiteProfile{};
+    gs.plan_violations.clear();
+    gs.plan_approved = true;
     gs.generation_stats = Core::GenerationStats{};
     m_last_stats = Stats{};
 }
@@ -208,6 +215,31 @@ void ZoningBridge::PopulateGlobalState(const Generators::ZoningGenerator::Zoning
             district.projected_population = 0;
         }
     }
+}
+
+void ZoningBridge::RunPlanValidation(Core::Editor::GlobalState& gs) {
+    gs.plan_violations.clear();
+    gs.plan_approved = true;
+    if (!gs.world_constraints.isValid()) {
+        return;
+    }
+
+    std::vector<Core::LotToken> lots;
+    lots.reserve(gs.lots.size());
+    for (const auto& lot : gs.lots) {
+        lots.push_back(lot);
+    }
+
+    Generators::PlanValidatorGenerator validator;
+    Generators::PlanValidatorGenerator::Input input;
+    input.constraints = &gs.world_constraints;
+    input.site_profile = &gs.site_profile;
+    input.roads = &gs.roads;
+    input.lots = &lots;
+
+    auto output = validator.validate(input);
+    gs.plan_violations = std::move(output.violations);
+    gs.plan_approved = output.approved;
 }
 
 } // namespace RogueCity::App::Integration

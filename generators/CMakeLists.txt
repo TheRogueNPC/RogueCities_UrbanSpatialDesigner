@@ -28,6 +28,8 @@ set(GENERATOR_SOURCES
     src/Generators/Pipeline/CityGenerator.cpp
     src/Generators/Pipeline/CitySpecAdapter.cpp
     src/Generators/Pipeline/ZoningGenerator.cpp
+    src/Generators/Pipeline/TerrainConstraintGenerator.cpp
+    src/Generators/Pipeline/PlanValidatorGenerator.cpp
 )
 
 # Header files (for IDE integration)
@@ -51,6 +53,8 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
     include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
+    include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp
+    include/RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp
 )
 
 # Create static library

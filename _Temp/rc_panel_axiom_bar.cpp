@@ -1,5 +1,5 @@
 // FILE: visualizer/src/ui/panels/rc_panel_axiom_bar.cpp (RogueCities_UrbanSpatialDesigner)
-// PURPOSE: Tool Deck dock with reactive deck chips.
+// PURPOSE: Stub LCARS axiom ribbon with reactive chip.
 #include "ui/panels/rc_panel_axiom_bar.h"
 
 #include "ui/rc_ui_anim.h"
@@ -118,17 +118,17 @@ namespace {
 void Draw(float dt)
 {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    const bool open = ImGui::Begin("Tool Deck", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = ImGui::Begin("Axiom Bar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
         RogueCity::UIInt::PanelMeta{
-            "Tool Deck",
-            "Tool Deck",
-            "tool_deck",
-            "ToolDeck",
+            "Axiom Bar",
+            "Axiom Bar",
+            "nav",
+            "Top",
             "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp",
-            {"deck", "nav"}
+            {"axiom", "nav"}
         },
         open
     );
@@ -140,29 +140,17 @@ void Draw(float dt)
         return;
     }
 
-    BeginWindowContainer("##tool_deck_container");
-
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float bar_height = ImClamp(avail.y, 32.0f, 46.0f);
-    if (bar_height < 32.0f || avail.x < 120.0f) {
-        EndWindowContainer();
-        uiint.EndPanel();
-        ImGui::End();
-        ImGui::PopStyleColor();
-        return;
-    }
-
-    const ImVec2 bar_end(start.x + avail.x, start.y + bar_height);
+    const ImVec2 bar_end(start.x + avail.x, start.y + 46.0f);
     draw_list->AddRectFilled(start, bar_end, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.base), 22.0f);
 
-    ImGui::SetCursorScreenPos(ImVec2(start.x + 18.0f, start.y + (bar_height - 28.0f) * 0.5f));
+    ImGui::SetCursorScreenPos(ImVec2(start.x + 18.0f, start.y + 8.0f));
     static std::array<ReactiveF, RC_UI::kToolLibraryOrder.size()> chip_hover;
     constexpr float kChipBaseWidth = 110.0f;
     constexpr float kChipHoverExpansion = 30.0f;
-    const float chip_height = ImClamp(bar_height - 10.0f, 20.0f, 28.0f);
-    const ImVec2 chip_box(140.0f, chip_height);
+    const ImVec2 chip_box(140.0f, 28.0f);
 
     for (size_t i = 0; i < RC_UI::kToolLibraryOrder.size(); ++i) {
         const auto tool = RC_UI::kToolLibraryOrder[i];
@@ -176,7 +164,7 @@ void Draw(float dt)
         }
         const char* label = ToolLabel(tool);
         uiint.RegisterWidget({"button", label, ToolActionId(tool), {"action", "nav"}});
-        uiint.RegisterAction({ToolActionKey(tool), ToolActionLabel(tool), "Tool Deck", {}, "RC_UI::ToggleToolLibrary"});
+        uiint.RegisterAction({ToolActionKey(tool), ToolActionLabel(tool), "Axiom Bar", {}, "RC_UI::ToggleToolLibrary"});
         chip_hover[i].target = ImGui::IsItemHovered() ? 1.0f : 0.0f;
         chip_hover[i].Update(dt);
 
@@ -184,13 +172,11 @@ void Draw(float dt)
         const float chip_width = kChipBaseWidth + kChipHoverExpansion * chip_hover[i].v;
         const ImVec2 chip_max(chip_min.x + chip_width, chip_min.y + chip_box.y);
         draw_list->AddRectFilled(chip_min, chip_max, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.accent), 14.0f);
-        draw_list->AddText(ImVec2(chip_min.x + 30.0f, chip_min.y + (chip_box.y - 16.0f) * 0.5f),
+        draw_list->AddText(ImVec2(chip_min.x + 30.0f, chip_min.y + 6.0f),
             ImGui::ColorConvertFloat4ToU32(ColorBG), label);
-        DrawToolIcon(draw_list, tool, ImVec2(chip_min.x + 14.0f, chip_min.y + chip_box.y * 0.5f), 12.0f);
+        DrawToolIcon(draw_list, tool, ImVec2(chip_min.x + 14.0f, chip_min.y + 14.0f), 12.0f);
         ImGui::PopID();
     }
-
-    EndWindowContainer();
 
     uiint.EndPanel();
     ImGui::End();
@@ -198,4 +184,3 @@ void Draw(float dt)
 }
 
 } // namespace RC_UI::Panels::AxiomBar
-

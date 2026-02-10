@@ -119,6 +119,10 @@ namespace {
         gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
         gs.generation_stats.lots_generated = static_cast<uint32_t>(gs.lots.size());
         gs.generation_stats.buildings_generated = static_cast<uint32_t>(gs.buildings.size());
+        gs.world_constraints = output.world_constraints;
+        gs.site_profile = output.site_profile;
+        gs.plan_violations = output.plan_violations;
+        gs.plan_approved = output.plan_approved;
     }
 }
 
@@ -622,7 +626,7 @@ void Draw(float dt) {
                 "Axiom Library",
                 "Axiom Library",
                 "toolbox",
-                "Right",
+                "Library",
                 "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
                 {"axiom", "library"}
             },
@@ -855,6 +859,15 @@ void Draw(float dt) {
     overlay_config.show_zone_colors = gs.districts.size() != 0;
     overlay_config.show_road_labels = gs.roads.size() != 0;
     overlay_config.show_lot_boundaries = gs.lots.size() != 0;  // Enable lot boundaries
+    overlay_config.show_no_build_mask = gs.world_constraints.isValid();
+    overlay_config.show_slope_heatmap =
+        gs.world_constraints.isValid() &&
+        (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms ||
+         current_state == RogueCity::Core::Editor::EditorState::Editing_Roads);
+    overlay_config.show_nature_heatmap =
+        gs.world_constraints.isValid() &&
+        (current_state == RogueCity::Core::Editor::EditorState::Editing_Districts ||
+         current_state == RogueCity::Core::Editor::EditorState::Editing_Lots);
     overlay_config.show_aesp_heatmap =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
          current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) &&

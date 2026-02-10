@@ -2,6 +2,7 @@
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
+#include <cassert>
 #include <iostream>
 
 using namespace RogueCity;
@@ -45,6 +46,11 @@ int main() {
     std::cout << "Tensor field generated: " << output.tensor_field.getWidth()
         << "x" << output.tensor_field.getHeight() << " cells" << std::endl;
     std::cout << "Roads traced: " << output.roads.size() << " roads" << std::endl;
+    std::cout << "Buildable area: " << (output.site_profile.buildable_fraction * 100.0f) << "%" << std::endl;
+    std::cout << "Generation mode: " << static_cast<int>(output.site_profile.mode) << std::endl;
+    std::cout << "Plan approved: " << (output.plan_approved ? "yes" : "no")
+              << " (violations=" << output.plan_violations.size() << ")" << std::endl;
+    assert(output.world_constraints.isValid());
 
     // Sample tensors at test points
     Core::Vec2 test_points[] = {
@@ -101,6 +107,7 @@ int main() {
     std::cout << "CitySpec config: " << request.config.width << "x" << request.config.height
               << " seeds=" << request.config.num_seeds << std::endl;
     std::cout << "CitySpec roads traced: " << spec_output.roads.size() << std::endl;
+    assert(spec_output.world_constraints.isValid());
 
     std::cout << "\nPhase 2 generators test PASSED" << std::endl;
     return 0;

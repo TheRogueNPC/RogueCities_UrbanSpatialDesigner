@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <imgui.h>
 
 namespace RogueCity::App { class MinimapViewport; }
@@ -14,6 +15,34 @@ void DrawRoot(float dt);
 
 // Apply the custom UI theme (colors, rounding). Should be called once before drawing begins.
 void ApplyTheme();
+
+enum class ToolLibrary {
+    Axiom,
+    Water,
+    Road,
+    District,
+    Lot,
+    Building
+};
+
+inline constexpr std::array<ToolLibrary, 6> kToolLibraryOrder = {
+    ToolLibrary::Axiom,
+    ToolLibrary::Water,
+    ToolLibrary::Road,
+    ToolLibrary::District,
+    ToolLibrary::Lot,
+    ToolLibrary::Building
+};
+
+[[nodiscard]] bool IsToolLibraryOpen(ToolLibrary tool);
+void ToggleToolLibrary(ToolLibrary tool);
+
+void ApplyUnifiedWindowSchema(const ImVec2& baseSize = ImVec2(540.0f, 720.0f), float padding = 16.0f);
+void PopUnifiedWindowSchema();
+void BeginUnifiedTextWrap(float padding = 16.0f);
+void EndUnifiedTextWrap();
+bool BeginWindowContainer(const char* id = "##window_container", ImGuiWindowFlags flags = 0);
+void EndWindowContainer();
 
 // Axiom Deck -> Axiom Library toggle.
 [[nodiscard]] bool IsAxiomLibraryOpen();

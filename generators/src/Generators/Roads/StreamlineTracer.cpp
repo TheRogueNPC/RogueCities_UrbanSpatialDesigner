@@ -146,6 +146,18 @@ namespace RogueCity::Generators {
         const Params& params,
         bool forward
     ) {
+        if (params.constraints != nullptr) {
+            if (params.stop_at_no_build && params.constraints->sampleNoBuild(seed)) {
+                return {};
+            }
+            if (params.constraints->sampleSlopeDegrees(seed) > params.max_slope_degrees) {
+                return {};
+            }
+            if (params.constraints->sampleFloodMask(seed) > params.max_flood_level) {
+                return {};
+            }
+        }
+
         std::vector<Vec2> polyline;
         polyline.push_back(seed);
 
@@ -164,6 +176,21 @@ namespace RogueCity::Generators {
             if (next.x < 0.0 || next.x > world_width ||
                 next.y < 0.0 || next.y > world_height) {
                 break;  // Escaped domain
+            }
+
+            if (params.constraints != nullptr) {
+                if (params.stop_at_no_build && params.constraints->sampleNoBuild(next)) {
+                    break;
+                }
+                if (params.constraints->sampleSlopeDegrees(next) > params.max_slope_degrees) {
+                    break;
+                }
+                if (params.constraints->sampleFloodMask(next) > params.max_flood_level) {
+                    break;
+                }
+                if (params.constraints->sampleSoilStrength(next) < params.min_soil_strength) {
+                    break;
+                }
             }
 
             // Check step length

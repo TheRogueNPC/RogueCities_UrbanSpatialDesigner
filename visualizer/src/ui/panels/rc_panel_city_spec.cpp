@@ -10,6 +10,7 @@
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/rc_ui_root.h"
 #include <imgui.h>
 #include <algorithm>
 #include <thread>
@@ -31,7 +32,10 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
 }
 
 void CitySpecPanel::Render() {
+    RC_UI::ApplyUnifiedWindowSchema();
     const bool open = ImGui::Begin("City Spec Generator", nullptr, ImGuiWindowFlags_NoCollapse);
+    RC_UI::PopUnifiedWindowSchema();
+    RC_UI::BeginUnifiedTextWrap();
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -47,6 +51,7 @@ void CitySpecPanel::Render() {
     );
 
     if (!open) {
+        RC_UI::EndUnifiedTextWrap();
         uiint.EndPanel();
         ImGui::End();
         return;
@@ -61,6 +66,7 @@ void CitySpecPanel::Render() {
         ImGui::PopStyleColor();
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
         uiint.EndPanel();
+        RC_UI::EndUnifiedTextWrap();
         ImGui::End();
         return;
     }
@@ -179,6 +185,7 @@ void CitySpecPanel::Render() {
     }
 
     uiint.EndPanel();
+    RC_UI::EndUnifiedTextWrap();
     ImGui::End();
 }
 

@@ -69,6 +69,10 @@ namespace RogueCity::Core::Editor {
         GenerationStats generation_stats{};
         Selection selection{};
         std::optional<CitySpec> active_city_spec{};
+        WorldConstraintField world_constraints{};
+        SiteProfile site_profile{};
+        std::vector<PlanViolation> plan_violations{};
+        bool plan_approved{ true };
 
         uint64_t frame_counter{ 0 };
     };

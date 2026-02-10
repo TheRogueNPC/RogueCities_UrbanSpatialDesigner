@@ -18,6 +18,13 @@ namespace RogueCity::Generators {
             double min_separation{ 10.0 };  // Minimum distance between roads
             int max_iterations{ 500 };      // Safety limit for infinite loops
             bool bidirectional{ true };     // Trace forward AND backward from seed
+
+            // Optional world-constraint sampling.
+            const WorldConstraintField* constraints{ nullptr };
+            double max_slope_degrees{ 30.0 };
+            uint8_t max_flood_level{ 1u };
+            float min_soil_strength{ 0.15f };
+            bool stop_at_no_build{ true };
         };
 
         StreamlineTracer() = default;

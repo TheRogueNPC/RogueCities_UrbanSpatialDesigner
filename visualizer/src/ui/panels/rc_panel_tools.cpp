@@ -74,7 +74,10 @@ void Draw(float dt)
     
     RenderToolButton("Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms, hfsm, gs);
     ImGui::SameLine();
-    
+
+    RenderToolButton("Water", EditorEvent::Tool_Water, EditorState::Editing_Water, hfsm, gs);
+    ImGui::SameLine();
+
     RenderToolButton("Road", EditorEvent::Tool_Roads, EditorState::Editing_Roads, hfsm, gs);
     ImGui::SameLine();
     
@@ -85,9 +88,6 @@ void Draw(float dt)
     ImGui::SameLine();
     
     RenderToolButton("Building", EditorEvent::Tool_Buildings, EditorState::Editing_Buildings, hfsm, gs);
-    ImGui::SameLine();
-    
-    RenderToolButton("Water", EditorEvent::Tool_Water, EditorState::Editing_Water, hfsm, gs);
     
     ImGui::Spacing();
     ImGui::Separator();

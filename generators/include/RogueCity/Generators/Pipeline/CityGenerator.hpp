@@ -9,6 +9,8 @@
 #include "RogueCity/Generators/Urban/BlockGenerator.hpp"
 #include "RogueCity/Generators/Urban/LotGenerator.hpp"
 #include "RogueCity/Generators/Urban/SiteGenerator.hpp"
+#include "RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp"
+#include "RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
 #include <cstdint>
@@ -30,6 +32,9 @@ namespace RogueCity::Generators {
             uint32_t max_districts{ 256 };
             uint32_t max_lots{ 50000 };
             uint32_t max_buildings{ 100000 };
+            bool enable_world_constraints{ true };
+            TerrainConstraintGenerator::Config terrain{};
+            PlanValidatorGenerator::Config validator{};
         };
 
         /// Axiom input (user-placed planning intent)
@@ -71,6 +76,10 @@ namespace RogueCity::Generators {
             std::vector<LotToken> lots;
             siv::Vector<BuildingSite> buildings;
             TensorFieldGenerator tensor_field;
+            WorldConstraintField world_constraints;
+            SiteProfile site_profile;
+            std::vector<PlanViolation> plan_violations;
+            bool plan_approved{ true };
         };
 
         CityGenerator() = default;
@@ -92,15 +101,24 @@ namespace RogueCity::Generators {
 
         /// Pipeline stages
         TensorFieldGenerator generateTensorField(const std::vector<AxiomInput>& axioms);
-        std::vector<Vec2> generateSeeds();
-        fva::Container<Road> traceRoads(const TensorFieldGenerator& field, const std::vector<Vec2>& seeds);
-        std::vector<District> classifyDistricts(const fva::Container<Road>& roads);
+        std::vector<Vec2> generateSeeds(const WorldConstraintField* constraints);
+        fva::Container<Road> traceRoads(
+            const TensorFieldGenerator& field,
+            const std::vector<Vec2>& seeds,
+            const WorldConstraintField* constraints,
+            const SiteProfile* profile);
+        std::vector<District> classifyDistricts(
+            const fva::Container<Road>& roads,
+            const WorldConstraintField* constraints);
         std::vector<BlockPolygon> generateBlocks(const std::vector<District>& districts);
         std::vector<LotToken> generateLots(
             const fva::Container<Road>& roads,
             const std::vector<District>& districts,
-            const std::vector<BlockPolygon>& blocks);
-        siv::Vector<BuildingSite> generateBuildings(const std::vector<LotToken>& lots);
+            const std::vector<BlockPolygon>& blocks,
+            const SiteProfile* profile);
+        siv::Vector<BuildingSite> generateBuildings(
+            const std::vector<LotToken>& lots,
+            const SiteProfile* profile);
     };
 
 } // namespace RogueCity::Generators

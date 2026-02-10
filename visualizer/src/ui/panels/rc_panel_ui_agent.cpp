@@ -68,10 +68,11 @@ static std::string ResolveWindowName(const std::string& panel) {
     if (key == "ROAD_INDEX" || key == "ROAD INDEX" || key == "RC_PANEL_ROAD_INDEX") return "Road Index";
     if (key == "LOT_INDEX" || key == "LOT INDEX" || key == "RC_PANEL_LOT_INDEX") return "Lot Index";
     if (key == "RIVER_INDEX" || key == "RIVER INDEX" || key == "RC_PANEL_RIVER_INDEX") return "River Index";
+    if (key == "INSPECTOR" || key == "RC_PANEL_INSPECTOR") return "Inspector";
     if (key == "AI CONSOLE" || key == "RC_PANEL_AI_CONSOLE") return "AI Console";
     if (key == "UI AGENT ASSISTANT" || key == "RC_PANEL_UI_AGENT") return "UI Agent Assistant";
     if (key == "CITY SPEC GENERATOR" || key == "RC_PANEL_CITY_SPEC") return "City Spec Generator";
-    if (key == "AXIOM BAR" || key == "RC_PANEL_AXIOM_BAR") return "Axiom Bar";
+    if (key == "AXIOM BAR" || key == "RC_PANEL_AXIOM_BAR" || key == "TOOL DECK" || key == "RC_PANEL_TOOL_DECK") return "Tool Deck";
     if (key == "AXIOM LIBRARY" || key == "RC_PANEL_AXIOM_LIBRARY") return "Axiom Library";
     return panel;
 }
@@ -83,6 +84,8 @@ static std::string NormalizeDockArea(const std::string& dock) {
     if (key == "TOP") return "Top";
     if (key == "BOTTOM") return "Bottom";
     if (key == "CENTER") return "Center";
+    if (key == "TOOLDECK" || key == "TOOL DECK") return "ToolDeck";
+    if (key == "LIBRARY" || key == "LIBRARYDOCK") return "Library";
     return "Center";
 }
 
@@ -241,7 +244,10 @@ static bool ApplyUiCommand(const AI::UiCommand& cmd, std::string& lineOut) {
 }
 
 void UiAgentPanel::Render() {
+    RC_UI::ApplyUnifiedWindowSchema();
     const bool open = ImGui::Begin("UI Agent Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
+    RC_UI::PopUnifiedWindowSchema();
+    RC_UI::BeginUnifiedTextWrap();
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -257,6 +263,7 @@ void UiAgentPanel::Render() {
     );
 
     if (!open) {
+        RC_UI::EndUnifiedTextWrap();
         uiint.EndPanel();
         ImGui::End();
         return;
@@ -271,6 +278,7 @@ void UiAgentPanel::Render() {
         ImGui::PopStyleColor();
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
         uiint.EndPanel();
+        RC_UI::EndUnifiedTextWrap();
         ImGui::End();
         return;
     }
@@ -402,6 +410,7 @@ void UiAgentPanel::Render() {
     }
 
     uiint.EndPanel();
+    RC_UI::EndUnifiedTextWrap();
     ImGui::End();
 }
 

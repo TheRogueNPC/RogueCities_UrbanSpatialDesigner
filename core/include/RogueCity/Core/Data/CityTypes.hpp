@@ -1,10 +1,12 @@
 ﻿#pragma once
 
 #include "RogueCity/Core/Math/Vec2.hpp"
+#include <algorithm>
 #include <vector>
 #include <array>
 #include <cstdint>
 #include <random>
+#include <string>
 #include <magic_enum/magic_enum.hpp>
 
 namespace RogueCity::Core {
@@ -179,6 +181,190 @@ namespace RogueCity::Core {
         
         [[nodiscard]] bool empty() const { return boundary.empty(); }
         [[nodiscard]] size_t size() const { return boundary.size(); }
+    };
+
+    /// History/legacy overlays used to bias district classification and validation.
+    enum class HistoryTag : uint8_t {
+        None = 0,
+        Brownfield = 1u << 0,   // Legacy dumps / industrial remnants
+        SacredSite = 1u << 1,   // No-build cultural zones
+        UtilityLegacy = 1u << 2, // Old buried lines/wells
+        Contaminated = 1u << 3  // Hazard remediation zones
+    };
+
+    [[nodiscard]] constexpr uint8_t ToHistoryMask(HistoryTag tag) {
+        return static_cast<uint8_t>(tag);
+    }
+
+    [[nodiscard]] constexpr bool HasHistoryTag(uint8_t mask, HistoryTag tag) {
+        return (mask & static_cast<uint8_t>(tag)) != 0;
+    }
+
+    /// Runtime generation mode selected from terrain/policy diagnostics.
+    enum class GenerationMode : uint8_t {
+        Standard = 0,
+        HillTown,
+        ConservationOnly,
+        BrownfieldCore,
+        CompromisePlan,
+        Patchwork
+    };
+
+    /// Validation issue type produced after pipeline generation.
+    enum class PlanViolationType : uint8_t {
+        None = 0,
+        NoBuildEncroachment,
+        SlopeTooHigh,
+        FloodRisk,
+        SoilTooWeak,
+        PolicyConflict
+    };
+
+    /// Entity category attached to plan violations.
+    enum class PlanEntityType : uint8_t {
+        None = 0,
+        Global,
+        Road,
+        Lot,
+        District
+    };
+
+    /// Rasterized world constraints sampled by tensor/road and validation stages.
+    struct WorldConstraintField {
+        int width{ 0 };
+        int height{ 0 };
+        double cell_size{ 10.0 };
+
+        std::vector<float> slope_degrees;      // Terrain slope in degrees.
+        std::vector<uint8_t> flood_mask;       // 0 none, 1 minor, 2 severe.
+        std::vector<float> soil_strength;      // 0..1.
+        std::vector<uint8_t> no_build_mask;    // 0/1 hard no-build.
+        std::vector<float> nature_score;       // 0..1 ecology intensity.
+        std::vector<uint8_t> history_tags;     // Bitmask from HistoryTag.
+
+        void resize(int w, int h, double cell) {
+            width = std::max(0, w);
+            height = std::max(0, h);
+            cell_size = cell;
+            const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
+            slope_degrees.assign(cells, 0.0f);
+            flood_mask.assign(cells, 0u);
+            soil_strength.assign(cells, 1.0f);
+            no_build_mask.assign(cells, 0u);
+            nature_score.assign(cells, 0.0f);
+            history_tags.assign(cells, 0u);
+        }
+
+        [[nodiscard]] bool isValid() const {
+            if (width <= 0 || height <= 0 || cell_size <= 0.0) {
+                return false;
+            }
+            const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
+            return slope_degrees.size() == cells &&
+                flood_mask.size() == cells &&
+                soil_strength.size() == cells &&
+                no_build_mask.size() == cells &&
+                nature_score.size() == cells &&
+                history_tags.size() == cells;
+        }
+
+        [[nodiscard]] size_t cellCount() const {
+            return static_cast<size_t>(width) * static_cast<size_t>(height);
+        }
+
+        [[nodiscard]] bool worldToGrid(const Vec2& world, int& gx, int& gy) const {
+            if (width <= 0 || height <= 0 || cell_size <= 0.0) {
+                gx = 0;
+                gy = 0;
+                return false;
+            }
+            gx = static_cast<int>(world.x / cell_size);
+            gy = static_cast<int>(world.y / cell_size);
+            return gx >= 0 && gx < width && gy >= 0 && gy < height;
+        }
+
+        [[nodiscard]] int toIndex(int gx, int gy) const {
+            return (gy * width) + gx;
+        }
+
+        [[nodiscard]] float sampleSlopeDegrees(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 0.0f;
+            }
+            return slope_degrees[static_cast<size_t>(toIndex(gx, gy))];
+        }
+
+        [[nodiscard]] uint8_t sampleFloodMask(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 0u;
+            }
+            return flood_mask[static_cast<size_t>(toIndex(gx, gy))];
+        }
+
+        [[nodiscard]] float sampleSoilStrength(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 1.0f;
+            }
+            return soil_strength[static_cast<size_t>(toIndex(gx, gy))];
+        }
+
+        [[nodiscard]] bool sampleNoBuild(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return true;
+            }
+            return no_build_mask[static_cast<size_t>(toIndex(gx, gy))] != 0u;
+        }
+
+        [[nodiscard]] float sampleNatureScore(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 0.0f;
+            }
+            return nature_score[static_cast<size_t>(toIndex(gx, gy))];
+        }
+
+        [[nodiscard]] uint8_t sampleHistoryTags(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 0u;
+            }
+            return history_tags[static_cast<size_t>(toIndex(gx, gy))];
+        }
+    };
+
+    /// Site diagnostics produced from world constraints before city generation.
+    struct SiteProfile {
+        float buildable_fraction{ 1.0f };
+        float average_buildable_slope{ 0.0f };
+        float buildable_fragmentation{ 0.0f };
+        float policy_friction{ 0.0f };
+
+        bool hostile_terrain{ false };
+        bool policy_vs_physics{ false };
+        bool awkward_geometry{ false };
+        bool brownfield_pockets{ false };
+
+        GenerationMode mode{ GenerationMode::Standard };
+    };
+
+    /// Validation finding from post-generation checks.
+    struct PlanViolation {
+        PlanViolationType type{ PlanViolationType::None };
+        PlanEntityType entity_type{ PlanEntityType::None };
+        uint32_t entity_id{ 0 };
+        float severity{ 0.0f }; // 0..1
+        Vec2 location{};
+        std::string message;
     };
 
     // ===== UTILITY STRUCTURES =====

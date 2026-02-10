@@ -48,6 +48,18 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_budget_bars) {
         RenderBudgetIndicators(gs);
     }
+
+    if (config.show_slope_heatmap) {
+        RenderSlopeHeatmap(gs);
+    }
+
+    if (config.show_no_build_mask) {
+        RenderNoBuildMask(gs);
+    }
+
+    if (config.show_nature_heatmap) {
+        RenderNatureHeatmap(gs);
+    }
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_RENDER_NEW_OVERLAYS
     if (config.show_lot_boundaries) {
@@ -170,6 +182,105 @@ void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::Glo
         char budget_label[64];
         std::snprintf(budget_label, sizeof(budget_label), "$%.0f", budget);
         DrawLabel(centroid, budget_label, glm::vec4(1.0f, 0.95f, 0.6f, 0.9f));
+    }
+}
+
+void ViewportOverlays::RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.world_constraints.isValid()) {
+        return;
+    }
+
+    const auto& constraints = gs.world_constraints;
+    const int stride = std::max(1, std::max(constraints.width, constraints.height) / 90);
+    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.22));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    for (int y = 0; y < constraints.height; y += stride) {
+        for (int x = 0; x < constraints.width; x += stride) {
+            const size_t idx = static_cast<size_t>(constraints.toIndex(x, y));
+            const float slope = constraints.slope_degrees[idx];
+            const float t = std::clamp(slope / 45.0f, 0.0f, 1.0f);
+            if (t < 0.12f) {
+                continue;
+            }
+
+            const ImVec4 color(
+                0.15f + 0.85f * t,
+                0.85f - 0.65f * t,
+                0.20f + 0.10f * (1.0f - t),
+                0.12f + 0.35f * t);
+
+            const RogueCity::Core::Vec2 center(
+                (static_cast<double>(x) + 0.5) * constraints.cell_size,
+                (static_cast<double>(y) + 0.5) * constraints.cell_size);
+            draw_list->AddCircleFilled(
+                WorldToScreen(center),
+                radius,
+                ImGui::ColorConvertFloat4ToU32(color));
+        }
+    }
+}
+
+void ViewportOverlays::RenderNoBuildMask(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.world_constraints.isValid()) {
+        return;
+    }
+
+    const auto& constraints = gs.world_constraints;
+    const int stride = std::max(1, std::max(constraints.width, constraints.height) / 120);
+    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.20));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    for (int y = 0; y < constraints.height; y += stride) {
+        for (int x = 0; x < constraints.width; x += stride) {
+            const size_t idx = static_cast<size_t>(constraints.toIndex(x, y));
+            if (constraints.no_build_mask[idx] == 0u) {
+                continue;
+            }
+
+            const RogueCity::Core::Vec2 center(
+                (static_cast<double>(x) + 0.5) * constraints.cell_size,
+                (static_cast<double>(y) + 0.5) * constraints.cell_size);
+            draw_list->AddCircleFilled(
+                WorldToScreen(center),
+                radius,
+                IM_COL32(220, 60, 60, 135));
+        }
+    }
+}
+
+void ViewportOverlays::RenderNatureHeatmap(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.world_constraints.isValid()) {
+        return;
+    }
+
+    const auto& constraints = gs.world_constraints;
+    const int stride = std::max(1, std::max(constraints.width, constraints.height) / 95);
+    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.18));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    for (int y = 0; y < constraints.height; y += stride) {
+        for (int x = 0; x < constraints.width; x += stride) {
+            const size_t idx = static_cast<size_t>(constraints.toIndex(x, y));
+            const float nature = constraints.nature_score[idx];
+            if (nature < 0.15f) {
+                continue;
+            }
+
+            const ImVec4 color(
+                0.10f + 0.18f * nature,
+                0.55f + 0.40f * nature,
+                0.18f + 0.12f * nature,
+                0.10f + 0.25f * nature);
+
+            const RogueCity::Core::Vec2 center(
+                (static_cast<double>(x) + 0.5) * constraints.cell_size,
+                (static_cast<double>(y) + 0.5) * constraints.cell_size);
+            draw_list->AddCircleFilled(
+                WorldToScreen(center),
+                radius,
+                ImGui::ColorConvertFloat4ToU32(color));
+        }
     }
 }
 

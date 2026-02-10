@@ -2,15 +2,11 @@
 // PURPOSE: Live analytics panel showing procedural generation metrics.
 
 #include "ui/panels/rc_panel_telemetry.h"
-#include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
 #include "ui/introspection/UiIntrospection.h"
-#include "RogueCity/App/Tools/AxiomVisual.hpp"
-#include "RogueCity/App/Tools/AxiomIcon.hpp"
 
 #include <imgui.h>
-#include <numbers>
 
 namespace RC_UI::Panels::Telemetry {
 
@@ -26,8 +22,8 @@ void Draw(float dt)
         RogueCity::UIInt::PanelMeta{
             "Analytics",
             "Analytics",
-            "inspector",
-            "Right",
+            "analytics",
+            "ToolDeck",
             "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
             {"analytics", "metrics"}
         },
@@ -62,116 +58,6 @@ void Draw(float dt)
     ImGui::Text("Flow Rate");
     ImGui::TextColored(ColorAccentB, "%.2f", fill.v);
     uiint.RegisterWidget({"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
-
-    ImGui::Separator();
-    if (ImGui::CollapsingHeader("Inspector", ImGuiTreeNodeFlags_DefaultOpen)) {
-        uiint.RegisterWidget({"tree", "Inspector", "inspector.axiom", {"inspector"}});
-        auto* selected = AxiomEditor::GetSelectedAxiom();
-        if (!selected) {
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 0.9f), "No axiom selected.");
-        } else {
-            const auto infos = RogueCity::App::GetAxiomTypeInfos();
-            int current_index = 0;
-            for (int i = 0; i < static_cast<int>(infos.size()); ++i) {
-                if (infos[static_cast<size_t>(i)].type == selected->type()) {
-                    current_index = i;
-                    break;
-                }
-            }
-
-            bool modified = false;
-
-            if (ImGui::BeginCombo("Type", infos[static_cast<size_t>(current_index)].name)) {
-                for (int i = 0; i < static_cast<int>(infos.size()); ++i) {
-                    const bool is_selected = (i == current_index);
-                    if (ImGui::Selectable(infos[static_cast<size_t>(i)].name, is_selected)) {
-                        selected->set_type(infos[static_cast<size_t>(i)].type);
-                        modified = true;
-                    }
-                    if (is_selected) ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
-
-            float radius = selected->radius();
-            if (ImGui::DragFloat("Radius", &radius, 1.0f, 50.0f, 1000.0f, "%.0fm")) {
-                selected->set_radius(radius);
-                modified = true;
-            }
-            uiint.RegisterWidget({"slider", "Radius", "axiom.radius", {"axiom", "property"}});
-
-            float pos[2] = { static_cast<float>(selected->position().x), static_cast<float>(selected->position().y) };
-            if (ImGui::DragFloat2("Position", pos, 1.0f, 0.0f, 2000.0f, "%.0f")) {
-                selected->set_position(RogueCity::Core::Vec2(pos[0], pos[1]));
-                modified = true;
-            }
-            uiint.RegisterWidget({"property_editor", "Position", "axiom.position", {"axiom", "property"}});
-
-            float theta = selected->rotation();
-            if (ImGui::DragFloat("Theta", &theta, 0.01f, -std::numbers::pi_v<float>, std::numbers::pi_v<float>, "%.2f")) {
-                selected->set_rotation(theta);
-                modified = true;
-            }
-            uiint.RegisterWidget({"slider", "Theta", "axiom.theta", {"axiom", "property"}});
-
-            switch (selected->type()) {
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::Organic: {
-                float curv = selected->organic_curviness();
-                if (ImGui::SliderFloat("Curviness", &curv, 0.0f, 1.0f)) {
-                    selected->set_organic_curviness(curv);
-                    modified = true;
-                }
-                break;
-            }
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::Radial: {
-                int spokes = selected->radial_spokes();
-                if (ImGui::SliderInt("Spokes", &spokes, 3, 24)) {
-                    selected->set_radial_spokes(spokes);
-                    modified = true;
-                }
-                break;
-            }
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::LooseGrid: {
-                float jitter = selected->loose_grid_jitter();
-                if (ImGui::SliderFloat("Jitter", &jitter, 0.0f, 1.0f)) {
-                    selected->set_loose_grid_jitter(jitter);
-                    modified = true;
-                }
-                break;
-            }
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::Suburban: {
-                float loop = selected->suburban_loop_strength();
-                if (ImGui::SliderFloat("Loop Strength", &loop, 0.0f, 1.0f)) {
-                    selected->set_suburban_loop_strength(loop);
-                    modified = true;
-                }
-                break;
-            }
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::Stem: {
-                float branch = selected->stem_branch_angle();
-                if (ImGui::SliderAngle("Branch Angle", &branch, 0.0f, 90.0f)) {
-                    selected->set_stem_branch_angle(branch);
-                    modified = true;
-                }
-                break;
-            }
-            case RogueCity::Generators::CityGenerator::AxiomInput::Type::Superblock: {
-                float block = selected->superblock_block_size();
-                if (ImGui::DragFloat("Block Size", &block, 1.0f, 50.0f, 600.0f, "%.0fm")) {
-                    selected->set_superblock_block_size(block);
-                    modified = true;
-                }
-                break;
-            }
-            default:
-                break;
-            }
-
-            if (modified) {
-                AxiomEditor::MarkAxiomChanged();
-            }
-        }
-    }
 
     uiint.EndPanel();
     ImGui::End();

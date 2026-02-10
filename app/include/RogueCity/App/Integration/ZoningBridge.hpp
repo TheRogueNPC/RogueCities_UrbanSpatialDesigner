@@ -72,6 +72,9 @@ private:
     
     // Helper: Populate GlobalState from output
     void PopulateGlobalState(const Generators::ZoningGenerator::ZoningOutput& output, Core::Editor::GlobalState& gs);
+
+    // Helper: Validate generated plan against active world constraints.
+    void RunPlanValidation(Core::Editor::GlobalState& gs);
 };
 
 } // namespace RogueCity::App::Integration

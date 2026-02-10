@@ -40,7 +40,7 @@ void Draw(float dt)
             "Inspector",
             "Inspector",
             "inspector",
-            "Right",
+            "ToolDeck",
             "visualizer/src/ui/panels/rc_panel_inspector.cpp",
             {"detail", "selection"}
         },
@@ -54,7 +54,11 @@ void Draw(float dt)
         ImGui::InputScalar("Building ID", ImGuiDataType_U32, &building.id);
         ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &building.lot_id);
         ImGui::InputScalar("District ID", ImGuiDataType_U32, &building.district_id);
-        ImGui::InputFloat2("Position", &building.position.x);
+        float pos_xy[2] = { static_cast<float>(building.position.x), static_cast<float>(building.position.y) };
+        if (ImGui::InputFloat2("Position", pos_xy)) {
+            building.position.x = pos_xy[0];
+            building.position.y = pos_xy[1];
+        }
         ImGui::Checkbox("User Placed", &building.is_user_placed);
         ImGui::Checkbox("Locked Type", &building.locked_type);
         uiint.RegisterWidget({"property_editor", "Building", "buildings[]", {"detail"}});
@@ -64,7 +68,11 @@ void Draw(float dt)
         ImGui::Separator();
         ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &lot.id);
         ImGui::InputScalar("District ID", ImGuiDataType_U32, &lot.district_id);
-        ImGui::InputFloat2("Centroid", &lot.centroid.x);
+        float centroid_xy[2] = { static_cast<float>(lot.centroid.x), static_cast<float>(lot.centroid.y) };
+        if (ImGui::InputFloat2("Centroid", centroid_xy)) {
+            lot.centroid.x = centroid_xy[0];
+            lot.centroid.y = centroid_xy[1];
+        }
         ImGui::Checkbox("User Placed", &lot.is_user_placed);
         ImGui::Checkbox("Locked Type", &lot.locked_type);
         ImGui::SeparatorText("AESP Scores");
