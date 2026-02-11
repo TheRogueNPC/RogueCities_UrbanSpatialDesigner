@@ -1,5 +1,5 @@
 // FILE: visualizer/src/ui/panels/rc_panel_inspector.h (RogueCities_UrbanSpatialDesigner)
-// PURPOSE: Bottom-left inspector panel (stub).
+// PURPOSE: Bottom-left inspector panel for live selection detail.
 #pragma once
 
 namespace RC_UI::Panels::Inspector {

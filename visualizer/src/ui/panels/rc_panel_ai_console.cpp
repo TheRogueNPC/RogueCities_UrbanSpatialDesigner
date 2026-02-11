@@ -7,6 +7,7 @@
 #include "RogueCity/App/UI/DesignSystem.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
+#include "ui/rc_ui_tokens.h"
 #include <imgui.h>
 
 namespace RogueCity::UI {
@@ -43,9 +44,9 @@ void AiConsolePanel::Render() {
     // === STATUS DISPLAY ===
     DesignSystem::SectionHeader("Bridge Status");
     
-    ImU32 statusColor = runtime.IsOnline() ? DesignTokens::SuccessGreen : DesignTokens::YellowWarning;
+    ImU32 statusColor = runtime.IsOnline() ? RC_UI::UITokens::SuccessGreen : RC_UI::UITokens::YellowWarning;
     if (runtime.GetStatus() == AI::BridgeStatus::Failed) {
-        statusColor = DesignTokens::ErrorRed;
+        statusColor = RC_UI::UITokens::ErrorRed;
     }
     
     ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(statusColor));
@@ -53,7 +54,7 @@ void AiConsolePanel::Render() {
     ImGui::PopStyleColor();
     
     if (runtime.GetStatus() == AI::BridgeStatus::Failed && !runtime.GetLastError().empty()) {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::ErrorRed));
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(RC_UI::UITokens::ErrorRed));
         ImGui::Text("Error: %s", runtime.GetLastError().c_str());
         ImGui::PopStyleColor();
     }

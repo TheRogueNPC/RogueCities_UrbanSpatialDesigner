@@ -2,6 +2,7 @@
 // PURPOSE: Context-sensitive property editor for selected entities.
 
 #include "ui/panels/rc_property_editor.h"
+#include "ui/rc_ui_tokens.h"
 
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
@@ -1016,7 +1017,7 @@ void PropertyEditor::Draw(GlobalState& gs) {
     } else if (gs.selection.selected_road) {
         DrawSingleRoad(gs, *gs.selection.selected_road);
     } else {
-        ImGui::TextColored(ImVec4(0.6f, 0.75f, 0.9f, 0.85f), "No selection");
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::TextSecondary, 217u)), "No selection");
     }
 
     DrawGizmoControls(gs);

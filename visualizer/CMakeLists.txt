@@ -13,6 +13,26 @@ if(ROGUECITY_BUILD_VISUALIZER)
 set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
 set(ROGUECITY_GL3W_DIR "${CMAKE_SOURCE_DIR}/3rdparty/gl3w")
 
+function(rc_configure_msvc_pdb target base_name)
+    if(NOT MSVC)
+        return()
+    endif()
+
+    target_compile_options(${target} PRIVATE /FS)
+    set_target_properties(${target} PROPERTIES
+        COMPILE_PDB_NAME "${base_name}_$<CONFIG>"
+        PDB_NAME "${base_name}_$<CONFIG>"
+    )
+
+    foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
+        string(TOUPPER "${cfg}" cfg_upper)
+        set_target_properties(${target} PROPERTIES
+            "COMPILE_PDB_OUTPUT_DIRECTORY_${cfg_upper}" "${CMAKE_BINARY_DIR}/pdb/compile/${cfg}"
+            "PDB_OUTPUT_DIRECTORY_${cfg_upper}" "${CMAKE_BINARY_DIR}/pdb/link/${cfg}"
+        )
+    endforeach()
+endfunction()
+
 if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
     message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Ensure 3rdparty/imvue submodules are initialized.")
 endif()
@@ -77,6 +97,7 @@ endif()
         "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
     )
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
+    rc_configure_msvc_pdb(RogueCityVisualizerHeadless "RogueCityVisualizerHeadless")
     
     # ==================================================
     # GUI executable (GLFW + OpenGL3 + ImGui)
@@ -181,6 +202,7 @@ endif()
             endif()
             
             target_compile_features(RogueCityVisualizerGui PRIVATE cxx_std_20)
+            rc_configure_msvc_pdb(RogueCityVisualizerGui "RogueCityVisualizerGui")
             
             # Disable precompiled headers for this target (mixed C/C++)
             set_target_properties(RogueCityVisualizerGui PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)

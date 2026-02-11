@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/rc_ui_root.h"
+#include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
 
@@ -124,7 +125,7 @@ void Draw(float /*dt*/) {
         ImGui::Text("Last export: %s", s_lastOutput);
     }
     if (s_lastError[0] != '\0') {
-        ImGui::TextColored(ImVec4(1.0f, 0.25f, 0.25f, 1.0f), "Error: %s", s_lastError);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "Error: %s", s_lastError);
     }
 
     ImGui::Separator();

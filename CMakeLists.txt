@@ -1,4 +1,4 @@
-﻿# ==================================================
+# ==================================================
 # RogueCity MVP - Core-Only Build
 # ==================================================
 # This builds ONLY the new core library, ignoring broken src/
@@ -19,6 +19,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(MSVC)
     # Force consistent MSVC runtime library
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    
+    # Fix MSB8028: Use unique intermediate directories per target
+    # This prevents "shared intermediate directory" warnings and incorrect rebuild behavior
+    set(CMAKE_VS_GLOBALS "IntDir=$(ProjectDir)$(ProjectName).dir\\$(Configuration)\\")
     
     # Enable high warning level, but don't break build on warnings
     add_compile_options(/W4 /WX-)

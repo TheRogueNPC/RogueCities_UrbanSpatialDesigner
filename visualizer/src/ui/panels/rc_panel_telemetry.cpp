@@ -3,19 +3,20 @@
 
 #include "ui/panels/rc_panel_telemetry.h"
 #include "ui/rc_ui_anim.h"
-#include "ui/rc_ui_theme.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 
+#include <RogueCity/Core/Editor/GlobalState.hpp>
+
 #include <imgui.h>
+#include <algorithm>
+#include <string>
 
 namespace RC_UI::Panels::Telemetry {
 
 void Draw(float dt)
 {
-    // Color the panel background using the theme palette
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    // The window title is "Analytics" to reflect its purpose
-    const bool open = ImGui::Begin("Analytics", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = Components::BeginTokenPanel("Analytics", UITokens::CyanAccent);
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -32,36 +33,59 @@ void Draw(float dt)
 
     if (!open) {
         uiint.EndPanel();
-        ImGui::End();
-        ImGui::PopStyleColor();
+        Components::EndTokenPanel();
         return;
     }
 
-    // TODO: Bind real metrics here. The following reactive bar animates using Pulse().
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    const float fps = ImGui::GetIO().Framerate;
+    const float frame_ms = (fps > 0.0f) ? (1000.0f / fps) : 0.0f;
+    const int dirty_count = [&gs]() {
+        using RogueCity::Core::Editor::DirtyLayer;
+        int count = 0;
+        for (int i = 0; i < static_cast<int>(DirtyLayer::Count); ++i) {
+            if (gs.dirty_layers.IsDirty(static_cast<DirtyLayer>(i))) {
+                ++count;
+            }
+        }
+        return count;
+    }();
+
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, 120.0f);
 
     static ReactiveF fill;
-    fill.target = Pulse(static_cast<float>(ImGui::GetTime()), 1.2f);
+    const float target_load =
+        0.35f * std::clamp(static_cast<float>(dirty_count) / 7.0f, 0.0f, 1.0f) +
+        0.45f * std::clamp(frame_ms / 22.0f, 0.0f, 1.0f) +
+        0.20f * std::clamp(static_cast<float>(gs.selection_manager.Count()) / 12.0f, 0.0f, 1.0f);
+    fill.target = target_load;
     fill.Update(dt);
 
+    Components::DrawScanlineBackdrop(start, ImVec2(start.x + size.x, start.y + size.y), static_cast<float>(ImGui::GetTime()), UITokens::GreenHUD);
     const ImVec2 bar_end(start.x + size.x, start.y + size.y);
-    draw_list->AddRectFilled(start, bar_end, ImGui::ColorConvertFloat4ToU32(Palette::Nebula), 18.0f);
+    draw_list->AddRectFilled(start, bar_end, WithAlpha(UITokens::BackgroundDark, 235), UITokens::RoundingPanel);
+    draw_list->AddRect(start, bar_end, WithAlpha(UITokens::YellowWarning, 180), UITokens::RoundingPanel, 0, UITokens::BorderNormal);
 
     const float fill_height = size.y * (0.2f + 0.7f * fill.v);
     const ImVec2 fill_start(start.x + 8.0f, bar_end.y - fill_height - 8.0f);
     const ImVec2 fill_end(bar_end.x - 8.0f, bar_end.y - 8.0f);
-    draw_list->AddRectFilled(fill_start, fill_end, ImGui::ColorConvertFloat4ToU32(ZoneTelemetry.accent), 14.0f);
+    draw_list->AddRectFilled(fill_start, fill_end, WithAlpha(UITokens::CyanAccent, 180), UITokens::RoundingButton);
 
     ImGui::Dummy(size);
-    ImGui::Text("Flow Rate");
-    ImGui::TextColored(ColorAccentB, "%.2f", fill.v);
+    ImGui::Text("Runtime Pressure");
+    ImGui::ProgressBar(fill.v, ImVec2(-1.0f, 0.0f), (std::to_string(static_cast<int>(fill.v * 100.0f)) + "%").c_str());
+    ImGui::Text("FPS: %.1f  (%.2f ms)", fps, frame_ms);
+    ImGui::Text("Dirty Layers: %d / 7", dirty_count);
+    ImGui::Text("Entities R:%zu D:%zu L:%zu B:%zu", gs.roads.size(), gs.districts.size(), gs.lots.size(), gs.buildings.size());
+    Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED",
+        gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed,
+        true);
     uiint.RegisterWidget({"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
 
     uiint.EndPanel();
-    ImGui::End();
-    ImGui::PopStyleColor();
+    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::Telemetry

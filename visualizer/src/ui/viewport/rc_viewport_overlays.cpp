@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <unordered_map>
 
 namespace RC_UI::Viewport {
@@ -267,7 +268,11 @@ void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalSta
 
 void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState& gs) {
     std::unordered_map<uint32_t, float> budget_by_district;
-    budget_by_district.reserve(gs.lots.size());
+    const uint64_t lot_count = gs.lots.size();
+    const uint64_t reserve_cap = std::min<uint64_t>(
+        lot_count,
+        static_cast<uint64_t>(std::numeric_limits<size_t>::max()));
+    budget_by_district.reserve(static_cast<size_t>(reserve_cap));
     for (const auto& lot : gs.lots) {
         budget_by_district[lot.district_id] += lot.budget_allocation;
     }
@@ -321,7 +326,9 @@ void ViewportOverlays::RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalS
 
     const auto& constraints = gs.world_constraints;
     const int stride = std::max(1, std::max(constraints.width, constraints.height) / 90);
-    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.22));
+    const float radius = std::max(
+        1.0f,
+        WorldToScreenScale(static_cast<float>(constraints.cell_size * static_cast<double>(stride) * 0.22)));
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     for (int y = 0; y < constraints.height; y += stride) {
@@ -357,7 +364,9 @@ void ViewportOverlays::RenderNoBuildMask(const RogueCity::Core::Editor::GlobalSt
 
     const auto& constraints = gs.world_constraints;
     const int stride = std::max(1, std::max(constraints.width, constraints.height) / 120);
-    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.20));
+    const float radius = std::max(
+        1.0f,
+        WorldToScreenScale(static_cast<float>(constraints.cell_size * static_cast<double>(stride) * 0.20)));
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     for (int y = 0; y < constraints.height; y += stride) {
@@ -385,7 +394,9 @@ void ViewportOverlays::RenderNatureHeatmap(const RogueCity::Core::Editor::Global
 
     const auto& constraints = gs.world_constraints;
     const int stride = std::max(1, std::max(constraints.width, constraints.height) / 95);
-    const float radius = std::max(1.0f, WorldToScreenScale(constraints.cell_size * static_cast<double>(stride) * 0.18));
+    const float radius = std::max(
+        1.0f,
+        WorldToScreenScale(static_cast<float>(constraints.cell_size * static_cast<double>(stride) * 0.18)));
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     for (int y = 0; y < constraints.height; y += stride) {
@@ -433,7 +444,9 @@ void ViewportOverlays::RenderHeightField(const RogueCity::Core::Editor::GlobalSt
     const float range = std::max(1e-4f, max_h - min_h);
 
     const int stride = std::max(1, height.width() / 96);
-    const float radius = std::max(1.0f, WorldToScreenScale(texture_space.coordinateSystem().metersPerPixel() * stride * 0.32));
+    const float radius = std::max(
+        1.0f,
+        WorldToScreenScale(static_cast<float>(texture_space.coordinateSystem().metersPerPixel() * static_cast<double>(stride) * 0.32)));
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const auto& coords = texture_space.coordinateSystem();
 
@@ -466,7 +479,7 @@ void ViewportOverlays::RenderTensorField(const RogueCity::Core::Editor::GlobalSt
     const int stride = std::max(1, tensor.width() / 60);
     const auto& coords = texture_space.coordinateSystem();
     const double world_step = coords.metersPerPixel() * static_cast<double>(stride);
-    const float half_len = std::max(2.0f, WorldToScreenScale(world_step * 0.35));
+    const float half_len = std::max(2.0f, WorldToScreenScale(static_cast<float>(world_step * 0.35)));
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     for (int y = 0; y < tensor.height(); y += stride) {
@@ -506,7 +519,9 @@ void ViewportOverlays::RenderZoneField(const RogueCity::Core::Editor::GlobalStat
     }
 
     const int stride = std::max(1, zone.width() / 110);
-    const float radius = std::max(1.0f, WorldToScreenScale(texture_space.coordinateSystem().metersPerPixel() * stride * 0.30));
+    const float radius = std::max(
+        1.0f,
+        WorldToScreenScale(static_cast<float>(texture_space.coordinateSystem().metersPerPixel() * static_cast<double>(stride) * 0.30)));
     const auto& coords = texture_space.coordinateSystem();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -879,7 +894,7 @@ void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalSt
             for (size_t i = 0; i < water.boundary.size() - 1; ++i) {
                 if (i % 10 == 0) { // Every 10th segment
                     RogueCity::Core::Vec2 dir = water.boundary[i + 1] - water.boundary[i];
-                    float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+                    const double len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
                     if (len > 1.0) {
                         dir.x /= len;
                         dir.y /= len;

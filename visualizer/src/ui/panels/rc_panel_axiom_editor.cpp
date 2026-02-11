@@ -1,10 +1,10 @@
 // FILE: AxiomEditorPanel.cpp - Integrated axiom editor with viewport
-// Replaces SystemMap stub with full axiom placement functionality
+// Full axiom placement workflow and minimap controls
 
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
 #include "ui/rc_ui_viewport_config.h"
-#include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine enforcement
+#include "ui/rc_ui_tokens.h"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
@@ -39,9 +39,15 @@
 
 namespace RC_UI::Panels::AxiomEditor {
 
-using namespace RogueCity::UI;  // For DesignSystem helpers
-
 namespace {
+    [[nodiscard]] ImU32 TokenColor(ImU32 base, uint8_t alpha = 255u) {
+        return WithAlpha(base, alpha);
+    }
+
+    [[nodiscard]] ImVec4 TokenColorF(ImU32 base, uint8_t alpha = 255u) {
+        return ImGui::ColorConvertU32ToFloat4(TokenColor(base, alpha));
+    }
+
     using Preview = RogueCity::App::RealTimePreview;
     static bool s_viewport_open = true;
     
@@ -50,7 +56,7 @@ namespace {
         Disabled,
         Soliton,      // Render-to-texture (recommended, high performance)
         Reactive,     // Dual viewport (heavier, real-time updates)
-        Satellite     // Future: Satellite-style view (stub)
+        Satellite     // Future extension point: satellite-style view
     };
 
     enum class MinimapLOD : uint8_t {
@@ -95,13 +101,13 @@ namespace {
             const float reveal = std::clamp(t / 0.25f, 0.0f, 1.0f);
             const int visible = std::clamp(static_cast<int>(reveal * static_cast<float>(len)), 0, len);
 
-            ImGui::TextColored(ImVec4(1.0f, 0.15f, 0.15f, 1.0f), "%.*s", visible, text);
+            ImGui::TextColored(TokenColorF(UITokens::ErrorRed), "%.*s", visible, text);
             return;
         }
 
         if (phase == Preview::GenerationPhase::Sweeping) {
             const float p = preview.get_progress();
-            ImGui::TextColored(ImVec4(1.0f, 0.65f, 0.0f, 1.0f), "_SWEEPING  %.0f%%", p * 100.0f);
+            ImGui::TextColored(TokenColorF(UITokens::AmberGlow), "_SWEEPING  %.0f%%", p * 100.0f);
             return;
         }
 
@@ -112,7 +118,7 @@ namespace {
             return;
         }
 
-        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.95f), "AXIOM MODE ACTIVE");
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 242u), "AXIOM MODE ACTIVE");
     }
 
     void SyncGlobalStateFromPreview(const RogueCity::Generators::CityGenerator::CityOutput& output) {
@@ -905,33 +911,36 @@ const char* GetValidationError() {
 // === ROGUENAV MINIMAP RENDERING ===
 static ImU32 GetNavAlertColor() {
     switch (s_nav_alert_level) {
-        case RogueNavAlert::Alert:   return DesignTokens::ErrorRed;      // Red - Detected
-        case RogueNavAlert::Evasion: return IM_COL32(255, 128, 0, 255);  // Orange - Tracked
-        case RogueNavAlert::Caution: return DesignTokens::YellowWarning; // Yellow - Suspicious
+        case RogueNavAlert::Alert:   return UITokens::ErrorRed;      // Red - Detected
+        case RogueNavAlert::Evasion: return UITokens::AmberGlow;  // Orange - Tracked
+        case RogueNavAlert::Caution: return UITokens::YellowWarning; // Yellow - Suspicious
         case RogueNavAlert::Normal:
-        default:                     return DesignTokens::InfoBlue;      // Blue - All clear
+        default:                     return UITokens::InfoBlue;      // Blue - All clear
     }
 }
 
 // Convert world coordinates to minimap UV space [0,1]
 static ImVec2 WorldToMinimapUV(const RogueCity::Core::Vec2& world_pos, const RogueCity::Core::Vec2& camera_pos) {
     // World space relative to camera
-    float rel_x = (world_pos.x - camera_pos.x) / (kMinimapWorldSize * s_minimap_zoom);
-    float rel_y = (world_pos.y - camera_pos.y) / (kMinimapWorldSize * s_minimap_zoom);
+    const double world_span = static_cast<double>(kMinimapWorldSize) * static_cast<double>(s_minimap_zoom);
+    const double rel_x = (world_pos.x - camera_pos.x) / world_span;
+    const double rel_y = (world_pos.y - camera_pos.y) / world_span;
     
     // Center on minimap (0.5, 0.5) + relative offset
-    return ImVec2(0.5f + rel_x, 0.5f + rel_y);
+    return ImVec2(
+        static_cast<float>(0.5 + rel_x),
+        static_cast<float>(0.5 + rel_y));
 }
 
 // Convert minimap pixel coords to world coordinates
 static RogueCity::Core::Vec2 MinimapPixelToWorld(const ImVec2& pixel_pos, const ImVec2& minimap_pos, const RogueCity::Core::Vec2& camera_pos) {
     // Normalize to UV [0,1]
-    float u = (pixel_pos.x - minimap_pos.x) / kMinimapSize;
-    float v = (pixel_pos.y - minimap_pos.y) / kMinimapSize;
+    const double u = static_cast<double>(pixel_pos.x - minimap_pos.x) / static_cast<double>(kMinimapSize);
+    const double v = static_cast<double>(pixel_pos.y - minimap_pos.y) / static_cast<double>(kMinimapSize);
     
     // UV to world (centered on camera)
-    float world_x = camera_pos.x + (u - 0.5f) * kMinimapWorldSize * s_minimap_zoom;
-    float world_y = camera_pos.y + (v - 0.5f) * kMinimapWorldSize * s_minimap_zoom;
+    const double world_x = camera_pos.x + (u - 0.5) * static_cast<double>(kMinimapWorldSize) * static_cast<double>(s_minimap_zoom);
+    const double world_y = camera_pos.y + (v - 0.5) * static_cast<double>(kMinimapWorldSize) * static_cast<double>(s_minimap_zoom);
     
     return RogueCity::Core::Vec2(world_x, world_y);
 }
@@ -1146,7 +1155,9 @@ static void RenderMinimapSelectionHighlights(
         }
 
         const bool is_primary = primary != nullptr && primary->kind == item.kind && primary->id == item.id;
-        const ImU32 ring_color = is_primary ? IM_COL32(255, 230, 90, 235) : IM_COL32(255, 255, 255, 200);
+        const ImU32 ring_color = is_primary
+            ? TokenColor(UITokens::YellowWarning, 235u)
+            : TokenColor(UITokens::TextPrimary, 200u);
         const float radius = is_primary ? 5.5f : 4.0f;
         const float thickness = is_primary ? 2.0f : 1.4f;
 
@@ -1157,13 +1168,14 @@ static void RenderMinimapSelectionHighlights(
 
 static ImU32 DistrictColor(RogueCity::Core::DistrictType type, MinimapLOD lod) {
     const int alpha = (lod == MinimapLOD::Strategic) ? 120 : 165;
+    const auto a = static_cast<uint8_t>(alpha);
     switch (type) {
-        case RogueCity::Core::DistrictType::Residential: return IM_COL32(80, 210, 120, alpha);
-        case RogueCity::Core::DistrictType::Commercial: return IM_COL32(120, 170, 255, alpha);
-        case RogueCity::Core::DistrictType::Industrial: return IM_COL32(225, 170, 80, alpha);
-        case RogueCity::Core::DistrictType::Civic: return IM_COL32(210, 120, 210, alpha);
+        case RogueCity::Core::DistrictType::Residential: return TokenColor(UITokens::GreenHUD, a);
+        case RogueCity::Core::DistrictType::Commercial: return TokenColor(UITokens::InfoBlue, a);
+        case RogueCity::Core::DistrictType::Industrial: return TokenColor(UITokens::AmberGlow, a);
+        case RogueCity::Core::DistrictType::Civic: return TokenColor(UITokens::MagentaHighlight, a);
         case RogueCity::Core::DistrictType::Mixed:
-        default: return IM_COL32(190, 190, 190, alpha);
+        default: return TokenColor(UITokens::TextSecondary, a);
     }
 }
 
@@ -1186,10 +1198,7 @@ static void RenderHeightOverlay(
             const float h = texture_space.heightLayer().sampleBilinear(
                 texture_space.coordinateSystem().worldToUV(world));
             const float normalized = std::clamp(h / 120.0f, 0.0f, 1.0f);
-            const uint8_t r = static_cast<uint8_t>(40.0f + normalized * 180.0f);
-            const uint8_t g = static_cast<uint8_t>(70.0f + normalized * 120.0f);
-            const uint8_t b = static_cast<uint8_t>(140.0f + normalized * 80.0f);
-            const ImU32 color = IM_COL32(r, g, b, 48);
+            const ImU32 color = TokenColor(LerpColor(UITokens::InfoBlue, UITokens::AmberGlow, normalized), 48u);
             draw_list->AddRectFilled(
                 pixel,
                 ImVec2(pixel.x + static_cast<float>(sample_step), pixel.y + static_cast<float>(sample_step)),
@@ -1224,7 +1233,7 @@ static void RenderTensorOverlay(
             const float half_len = 5.0f;
             const ImVec2 a(pixel.x - static_cast<float>(unit.x) * half_len, pixel.y - static_cast<float>(unit.y) * half_len);
             const ImVec2 b(pixel.x + static_cast<float>(unit.x) * half_len, pixel.y + static_cast<float>(unit.y) * half_len);
-            draw_list->AddLine(a, b, IM_COL32(120, 255, 240, 130), 1.0f);
+            draw_list->AddLine(a, b, TokenColor(UITokens::CyanAccent, 130u), 1.0f);
         }
     }
 }
@@ -1253,7 +1262,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     draw_list->AddRectFilled(
         ImVec2(minimap_pos.x + 3, minimap_pos.y + 3),
         ImVec2(minimap_pos.x + kMinimapSize - 3, minimap_pos.y + kMinimapSize - 3),
-        IM_COL32(10, 15, 25, 200)  // Dark semi-transparent
+        TokenColor(UITokens::BackgroundDark, 200u)
     );
     
     // RogueNav label (top-left corner, inside border)
@@ -1275,7 +1284,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         minimap_pos.x + kMinimapSize - mode_text_size.x - 8,
         minimap_pos.y + 8
     ));
-    ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
     ImGui::Text("%s", mode_text);
     ImGui::PopStyleColor();
 
@@ -1304,7 +1313,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     }
 
     ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + 24.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
     ImGui::Text("%s", MinimapLODStatusText());
     ImGui::PopStyleColor();
     
@@ -1343,7 +1352,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
                 );
                 
                 // Draw axiom as colored circle
-                ImU32 axiom_color = DesignTokens::MagentaHighlight;
+                ImU32 axiom_color = UITokens::MagentaHighlight;
                 draw_list->AddCircleFilled(screen_pos, 3.0f, axiom_color);
                 draw_list->AddCircle(screen_pos, 5.0f, axiom_color, 8, 1.0f);
             }
@@ -1389,7 +1398,9 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         const auto& roads = output->roads;
         const size_t sample_step = (active_lod == MinimapLOD::Detail) ? 1u : ((active_lod == MinimapLOD::Tactical) ? 3u : 8u);
         const float road_width = (active_lod == MinimapLOD::Detail) ? 1.25f : 1.0f;
-        const ImU32 road_color = (active_lod == MinimapLOD::Strategic) ? IM_COL32(90, 180, 200, 150) : DesignTokens::CyanAccent;
+        const ImU32 road_color = (active_lod == MinimapLOD::Strategic)
+            ? TokenColor(UITokens::InfoBlue, 150u)
+            : UITokens::CyanAccent;
         for (auto it = roads.begin(); it != roads.end(); ++it) {
             const auto& road = *it;
             if (road.points.size() < 2 || !ShouldRenderRoadForLOD(road.type, active_lod)) {
@@ -1430,7 +1441,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
                     draw_list->AddRectFilled(
                         ImVec2(screen_pos.x - 1.5f, screen_pos.y - 1.5f),
                         ImVec2(screen_pos.x + 1.5f, screen_pos.y + 1.5f),
-                        IM_COL32(245, 245, 245, 220));
+                        TokenColor(UITokens::TextPrimary, 220u));
                     continue;
                 }
 
@@ -1446,7 +1457,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
                     draw_list->AddLine(
                         ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
                         ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
-                        IM_COL32(245, 245, 245, 210),
+                        TokenColor(UITokens::TextPrimary, 210u),
                         1.0f);
                 }
             }
@@ -1457,7 +1468,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
                     continue;
                 }
                 const ImVec2 screen_pos(minimap_pos.x + uv.x * kMinimapSize, minimap_pos.y + uv.y * kMinimapSize);
-                draw_list->AddCircleFilled(screen_pos, 1.4f, IM_COL32(245, 245, 245, 185));
+                draw_list->AddCircleFilled(screen_pos, 1.4f, TokenColor(UITokens::TextPrimary, 185u));
             }
         }
     }
@@ -1475,7 +1486,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         }
     }
 
-    // Frustum rectangle from current primary viewport zoom (replaces placeholder).
+    // Frustum rectangle from current primary viewport zoom.
     const double half_w_world = (static_cast<double>(viewport_size.x) * 0.5) / std::max(0.05f, viewport_zoom);
     const double half_h_world = (static_cast<double>(viewport_size.y) * 0.5) / std::max(0.05f, viewport_zoom);
     const std::array<RogueCity::Core::Vec2, 4> frustum_world = {
@@ -1491,7 +1502,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         draw_list->AddLine(
             ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
             ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
-            DesignTokens::YellowWarning,
+            UITokens::YellowWarning,
             1.5f);
     }
     
@@ -1507,7 +1518,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     draw_list->AddRect(
         ImVec2(minimap_pos.x + 6.0f, minimap_pos.y + 6.0f),
         ImVec2(minimap_pos.x + kMinimapSize - 6.0f, minimap_pos.y + kMinimapSize - 6.0f),
-        IM_COL32(255, 255, 255, 40),
+        TokenColor(UITokens::TextPrimary, 40u),
         0.0f,
         0,
         1.0f);
@@ -1521,7 +1532,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         : camera_pos;
 
     ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + kMinimapSize - 36.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
     ImGui::Text(
         "CUR %.0f, %.0f",
         static_cast<float>(cursor_world.x),
@@ -1581,12 +1592,12 @@ void Draw(float dt) {
     draw_list->AddRectFilled(
         viewport_pos,
         ImVec2(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y),
-        IM_COL32(15, 20, 30, 255)
+        TokenColor(UITokens::BackgroundDark)
     );
     
     // Grid overlay (subtle Y2K aesthetic)
     const float grid_spacing = 50.0f;  // 50 meter grid
-    const ImU32 grid_color = IM_COL32(40, 50, 70, 100);
+    const ImU32 grid_color = TokenColor(UITokens::GridOverlay, 100u);
     
     for (float x = 0; x < viewport_size.x; x += grid_spacing) {
         draw_list->AddLine(
@@ -1623,7 +1634,7 @@ void Draw(float dt) {
             open
         );
 
-        ImGui::TextColored(ImVec4(1, 1, 1, 0.85f), "Axiom Library (Ctrl: apply to selection)");
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 217u), "Axiom Library (Ctrl: apply to selection)");
 
         const float icon_size = 46.0f;
         const int columns = 5;
@@ -1656,8 +1667,8 @@ void Draw(float dt) {
 
             ImDrawList* dl = ImGui::GetWindowDrawList();
             const bool is_default = (default_type == info.type);
-            const ImU32 bg = IM_COL32(0, 0, 0, ImGui::IsItemHovered() ? 200 : 140);
-            const ImU32 border = is_default ? IM_COL32(255, 255, 255, 220) : IM_COL32(80, 90, 110, 160);
+            const ImU32 bg = TokenColor(UITokens::BackgroundDark, ImGui::IsItemHovered() ? 200u : 140u);
+            const ImU32 border = is_default ? TokenColor(UITokens::TextPrimary, 220u) : TokenColor(UITokens::TextSecondary, 160u);
 
             dl->AddRectFilled(bmin, bmax, bg, 8.0f);
             dl->AddRect(bmin, bmax, border, 8.0f, 0, is_default ? 2.5f : 1.5f);
@@ -1753,7 +1764,7 @@ void Draw(float dt) {
 
         // Debug: Show mouse world position
         ImGui::SetCursorScreenPos(ImVec2(10, 30));
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 0.7f),
+        ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 178u),
             "Mouse World: (%.1f, %.1f)%s", world_pos.x, world_pos.y, nav_active ? " [NAV]" : "");
 
         // Tool interaction (disabled while navigating)
@@ -2115,11 +2126,11 @@ void Draw(float dt) {
     if (axiom_mode && s_preview) {
         DrawAxiomModeStatus(*s_preview, ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+        ImGui::TextColored(TokenColorF(UITokens::TextSecondary),
             "Click-drag to set radius | Edit type via palette");
     } else {
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
-        ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 0.7f), "Viewport Ready");
+        ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "Viewport Ready");
     }
     
     // Axiom count display
@@ -2127,7 +2138,7 @@ void Draw(float dt) {
         viewport_pos.x + viewport_size.x - 120,
         viewport_pos.y + 20
     ));
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.7f), 
+    ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 178u), 
         "Axioms: %zu", axioms.size());
     
     // Render generated city output (roads)
@@ -2147,7 +2158,7 @@ void Draw(float dt) {
                 ImVec2 curr_screen = s_primary_viewport->world_to_screen(road.points[j]);
                 
                 // Y2K road styling (bright cyan for visibility)
-                ImU32 road_color = IM_COL32(0, 255, 255, 200);
+                ImU32 road_color = TokenColor(UITokens::CyanAccent, 200u);
                 float road_width = 2.0f;
                 
                 draw_list->AddLine(prev_screen, curr_screen, road_color, road_width);
@@ -2160,7 +2171,7 @@ void Draw(float dt) {
             viewport_pos.x + viewport_size.x - 120,
             viewport_pos.y + 45
         ));
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 0.7f), 
+        ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 178u), 
             "Roads: %llu", roads.size());
     }
 
@@ -2174,10 +2185,10 @@ void Draw(float dt) {
             for (size_t i = 0; i < road->points.size(); ++i) {
                 const ImVec2 p = s_primary_viewport->world_to_screen(road->points[i]);
                 const ImU32 color = (s_road_vertex_drag.active && s_road_vertex_drag.vertex_index == i)
-                    ? IM_COL32(255, 215, 80, 255)
-                    : IM_COL32(120, 220, 255, 225);
+                    ? TokenColor(UITokens::YellowWarning)
+                    : TokenColor(UITokens::CyanAccent, 225u);
                 draw_list->AddCircleFilled(p, 4.0f, color, 12);
-                draw_list->AddCircle(p, 6.0f, IM_COL32(20, 20, 20, 200), 12, 1.0f);
+                draw_list->AddCircle(p, 6.0f, TokenColor(UITokens::BackgroundDark, 200u), 12, 1.0f);
             }
 
             if (gs.spline_editor.enabled && road->points.size() >= 3) {
@@ -2195,7 +2206,7 @@ void Draw(float dt) {
                     draw_list->AddPolyline(
                         screen.data(),
                         static_cast<int>(screen.size()),
-                        IM_COL32(255, 190, 80, 185),
+                        TokenColor(UITokens::AmberGlow, 185u),
                         gs.spline_editor.closed,
                         2.0f);
                 }
@@ -2212,10 +2223,14 @@ void Draw(float dt) {
             for (size_t i = 0; i < district->border.size(); ++i) {
                 const ImVec2 p = s_primary_viewport->world_to_screen(district->border[i]);
                 const ImU32 color = (s_district_boundary_drag.active && s_district_boundary_drag.vertex_index == i)
-                    ? IM_COL32(255, 120, 80, 255)
-                    : IM_COL32(80, 255, 170, 235);
+                    ? TokenColor(UITokens::ErrorRed)
+                    : TokenColor(UITokens::GreenHUD, 235u);
                 draw_list->AddRectFilled(ImVec2(p.x - 4.0f, p.y - 4.0f), ImVec2(p.x + 4.0f, p.y + 4.0f), color);
-                draw_list->AddRect(ImVec2(p.x - 6.0f, p.y - 6.0f), ImVec2(p.x + 6.0f, p.y + 6.0f), IM_COL32(20, 20, 20, 190), 0.0f, 0, 1.0f);
+                draw_list->AddRect(
+                    ImVec2(p.x - 6.0f, p.y - 6.0f),
+                    ImVec2(p.x + 6.0f, p.y + 6.0f),
+                    TokenColor(UITokens::BackgroundDark, 190u),
+                    0.0f, 0, 1.0f);
             }
         }
     }
@@ -2262,7 +2277,7 @@ void Draw(float dt) {
         draw_list->AddRect(
             ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)),
             ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)),
-            IM_COL32(120, 220, 255, 220),
+            TokenColor(UITokens::CyanAccent, 220u),
             0.0f,
             0,
             2.0f);
@@ -2277,7 +2292,7 @@ void Draw(float dt) {
         draw_list->AddPolyline(
             lasso_screen.data(),
             static_cast<int>(lasso_screen.size()),
-            IM_COL32(120, 220, 255, 220),
+            TokenColor(UITokens::CyanAccent, 220u),
             false,
             2.0f);
     }

@@ -1,5 +1,8 @@
-// FILE: rc_ui_root.cpp - Editor window routing (non-docking version)
+// FILE: rc_ui_root.cpp - Editor window routing with hardened docking
 
+#include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_responsive.h"
+#include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_root.h"
 #include "ui/panels/rc_panel_axiom_bar.h"
 #include "ui/panels/rc_panel_axiom_editor.h"  // NEW: Integrated axiom editor
@@ -33,6 +36,7 @@
 #include <array>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <span>
 #include <cmath>
 
@@ -64,6 +68,7 @@ namespace {
     static DockLayoutNodes s_dock_nodes{};
     static std::vector<DockRequest> s_pending_dock_requests;
     static std::unordered_map<std::string, std::string> s_last_dock_area;
+    static constexpr size_t kMaxPendingDockRequests = 128u;
 }
 
 static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const ImVec2& center, float size) {
@@ -147,20 +152,45 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
     if (open) {
         BeginWindowContainer("##tool_library_container");
         const ImVec2 library_avail = ImGui::GetContentRegionAvail();
-        if (library_avail.x < 80.0f || library_avail.y < 80.0f) {
+        const LayoutMode layout_mode = ResponsiveLayout::GetLayoutMode(library_avail.x);
+        if (layout_mode == LayoutMode::Collapsed ||
+            library_avail.x < ResponsiveConstants::MIN_PANEL_WIDTH ||
+            library_avail.y < ResponsiveConstants::MIN_PANEL_HEIGHT) {
             EndWindowContainer();
             uiint.EndPanel();
             ImGui::End();
             return;
         }
 
-        const float icon_size = ImClamp(library_avail.x / 4.0f, 28.0f, 46.0f);
-        const int columns = static_cast<int>(std::max(1.0f, std::floor(library_avail.x / (icon_size + 12.0f))));
-        for (size_t i = 0; i < entries.size(); ++i) {
+        const float base_icon_size = 46.0f;
+        const float base_spacing = 12.0f;
+        const int total_entries = static_cast<int>(entries.size());
+        const auto layout = ResponsiveButtonLayout::Calculate(
+            total_entries,
+            library_avail.x,
+            library_avail.y,
+            base_icon_size,
+            base_icon_size,
+            base_spacing);
+
+        if (layout.visible_count <= 0) {
+            EndWindowContainer();
+            uiint.EndPanel();
+            ImGui::End();
+            return;
+        }
+
+        const float icon_size = layout.button_width;
+        const float spacing = layout.spacing;
+        const int columns = static_cast<int>(std::max(1.0f,
+            std::floor((library_avail.x + spacing) / (icon_size + spacing))));
+
+        const int visible_entries = std::min(total_entries, layout.visible_count);
+        for (int i = 0; i < visible_entries; ++i) {
             if (i > 0 && (i % columns) != 0) {
-                ImGui::SameLine();
+                ImGui::SameLine(0.0f, spacing);
             }
-            ImGui::PushID(static_cast<int>(i));
+            ImGui::PushID(i);
             ImGui::InvisibleButton("ToolEntry", ImVec2(icon_size, icon_size));
             const ImVec2 bmin = ImGui::GetItemRectMin();
             const ImVec2 bmax = ImGui::GetItemRectMax();
@@ -170,11 +200,15 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             draw_list->AddRect(bmin, bmax, IM_COL32(120, 140, 160, 200), 8.0f, 0, 1.5f);
             DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", entries[i]);
+                ImGui::SetTooltip("%s", entries[static_cast<size_t>(i)]);
             }
             ImGui::PopID();
         }
         uiint.RegisterWidget({"table", window_name, std::string(window_name) + ".tools[]", {"tool", "library"}});
+
+        if (visible_entries < total_entries) {
+            ImGui::SeparatorText("More tools available...");
+        }
 
         if (!spline_entries.empty()) {
             ImGui::SeparatorText("Spline Tools");
@@ -375,10 +409,18 @@ void EndWindowContainer() {
 }
 
 static void BuildDockLayout(ImGuiID dockspace_id) {
+    if (dockspace_id == 0) {
+        return;
+    }
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    if (viewport == nullptr || viewport->Size.x <= 0.0f || viewport->Size.y <= 0.0f) {
+        return;
+    }
+
     ImGui::DockBuilderRemoveNodeDockedWindows(dockspace_id, true);
     ImGui::DockBuilderRemoveNode(dockspace_id);
     ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 
     ImGuiID dock_main = dockspace_id;
     ImGuiID dock_left = 0;
@@ -432,6 +474,22 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     s_dock_nodes.bottom_tabs = dock_bottom_tabs;
 }
 
+static bool AreDockNodesHealthy(ImGuiID dockspace_id) {
+    if (!IsDockspaceValid(dockspace_id)) {
+        return false;
+    }
+
+    ImGuiDockNode* center = GetDockNodeSafe(s_dock_nodes.center);
+    ImGuiDockNode* tool_deck = GetDockNodeSafe(s_dock_nodes.tool_deck);
+    ImGuiDockNode* library = GetDockNodeSafe(s_dock_nodes.library);
+    ImGuiDockNode* bottom = GetDockNodeSafe(s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs : s_dock_nodes.bottom);
+
+    return DockNodeValidator::IsNodeSizeValid(center) &&
+        DockNodeValidator::IsNodeSizeValid(tool_deck) &&
+        DockNodeValidator::IsNodeSizeValid(library) &&
+        DockNodeValidator::IsNodeSizeValid(bottom);
+}
+
 static ImGuiID NodeForDockArea(const std::string& dock_area) {
     if (dock_area == "Top") {
         return s_dock_nodes.center;
@@ -459,11 +517,35 @@ static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
         return false;
     }
 
+    if (!IsDockspaceValid(dockspace_id)) {
+        s_pending_dock_requests.clear();
+        return false;
+    }
+
     bool any_applied = false;
-    for (const DockRequest& request : s_pending_dock_requests) {
+    std::unordered_set<std::string> seen_windows;
+    seen_windows.reserve(s_pending_dock_requests.size());
+    for (auto it = s_pending_dock_requests.rbegin(); it != s_pending_dock_requests.rend(); ++it) {
+        const DockRequest& request = *it;
+        if (request.window_name.empty()) {
+            continue;
+        }
+        if (!seen_windows.insert(request.window_name).second) {
+            continue;
+        }
+
         ImGuiID target = NodeForDockArea(request.dock_area);
         if (target == 0) {
-            continue;
+            target = s_dock_nodes.center;
+        }
+
+        ImGuiDockNode* target_node = GetDockNodeSafe(target);
+        if (!DockNodeValidator::IsNodeSizeValid(target_node)) {
+            target = s_dock_nodes.center;
+            target_node = GetDockNodeSafe(target);
+            if (!DockNodeValidator::IsNodeSizeValid(target_node)) {
+                continue;
+            }
         }
 
         if (request.own_dock_node) {
@@ -474,7 +556,7 @@ static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
             }
         }
 
-        ImGui::DockBuilderDockWindow(request.window_name.c_str(), target);
+        DockWindowSafe(request.window_name.c_str(), target);
         any_applied = true;
     }
 
@@ -482,14 +564,32 @@ static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
     return any_applied;
 }
 
+static void ClearInvalidDockAssignments(ImGuiID dockspace_id) {
+    ImGuiContext* ctx = ImGui::GetCurrentContext();
+    if (ctx == nullptr) {
+        return;
+    }
+
+    for (ImGuiWindow* window : ctx->Windows) {
+        if (window == nullptr || window->DockId == 0) {
+            continue;
+        }
+
+        if (!DockNodeValidator::IsWindowDockValid(window, dockspace_id)) {
+            window->DockId = 0;
+            window->DockNode = nullptr;
+        }
+    }
+}
+
 static void UpdateDockLayout(ImGuiID dockspace_id) {
     bool layout_changed = false;
-    if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
+    if (!IsDockspaceValid(dockspace_id)) {
         s_dock_built = false;
         s_dock_layout_dirty = true;
     }
 
-    if (!s_dock_built || s_dock_layout_dirty) {
+    if (!s_dock_built || s_dock_layout_dirty || !AreDockNodesHealthy(dockspace_id)) {
         BuildDockLayout(dockspace_id);
         s_dock_built = true;
         s_dock_layout_dirty = false;
@@ -500,7 +600,8 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
         layout_changed = true;
     }
 
-    if (layout_changed && ImGui::DockBuilderGetNode(dockspace_id) != nullptr) {
+    if (layout_changed && IsDockspaceValid(dockspace_id)) {
+        ClearInvalidDockAssignments(dockspace_id);
         ImGui::DockBuilderFinish(dockspace_id);
     }
 }
@@ -519,6 +620,15 @@ void DrawRoot(float dt)
 
     // Dockspace host window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
+    if (viewport == nullptr) {
+        return;
+    }
+
+    const ViewportBounds viewport_bounds{viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y};
+    if (!viewport_bounds.IsValid()) {
+        return;
+    }
+
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
     ImGui::SetNextWindowViewport(viewport->ID);
@@ -587,7 +697,7 @@ void DrawRoot(float dt)
         std::span<const char* const>{});
     RenderToolLibraryWindow(ToolLibrary::Lot,
         "Lot Library",
-        "visualizer/src/ui_root.cpp",
+        "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
         lot_tools,
         std::span<const char* const>{});
@@ -639,6 +749,18 @@ RogueCity::App::MinimapViewport* GetMinimapViewport() {
 bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockNode) {
     if (!windowName || !dockArea) {
         return false;
+    }
+
+    for (auto it = s_pending_dock_requests.rbegin(); it != s_pending_dock_requests.rend(); ++it) {
+        if (it->window_name == windowName) {
+            it->dock_area = dockArea;
+            it->own_dock_node = ownDockNode;
+            return true;
+        }
+    }
+
+    if (s_pending_dock_requests.size() >= kMaxPendingDockRequests) {
+        s_pending_dock_requests.erase(s_pending_dock_requests.begin());
     }
 
     s_pending_dock_requests.push_back(

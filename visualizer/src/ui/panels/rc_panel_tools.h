@@ -5,8 +5,7 @@
 
 namespace RC_UI::Panels::Tools {
 
-// Draw the tools panel. Currently a stub that can be expanded with
-// context-aware tool sets (view, edit roads, edit districts, etc.).
+// Draw the state-reactive editor tools panel.
 void Draw(float dt);
 
 } // namespace RC_UI::Panels::Tools

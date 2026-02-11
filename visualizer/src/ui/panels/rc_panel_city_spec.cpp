@@ -11,6 +11,7 @@
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
+#include "ui/rc_ui_tokens.h"
 #include <imgui.h>
 #include <algorithm>
 #include <thread>
@@ -25,7 +26,9 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
     float t = (sinf(busyTimeSeconds * 3.14f) * 0.5f) + 0.5f; // 0..1
     float alpha = 0.3f + 0.7f * t;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 1.0f, alpha));
+    ImGui::PushStyleColor(
+        ImGuiCol_Text,
+        ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(RC_UI::UITokens::InfoBlue, static_cast<uint8_t>(alpha * 255.0f))));
     ImGui::Text("AI processing...");
     ImGui::PopStyleColor();
     ImGui::Separator();
@@ -61,7 +64,7 @@ void CitySpecPanel::Render() {
     
     // Check if bridge is online
     if (!runtime.IsOnline()) {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(RC_UI::UITokens::YellowWarning));
         ImGui::Text("AI Bridge offline - start it in AI Console");
         ImGui::PopStyleColor();
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});

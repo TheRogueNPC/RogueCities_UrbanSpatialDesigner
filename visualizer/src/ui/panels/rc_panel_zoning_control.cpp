@@ -3,6 +3,7 @@
 // Y2K GEOMETRY: Pulse animations, glow affordances, state-reactive colors
 
 #include "ui/panels/rc_panel_zoning_control.h"
+#include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include <imgui.h>
@@ -50,18 +51,17 @@ void Draw(float dt) {
     if (!is_visible) return;
     
     // State-reactive color (Y2K geometry)
-    ImVec4 panel_tint = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    ImU32 panel_tint = UITokens::TextPrimary;
     if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Districts) {
-        panel_tint = ImVec4(0.7f, 0.8f, 1.0f, 1.0f);  // Blue tint
+        panel_tint = UITokens::InfoBlue;
     } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Lots) {
-        panel_tint = ImVec4(0.7f, 1.0f, 0.8f, 1.0f);  // Green tint
+        panel_tint = UITokens::SuccessGreen;
     } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) {
-        panel_tint = ImVec4(1.0f, 0.8f, 0.7f, 1.0f);  // Orange tint
+        panel_tint = UITokens::AmberGlow;
     }
-    
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(
-        panel_tint.x * 0.15f, panel_tint.y * 0.15f, panel_tint.z * 0.15f, 0.95f
-    ));
+
+    const ImU32 window_bg = LerpColor(UITokens::BackgroundDark, panel_tint, 0.15f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(WithAlpha(window_bg, 242u)));
     
     const bool open = ImGui::Begin("Zoning Control", nullptr, ImGuiWindowFlags_NoCollapse);
     
@@ -122,15 +122,11 @@ void Draw(float dt) {
     
     if (state.parameters_changed) {
         state.pulse_phase += dt * 3.0f;
-        float pulse = 0.5f + 0.5f * std::sin(state.pulse_phase);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(
-            0.3f + pulse * 0.3f,
-            0.6f + pulse * 0.2f,
-            0.9f,
-            1.0f
-        ));
+        const float pulse = 0.5f + 0.5f * std::sin(state.pulse_phase);
+        const ImU32 pulse_color = LerpColor(UITokens::InfoBlue, UITokens::CyanAccent, pulse);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(pulse_color));
     } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
     }
     
     if (ImGui::Button("Generate Zones & Buildings", ImVec2(-1, 40))) {
@@ -169,7 +165,7 @@ void Draw(float dt) {
         ImGui::BulletText("Pipeline: Zoning only");
     }
     if (!state.last_error.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", state.last_error.c_str());
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "%s", state.last_error.c_str());
     }
 
     if (gs.world_constraints.isValid()) {
@@ -180,9 +176,8 @@ void Draw(float dt) {
         ImGui::BulletText("Fragmentation: %.2f", gs.site_profile.buildable_fragmentation);
         ImGui::BulletText("Policy Friction: %.2f", gs.site_profile.policy_friction);
 
-        const ImVec4 status_color = gs.plan_approved
-            ? ImVec4(0.35f, 0.95f, 0.45f, 1.0f)
-            : ImVec4(1.0f, 0.42f, 0.35f, 1.0f);
+        const ImVec4 status_color = ImGui::ColorConvertU32ToFloat4(
+            gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed);
         ImGui::TextColored(
             status_color,
             "Plan %s (%zu violations)",

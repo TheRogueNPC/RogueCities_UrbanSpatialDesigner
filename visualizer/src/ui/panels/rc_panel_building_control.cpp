@@ -5,6 +5,7 @@
 // CATEGORY: Control_Panel
 
 #include "ui/panels/rc_panel_building_control.h"
+#include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
@@ -89,8 +90,9 @@ void Draw(float dt)
     
     // === Generation Button (Y2K pulse affordance) ===
     if (s_is_generating) {
-        float pulse = 0.5f + 0.5f * sinf(ImGui::GetTime() * 4.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, pulse, 0.2f, 1.0f));
+        const float pulse = 0.5f + 0.5f * sinf(static_cast<float>(ImGui::GetTime()) * 4.0f);
+        const ImU32 pulse_color = LerpColor(UITokens::GreenHUD, UITokens::CyanAccent, 1.0f - pulse);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(pulse_color));
     }
     
     if (ImGui::Button("Place Buildings", ImVec2(-1, 40))) {
@@ -98,7 +100,7 @@ void Draw(float dt)
         GlobalState& gs = GetGlobalState();
         s_zoning_bridge.Generate(s_building_params, gs);
         s_is_generating = true;
-        s_gen_start_time = ImGui::GetTime();
+        s_gen_start_time = static_cast<float>(ImGui::GetTime());
     }
     uiint.RegisterWidget({"button", "Place Buildings", "action:building.generate", {"action", "building"}});
     uiint.RegisterAction({"building.generate", "Place Buildings", "BuildingControl", {}, "ZoningBridge::Generate"});

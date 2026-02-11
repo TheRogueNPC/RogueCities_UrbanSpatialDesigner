@@ -4,6 +4,7 @@
 #include "ui/panels/rc_panel_tools.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"
+#include "ui/rc_ui_tokens.h"
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "integration/AiAssist.h"
@@ -32,7 +33,8 @@ static void RenderToolButton(
     // Y2K affordance: glow when active
     if (is_active) {
         const float pulse = 0.5f + 0.5f * static_cast<float>(std::sin(ImGui::GetTime() * 4.0));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f * pulse + 0.2f, 0.2f, 1.0f));
+        const ImU32 pulse_color = LerpColor(UITokens::GreenHUD, UITokens::CyanAccent, 1.0f - pulse);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(pulse_color));
     }
     
     if (ImGui::Button(label, ImVec2(100, 40))) {
@@ -145,7 +147,7 @@ void Draw(float dt)
     const bool dirty_any = gs.dirty_layers.AnyDirty();
     ImGui::SameLine();
     ImGui::TextColored(
-        dirty_any ? ImVec4(1.0f, 0.8f, 0.2f, 1.0f) : ImVec4(0.6f, 0.85f, 0.6f, 1.0f),
+        ImGui::ColorConvertU32ToFloat4(dirty_any ? UITokens::YellowWarning : UITokens::SuccessGreen),
         dirty_any ? "Dirty Layers: pending" : "Dirty Layers: clean");
 
     int dirty_count = 0;
@@ -163,7 +165,10 @@ void Draw(float dt)
         dirty_any ? "Rebuild pending" : "Clean");
 
     auto draw_chip = [](const char* label, bool dirty) {
-        ImVec4 color = dirty ? ImVec4(0.96f, 0.56f, 0.22f, 0.90f) : ImVec4(0.35f, 0.72f, 0.40f, 0.75f);
+        const ImU32 chip_color = dirty
+            ? WithAlpha(UITokens::AmberGlow, 230u)
+            : WithAlpha(UITokens::SuccessGreen, 190u);
+        ImVec4 color = ImGui::ColorConvertU32ToFloat4(chip_color);
         ImGui::PushStyleColor(ImGuiCol_Button, color);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
@@ -337,7 +342,7 @@ void Draw(float dt)
     // Status / errors
     const char* err = AxiomEditor::GetValidationError();
     if (err && err[0] != '\0') {
-        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", err);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "%s", err);
     }
 
     uiint.EndPanel();

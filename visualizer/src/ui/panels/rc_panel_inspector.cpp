@@ -1,5 +1,5 @@
 // FILE: visualizer/src/ui/panels/rc_panel_inspector.cpp (RogueCities_UrbanSpatialDesigner)
-// PURPOSE: Stub inspector with reactive selection focus.
+// PURPOSE: Inspector with reactive selection focus.
 #include "ui/panels/rc_panel_inspector.h"
 
 #include "ui/rc_ui_anim.h"
