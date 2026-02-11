@@ -186,7 +186,7 @@ void Draw(float dt)
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
     ImGui::SameLine();
     ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
-    ImGui::TextDisabled("Minimap LOD: hover minimap, wheel to zoom, L to cycle manual LOD, Shift+L toggles auto.");
+    ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=manual cycle, Shift+L=auto, K=adaptive quality.");
 
     ImGui::SeparatorText("Texture Editing (Phase 6)");
     if (gs.HasTextureSpace()) {

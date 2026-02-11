@@ -68,9 +68,18 @@ namespace RogueCity::Core::Data {
         }
 
         template <typename U = T>
-        [[nodiscard]] std::enable_if_t<std::is_same_v<U, float>, float> sampleBilinear(const Vec2& uv) const {
+        using BilinearSampleType = std::conditional_t<std::is_same_v<U, uint8_t>, float, U>;
+
+        template <typename U = T>
+        [[nodiscard]] BilinearSampleType<U> sampleBilinearTyped(const Vec2& uv) const {
+            static_assert(
+                std::is_same_v<U, float> ||
+                std::is_same_v<U, uint8_t> ||
+                std::is_same_v<U, Vec2>,
+                "Texture2D::sampleBilinearTyped only supports float, uint8_t, and Vec2");
+
             if (empty()) {
-                return 0.0f;
+                return BilinearSampleType<U>{};
             }
 
             const double u = std::clamp(uv.x, 0.0, 1.0);
@@ -86,72 +95,40 @@ namespace RogueCity::Core::Data {
             const double tx = x - static_cast<double>(x0);
             const double ty = y - static_cast<double>(y0);
 
-            const double c00 = static_cast<double>(at(x0, y0));
-            const double c10 = static_cast<double>(at(x1, y0));
-            const double c01 = static_cast<double>(at(x0, y1));
-            const double c11 = static_cast<double>(at(x1, y1));
+            if constexpr (std::is_same_v<U, float> || std::is_same_v<U, uint8_t>) {
+                const double c00 = static_cast<double>(at(x0, y0));
+                const double c10 = static_cast<double>(at(x1, y0));
+                const double c01 = static_cast<double>(at(x0, y1));
+                const double c11 = static_cast<double>(at(x1, y1));
 
-            const double a = c00 * (1.0 - tx) + c10 * tx;
-            const double b = c01 * (1.0 - tx) + c11 * tx;
-            return static_cast<float>(a * (1.0 - ty) + b * ty);
+                const double a = c00 * (1.0 - tx) + c10 * tx;
+                const double b = c01 * (1.0 - tx) + c11 * tx;
+                return static_cast<float>(a * (1.0 - ty) + b * ty);
+            } else {
+                const Vec2 c00 = at(x0, y0);
+                const Vec2 c10 = at(x1, y0);
+                const Vec2 c01 = at(x0, y1);
+                const Vec2 c11 = at(x1, y1);
+
+                const Vec2 a = c00 * (1.0 - tx) + c10 * tx;
+                const Vec2 b = c01 * (1.0 - tx) + c11 * tx;
+                return a * (1.0 - ty) + b * ty;
+            }
+        }
+
+        template <typename U = T>
+        [[nodiscard]] std::enable_if_t<std::is_same_v<U, float>, float> sampleBilinear(const Vec2& uv) const {
+            return sampleBilinearTyped<float>(uv);
         }
 
         template <typename U = T>
         [[nodiscard]] std::enable_if_t<std::is_same_v<U, uint8_t>, float> sampleBilinearU8(const Vec2& uv) const {
-            if (empty()) {
-                return 0.0f;
-            }
-
-            const double u = std::clamp(uv.x, 0.0, 1.0);
-            const double v = std::clamp(uv.y, 0.0, 1.0);
-            const double x = u * static_cast<double>(width_ - 1);
-            const double y = v * static_cast<double>(height_ - 1);
-
-            const int x0 = std::clamp(static_cast<int>(std::floor(x)), 0, width_ - 1);
-            const int y0 = std::clamp(static_cast<int>(std::floor(y)), 0, height_ - 1);
-            const int x1 = std::clamp(x0 + 1, 0, width_ - 1);
-            const int y1 = std::clamp(y0 + 1, 0, height_ - 1);
-
-            const double tx = x - static_cast<double>(x0);
-            const double ty = y - static_cast<double>(y0);
-
-            const double c00 = static_cast<double>(at(x0, y0));
-            const double c10 = static_cast<double>(at(x1, y0));
-            const double c01 = static_cast<double>(at(x0, y1));
-            const double c11 = static_cast<double>(at(x1, y1));
-
-            const double a = c00 * (1.0 - tx) + c10 * tx;
-            const double b = c01 * (1.0 - tx) + c11 * tx;
-            return static_cast<float>(a * (1.0 - ty) + b * ty);
+            return sampleBilinearTyped<uint8_t>(uv);
         }
 
         template <typename U = T>
         [[nodiscard]] std::enable_if_t<std::is_same_v<U, Vec2>, Vec2> sampleBilinearVec2(const Vec2& uv) const {
-            if (empty()) {
-                return Vec2{};
-            }
-
-            const double u = std::clamp(uv.x, 0.0, 1.0);
-            const double v = std::clamp(uv.y, 0.0, 1.0);
-            const double x = u * static_cast<double>(width_ - 1);
-            const double y = v * static_cast<double>(height_ - 1);
-
-            const int x0 = std::clamp(static_cast<int>(std::floor(x)), 0, width_ - 1);
-            const int y0 = std::clamp(static_cast<int>(std::floor(y)), 0, height_ - 1);
-            const int x1 = std::clamp(x0 + 1, 0, width_ - 1);
-            const int y1 = std::clamp(y0 + 1, 0, height_ - 1);
-
-            const double tx = x - static_cast<double>(x0);
-            const double ty = y - static_cast<double>(y0);
-
-            const Vec2 c00 = at(x0, y0);
-            const Vec2 c10 = at(x1, y0);
-            const Vec2 c01 = at(x0, y1);
-            const Vec2 c11 = at(x1, y1);
-
-            const Vec2 a = c00 * (1.0 - tx) + c10 * tx;
-            const Vec2 b = c01 * (1.0 - tx) + c11 * tx;
-            return a * (1.0 - ty) + b * ty;
+            return sampleBilinearTyped<Vec2>(uv);
         }
 
     private:

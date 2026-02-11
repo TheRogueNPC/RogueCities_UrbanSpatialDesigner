@@ -56,6 +56,9 @@ int main() {
     const Vec2 sample_world(175.0, 225.0);
     const Tensor2D pre_bind = generator.sampleTensor(sample_world);
     const Vec2 pre_dir = pre_bind.majorEigenvector();
+    const Vec2 sample_uv = texture_space.coordinateSystem().worldToUV(sample_world);
+    const Vec2 texture_dir = texture_space.tensorLayer().sampleBilinearTyped<Vec2>(sample_uv);
+    assert(cosineAbs(pre_dir, texture_dir) > 0.95);
 
     generator.bindTextureSpace(&texture_space);
     assert(generator.usesTextureSpace());
@@ -63,6 +66,8 @@ int main() {
     const Vec2 post_dir = post_bind.majorEigenvector();
 
     assert(cosineAbs(pre_dir, post_dir) > 0.95);
+    assert(generator.lastSampleUsedTexture());
+    assert(!generator.lastSampleUsedFallback());
 
     generator.clearTextureSpaceBinding();
     assert(!generator.usesTextureSpace());

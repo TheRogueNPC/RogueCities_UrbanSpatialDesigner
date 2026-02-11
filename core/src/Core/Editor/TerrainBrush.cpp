@@ -11,9 +11,15 @@ namespace RogueCity::Core::Editor {
         }
     } // namespace
 
-    bool TerrainBrush::applyStroke(Data::TextureSpace& texture_space, const Stroke& stroke) {
+    bool TerrainBrush::applyStroke(
+        Data::TextureSpace& texture_space,
+        const Stroke& stroke,
+        Data::DirtyRegion* out_dirty_region) {
         auto& height = texture_space.heightLayer();
         if (height.empty() || stroke.radius_meters <= 0.0) {
+            if (out_dirty_region != nullptr) {
+                out_dirty_region->clear();
+            }
             return false;
         }
 
@@ -39,6 +45,7 @@ namespace RogueCity::Core::Editor {
         }
 
         bool changed = false;
+        Data::DirtyRegion dirty_region{};
         for (int y = min_y; y <= max_y; ++y) {
             for (int x = min_x; x <= max_x; ++x) {
                 const double dx = static_cast<double>(x - center.x);
@@ -84,8 +91,17 @@ namespace RogueCity::Core::Editor {
 
                 if (std::abs(next - current) > 1e-6f) {
                     height.at(x, y) = next;
+                    dirty_region.include(x, y);
                     changed = true;
                 }
+            }
+        }
+
+        if (out_dirty_region != nullptr) {
+            if (changed) {
+                *out_dirty_region = dirty_region;
+            } else {
+                out_dirty_region->clear();
             }
         }
 
@@ -93,4 +109,3 @@ namespace RogueCity::Core::Editor {
     }
 
 } // namespace RogueCity::Core::Editor
-

@@ -1,19 +1,12 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
+#include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include <cmath>
 #include <algorithm>
 
 namespace RogueCity::Generators {
 
     namespace {
-        [[nodiscard]] uint8_t DecodeFloodMask(uint8_t material_value) {
-            return static_cast<uint8_t>(material_value & 0x03u);
-        }
-
-        [[nodiscard]] bool DecodeNoBuild(uint8_t material_value) {
-            return (material_value & 0x80u) != 0u;
-        }
-
         [[nodiscard]] uint8_t SampleTextureMaterial(const Core::Data::TextureSpace& texture_space, const Vec2& world) {
             const Vec2 uv = texture_space.coordinateSystem().worldToUV(world);
             const float sample = texture_space.materialLayer().sampleBilinearU8(uv);
@@ -171,10 +164,10 @@ namespace RogueCity::Generators {
                 }
 
                 const uint8_t material = SampleTextureMaterial(*params.texture_space, world);
-                if (params.stop_at_no_build && DecodeNoBuild(material)) {
+                if (params.stop_at_no_build && Core::Data::DecodeMaterialNoBuild(material)) {
                     return true;
                 }
-                if (DecodeFloodMask(material) > params.max_flood_level) {
+                if (Core::Data::DecodeMaterialFloodMask(material) > params.max_flood_level) {
                     return true;
                 }
             }

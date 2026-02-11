@@ -142,7 +142,12 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         }
     }
 
-    ApplyDeterministicErosion(output.constraints.height_meters, cells_x, cells_y, input.seed, 3);
+    ApplyDeterministicErosion(
+        output.constraints.height_meters,
+        cells_x,
+        cells_y,
+        input.seed,
+        std::max(0, config.erosion_iterations));
 
     float min_height = output.constraints.height_meters.front();
     float max_height = output.constraints.height_meters.front();

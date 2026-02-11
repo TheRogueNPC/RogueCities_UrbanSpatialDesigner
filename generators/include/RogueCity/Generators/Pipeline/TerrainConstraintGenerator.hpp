@@ -16,6 +16,7 @@ public:
         float min_buildable_fraction{ 0.30f };
         float fragmentation_threshold{ 0.40f };
         float policy_friction_threshold{ 0.55f };
+        int erosion_iterations{ 3 };
     };
 
     struct Input {

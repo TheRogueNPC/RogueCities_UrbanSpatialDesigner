@@ -24,8 +24,10 @@ namespace RogueCity::Core::Editor {
             bool use_flatten_height{ false };
         };
 
-        [[nodiscard]] static bool applyStroke(Data::TextureSpace& texture_space, const Stroke& stroke);
+        [[nodiscard]] static bool applyStroke(
+            Data::TextureSpace& texture_space,
+            const Stroke& stroke,
+            Data::DirtyRegion* out_dirty_region = nullptr);
     };
 
 } // namespace RogueCity::Core::Editor
-

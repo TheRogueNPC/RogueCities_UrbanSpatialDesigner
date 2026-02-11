@@ -9,6 +9,7 @@
 #include "RogueCity/Generators/Urban/Graph.hpp"
 #include <cassert>
 #include <iostream>
+#include <limits>
 
 using namespace RogueCity;
 using namespace RogueCity::Generators;
@@ -138,13 +139,26 @@ int main() {
         Urban::Graph graph;
         noder.buildGraph({ a, b }, graph);
         bool found_intersection = false;
+        double nearest_dist = std::numeric_limits<double>::max();
+        size_t nearest_degree = 0;
         for (const auto& v : graph.vertices()) {
-            if (v.pos.distanceTo(Core::Vec2(5.0, 5.0)) < 1e-3 && v.edges.size() >= 4) {
+            const double d = v.pos.distanceTo(Core::Vec2(5.0, 5.0));
+            if (d < nearest_dist) {
+                nearest_dist = d;
+                nearest_degree = v.edges.size();
+            }
+            if (d < 1e-3 && v.edges.size() >= 4) {
                 found_intersection = true;
                 break;
             }
         }
-        assert(found_intersection);
+        if (!found_intersection) {
+            std::cerr << "Road noding intersection check failed. nearest_dist=" << nearest_dist
+                      << " nearest_degree=" << nearest_degree
+                      << " vertices=" << graph.vertices().size()
+                      << " edges=" << graph.edges().size() << std::endl;
+            return 1;
+        }
 
         b.layer_hint = 1;
         Urban::Graph split_layers;

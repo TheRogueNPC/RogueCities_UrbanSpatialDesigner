@@ -15,6 +15,7 @@
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
@@ -69,6 +70,7 @@ namespace {
     static float s_minimap_zoom = 1.0f;  // Zoom level (0.5 = zoomed out, 2.0 = zoomed in)
     static bool s_minimap_auto_lod = true;
     static MinimapLOD s_minimap_lod = MinimapLOD::Tactical;
+    static bool s_minimap_adaptive_quality = true;
 
     void DrawAxiomModeStatus(const Preview& preview, ImVec2 pos) {
         ImGui::SetCursorScreenPos(pos);
@@ -104,9 +106,6 @@ namespace {
 
     void SyncGlobalStateFromPreview(const RogueCity::Generators::CityGenerator::CityOutput& output) {
         auto& gs = RogueCity::Core::Editor::GetGlobalState();
-        auto encode_material = [](uint8_t flood_mask, bool no_build) {
-            return static_cast<uint8_t>((flood_mask & 0x03u) | (no_build ? 0x80u : 0u));
-        };
         auto point_in_polygon = [](const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
             if (polygon.size() < 3) {
                 return false;
@@ -184,7 +183,7 @@ namespace {
                     for (int x = 0; x < height_layer.width(); ++x) {
                         const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
                         height_layer.at(x, y) = output.world_constraints.sampleHeightMeters(world);
-                        material_layer.at(x, y) = encode_material(
+                        material_layer.at(x, y) = RogueCity::Core::Data::EncodeMaterialSample(
                             output.world_constraints.sampleFloodMask(world),
                             output.world_constraints.sampleNoBuild(world));
                         distance_layer.at(x, y) = output.world_constraints.sampleSlopeDegrees(world);
@@ -900,11 +899,61 @@ static MinimapLOD ActiveMinimapLOD() {
     return s_minimap_auto_lod ? ComputeAutoMinimapLOD(s_minimap_zoom) : s_minimap_lod;
 }
 
+static MinimapLOD CoarsenMinimapLOD(MinimapLOD lod) {
+    switch (lod) {
+        case MinimapLOD::Detail: return MinimapLOD::Tactical;
+        case MinimapLOD::Tactical: return MinimapLOD::Strategic;
+        case MinimapLOD::Strategic:
+        default: return MinimapLOD::Strategic;
+    }
+}
+
+static int CountDirtyTextureLayers(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.HasTextureSpace()) {
+        return 0;
+    }
+
+    int dirty = 0;
+    for (int i = 0; i < static_cast<int>(RogueCity::Core::Data::TextureLayer::Count); ++i) {
+        const auto layer = static_cast<RogueCity::Core::Data::TextureLayer>(i);
+        if (gs.TextureSpaceRef().isDirty(layer)) {
+            ++dirty;
+        }
+    }
+    return dirty;
+}
+
+static MinimapLOD ComputeAdaptiveMinimapLOD(
+    MinimapLOD base_lod,
+    const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!s_minimap_adaptive_quality) {
+        return base_lod;
+    }
+
+    MinimapLOD effective = base_lod;
+    const float fps = ImGui::GetIO().Framerate;
+
+    // Phase 7 degradation policy: FPS pressure first, then dirty pressure.
+    if (fps < 50.0f) {
+        effective = CoarsenMinimapLOD(effective);
+    }
+    if (fps < 40.0f) {
+        effective = MinimapLOD::Strategic;
+    }
+
+    const int dirty_texture_layers = CountDirtyTextureLayers(gs);
+    if (dirty_texture_layers >= 3 || gs.dirty_layers.AnyDirty()) {
+        effective = CoarsenMinimapLOD(effective);
+    }
+
+    return effective;
+}
+
 static const char* MinimapLODName(MinimapLOD lod) {
     switch (lod) {
-        case MinimapLOD::Strategic: return "LOD0";
+        case MinimapLOD::Strategic: return "LOD2";
         case MinimapLOD::Tactical: return "LOD1";
-        case MinimapLOD::Detail: return "LOD2";
+        case MinimapLOD::Detail: return "LOD0";
         default: return "LOD1";
     }
 }
@@ -973,10 +1022,16 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::Text("%s", mode_text);
     ImGui::PopStyleColor();
 
-    const MinimapLOD active_lod = ActiveMinimapLOD();
+    const auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    const MinimapLOD base_lod = ActiveMinimapLOD();
+    const MinimapLOD active_lod = ComputeAdaptiveMinimapLOD(base_lod, gs);
     ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + 24.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
-    ImGui::Text("%s %s", MinimapLODName(active_lod), s_minimap_auto_lod ? "AUTO" : "MAN");
+    ImGui::Text(
+        "%s %s%s",
+        MinimapLODName(active_lod),
+        s_minimap_auto_lod ? "AUTO" : "MAN",
+        (active_lod != base_lod) ? " ADAPT" : "");
     ImGui::PopStyleColor();
     
     // Alert level indicator (bottom-right corner)
@@ -1124,6 +1179,31 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     );
     draw_list->AddCircleFilled(center, 4.0f, alert_color);
     draw_list->AddCircle(center, 8.0f, alert_color, 16, 1.5f);
+
+    // Never-blank anchors: world frame + cursor/world readout.
+    draw_list->AddRect(
+        ImVec2(minimap_pos.x + 6.0f, minimap_pos.y + 6.0f),
+        ImVec2(minimap_pos.x + kMinimapSize - 6.0f, minimap_pos.y + kMinimapSize - 6.0f),
+        IM_COL32(255, 255, 255, 40),
+        0.0f,
+        0,
+        1.0f);
+
+    const ImVec2 mouse = ImGui::GetMousePos();
+    const bool mouse_in_minimap =
+        mouse.x >= minimap_pos.x && mouse.x <= (minimap_pos.x + kMinimapSize) &&
+        mouse.y >= minimap_pos.y && mouse.y <= (minimap_pos.y + kMinimapSize);
+    const RogueCity::Core::Vec2 cursor_world = mouse_in_minimap
+        ? MinimapPixelToWorld(mouse, minimap_pos, camera_pos)
+        : camera_pos;
+
+    ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + kMinimapSize - 36.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
+    ImGui::Text(
+        "CUR %.0f, %.0f",
+        static_cast<float>(cursor_world.x),
+        static_cast<float>(cursor_world.y));
+    ImGui::PopStyleColor();
 }
 
 void Draw(float dt) {
@@ -1914,9 +1994,22 @@ void Draw(float dt) {
                     CycleManualMinimapLOD();
                 }
             }
+            if (ImGui::IsKeyPressed(ImGuiKey_K) && !io.WantTextInput) {
+                s_minimap_adaptive_quality = !s_minimap_adaptive_quality;
+            }
              
-            // Click to teleport camera
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            const bool dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f);
+            if (dragging) {
+                const auto camera_pos = s_primary_viewport->get_camera_xy();
+                const auto camera_z = s_primary_viewport->get_camera_z();
+                const ImVec2 delta = io.MouseDelta;
+                const double world_per_pixel = (kMinimapWorldSize * s_minimap_zoom) / kMinimapSize;
+                RogueCity::Core::Vec2 next_camera = camera_pos;
+                next_camera.x -= static_cast<double>(delta.x) * world_per_pixel;
+                next_camera.y -= static_cast<double>(delta.y) * world_per_pixel;
+                s_primary_viewport->set_camera_position(next_camera, camera_z);
+            } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                // Click to jump camera
                 const auto camera_pos = s_primary_viewport->get_camera_xy();
                 const auto camera_z = s_primary_viewport->get_camera_z();
                 const auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_interact_pos, camera_pos);

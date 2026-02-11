@@ -11,8 +11,14 @@ namespace RogueCity::Core::Editor {
         }
     } // namespace
 
-    bool TexturePainting::applyStroke(Data::TextureSpace& texture_space, const Stroke& stroke) {
+    bool TexturePainting::applyStroke(
+        Data::TextureSpace& texture_space,
+        const Stroke& stroke,
+        Data::DirtyRegion* out_dirty_region) {
         if (stroke.radius_meters <= 0.0) {
+            if (out_dirty_region != nullptr) {
+                out_dirty_region->clear();
+            }
             return false;
         }
 
@@ -22,6 +28,9 @@ namespace RogueCity::Core::Editor {
         const Data::Int2 center = coords.worldToPixel(stroke.world_center);
         const float opacity = static_cast<float>(clamp01(stroke.opacity));
         if (opacity <= 0.0f) {
+            if (out_dirty_region != nullptr) {
+                out_dirty_region->clear();
+            }
             return false;
         }
 
@@ -33,6 +42,9 @@ namespace RogueCity::Core::Editor {
         }
 
         if (target == nullptr || target->empty()) {
+            if (out_dirty_region != nullptr) {
+                out_dirty_region->clear();
+            }
             return false;
         }
 
@@ -42,6 +54,7 @@ namespace RogueCity::Core::Editor {
         const int max_y = std::min(target->height() - 1, static_cast<int>(std::ceil(static_cast<double>(center.y) + radius_px)));
 
         bool changed = false;
+        Data::DirtyRegion dirty_region{};
         for (int y = min_y; y <= max_y; ++y) {
             for (int x = min_x; x <= max_x; ++x) {
                 const double dx = static_cast<double>(x - center.x);
@@ -65,8 +78,17 @@ namespace RogueCity::Core::Editor {
                 const uint8_t next = static_cast<uint8_t>(std::clamp(rounded, 0, 255));
                 if (next != current) {
                     target->at(x, y) = next;
+                    dirty_region.include(x, y);
                     changed = true;
                 }
+            }
+        }
+
+        if (out_dirty_region != nullptr) {
+            if (changed) {
+                *out_dirty_region = dirty_region;
+            } else {
+                out_dirty_region->clear();
             }
         }
 
@@ -74,4 +96,3 @@ namespace RogueCity::Core::Editor {
     }
 
 } // namespace RogueCity::Core::Editor
-

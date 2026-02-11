@@ -38,8 +38,11 @@ int main() {
     input.cell_size = 10.0;
     input.seed = 1337u;
 
-    const auto a = generator.generate(input);
-    const auto b = generator.generate(input);
+    TerrainConstraintGenerator::Config config{};
+    config.erosion_iterations = 3;
+
+    const auto a = generator.generate(input, config);
+    const auto b = generator.generate(input, config);
     assert(a.constraints.isValid());
     assert(b.constraints.isValid());
     assert(a.constraints.height_meters == b.constraints.height_meters);
@@ -55,7 +58,7 @@ int main() {
 
     TerrainConstraintGenerator::Input changed_seed = input;
     changed_seed.seed = input.seed + 1u;
-    const auto c = generator.generate(changed_seed);
+    const auto c = generator.generate(changed_seed, config);
     assert(c.constraints.isValid());
 
     bool any_height_delta = false;
@@ -76,6 +79,20 @@ int main() {
             assert(std::abs(expected - actual) < 1e-4f);
         }
     }
+
+    TerrainConstraintGenerator::Config no_erosion = config;
+    no_erosion.erosion_iterations = 0;
+    const auto raw = generator.generate(input, no_erosion);
+    assert(raw.constraints.isValid());
+
+    bool any_erosion_delta = false;
+    for (size_t i = 0; i < a.constraints.height_meters.size(); ++i) {
+        if (std::abs(a.constraints.height_meters[i] - raw.constraints.height_meters[i]) > 1e-5f) {
+            any_erosion_delta = true;
+            break;
+        }
+    }
+    assert(any_erosion_delta);
 
     return 0;
 }

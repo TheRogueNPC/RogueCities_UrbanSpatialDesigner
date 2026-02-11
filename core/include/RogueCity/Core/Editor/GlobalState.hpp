@@ -279,13 +279,21 @@ namespace RogueCity::Core::Editor {
         [[nodiscard]] const Data::TextureSpace& textureSpace() const { return TextureSpaceRef(); }
 
         void MarkTextureLayerDirty(Data::TextureLayer layer);
+        void MarkTextureLayerDirty(Data::TextureLayer layer, const Data::DirtyRegion& region);
         void markTextureLayerDirty(Data::TextureLayer layer) { MarkTextureLayerDirty(layer); }
+        void markTextureLayerDirty(Data::TextureLayer layer, const Data::DirtyRegion& region) { MarkTextureLayerDirty(layer, region); }
         void ClearTextureLayerDirty(Data::TextureLayer layer);
         void clearTextureLayerDirty(Data::TextureLayer layer) { ClearTextureLayerDirty(layer); }
         void MarkAllTextureLayersDirty();
         void markAllTextureLayersDirty() { MarkAllTextureLayersDirty(); }
         void ClearAllTextureLayersDirty();
         void clearAllTextureLayersDirty() { ClearAllTextureLayersDirty(); }
+        [[nodiscard]] Data::DirtyRegion TextureLayerDirtyRegion(Data::TextureLayer layer) const {
+            if (texture_space == nullptr) {
+                return {};
+            }
+            return texture_space->dirtyRegion(layer);
+        }
 
         [[nodiscard]] bool ApplyTerrainBrush(const TerrainBrush::Stroke& stroke);
         [[nodiscard]] bool applyTerrainBrush(const TerrainBrush::Stroke& stroke) { return ApplyTerrainBrush(stroke); }

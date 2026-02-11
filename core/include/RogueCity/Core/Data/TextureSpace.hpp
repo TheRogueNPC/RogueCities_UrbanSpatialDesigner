@@ -3,6 +3,8 @@
 #include "RogueCity/Core/Data/CoordinateSystem.hpp"
 #include "RogueCity/Core/Data/Texture2D.hpp"
 
+#include <algorithm>
+#include <array>
 #include <bitset>
 #include <cstdint>
 
@@ -15,6 +17,50 @@ namespace RogueCity::Core::Data {
         Tensor,
         Distance,
         Count
+    };
+
+    struct DirtyRegion {
+        int min_x{ 0 };
+        int min_y{ 0 };
+        int max_x{ -1 };
+        int max_y{ -1 };
+
+        [[nodiscard]] bool isValid() const {
+            return max_x >= min_x && max_y >= min_y;
+        }
+
+        void clear() {
+            min_x = 0;
+            min_y = 0;
+            max_x = -1;
+            max_y = -1;
+        }
+
+        void include(int x, int y) {
+            if (!isValid()) {
+                min_x = max_x = x;
+                min_y = max_y = y;
+                return;
+            }
+            min_x = std::min(min_x, x);
+            min_y = std::min(min_y, y);
+            max_x = std::max(max_x, x);
+            max_y = std::max(max_y, y);
+        }
+
+        void merge(const DirtyRegion& other) {
+            if (!other.isValid()) {
+                return;
+            }
+            if (!isValid()) {
+                *this = other;
+                return;
+            }
+            min_x = std::min(min_x, other.min_x);
+            min_y = std::min(min_y, other.min_y);
+            max_x = std::max(max_x, other.max_x);
+            max_y = std::max(max_y, other.max_y);
+        }
     };
 
     class TextureSpace {
@@ -45,7 +91,9 @@ namespace RogueCity::Core::Data {
         [[nodiscard]] Texture2D<float>& distanceLayer() { return distance_; }
 
         void markDirty(TextureLayer layer);
+        void markDirty(TextureLayer layer, const DirtyRegion& region);
         [[nodiscard]] bool isDirty(TextureLayer layer) const;
+        [[nodiscard]] DirtyRegion dirtyRegion(TextureLayer layer) const;
         void clearDirty(TextureLayer layer);
         void markAllDirty();
         void clearAllDirty();
@@ -64,7 +112,7 @@ namespace RogueCity::Core::Data {
         Texture2D<Vec2> tensor_{};
         Texture2D<float> distance_{};
         std::bitset<static_cast<size_t>(TextureLayer::Count)> dirty_layers_{};
+        std::array<DirtyRegion, static_cast<size_t>(TextureLayer::Count)> dirty_regions_{};
     };
 
 } // namespace RogueCity::Core::Data
-

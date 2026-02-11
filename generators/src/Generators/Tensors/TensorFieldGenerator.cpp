@@ -2,7 +2,9 @@
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Core/Util/RogueWorker.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
+#include <iostream>
 #include <thread>
 
 namespace RogueCity::Generators {
@@ -147,17 +149,27 @@ namespace RogueCity::Generators {
     }
 
     Tensor2D TensorFieldGenerator::sampleTensor(const Vec2& world_pos) const {
+        last_sample_used_texture_ = false;
+        last_sample_used_fallback_ = false;
+
         if (texture_space_ != nullptr) {
             const auto& tensor_layer = texture_space_->tensorLayer();
-            if (!tensor_layer.empty()) {
+            if (!tensor_layer.empty() && texture_space_->coordinateSystem().isInBounds(world_pos)) {
                 const Vec2 uv = texture_space_->coordinateSystem().worldToUV(world_pos);
-                const Vec2 sampled_dir = tensor_layer.sampleBilinearVec2(uv);
+                const Vec2 sampled_dir = tensor_layer.sampleBilinearTyped<Vec2>(uv);
                 if (sampled_dir.lengthSquared() > 1e-8) {
+                    last_sample_used_texture_ = true;
                     return Tensor2D::fromVector(sampled_dir);
                 }
+                markTextureFallback("sampled texture direction is zero");
+            }
+
+            if (tensor_layer.empty()) {
+                markTextureFallback("tensor layer is empty");
             }
         }
 
+        last_sample_used_fallback_ = true;
         if (!field_generated_) {
             // Fallback: Real-time sampling (slower but works if generateField() not called)
             Tensor2D result = Tensor2D::zero();
@@ -287,6 +299,20 @@ namespace RogueCity::Generators {
         basis_fields_.clear();
         std::fill(grid_.begin(), grid_.end(), Tensor2D::zero());
         field_generated_ = false;
+        last_sample_used_texture_ = false;
+        last_sample_used_fallback_ = false;
+        texture_fallback_warned_ = false;
+    }
+
+    void TensorFieldGenerator::markTextureFallback(const char* reason) const {
+#ifndef NDEBUG
+        if (!texture_fallback_warned_) {
+            std::cerr << "[TensorFieldGenerator] Texture-bound sampling fallback: " << reason << std::endl;
+            texture_fallback_warned_ = true;
+        }
+#else
+        (void)reason;
+#endif
     }
 
 } // namespace RogueCity::Generators

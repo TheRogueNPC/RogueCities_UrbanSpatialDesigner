@@ -30,9 +30,13 @@ int main() {
     assert(gs.dirty_layers.IsDirty(DirtyLayer::Tensor));
     assert(gs.dirty_layers.IsDirty(DirtyLayer::Roads));
     assert(gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex));
+    const auto dirty_height = gs.TextureLayerDirtyRegion(TextureLayer::Height);
+    assert(dirty_height.isValid());
 
     const auto center = gs.TextureSpaceRef().coordinateSystem().worldToPixel(raise.world_center);
     assert(gs.TextureSpaceRef().heightLayer().at(center.x, center.y) > 0.0f);
+    assert(center.x >= dirty_height.min_x && center.x <= dirty_height.max_x);
+    assert(center.y >= dirty_height.min_y && center.y <= dirty_height.max_y);
 
     gs.ClearAllTextureLayersDirty();
     gs.dirty_layers.MarkAllClean();
@@ -47,6 +51,10 @@ int main() {
     assert(painted_zone);
     assert(gs.TextureSpaceRef().isDirty(TextureLayer::Zone));
     assert(gs.TextureSpaceRef().zoneLayer().at(center.x, center.y) == 7u);
+    const auto dirty_zone = gs.TextureLayerDirtyRegion(TextureLayer::Zone);
+    assert(dirty_zone.isValid());
+    assert(center.x >= dirty_zone.min_x && center.x <= dirty_zone.max_x);
+    assert(center.y >= dirty_zone.min_y && center.y <= dirty_zone.max_y);
 
     gs.ClearAllTextureLayersDirty();
     gs.dirty_layers.MarkAllClean();
@@ -61,7 +69,10 @@ int main() {
     assert(painted_material);
     assert(gs.TextureSpaceRef().isDirty(TextureLayer::Material));
     assert(gs.TextureSpaceRef().materialLayer().at(center.x, center.y) == 123u);
+    const auto dirty_material = gs.TextureLayerDirtyRegion(TextureLayer::Material);
+    assert(dirty_material.isValid());
+    assert(center.x >= dirty_material.min_x && center.x <= dirty_material.max_x);
+    assert(center.y >= dirty_material.min_y && center.y <= dirty_material.max_y);
 
     return 0;
 }
-

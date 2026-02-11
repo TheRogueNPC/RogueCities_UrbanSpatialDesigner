@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include <algorithm>
 #include <cassert>
@@ -9,8 +10,31 @@
 namespace RogueCity::Generators {
 
     namespace {
-        [[nodiscard]] uint8_t EncodeMaterial(uint8_t flood_mask, bool no_build) {
-            return static_cast<uint8_t>((flood_mask & 0x03u) | (no_build ? 0x80u : 0u));
+        [[nodiscard]] Bounds ConstraintsBounds(const WorldConstraintField& constraints) {
+            Bounds world_bounds{};
+            world_bounds.min = Vec2(0.0, 0.0);
+            world_bounds.max = Vec2(
+                static_cast<double>(constraints.width) * constraints.cell_size,
+                static_cast<double>(constraints.height) * constraints.cell_size);
+            return world_bounds;
+        }
+
+        [[nodiscard]] bool BoundsMatch(const Bounds& a, const Bounds& b, double tolerance) {
+            return a.min.equals(b.min, tolerance) && a.max.equals(b.max, tolerance);
+        }
+
+        void AssertTextureMatchesConstraints(
+            const Core::Data::TextureSpace& texture_space,
+            const WorldConstraintField& constraints) {
+#ifndef NDEBUG
+            const Bounds expected_bounds = ConstraintsBounds(constraints);
+            const double tolerance = std::max(1e-6, constraints.cell_size * 0.25);
+            assert(BoundsMatch(texture_space.bounds(), expected_bounds, tolerance));
+            assert(texture_space.resolution() == std::max(constraints.width, constraints.height));
+#else
+            (void)texture_space;
+            (void)constraints;
+#endif
         }
 
         [[nodiscard]] bool PointInPolygon(const Vec2& point, const std::vector<Vec2>& polygon) {
@@ -59,6 +83,9 @@ namespace RogueCity::Generators {
         initializeTextureSpaceIfNeeded(global_state, constraints);
         const Core::Data::TextureSpace* texture_space =
             (global_state != nullptr && global_state->HasTextureSpace()) ? &global_state->TextureSpaceRef() : nullptr;
+        if (texture_space != nullptr && constraints != nullptr) {
+            AssertTextureMatchesConstraints(*texture_space, *constraints);
+        }
 
         // Stage 1: Generate tensor field from axioms
         output.tensor_field = generateTensorField(axioms);
@@ -198,8 +225,8 @@ namespace RogueCity::Generators {
             if (texture_space != nullptr) {
                 const Vec2 uv = texture_space->coordinateSystem().worldToUV(seed);
                 const uint8_t material = texture_space->materialLayer().sampleNearest(uv);
-                const bool blocked = (material & 0x80u) != 0u;
-                const uint8_t flood = static_cast<uint8_t>(material & 0x03u);
+                const bool blocked = Core::Data::DecodeMaterialNoBuild(material);
+                const uint8_t flood = Core::Data::DecodeMaterialFloodMask(material);
                 if (blocked || flood > 1u) {
                     continue;
                 }
@@ -419,7 +446,7 @@ namespace RogueCity::Generators {
             const Vec2 uv = coords.worldToUV(building.position);
             const float slope = texture_space.distanceLayer().sampleBilinear(uv);
             const uint8_t material = texture_space.materialLayer().sampleNearest(uv);
-            const bool blocked = (material & 0x80u) != 0u;
+            const bool blocked = Core::Data::DecodeMaterialNoBuild(material);
             if (blocked || slope > static_cast<float>(config_.terrain.max_buildable_slope_deg)) {
                 continue;
             }
@@ -483,7 +510,7 @@ namespace RogueCity::Generators {
                 for (int x = 0; x < height_layer.width(); ++x) {
                     const Vec2 world = coords.pixelToWorld({ x, y });
                     height_layer.at(x, y) = constraints->sampleHeightMeters(world);
-                    material_layer.at(x, y) = EncodeMaterial(
+                    material_layer.at(x, y) = Core::Data::EncodeMaterialSample(
                         constraints->sampleFloodMask(world),
                         constraints->sampleNoBuild(world));
                     distance_layer.at(x, y) = constraints->sampleSlopeDegrees(world);

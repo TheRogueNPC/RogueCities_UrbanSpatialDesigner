@@ -47,11 +47,16 @@ int main() {
 
     TextureSpace texture_space(bounds, 64);
     assert(texture_space.isDirty(TextureLayer::Height));
+    const auto full_height_dirty = texture_space.dirtyRegion(TextureLayer::Height);
+    assert(full_height_dirty.isValid());
+    assert(full_height_dirty.min_x == 0 && full_height_dirty.min_y == 0);
+    assert(full_height_dirty.max_x == 63 && full_height_dirty.max_y == 63);
     texture_space.clearAllDirty();
     assert(!texture_space.isDirty(TextureLayer::Height));
+    assert(!texture_space.dirtyRegion(TextureLayer::Height).isValid());
     texture_space.markDirty(TextureLayer::Tensor);
     assert(texture_space.isDirty(TextureLayer::Tensor));
+    assert(texture_space.dirtyRegion(TextureLayer::Tensor).isValid());
 
     return 0;
 }
-
