@@ -13,12 +13,19 @@ set(GENERATOR_SOURCES
     src/Generators/Tensors/BasisFields.cpp
     src/Generators/Roads/StreamlineTracer.cpp
     src/Generators/Roads/RoadClassifier.cpp
+    src/Generators/Roads/SegmentGridStorage.cpp
+    src/Generators/Roads/RoadNoder.cpp
+    src/Generators/Roads/GraphSimplify.cpp
+    src/Generators/Roads/FlowAndControl.cpp
+    src/Generators/Roads/Verticality.cpp
+    src/Generators/Roads/IntersectionTemplates.cpp
     src/Generators/Districts/AESPClassifier.cpp
     src/Generators/Urban/FrontageProfiles.cpp
     src/Generators/Urban/Integrator.cpp
     src/Generators/Urban/GridStorage.cpp
     src/Generators/Urban/PolygonUtil.cpp
     src/Generators/Urban/Graph.cpp
+    src/Generators/Urban/GraphAlgorithms.cpp
     src/Generators/Urban/PolygonFinder.cpp
     src/Generators/Urban/RoadGenerator.cpp
     src/Generators/Urban/DistrictGenerator.cpp
@@ -38,12 +45,20 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Tensors/BasisFields.hpp
     include/RogueCity/Generators/Roads/StreamlineTracer.hpp
     include/RogueCity/Generators/Roads/RoadClassifier.hpp
+    include/RogueCity/Generators/Roads/PolylineRoadCandidate.hpp
+    include/RogueCity/Generators/Roads/SegmentGridStorage.hpp
+    include/RogueCity/Generators/Roads/RoadNoder.hpp
+    include/RogueCity/Generators/Roads/GraphSimplify.hpp
+    include/RogueCity/Generators/Roads/FlowAndControl.hpp
+    include/RogueCity/Generators/Roads/Verticality.hpp
+    include/RogueCity/Generators/Roads/IntersectionTemplates.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
     include/RogueCity/Generators/Urban/FrontageProfiles.hpp
     include/RogueCity/Generators/Urban/Integrator.hpp
     include/RogueCity/Generators/Urban/GridStorage.hpp
     include/RogueCity/Generators/Urban/PolygonUtil.hpp
     include/RogueCity/Generators/Urban/Graph.hpp
+    include/RogueCity/Generators/Urban/GraphAlgorithms.hpp
     include/RogueCity/Generators/Urban/PolygonFinder.hpp
     include/RogueCity/Generators/Urban/RoadGenerator.hpp
     include/RogueCity/Generators/Urban/DistrictGenerator.hpp

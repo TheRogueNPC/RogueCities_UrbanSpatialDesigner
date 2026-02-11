@@ -22,6 +22,7 @@ set(APP_SOURCES
 
     # Editor infrastructure
     src/Editor/CommandHistory.cpp
+    src/Editor/EditorManipulation.cpp
     src/Editor/ViewportIndexBuilder.cpp
     
     # Viewports (3D/2D hybrid rendering)
@@ -51,6 +52,7 @@ set(APP_HEADERS
 
     # Editor infrastructure
     include/RogueCity/App/Editor/CommandHistory.hpp
+    include/RogueCity/App/Editor/EditorManipulation.hpp
     include/RogueCity/App/Editor/ViewportIndexBuilder.hpp
     
     # Viewports

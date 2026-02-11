@@ -301,18 +301,18 @@ As you add building models, textures, etc.:
 ### Should-Have (Phase 4-5)
 
 - [x]  **Property inspector** (context-sensitive + property-level undo/redo + batch edit)
-- [ ]  **Road vertex editing** (basic drag-to-move)
+- [x]  **Road vertex editing** (basic drag-to-move)
 - [ ]  **Preset system** (save/load axiom configurations)
-- [ ]  **Layer manager** (for multi-level cities)
-- [ ]  **Validation feedback** (highlight errors)
+- [x]  **Layer manager** (for multi-level cities)
+- [x]  **Validation feedback** (highlight errors)
 
 ### Nice-to-Have (Post-MVP)
 
-- [ ]  District boundary override editor
-- [ ]  Curve/spline tools
+- [x]  District boundary override editor
+- [x]  Curve/spline tools
 - [ ]  Timeline scrubbing
 - [x]  Query-based selection (Inspector query filters -> multi-select)
-- [ ]  Custom gizmos for specialized operations
+- [x]  Custom gizmos for specialized operations
 
 ---
 Code considerations

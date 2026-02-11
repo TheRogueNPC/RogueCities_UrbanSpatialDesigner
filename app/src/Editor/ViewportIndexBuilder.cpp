@@ -58,6 +58,7 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
         district_probe.id = district.id;
         district_probe.district_id = district.id;
         district_probe.zone_mask = static_cast<uint8_t>(district.type);
+        district_probe.layer_id = gs.GetEntityLayer(VpEntityKind::District, district.id);
         SetLabelWithId(district_probe, "District", district.id);
 
         index.push_back(district_probe);
@@ -86,6 +87,7 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
             lot_probe.road_id = static_cast<uint32_t>(lot->primary_road);
             lot_probe.aesp = { {lot->access, lot->exposure, lot->serviceability, lot->privacy} };
             lot_probe.zone_mask = static_cast<uint8_t>(lot->lot_type);
+            lot_probe.layer_id = gs.GetEntityLayer(VpEntityKind::Lot, lot->id);
             SetLabelWithId(lot_probe, "Lot", lot->id);
 
             index.push_back(lot_probe);
@@ -114,6 +116,7 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
                 building_probe.parent = lot_record.lot_index;
                 building_probe.district_id = building->district_id;
                 building_probe.zone_mask = static_cast<uint8_t>(building->type);
+                building_probe.layer_id = gs.GetEntityLayer(VpEntityKind::Building, building->id);
                 SetLabelWithId(building_probe, "Building", building->id);
                 index.push_back(building_probe);
                 building_count += 1;
@@ -133,6 +136,7 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
         road_probe.id = road.id;
         road_probe.road_id = road.id;
         road_probe.road_hierarchy = static_cast<uint8_t>(road.type);
+        road_probe.layer_id = gs.GetEntityLayer(VpEntityKind::Road, road.id);
         SetLabelWithId(road_probe, "Road", road.id);
         index.push_back(road_probe);
     }
@@ -142,6 +146,7 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
         VpProbeData water_probe{};
         water_probe.kind = VpEntityKind::Water;
         water_probe.id = water.id;
+        water_probe.layer_id = gs.GetEntityLayer(VpEntityKind::Water, water.id);
         SetLabelWithId(water_probe, "Water", water.id);
         index.push_back(water_probe);
     }

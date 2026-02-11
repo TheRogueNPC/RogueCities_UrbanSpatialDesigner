@@ -155,6 +155,8 @@ namespace RogueCity::Core {
         uint32_t lot_id{ 0 };
         uint32_t district_id{ 0 };
         Vec2 position{};
+        float rotation_radians{ 0.0f };
+        float uniform_scale{ 1.0f };
         BuildingType type{ BuildingType::None };
         bool is_user_placed{ false };
         bool locked_type{ false };

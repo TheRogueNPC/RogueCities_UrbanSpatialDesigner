@@ -40,6 +40,8 @@ struct VpProbeData {
     uint8_t afg_preset{ 0 };
     uint8_t road_hierarchy{ 0 };
     uint8_t zone_mask{ 0 };
+    uint8_t layer_id{ 0 };
+    uint8_t _pad2[3]{ 0, 0, 0 };
     float afg_band{ 0.0f };
     char label[32]{};
 };

@@ -48,6 +48,58 @@ const RogueCity::Core::BuildingSite* FindBuildingById(const RogueCity::Core::Edi
     return nullptr;
 }
 
+float LayerOpacity(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::Core::Editor::VpEntityKind kind,
+    uint32_t id) {
+    const uint8_t layer_id = gs.GetEntityLayer(kind, id);
+    if (const auto* layer = gs.FindLayer(layer_id); layer != nullptr) {
+        return std::clamp(layer->opacity, 0.05f, 1.0f);
+    }
+    return 1.0f;
+}
+
+bool ResolveAnchorForItem(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    const RogueCity::Core::Editor::SelectionItem& item,
+    RogueCity::Core::Vec2& out_anchor) {
+    using RogueCity::Core::Editor::VpEntityKind;
+
+    switch (item.kind) {
+    case VpEntityKind::Road:
+        if (const auto* road = FindRoadById(gs, item.id); road && !road->points.empty()) {
+            out_anchor = road->points[road->points.size() / 2];
+            return true;
+        }
+        return false;
+    case VpEntityKind::District:
+        if (const auto* district = FindDistrictById(gs, item.id); district && !district->border.empty()) {
+            RogueCity::Core::Vec2 centroid{};
+            for (const auto& p : district->border) {
+                centroid += p;
+            }
+            centroid /= static_cast<double>(district->border.size());
+            out_anchor = centroid;
+            return true;
+        }
+        return false;
+    case VpEntityKind::Lot:
+        if (const auto* lot = FindLotById(gs, item.id)) {
+            out_anchor = lot->centroid;
+            return true;
+        }
+        return false;
+    case VpEntityKind::Building:
+        if (const auto* building = FindBuildingById(gs, item.id)) {
+            out_anchor = building->position;
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
 } // namespace
 
 glm::vec4 DistrictColorScheme::GetColorForType(RogueCity::Core::DistrictType type) {
@@ -100,6 +152,10 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_nature_heatmap) {
         RenderNatureHeatmap(gs);
     }
+
+    if (config.show_validation_errors) {
+        RenderValidationErrors(gs);
+    }
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_RENDER_NEW_OVERLAYS
     if (config.show_lot_boundaries) {
@@ -114,6 +170,10 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
         RenderBuildingSites(gs);
     }
 
+    if (config.show_gizmos) {
+        RenderGizmos(gs);
+    }
+
     RenderSelectionOutlines(gs);
     RenderHighlights();
 }
@@ -121,7 +181,11 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
 void ViewportOverlays::RenderZoneColors(const RogueCity::Core::Editor::GlobalState& gs) {
     // Render color-coded district polygons
     for (const auto& district : gs.districts) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::District, district.id)) {
+            continue;
+        }
         glm::vec4 color = DistrictColorScheme::GetColorForType(district.type);
+        color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::District, district.id);
         DrawPolygon(district.border, color);
     }
 }
@@ -129,6 +193,9 @@ void ViewportOverlays::RenderZoneColors(const RogueCity::Core::Editor::GlobalSta
 void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState& gs, OverlayConfig::AESPComponent component) {
     // Render AESP gradient overlays on lots
     for (const auto& lot : gs.lots) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Lot, lot.id)) {
+            continue;
+        }
         
         // Select score component
         float score = 0.0f;
@@ -142,6 +209,7 @@ void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalSt
         }
         
         glm::vec4 color = GetAESPGradientColor(score);
+        color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Lot, lot.id);
         if (!lot.boundary.empty()) {
             DrawPolygon(lot.boundary, color);
             continue;
@@ -158,6 +226,9 @@ void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalSt
 void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs) {
     // Render road classification labels
     for (const auto& road : gs.roads) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Road, road.id)) {
+            continue;
+        }
         
         // Calculate midpoint of road
         if (road.points.empty()) continue;
@@ -177,7 +248,8 @@ void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalSta
             default: break;
         }
         
-        DrawWorldText(midpoint, type_name, glm::vec4(1.0f, 1.0f, 1.0f, 0.8f));
+        const float opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Road, road.id);
+        DrawWorldText(midpoint, type_name, glm::vec4(1.0f, 1.0f, 1.0f, 0.8f * opacity));
     }
 }
 
@@ -198,6 +270,9 @@ void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::Glo
     max_budget = std::max(1.0f, max_budget);
 
     for (const auto& district : gs.districts) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::District, district.id)) {
+            continue;
+        }
         if (district.border.empty()) continue;
         
         // Calculate district centroid
@@ -214,15 +289,16 @@ void ViewportOverlays::RenderBudgetIndicators(const RogueCity::Core::Editor::Glo
             : budget_by_district[district.id];
         const float ratio = budget / max_budget;
 
+        const float opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::District, district.id);
         DrawBudgetBar(
             centroid,
             ratio,
-            glm::vec4(0.9f, 0.8f, 0.2f, 0.9f),
-            glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
+            glm::vec4(0.9f, 0.8f, 0.2f, 0.9f * opacity),
+            glm::vec4(0.1f, 0.1f, 0.1f, 0.8f * opacity));
 
         char budget_label[64];
         std::snprintf(budget_label, sizeof(budget_label), "$%.0f", budget);
-        DrawLabel(centroid, budget_label, glm::vec4(1.0f, 0.95f, 0.6f, 0.9f));
+        DrawLabel(centroid, budget_label, glm::vec4(1.0f, 0.95f, 0.6f, 0.9f * opacity));
     }
 }
 
@@ -472,6 +548,9 @@ void ViewportOverlays::RenderSelectionOutlines(const RogueCity::Core::Editor::Gl
 
     const ImU32 selected_color = IM_COL32(255, 220, 60, 230);
     for (const auto& item : gs.selection_manager.Items()) {
+        if (!gs.IsEntityVisible(item.kind, item.id)) {
+            continue;
+        }
         switch (item.kind) {
         case RogueCity::Core::Editor::VpEntityKind::Road:
             if (const auto* road = FindRoadById(gs, item.id)) {
@@ -503,6 +582,9 @@ void ViewportOverlays::RenderSelectionOutlines(const RogueCity::Core::Editor::Gl
     }
 
     const auto& hover = *gs.hovered_entity;
+    if (!gs.IsEntityVisible(hover.kind, hover.id)) {
+        return;
+    }
     const ImU32 hover_color = IM_COL32(120, 220, 255, 220);
     switch (hover.kind) {
     case RogueCity::Core::Editor::VpEntityKind::Road:
@@ -530,29 +612,111 @@ void ViewportOverlays::RenderSelectionOutlines(const RogueCity::Core::Editor::Gl
     }
 }
 
+void ViewportOverlays::RenderValidationErrors(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.validation_overlay.enabled) {
+        return;
+    }
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    for (const auto& error : gs.validation_overlay.errors) {
+        if (error.severity == RogueCity::Core::Editor::ValidationSeverity::Warning &&
+            !gs.validation_overlay.show_warnings) {
+            continue;
+        }
+
+        const ImVec2 p = WorldToScreen(error.world_position);
+        ImU32 color = IM_COL32(255, 205, 80, 220);
+        float radius = 7.0f;
+        if (error.severity == RogueCity::Core::Editor::ValidationSeverity::Error) {
+            color = IM_COL32(255, 120, 90, 230);
+            radius = 8.0f;
+        } else if (error.severity == RogueCity::Core::Editor::ValidationSeverity::Critical) {
+            color = IM_COL32(255, 65, 65, 240);
+            radius = 9.0f;
+        }
+
+        draw_list->AddCircleFilled(p, radius, color, 20);
+        draw_list->AddCircle(p, radius + 2.0f, IM_COL32(20, 20, 20, 180), 20, 1.0f);
+
+        if (gs.validation_overlay.show_labels && !error.message.empty()) {
+            draw_list->AddText(ImVec2(p.x + 8.0f, p.y - 7.0f), color, error.message.c_str());
+        }
+    }
+}
+
+void ViewportOverlays::RenderGizmos(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.gizmo.enabled || !gs.gizmo.visible || gs.selection_manager.Count() == 0) {
+        return;
+    }
+
+    RogueCity::Core::Vec2 pivot{};
+    size_t count = 0;
+    for (const auto& item : gs.selection_manager.Items()) {
+        if (!gs.IsEntityVisible(item.kind, item.id)) {
+            continue;
+        }
+        RogueCity::Core::Vec2 anchor{};
+        if (!ResolveAnchorForItem(gs, item, anchor)) {
+            continue;
+        }
+        pivot += anchor;
+        ++count;
+    }
+    if (count == 0) {
+        return;
+    }
+    pivot /= static_cast<double>(count);
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImVec2 center = WorldToScreen(pivot);
+    const float axis_len = 34.0f;
+    const float ring_r = 24.0f;
+
+    switch (gs.gizmo.operation) {
+    case RogueCity::Core::Editor::GizmoOperation::Translate:
+        draw_list->AddLine(ImVec2(center.x - axis_len, center.y), ImVec2(center.x + axis_len, center.y), IM_COL32(255, 100, 100, 240), 2.5f);
+        draw_list->AddLine(ImVec2(center.x, center.y - axis_len), ImVec2(center.x, center.y + axis_len), IM_COL32(100, 220, 255, 240), 2.5f);
+        break;
+    case RogueCity::Core::Editor::GizmoOperation::Rotate:
+        draw_list->AddCircle(center, ring_r, IM_COL32(120, 220, 255, 240), 36, 2.5f);
+        draw_list->AddCircle(center, ring_r + 7.0f, IM_COL32(255, 180, 80, 180), 36, 1.5f);
+        break;
+    case RogueCity::Core::Editor::GizmoOperation::Scale:
+        draw_list->AddRect(ImVec2(center.x - ring_r, center.y - ring_r), ImVec2(center.x + ring_r, center.y + ring_r), IM_COL32(120, 255, 150, 240), 0.0f, 0, 2.5f);
+        draw_list->AddRectFilled(ImVec2(center.x + ring_r - 5.0f, center.y + ring_r - 5.0f), ImVec2(center.x + ring_r + 5.0f, center.y + ring_r + 5.0f), IM_COL32(120, 255, 150, 220));
+        break;
+    default:
+        break;
+    }
+}
+
 // AI_INTEGRATION_TAG: V1_PASS1_TASK5_WATER_OVERLAY
 void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs) {
     using RogueCity::Core::WaterType;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     
     for (const auto& water : gs.waterbodies) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Water, water.id)) {
+            continue;
+        }
         if (water.boundary.empty()) continue;
+        const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Water, water.id);
         
         // Determine color based on water type
         glm::vec4 water_color;
         switch (water.type) {
             case WaterType::River:
-                water_color = glm::vec4(0.31f, 0.59f, 0.86f, 0.7f);  // Light blue
+                water_color = glm::vec4(0.31f, 0.59f, 0.86f, 0.7f * layer_opacity);  // Light blue
                 break;
             case WaterType::Lake:
-                water_color = glm::vec4(0.20f, 0.47f, 0.78f, 0.6f);  // Medium blue
+                water_color = glm::vec4(0.20f, 0.47f, 0.78f, 0.6f * layer_opacity);  // Medium blue
                 break;
             case WaterType::Ocean:
-                water_color = glm::vec4(0.12f, 0.35f, 0.71f, 0.65f); // Dark blue
+                water_color = glm::vec4(0.12f, 0.35f, 0.71f, 0.65f * layer_opacity); // Dark blue
                 break;
             case WaterType::Pond:
             default:
-                water_color = glm::vec4(0.25f, 0.50f, 0.75f, 0.6f);  // Default blue
+                water_color = glm::vec4(0.25f, 0.50f, 0.75f, 0.6f * layer_opacity);  // Default blue
                 break;
         }
         
@@ -632,6 +796,10 @@ void ViewportOverlays::RenderBuildingSites(const RogueCity::Core::Editor::Global
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     
     for (const auto& building : gs.buildings) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Building, building.id)) {
+            continue;
+        }
+        const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Building, building.id);
         // Render building as a simple marker/circle for now
         // In future, this could be footprint polygons with height
         ImVec2 screen_pos = WorldToScreen(building.position);
@@ -661,6 +829,7 @@ void ViewportOverlays::RenderBuildingSites(const RogueCity::Core::Editor::Global
                 break;
         }
         
+        building_color.a *= layer_opacity;
         ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(building_color.r, building_color.g, building_color.b, building_color.a));
         
         // Draw building marker (square for now)
@@ -692,10 +861,14 @@ void ViewportOverlays::RenderLotBoundaries(const RogueCity::Core::Editor::Global
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     
     for (const auto& lot : gs.lots) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Lot, lot.id)) {
+            continue;
+        }
         if (lot.boundary.empty()) continue;
+        const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Lot, lot.id);
         
         // Lot boundary color (subtle, so it doesn't overwhelm)
-        glm::vec4 lot_color(0.8f, 0.8f, 0.8f, 0.3f); // Light gray, semi-transparent
+        glm::vec4 lot_color(0.8f, 0.8f, 0.8f, 0.3f * layer_opacity); // Light gray, semi-transparent
         
         // Convert to screen space
         std::vector<ImVec2> screen_points;

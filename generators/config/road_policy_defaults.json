@@ -1,0 +1,103 @@
+{
+  "road_type_defaults": {
+    "Highway": {
+      "V_base": 33.0,
+      "Cap_base": 6.0,
+      "AccessControl": 1.0,
+      "SignalAllowed": false,
+      "RoundaboutAllowed": false,
+      "GradeSepPreferred": 1.0,
+      "MinNodeSpacing": 500.0,
+      "snapRadius": 12.0,
+      "weldRadius": 8.0,
+      "minSeparation": 200.0,
+      "minEdgeLength": 120.0
+    },
+    "Arterial": {
+      "V_base": 22.0,
+      "Cap_base": 4.0,
+      "AccessControl": 0.6,
+      "SignalAllowed": true,
+      "RoundaboutAllowed": true,
+      "GradeSepPreferred": 0.6,
+      "MinNodeSpacing": 250.0,
+      "snapRadius": 10.0,
+      "weldRadius": 6.0,
+      "minSeparation": 120.0,
+      "minEdgeLength": 80.0
+    },
+    "Street": {
+      "V_base": 13.0,
+      "Cap_base": 2.0,
+      "AccessControl": 0.2,
+      "SignalAllowed": true,
+      "RoundaboutAllowed": true,
+      "GradeSepPreferred": 0.1,
+      "MinNodeSpacing": 120.0,
+      "snapRadius": 8.0,
+      "weldRadius": 5.0,
+      "minSeparation": 60.0,
+      "minEdgeLength": 40.0
+    },
+    "Lane": {
+      "V_base": 8.0,
+      "Cap_base": 1.0,
+      "AccessControl": 0.0,
+      "SignalAllowed": false,
+      "RoundaboutAllowed": false,
+      "GradeSepPreferred": 0.0,
+      "MinNodeSpacing": 60.0,
+      "snapRadius": 6.0,
+      "weldRadius": 4.0,
+      "minSeparation": 30.0,
+      "minEdgeLength": 20.0
+    }
+  },
+  "district_modifiers": {
+    "DowntownCore": {
+      "speed_mult": 0.65,
+      "activity_mult": 1.35,
+      "frontage_pressure_mult": 1.40,
+      "visual_intrusion_penalty": 1.25
+    },
+    "Residential": {
+      "speed_mult": 0.85,
+      "activity_mult": 0.85,
+      "frontage_pressure_mult": 0.95,
+      "visual_intrusion_penalty": 1.00
+    },
+    "Industrial": {
+      "speed_mult": 0.95,
+      "activity_mult": 1.05,
+      "frontage_pressure_mult": 0.80,
+      "visual_intrusion_penalty": 0.85
+    },
+    "Megastructure": {
+      "speed_mult": 1.20,
+      "activity_mult": 1.10,
+      "frontage_pressure_mult": 1.10,
+      "visual_intrusion_penalty": 0.60
+    }
+  },
+  "control_thresholds": {
+    "uncontrolled": { "D_max": 10.0, "R_max": 10.0 },
+    "yield_stop": { "D_max": 25.0, "R_max": 25.0 },
+    "all_way_stop": { "D_max": 45.0, "R_max": 45.0 },
+    "signal": { "D_max": 75.0, "R_max": 75.0 },
+    "roundabout": { "D_min": 60.0, "R_min": 60.0 },
+    "interchange": { "D_min": 120.0, "R_min": 120.0 }
+  },
+  "verticality_policy": {
+    "max_layers": 3,
+    "grade_sep_bias": 1.0,
+    "ramp_cost_mult": 1.0,
+    "visual_intrusion_weight": 1.0,
+    "allow_grade_sep_without_ramps": true
+  },
+  "template_costs": {
+    "at_grade_signal": { "base": 30.0, "space": 1.0 },
+    "roundabout": { "base": 45.0, "space": 1.4 },
+    "grade_separation": { "base": 80.0, "space": 1.2 },
+    "interchange_basic": { "base": 140.0, "space": 2.0 }
+  }
+}

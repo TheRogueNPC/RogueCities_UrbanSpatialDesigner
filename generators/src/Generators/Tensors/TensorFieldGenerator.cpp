@@ -188,14 +188,23 @@ namespace RogueCity::Generators {
     }
 
     Tensor2D TensorFieldGenerator::interpolateTensor(const Vec2& world_pos) const {
-        // Bilinear interpolation of tensors at grid points
-        double fx = world_pos.x / config_.cell_size;
-        double fy = world_pos.y / config_.cell_size;
+        if (config_.width <= 0 || config_.height <= 0 || grid_.empty()) {
+            return Tensor2D::zero();
+        }
+
+        // The grid stores tensor samples at cell centers ((i + 0.5) * cell_size).
+        // Clamp to grid extent to avoid edge fade when sampling outside bounds.
+        const double max_x = static_cast<double>(config_.width - 1);
+        const double max_y = static_cast<double>(config_.height - 1);
+        double fx = (world_pos.x / config_.cell_size) - 0.5;
+        double fy = (world_pos.y / config_.cell_size) - 0.5;
+        fx = std::clamp(fx, 0.0, max_x);
+        fy = std::clamp(fy, 0.0, max_y);
 
         int gx0 = static_cast<int>(std::floor(fx));
         int gy0 = static_cast<int>(std::floor(fy));
-        int gx1 = gx0 + 1;
-        int gy1 = gy0 + 1;
+        int gx1 = std::min(gx0 + 1, config_.width - 1);
+        int gy1 = std::min(gy0 + 1, config_.height - 1);
 
         double tx = fx - gx0;
         double ty = fy - gy0;
@@ -206,22 +215,23 @@ namespace RogueCity::Generators {
         Tensor2D t01 = getGridTensor(gx0, gy1);
         Tensor2D t11 = getGridTensor(gx1, gy1);
 
-        // Bilinear blend (simple average for tensors)
+        // Bilinear blend (scale-then-add avoids interpolation fade artifacts).
         Tensor2D result = Tensor2D::zero();
-        result.add(t00, true);
-        result.scale((1.0 - tx) * (1.0 - ty));
+        Tensor2D w00 = t00;
+        w00.scale((1.0 - tx) * (1.0 - ty));
+        result.add(w00, true);
 
-        Tensor2D temp = t10;
-        temp.scale(tx * (1.0 - ty));
-        result.add(temp, true);
+        Tensor2D w10 = t10;
+        w10.scale(tx * (1.0 - ty));
+        result.add(w10, true);
 
-        temp = t01;
-        temp.scale((1.0 - tx) * ty);
-        result.add(temp, true);
+        Tensor2D w01 = t01;
+        w01.scale((1.0 - tx) * ty);
+        result.add(w01, true);
 
-        temp = t11;
-        temp.scale(tx * ty);
-        result.add(temp, true);
+        Tensor2D w11 = t11;
+        w11.scale(tx * ty);
+        result.add(w11, true);
 
         return result;
     }

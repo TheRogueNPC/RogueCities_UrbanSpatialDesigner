@@ -22,6 +22,8 @@ struct OverlayConfig {
     bool show_slope_heatmap = false;
     bool show_no_build_mask = true;
     bool show_nature_heatmap = false;
+    bool show_validation_errors = true;
+    bool show_gizmos = true;
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_OVERLAY_CONFIG
     bool show_water_bodies = true;
@@ -85,6 +87,8 @@ public:
     void RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderNoBuildMask(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderNatureHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderValidationErrors(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderGizmos(const RogueCity::Core::Editor::GlobalState& gs);
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_VIEWPORT_OVERLAYS
     void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs);

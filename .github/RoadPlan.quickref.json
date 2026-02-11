@@ -1,0 +1,53 @@
+{
+  "title": "RogueCities Road Plan Quick Reference",
+  "source": ".github/Road Plan.md#For Agents",
+  "pipeline_order": [
+    "trace",
+    "snap",
+    "split",
+    "graph",
+    "classify",
+    "simplify",
+    "score",
+    "control",
+    "layer/ramps"
+  ],
+  "phase_to_files": {
+    "phase_1_noding_graph": [
+      "generators/include/RogueCity/Generators/Roads/PolylineRoadCandidate.hpp",
+      "generators/include/RogueCity/Generators/Roads/SegmentGridStorage.hpp",
+      "generators/src/Generators/Roads/SegmentGridStorage.cpp",
+      "generators/include/RogueCity/Generators/Roads/RoadNoder.hpp",
+      "generators/src/Generators/Roads/RoadNoder.cpp",
+      "generators/include/RogueCity/Generators/Urban/Graph.hpp",
+      "generators/src/Generators/Urban/Graph.cpp"
+    ],
+    "phase_2_classify_simplify": [
+      "generators/include/RogueCity/Generators/Urban/GraphAlgorithms.hpp",
+      "generators/src/Generators/Urban/GraphAlgorithms.cpp",
+      "generators/include/RogueCity/Generators/Roads/GraphSimplify.hpp",
+      "generators/src/Generators/Roads/GraphSimplify.cpp",
+      "generators/include/RogueCity/Generators/Roads/RoadClassifier.hpp",
+      "generators/src/Generators/Roads/RoadClassifier.cpp"
+    ],
+    "phase_3_flow_controls": [
+      "generators/include/RogueCity/Generators/Roads/FlowAndControl.hpp",
+      "generators/src/Generators/Roads/FlowAndControl.cpp"
+    ],
+    "phase_4_verticality_portals": [
+      "generators/include/RogueCity/Generators/Roads/Verticality.hpp",
+      "generators/src/Generators/Roads/Verticality.cpp"
+    ],
+    "phase_5_templates_furniture": [
+      "generators/include/RogueCity/Generators/Roads/IntersectionTemplates.hpp",
+      "generators/src/Generators/Roads/IntersectionTemplates.cpp"
+    ],
+    "integration": [
+      "generators/include/RogueCity/Generators/Urban/RoadGenerator.hpp",
+      "generators/src/Generators/Urban/RoadGenerator.cpp",
+      "generators/src/Generators/Tensors/TensorFieldGenerator.cpp",
+      "generators/config/road_policy_defaults.json",
+      "generators/CMakeLists.txt"
+    ]
+  }
+}

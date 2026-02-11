@@ -22,6 +22,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Util/StableIndexVector.hpp
     include/RogueCity/Core/Util/RogueWorker.hpp
     include/RogueCity/Core/Validation/EditorIntegrity.hpp
+    include/RogueCity/Core/Validation/EditorOverlayValidation.hpp
 )
 
 set(CORE_SOURCES
@@ -32,6 +33,7 @@ set(CORE_SOURCES
     src/Core/Editor/EditorState.cpp
     src/Core/Editor/GlobalState.cpp
     src/Core/Validation/EditorIntegrity.cpp
+    src/Core/Validation/EditorOverlayValidation.cpp
 )
 
 # === LIBRARY TARGET ===

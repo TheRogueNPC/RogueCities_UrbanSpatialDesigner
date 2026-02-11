@@ -1,17 +1,30 @@
 #include "RogueCity/App/Editor/CommandHistory.hpp"
+#include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 
 #include <cassert>
+#include <array>
 #include <cstring>
 #include <memory>
+#include <span>
 
 using RogueCity::App::CommandHistory;
 using RogueCity::App::ICommand;
 using RogueCity::App::ViewportIndexBuilder;
+using RogueCity::App::EditorManipulation::ApplyRotate;
+using RogueCity::App::EditorManipulation::ApplyScale;
+using RogueCity::App::EditorManipulation::ApplyTranslate;
+using RogueCity::App::EditorManipulation::BuildCatmullRomSpline;
+using RogueCity::App::EditorManipulation::SplineOptions;
 using RogueCity::Core::Editor::DirtyLayer;
 using RogueCity::Core::Editor::GlobalState;
+using RogueCity::Core::Editor::SelectionItem;
+using RogueCity::Core::Editor::ValidationSeverity;
+using RogueCity::Core::Editor::VpEntityKind;
+using RogueCity::Core::Validation::CollectOverlayValidationErrors;
 using RogueCity::Generators::CityGenerator;
 
 namespace {
@@ -88,6 +101,7 @@ void TestViewportIndexIntegrity() {
         assert(a.parent == b.parent);
         assert(a.first_child == b.first_child);
         assert(a.child_count == b.child_count);
+        assert(a.layer_id == b.layer_id);
     }
 
     for (size_t i = 0; i < gs_a.viewport_index.size(); ++i) {
@@ -165,11 +179,166 @@ void TestUndoRedoDeterminism() {
     assert(state.weight == mutated.weight);
 }
 
+void TestLayerVisibilityMapping() {
+    GlobalState gs{};
+    RogueCity::Core::Road road{};
+    road.id = 100u;
+    road.points = {
+        RogueCity::Core::Vec2(0.0, 0.0),
+        RogueCity::Core::Vec2(10.0, 0.0)
+    };
+    gs.roads.add(road);
+
+    gs.SetEntityLayer(VpEntityKind::Road, 100u, 2u);
+    assert(gs.GetEntityLayer(VpEntityKind::Road, 100u) == 2u);
+    assert(gs.IsEntityVisible(VpEntityKind::Road, 100u));
+
+    auto* layer = gs.layer_manager.layers.size() > 2 ? &gs.layer_manager.layers[2] : nullptr;
+    assert(layer != nullptr);
+    layer->visible = false;
+    assert(!gs.IsEntityVisible(VpEntityKind::Road, 100u));
+}
+
+void TestSplineDeterminism() {
+    std::vector<RogueCity::Core::Vec2> control{
+        RogueCity::Core::Vec2(0.0, 0.0),
+        RogueCity::Core::Vec2(20.0, 5.0),
+        RogueCity::Core::Vec2(40.0, -8.0),
+        RogueCity::Core::Vec2(70.0, 0.0)
+    };
+
+    SplineOptions options{};
+    options.closed = false;
+    options.samples_per_segment = 7;
+    options.tension = 0.25f;
+
+    const auto a = BuildCatmullRomSpline(control, options);
+    const auto b = BuildCatmullRomSpline(control, options);
+    assert(a.size() == b.size());
+    assert(!a.empty());
+    for (size_t i = 0; i < a.size(); ++i) {
+        assert(a[i] == b[i]);
+    }
+}
+
+void TestValidationCollector() {
+    GlobalState gs{};
+
+    RogueCity::Core::Road r1{};
+    r1.id = 1u;
+    r1.points = {
+        RogueCity::Core::Vec2(0.0, 0.0),
+        RogueCity::Core::Vec2(10.0, 10.0)
+    };
+    gs.roads.add(r1);
+
+    RogueCity::Core::Road r2{};
+    r2.id = 2u;
+    r2.points = {
+        RogueCity::Core::Vec2(10.0, 0.0),
+        RogueCity::Core::Vec2(0.0, 10.0)
+    };
+    gs.roads.add(r2);
+
+    RogueCity::Core::LotToken lot{};
+    lot.id = 9u;
+    lot.area = 30.0f;
+    lot.centroid = RogueCity::Core::Vec2(5.0, 5.0);
+    lot.boundary = {
+        RogueCity::Core::Vec2(4.0, 4.0),
+        RogueCity::Core::Vec2(6.0, 4.0),
+        RogueCity::Core::Vec2(6.0, 6.0),
+        RogueCity::Core::Vec2(4.0, 6.0)
+    };
+    gs.lots.add(lot);
+
+    RogueCity::Core::BuildingSite b{};
+    b.id = 90u;
+    b.lot_id = 999u; // Missing lot link to force critical.
+    b.position = RogueCity::Core::Vec2(50.0, 50.0);
+    gs.buildings.push_back(b);
+
+    auto errors = CollectOverlayValidationErrors(gs, 80.0f);
+    assert(!errors.empty());
+
+    bool saw_critical = false;
+    bool saw_lot_warning = false;
+    bool saw_road_warning = false;
+    for (const auto& e : errors) {
+        if (e.severity == ValidationSeverity::Critical && e.entity_kind == VpEntityKind::Building) {
+            saw_critical = true;
+        }
+        if (e.entity_kind == VpEntityKind::Lot) {
+            saw_lot_warning = true;
+        }
+        if (e.entity_kind == VpEntityKind::Road) {
+            saw_road_warning = true;
+        }
+    }
+
+    assert(saw_critical);
+    assert(saw_lot_warning);
+    assert(saw_road_warning);
+}
+
+void TestGizmoTransformRoundTrip() {
+    GlobalState gs{};
+
+    RogueCity::Core::Road road{};
+    road.id = 7u;
+    road.points = {
+        RogueCity::Core::Vec2(10.0, 10.0),
+        RogueCity::Core::Vec2(20.0, 10.0)
+    };
+    gs.roads.add(road);
+
+    RogueCity::Core::BuildingSite building{};
+    building.id = 42u;
+    building.position = RogueCity::Core::Vec2(15.0, 25.0);
+    const auto building_sid = gs.buildings.push_back(building);
+
+    const auto baseline_road = road.points;
+    const auto baseline_building = gs.buildings[building_sid].position;
+
+    std::array<SelectionItem, 2> selection{
+        SelectionItem{ VpEntityKind::Road, 7u },
+        SelectionItem{ VpEntityKind::Building, 42u }
+    };
+
+    const RogueCity::Core::Vec2 delta(3.0, -2.0);
+    const RogueCity::Core::Vec2 pivot(15.0, 15.0);
+    assert(ApplyTranslate(gs, std::span<const SelectionItem>(selection), delta));
+    assert(ApplyRotate(gs, std::span<const SelectionItem>(selection), pivot, 0.25));
+    assert(ApplyScale(gs, std::span<const SelectionItem>(selection), pivot, 1.2));
+
+    assert(ApplyScale(gs, std::span<const SelectionItem>(selection), pivot, 1.0 / 1.2));
+    assert(ApplyRotate(gs, std::span<const SelectionItem>(selection), pivot, -0.25));
+    assert(ApplyTranslate(gs, std::span<const SelectionItem>(selection), RogueCity::Core::Vec2(-delta.x, -delta.y)));
+
+    RogueCity::Core::Road* restored_road = nullptr;
+    for (auto& candidate : gs.roads) {
+        if (candidate.id == 7u) {
+            restored_road = &candidate;
+            break;
+        }
+    }
+    assert(restored_road != nullptr);
+    assert(restored_road->points.size() == baseline_road.size());
+    for (size_t i = 0; i < baseline_road.size(); ++i) {
+        assert(restored_road->points[i].distanceTo(baseline_road[i]) < 1e-4);
+    }
+    assert(gs.buildings[building_sid].position.distanceTo(baseline_building) < 1e-4);
+}
+
 } // namespace
 
 int main() {
     TestViewportIndexIntegrity();
     TestDirtyLayerPropagation();
     TestUndoRedoDeterminism();
+    TestLayerVisibilityMapping();
+    TestSplineDeterminism();
+    TestValidationCollector();
+    TestGizmoTransformRoundTrip();
     return 0;
 }

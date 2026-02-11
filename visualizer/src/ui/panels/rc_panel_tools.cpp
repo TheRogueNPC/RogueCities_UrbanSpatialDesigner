@@ -147,16 +147,44 @@ void Draw(float dt)
         dirty_any ? ImVec4(1.0f, 0.8f, 0.2f, 1.0f) : ImVec4(0.6f, 0.85f, 0.6f, 1.0f),
         dirty_any ? "Dirty Layers: pending" : "Dirty Layers: clean");
 
-    if (dirty_any && ImGui::IsItemHovered()) {
-        ImGui::BeginTooltip();
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Axioms)) ImGui::BulletText("Axioms");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Tensor)) ImGui::BulletText("Tensor");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Roads)) ImGui::BulletText("Roads");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Districts)) ImGui::BulletText("Districts");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Lots)) ImGui::BulletText("Lots");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::Buildings)) ImGui::BulletText("Buildings");
-        if (gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex)) ImGui::BulletText("Viewport Index");
-        ImGui::EndTooltip();
+    int dirty_count = 0;
+    for (int i = 0; i < static_cast<int>(DirtyLayer::Count); ++i) {
+        if (gs.dirty_layers.IsDirty(static_cast<DirtyLayer>(i))) {
+            ++dirty_count;
+        }
+    }
+    const float dirty_ratio = static_cast<float>(dirty_count) / static_cast<float>(static_cast<int>(DirtyLayer::Count));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::ProgressBar(
+        dirty_ratio,
+        ImVec2(120.0f, 0.0f),
+        dirty_any ? "Rebuild pending" : "Clean");
+
+    auto draw_chip = [](const char* label, bool dirty) {
+        ImVec4 color = dirty ? ImVec4(0.96f, 0.56f, 0.22f, 0.90f) : ImVec4(0.35f, 0.72f, 0.40f, 0.75f);
+        ImGui::PushStyleColor(ImGuiCol_Button, color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
+        ImGui::SmallButton(label);
+        ImGui::PopStyleColor(3);
+    };
+
+    ImGui::SeparatorText("Dirty Layers");
+    draw_chip("Axioms", gs.dirty_layers.IsDirty(DirtyLayer::Axioms)); ImGui::SameLine();
+    draw_chip("Tensor", gs.dirty_layers.IsDirty(DirtyLayer::Tensor)); ImGui::SameLine();
+    draw_chip("Roads", gs.dirty_layers.IsDirty(DirtyLayer::Roads)); ImGui::SameLine();
+    draw_chip("Districts", gs.dirty_layers.IsDirty(DirtyLayer::Districts)); ImGui::SameLine();
+    draw_chip("Lots", gs.dirty_layers.IsDirty(DirtyLayer::Lots)); ImGui::SameLine();
+    draw_chip("Buildings", gs.dirty_layers.IsDirty(DirtyLayer::Buildings)); ImGui::SameLine();
+    draw_chip("Viewport", gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex));
+
+    if (dirty_any) {
+        if (ImGui::Button("Clear Dirty Flags")) {
+            gs.dirty_layers.MarkAllClean();
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("Tip: Generate/Regenerate also clears successful rebuild layers.");
     }
 
     ImGui::SameLine();

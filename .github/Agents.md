@@ -35,6 +35,10 @@
   - **Problem**: Regeneration lacked visible dirty-state tracking.
   - **Decision**: Track downstream dirty layers from axiom/property edits and clear on successful rebuild.
   - **Result**: Tools panel now exposes dirty-layer status and regeneration intent.
+- **2026-02-10: Validation + Gizmo + Layer Authoring Consolidation**
+  - **Problem**: Remaining plan gaps existed for validation overlays, gizmos, layer manager, and manual district/curve authoring.
+  - **Decision**: Implement a unified editor-side model (`validation_overlay`, `gizmo`, `layer_manager`, boundary/spline state) and wire it to inspector + viewport interactions.
+  - **Result**: Viewport now surfaces validation markers, interactive gizmo transforms, road vertex edits, district boundary controls, and layer-aware visibility.
 
 ### Implementation Checklist (Active)
 - [x] Viewport index selection/picking integration
@@ -43,8 +47,13 @@
 - [x] Property-level undo/redo in Inspector
 - [x] Batch editing for multi-selection
 - [x] Query-based selection controls in Inspector
-- [x] Dirty-layer propagation state + UI status
+- [x] Dirty-layer propagation state + polished UI status
+- [x] Validation overlay system (error markers + inspector controls)
+- [x] Gizmo system (translate/rotate/scale handles + shortcuts)
+- [x] District boundary editor and layer manager controls
+- [x] Curve/spline editor tools for roads
 - [x] Regression tests for viewport index integrity / dirty-layer propagation / undo-redo determinism
+- [x] Regression suite extension (layer mapping, spline determinism, validation collector, gizmo round-trip)
 - [ ] Lua/Serialization compatibility bridge for viewport IDs
   - TODO: Add compatibility alias/mapping layer before Lua-facing ID exposure and persisted entity references.
 

@@ -2,7 +2,12 @@
 
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
+#include "RogueCity/Generators/Roads/RoadNoder.hpp"
+#include "RogueCity/Generators/Roads/GraphSimplify.hpp"
+#include "RogueCity/Generators/Roads/FlowAndControl.hpp"
+#include "RogueCity/Generators/Roads/Verticality.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
+#include "RogueCity/Generators/Urban/Graph.hpp"
 
 #include <vector>
 
@@ -12,6 +17,12 @@ namespace RogueCity::Generators::Urban {
     public:
         struct Config {
             StreamlineTracer::Params tracing{};
+            Roads::NoderConfig noder{};
+            Roads::SimplifyConfig simplify{};
+            Roads::FlowControlConfig flow_control{};
+            Roads::VerticalityConfig verticality{};
+            uint32_t centrality_samples = 64u;
+            bool enable_verticality = true;
         };
 
         [[nodiscard]] static fva::Container<Core::Road> generate(
@@ -21,4 +32,3 @@ namespace RogueCity::Generators::Urban {
     };
 
 } // namespace RogueCity::Generators::Urban
-
