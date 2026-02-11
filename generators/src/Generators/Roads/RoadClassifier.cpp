@@ -1,8 +1,12 @@
 #include "RogueCity/Generators/Roads/RoadClassifier.hpp"
 
 #include "RogueCity/Generators/Urban/GraphAlgorithms.hpp"
+#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <limits>
 #include <numeric>
 
 namespace RogueCity::Generators {
@@ -11,6 +15,52 @@ namespace RogueCity::Generators {
 
         [[nodiscard]] float roadLength(const Road& road) {
             return static_cast<float>(road.length());
+        }
+
+        [[nodiscard]] int roadRank(Core::RoadType type) {
+            switch (type) {
+                case Core::RoadType::Highway: return 9;
+                case Core::RoadType::Arterial: return 8;
+                case Core::RoadType::Avenue: return 7;
+                case Core::RoadType::Boulevard: return 6;
+                case Core::RoadType::Street: return 5;
+                case Core::RoadType::Lane: return 4;
+                case Core::RoadType::Alleyway: return 3;
+                case Core::RoadType::CulDeSac: return 2;
+                case Core::RoadType::Drive: return 1;
+                case Core::RoadType::Driveway: return 0;
+                case Core::RoadType::M_Major: return 8;
+                case Core::RoadType::M_Minor: return 5;
+                default: return 0;
+            }
+        }
+
+        [[nodiscard]] Core::RoadType bestAespType(float access_target, float exposure_target) {
+            static const std::array<Core::RoadType, 10> kTypes = {
+                Core::RoadType::Highway,
+                Core::RoadType::Arterial,
+                Core::RoadType::Avenue,
+                Core::RoadType::Boulevard,
+                Core::RoadType::Street,
+                Core::RoadType::Lane,
+                Core::RoadType::Alleyway,
+                Core::RoadType::CulDeSac,
+                Core::RoadType::Drive,
+                Core::RoadType::Driveway
+            };
+
+            Core::RoadType best = Core::RoadType::Street;
+            float best_score = std::numeric_limits<float>::max();
+            for (const auto type : kTypes) {
+                const float access = AESPClassifier::roadTypeToAccess(type);
+                const float exposure = AESPClassifier::roadTypeToExposure(type);
+                const float diff = std::abs(access - access_target) + std::abs(exposure - exposure_target);
+                if (diff < best_score) {
+                    best_score = diff;
+                    best = type;
+                }
+            }
+            return best;
         }
 
     } // namespace
@@ -60,7 +110,24 @@ namespace RogueCity::Generators {
             const float degree_norm = std::clamp((endpoint_degree - 1.0f) / 4.0f, 0.0f, 1.0f);
 
             const float score = (0.45f * cent) + (0.35f * length_norm) + (0.20f * degree_norm);
-            edge->type = classifyScore(score, length_norm, cent, endpoint_degree);
+            const auto base_type = classifyScore(score, length_norm, cent, endpoint_degree);
+
+            const float access_target = std::clamp(0.45f * cent + 0.35f * degree_norm + 0.20f * length_norm, 0.0f, 1.0f);
+            const float exposure_target = std::clamp(0.60f * cent + 0.40f * length_norm, 0.0f, 1.0f);
+            const auto aesp_type = bestAespType(access_target, exposure_target);
+
+            const float base_access = AESPClassifier::roadTypeToAccess(base_type);
+            const float base_exposure = AESPClassifier::roadTypeToExposure(base_type);
+            const float aesp_access = AESPClassifier::roadTypeToAccess(aesp_type);
+            const float aesp_exposure = AESPClassifier::roadTypeToExposure(aesp_type);
+            const float base_diff = std::abs(base_access - access_target) + std::abs(base_exposure - exposure_target);
+            const float aesp_diff = std::abs(aesp_access - access_target) + std::abs(aesp_exposure - exposure_target);
+
+            if (aesp_diff + 0.08f < base_diff && roadRank(aesp_type) >= roadRank(base_type) - 1) {
+                edge->type = aesp_type;
+            } else {
+                edge->type = base_type;
+            }
         }
     }
 

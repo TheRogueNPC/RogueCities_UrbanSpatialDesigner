@@ -96,11 +96,13 @@ namespace RogueCity::Generators::Roads {
                 (20.0f * cfg.visual_intrusion_weight) -
                 (major_incident * 8.0f * cfg.grade_sep_bias);
 
+            const bool force_major_split = major_incident >= 2 && incident_speed >= 22.0f;
             const bool should_grade_separate =
-                major_incident >= 2 &&
-                (at_grade_cost > grade_sep_cost ||
-                 v->control == Urban::ControlType::Interchange ||
-                 v->control == Urban::ControlType::GradeSep);
+                force_major_split ||
+                (major_incident >= 2 &&
+                 (at_grade_cost > grade_sep_cost ||
+                  v->control == Urban::ControlType::Interchange ||
+                  v->control == Urban::ControlType::GradeSep));
 
             if (!should_grade_separate) {
                 continue;
@@ -122,7 +124,17 @@ namespace RogueCity::Generators::Roads {
             ramp.b = portal_id;
             ramp.type = Core::RoadType::Drive;
             ramp.layer_id = v->layer_id;
-            ramp.shape = { v->pos, portal.pos };
+            const Core::Vec2 delta = portal.pos - v->pos;
+            const double dist = delta.length();
+            if (dist > 1e-3) {
+                Core::Vec2 dir = delta / dist;
+                Core::Vec2 perp(-dir.y, dir.x);
+                const float bend = std::min(12.0f, static_cast<float>(dist * 0.35));
+                const Core::Vec2 mid = (v->pos + portal.pos) * 0.5 + perp * bend;
+                ramp.shape = { v->pos, mid, portal.pos };
+            } else {
+                ramp.shape = { v->pos, portal.pos };
+            }
             ramp.length = static_cast<float>(v->pos.distanceTo(portal.pos));
             ramp.flow.v_base = 10.0f;
             ramp.flow.cap_base = 0.6f;

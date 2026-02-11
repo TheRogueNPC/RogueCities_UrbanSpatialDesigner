@@ -22,11 +22,19 @@ namespace RogueCity::Generators::Roads {
         float score = 0.0f;
     };
 
+    struct InterchangeTemplate {
+        JunctionArchetype archetype = JunctionArchetype::None;
+        Core::Vec2 center{};
+        float radius = 0.0f;
+        float rotation = 0.0f;
+    };
+
     struct TemplateOutput {
         std::vector<Core::Polygon> paved_areas;
         std::vector<Core::Polygon> keep_out_islands;
         std::vector<Core::Polygon> support_footprints;
         std::vector<GreenspaceCandidate> greenspace_candidates;
+        std::vector<InterchangeTemplate> interchanges;
     };
 
     struct TemplateConfig {

@@ -298,7 +298,7 @@ namespace RogueCity::Generators::Roads {
             const auto* vb = g.getVertex(e->b);
             const float da = va != nullptr ? controlDelaySeconds(va->control) : 0.0f;
             const float db = vb != nullptr ? controlDelaySeconds(vb->control) : 0.0f;
-            const float delay = (da + db) * 0.5f;
+            const float delay = (da + db) * 0.5f * std::max(0.0f, cfg.control_delay_mult);
             const float delay_mult = std::clamp(e->flow.v_base / (e->flow.v_base + delay), 0.35f, 1.0f);
             e->flow.v_eff *= delay_mult;
             e->flow.flow_score *= delay_mult;

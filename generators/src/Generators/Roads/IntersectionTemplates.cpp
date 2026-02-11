@@ -63,6 +63,45 @@ namespace RogueCity::Generators::Roads {
             return std::max(0.0f, score);
         }
 
+        [[nodiscard]] float edgeRotationRadians(const Urban::Graph& g, Urban::VertexID vid) {
+            const auto* v = g.getVertex(vid);
+            if (v == nullptr || v->edges.empty()) {
+                return 0.0f;
+            }
+            const auto* e = g.getEdge(v->edges.front());
+            if (e == nullptr) {
+                return 0.0f;
+            }
+            const Urban::VertexID other = (e->a == vid) ? e->b : e->a;
+            const auto* ov = g.getVertex(other);
+            if (ov == nullptr) {
+                return 0.0f;
+            }
+            const Core::Vec2 dir = ov->pos - v->pos;
+            return static_cast<float>(std::atan2(dir.y, dir.x));
+        }
+
+        [[nodiscard]] JunctionArchetype chooseInterchangeArchetype(const Urban::Graph& g, Urban::VertexID vid) {
+            const auto* v = g.getVertex(vid);
+            if (v == nullptr) {
+                return JunctionArchetype::None;
+            }
+            const size_t degree = v->edges.size();
+            if (degree <= 3) {
+                return JunctionArchetype::DirectionalT;
+            }
+
+            bool access_controlled = false;
+            for (const auto eid : v->edges) {
+                const auto* e = g.getEdge(eid);
+                if (e != nullptr && e->flow.access_control >= 0.6f) {
+                    access_controlled = true;
+                    break;
+                }
+            }
+            return access_controlled ? JunctionArchetype::Cloverleaf : JunctionArchetype::Diamond;
+        }
+
     } // namespace
 
     TemplateOutput emitIntersectionTemplates(const Urban::Graph& g, const TemplateConfig& cfg) {
@@ -105,6 +144,15 @@ namespace RogueCity::Generators::Roads {
             green.polygon = makeCircle(v->pos, buffer_r, cfg.circle_segments);
             green.score = greenspaceScore(g, vid, 1.0f + 0.25f * boost);
             out.greenspace_candidates.push_back(std::move(green));
+
+            if (v->control == Urban::ControlType::Interchange || v->control == Urban::ControlType::GradeSep) {
+                InterchangeTemplate templ{};
+                templ.archetype = chooseInterchangeArchetype(g, vid);
+                templ.center = v->pos;
+                templ.radius = paved_r * 1.35f;
+                templ.rotation = edgeRotationRadians(g, vid);
+                out.interchanges.push_back(std::move(templ));
+            }
         }
 
         return out;

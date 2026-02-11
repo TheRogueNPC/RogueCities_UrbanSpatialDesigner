@@ -105,6 +105,64 @@ namespace RogueCity::Generators::Urban {
             return out;
         }
 
+        struct DijkstraAllResult {
+            std::vector<double> dist;
+            std::vector<VertexID> prev_vertex;
+            std::vector<EdgeID> prev_edge;
+        };
+
+        [[nodiscard]] DijkstraAllResult dijkstraAll(
+            const Graph& g,
+            VertexID src,
+            const std::function<double(VertexID, EdgeID, EdgeID, const Edge&)>& weight_fn) {
+            const double inf = std::numeric_limits<double>::infinity();
+            DijkstraAllResult out;
+            out.dist.assign(g.vertices().size(), inf);
+            out.prev_vertex.assign(g.vertices().size(), std::numeric_limits<VertexID>::max());
+            out.prev_edge.assign(g.vertices().size(), std::numeric_limits<EdgeID>::max());
+
+            if (!g.isVertexValid(src)) {
+                return out;
+            }
+
+            using QNode = std::pair<double, VertexID>;
+            auto cmp = [](const QNode& a, const QNode& b) { return a.first > b.first; };
+            std::priority_queue<QNode, std::vector<QNode>, decltype(cmp)> q(cmp);
+
+            out.dist[src] = 0.0;
+            q.push({ 0.0, src });
+
+            while (!q.empty()) {
+                const auto [cost, v] = q.top();
+                q.pop();
+                if (cost > out.dist[v]) {
+                    continue;
+                }
+
+                const auto* vertex = g.getVertex(v);
+                if (vertex == nullptr) {
+                    continue;
+                }
+                for (const EdgeID eid : vertex->edges) {
+                    const auto* e = g.getEdge(eid);
+                    if (e == nullptr) {
+                        continue;
+                    }
+                    const VertexID n = neighborOf(*e, v);
+                    const double w = weight_fn(v, out.prev_edge[v], eid, *e);
+                    const double next = out.dist[v] + std::max(1e-3, w);
+                    if (next < out.dist[n]) {
+                        out.dist[n] = next;
+                        out.prev_vertex[n] = v;
+                        out.prev_edge[n] = eid;
+                        q.push({ next, n });
+                    }
+                }
+            }
+
+            return out;
+        }
+
     } // namespace
 
     PathResult GraphAlgorithms::shortestPath(
@@ -178,21 +236,34 @@ namespace RogueCity::Generators::Urban {
         std::mt19937 rng(seed);
         std::uniform_int_distribution<uint32_t> dist(0u, static_cast<uint32_t>(g.vertices().size() - 1));
 
+        const auto weight_fn = [](VertexID, EdgeID, EdgeID, const Edge& e) {
+            return static_cast<double>(std::max(0.001f, e.length));
+        };
+
         for (size_t s = 0; s < samples; ++s) {
             VertexID src = dist(rng);
-            VertexID dst = dist(rng);
-            if (src == dst) {
-                continue;
-            }
-            const auto path = shortestPath(g, src, dst);
-            if (!path.reachable() || path.vertices.size() < 2) {
+            if (!g.isVertexValid(src)) {
                 continue;
             }
 
-            for (size_t i = 1; i < path.vertices.size(); ++i) {
-                const EdgeID eid = findEdgeBetween(g, path.vertices[i - 1], path.vertices[i]);
-                if (eid != std::numeric_limits<EdgeID>::max() && eid < centrality.size()) {
-                    centrality[eid] += 1.0f;
+            const auto result = dijkstraAll(g, src, weight_fn);
+            for (VertexID dst = 0; dst < g.vertices().size(); ++dst) {
+                if (dst == src || !std::isfinite(result.dist[dst])) {
+                    continue;
+                }
+                VertexID cur = dst;
+                size_t steps = 0;
+                while (cur != src && steps < g.vertices().size()) {
+                    const EdgeID eid = result.prev_edge[cur];
+                    const VertexID prev = result.prev_vertex[cur];
+                    if (eid == std::numeric_limits<EdgeID>::max() || prev == std::numeric_limits<VertexID>::max()) {
+                        break;
+                    }
+                    if (eid < centrality.size()) {
+                        centrality[eid] += 1.0f;
+                    }
+                    cur = prev;
+                    ++steps;
                 }
             }
         }

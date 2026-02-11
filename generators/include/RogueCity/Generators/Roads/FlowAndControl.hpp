@@ -36,6 +36,7 @@ namespace RogueCity::Generators::Roads {
         double turn_penalty = 12.0;
         float district_speed_mult = 1.0f;
         float zone_speed_mult = 1.0f;
+        float control_delay_mult = 1.0f;
     };
 
     void applyFlowAndControl(Urban::Graph& g, const FlowControlConfig& cfg);
