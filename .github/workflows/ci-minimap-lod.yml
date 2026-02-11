@@ -1,0 +1,22 @@
+name: CI Minimap LOD Determinism
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  minimap-lod-determinism:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -S .
+
+      - name: Build determinism test
+        run: cmake --build build --config Release --target test_minimap_lod_determinism
+
+      - name: Run determinism test
+        run: ctest --test-dir build -C Release -R test_minimap_lod_determinism --output-on-failure

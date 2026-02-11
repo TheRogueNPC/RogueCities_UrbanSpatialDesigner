@@ -186,7 +186,33 @@ void Draw(float dt)
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
     ImGui::SameLine();
     ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
-    ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=manual cycle, Shift+L=auto, K=adaptive quality.");
+    ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=pin/cycle, Shift+L=release auto, 1/2/3=set LOD, K=adaptive.");
+
+    ImGui::SeparatorText("Minimap LOD");
+    bool manual_lod = AxiomEditor::IsMinimapManualLODOverride();
+    if (ImGui::Checkbox("Manual LOD Pin", &manual_lod)) {
+        AxiomEditor::SetMinimapManualLODOverride(manual_lod);
+    }
+
+    const char* lod_items[] = { "LOD0 (Full)", "LOD1 (Medium)", "LOD2 (Coarse)" };
+    int manual_level = AxiomEditor::GetMinimapManualLODLevel();
+    if (!manual_lod) {
+        ImGui::BeginDisabled();
+    }
+    ImGui::SetNextItemWidth(170.0f);
+    if (ImGui::Combo("Pinned LOD", &manual_level, lod_items, IM_ARRAYSIZE(lod_items))) {
+        AxiomEditor::SetMinimapManualLODLevel(manual_level);
+    }
+    if (!manual_lod) {
+        ImGui::EndDisabled();
+    }
+
+    bool adaptive_quality = AxiomEditor::IsMinimapAdaptiveQualityEnabled();
+    if (ImGui::Checkbox("Adaptive Degradation", &adaptive_quality)) {
+        AxiomEditor::SetMinimapAdaptiveQualityEnabled(adaptive_quality);
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s", AxiomEditor::GetMinimapLODStatusText());
 
     ImGui::SeparatorText("Texture Editing (Phase 6)");
     if (gs.HasTextureSpace()) {

@@ -194,6 +194,7 @@ namespace RogueCity::Core::Editor {
         if (world_constraints.isValid()) {
             SyncConstraintsFromHeightTextureRegion(*texture_space, dirty_region, world_constraints);
         }
+        last_texture_edit_frame = frame_counter;
         MarkTextureLayerDirty(Data::TextureLayer::Height, dirty_region);
         return true;
     }
@@ -212,6 +213,7 @@ namespace RogueCity::Core::Editor {
             (stroke.layer == TexturePainting::Layer::Zone)
             ? Data::TextureLayer::Zone
             : Data::TextureLayer::Material;
+        last_texture_edit_frame = frame_counter;
         MarkTextureLayerDirty(dirty_layer, dirty_region);
         return true;
     }

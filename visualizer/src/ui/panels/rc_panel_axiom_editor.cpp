@@ -24,11 +24,16 @@
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <limits>
 #include <numbers>
+#include <numeric>
+#include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 #include <string>
 
@@ -70,7 +75,13 @@ namespace {
     static float s_minimap_zoom = 1.0f;  // Zoom level (0.5 = zoomed out, 2.0 = zoomed in)
     static bool s_minimap_auto_lod = true;
     static MinimapLOD s_minimap_lod = MinimapLOD::Tactical;
+    static MinimapLOD s_minimap_effective_lod = MinimapLOD::Tactical;
     static bool s_minimap_adaptive_quality = true;
+    static std::deque<float> s_minimap_fps_history{};
+    static int s_minimap_low_fps_streak = 0;
+    static int s_minimap_high_fps_streak = 0;
+    static int s_minimap_fps_degrade_steps = 0;
+    static std::string s_minimap_lod_status_text = "LOD: Auto (1)";
 
     void DrawAxiomModeStatus(const Preview& preview, ImVec2 pos) {
         ImGui::SetCursorScreenPos(pos);
@@ -811,6 +822,46 @@ bool SetRogueNavFilterByName(const std::string& filter) {
     return false;
 }
 
+static int MinimapLODLevel(MinimapLOD lod);
+static MinimapLOD MinimapLODFromLevel(int level);
+static const char* MinimapLODStatusText();
+
+bool IsMinimapManualLODOverride() {
+    return !s_minimap_auto_lod;
+}
+
+void SetMinimapManualLODOverride(bool enabled) {
+    s_minimap_auto_lod = !enabled;
+    if (enabled) {
+        s_minimap_lod = s_minimap_effective_lod;
+    }
+}
+
+int GetMinimapManualLODLevel() {
+    return MinimapLODLevel(s_minimap_lod);
+}
+
+void SetMinimapManualLODLevel(int level) {
+    s_minimap_lod = MinimapLODFromLevel(level);
+    s_minimap_auto_lod = false;
+}
+
+bool IsMinimapAdaptiveQualityEnabled() {
+    return s_minimap_adaptive_quality;
+}
+
+void SetMinimapAdaptiveQualityEnabled(bool enabled) {
+    s_minimap_adaptive_quality = enabled;
+}
+
+int GetMinimapEffectiveLODLevel() {
+    return MinimapLODLevel(s_minimap_effective_lod);
+}
+
+const char* GetMinimapLODStatusText() {
+    return MinimapLODStatusText();
+}
+
 bool ApplyGeneratorRequest(
     const std::vector<RogueCity::Generators::CityGenerator::AxiomInput>& axioms,
     const RogueCity::Generators::CityGenerator::Config& config,
@@ -885,26 +936,86 @@ static RogueCity::Core::Vec2 MinimapPixelToWorld(const ImVec2& pixel_pos, const 
     return RogueCity::Core::Vec2(world_x, world_y);
 }
 
-static MinimapLOD ComputeAutoMinimapLOD(float zoom) {
-    if (zoom <= 0.85f) {
-        return MinimapLOD::Strategic;
+static int MinimapLODLevel(MinimapLOD lod) {
+    switch (lod) {
+        case MinimapLOD::Detail: return 0;    // Full detail
+        case MinimapLOD::Tactical: return 1;  // Medium
+        case MinimapLOD::Strategic:
+        default: return 2;                    // Coarse
     }
-    if (zoom <= 1.6f) {
-        return MinimapLOD::Tactical;
-    }
-    return MinimapLOD::Detail;
 }
 
-static MinimapLOD ActiveMinimapLOD() {
-    return s_minimap_auto_lod ? ComputeAutoMinimapLOD(s_minimap_zoom) : s_minimap_lod;
+static MinimapLOD MinimapLODFromLevel(int level) {
+    switch (std::clamp(level, 0, 2)) {
+        case 0: return MinimapLOD::Detail;
+        case 1: return MinimapLOD::Tactical;
+        case 2:
+        default: return MinimapLOD::Strategic;
+    }
+}
+
+static MinimapLOD ComputeAutoMinimapLOD(float viewport_zoom, float minimap_zoom) {
+    MinimapLOD lod = MinimapLOD::Detail;
+    if (viewport_zoom <= 0.85f) {
+        lod = MinimapLOD::Strategic;
+    } else if (viewport_zoom <= 1.6f) {
+        lod = MinimapLOD::Tactical;
+    } else {
+        lod = MinimapLOD::Detail;
+    }
+
+    // Secondary modifier: minimap zoom nudges one level, but never dominates viewport zoom.
+    if (minimap_zoom < 0.75f) {
+        const int coarser = std::min(2, MinimapLODLevel(lod) + 1);
+        lod = MinimapLODFromLevel(coarser);
+    } else if (minimap_zoom > 1.85f) {
+        const int finer = std::max(0, MinimapLODLevel(lod) - 1);
+        lod = MinimapLODFromLevel(finer);
+    }
+
+    return lod;
+}
+
+static MinimapLOD ActiveBaseMinimapLOD(float viewport_zoom) {
+    return s_minimap_auto_lod
+        ? ComputeAutoMinimapLOD(viewport_zoom, s_minimap_zoom)
+        : s_minimap_lod;
 }
 
 static MinimapLOD CoarsenMinimapLOD(MinimapLOD lod) {
-    switch (lod) {
-        case MinimapLOD::Detail: return MinimapLOD::Tactical;
-        case MinimapLOD::Tactical: return MinimapLOD::Strategic;
-        case MinimapLOD::Strategic:
-        default: return MinimapLOD::Strategic;
+    return MinimapLODFromLevel(std::min(2, MinimapLODLevel(lod) + 1));
+}
+
+static void UpdateMinimapFPSPressure(float current_fps) {
+    s_minimap_fps_history.push_back(current_fps);
+    if (s_minimap_fps_history.size() > 60u) {
+        s_minimap_fps_history.pop_front();
+    }
+
+    if (s_minimap_fps_history.empty()) {
+        return;
+    }
+
+    const float fps_sum = std::accumulate(s_minimap_fps_history.begin(), s_minimap_fps_history.end(), 0.0f);
+    const float avg_fps = fps_sum / static_cast<float>(s_minimap_fps_history.size());
+
+    if (avg_fps < 45.0f) {
+        ++s_minimap_low_fps_streak;
+        s_minimap_high_fps_streak = 0;
+    } else if (avg_fps > 55.0f) {
+        ++s_minimap_high_fps_streak;
+        s_minimap_low_fps_streak = 0;
+    } else {
+        s_minimap_low_fps_streak = 0;
+        s_minimap_high_fps_streak = 0;
+    }
+
+    if (s_minimap_low_fps_streak >= 3) {
+        s_minimap_fps_degrade_steps = std::min(2, s_minimap_fps_degrade_steps + 1);
+        s_minimap_low_fps_streak = 0;
+    } else if (s_minimap_high_fps_streak >= 3) {
+        s_minimap_fps_degrade_steps = std::max(0, s_minimap_fps_degrade_steps - 1);
+        s_minimap_high_fps_streak = 0;
     }
 }
 
@@ -926,49 +1037,195 @@ static int CountDirtyTextureLayers(const RogueCity::Core::Editor::GlobalState& g
 static MinimapLOD ComputeAdaptiveMinimapLOD(
     MinimapLOD base_lod,
     const RogueCity::Core::Editor::GlobalState& gs) {
-    if (!s_minimap_adaptive_quality) {
+    if (!s_minimap_adaptive_quality || !s_minimap_auto_lod) {
         return base_lod;
     }
 
-    MinimapLOD effective = base_lod;
-    const float fps = ImGui::GetIO().Framerate;
+    UpdateMinimapFPSPressure(ImGui::GetIO().Framerate);
 
-    // Phase 7 degradation policy: FPS pressure first, then dirty pressure.
-    if (fps < 50.0f) {
+    MinimapLOD effective = base_lod;
+    for (int i = 0; i < s_minimap_fps_degrade_steps; ++i) {
         effective = CoarsenMinimapLOD(effective);
     }
-    if (fps < 40.0f) {
-        effective = MinimapLOD::Strategic;
-    }
 
+    // Dirty-pressure trigger: >3 dirty texture layers while active painting/terrain edits.
     const int dirty_texture_layers = CountDirtyTextureLayers(gs);
-    if (dirty_texture_layers >= 3 || gs.dirty_layers.AnyDirty()) {
+    const bool painting_in_progress =
+        gs.IsTextureEditingInProgress(3) ||
+        (ImGui::GetIO().MouseDown[0] && dirty_texture_layers > 0);
+    if (dirty_texture_layers > 3 && painting_in_progress) {
         effective = CoarsenMinimapLOD(effective);
     }
 
     return effective;
 }
 
-static const char* MinimapLODName(MinimapLOD lod) {
+static void CycleManualMinimapLOD() {
+    s_minimap_lod = MinimapLODFromLevel((MinimapLODLevel(s_minimap_lod) + 1) % 3);
+}
+
+static float ComputeViewportZoomForLOD() {
+    if (s_primary_viewport == nullptr) {
+        return 1.0f;
+    }
+    const float camera_z = s_primary_viewport->get_camera_z();
+    return 500.0f / std::max(100.0f, camera_z);
+}
+
+static int OverlayStrideForLOD(MinimapLOD lod) {
     switch (lod) {
-        case MinimapLOD::Strategic: return "LOD2";
-        case MinimapLOD::Tactical: return "LOD1";
-        case MinimapLOD::Detail: return "LOD0";
-        default: return "LOD1";
+        case MinimapLOD::Detail: return 1;
+        case MinimapLOD::Tactical: return 2;
+        case MinimapLOD::Strategic:
+        default: return 4;
     }
 }
 
-static void CycleManualMinimapLOD() {
-    switch (s_minimap_lod) {
-        case MinimapLOD::Strategic:
-            s_minimap_lod = MinimapLOD::Tactical;
-            break;
-        case MinimapLOD::Tactical:
-            s_minimap_lod = MinimapLOD::Detail;
-            break;
-        case MinimapLOD::Detail:
-            s_minimap_lod = MinimapLOD::Strategic;
-            break;
+enum class RoadDetailClass : uint8_t {
+    Arterial = 0,
+    Collector = 1,
+    Local = 2
+};
+
+static RoadDetailClass ClassifyRoadDetail(RogueCity::Core::RoadType type) {
+    using RogueCity::Core::RoadType;
+    switch (type) {
+        case RoadType::Highway:
+        case RoadType::Arterial:
+        case RoadType::Avenue:
+        case RoadType::Boulevard:
+        case RoadType::M_Major:
+            return RoadDetailClass::Arterial;
+        case RoadType::Street:
+        case RoadType::M_Minor:
+            return RoadDetailClass::Collector;
+        case RoadType::Lane:
+        case RoadType::Alleyway:
+        case RoadType::CulDeSac:
+        case RoadType::Drive:
+        case RoadType::Driveway:
+        default:
+            return RoadDetailClass::Local;
+    }
+}
+
+static bool ShouldRenderRoadForLOD(RogueCity::Core::RoadType type, MinimapLOD lod) {
+    const RoadDetailClass detail = ClassifyRoadDetail(type);
+    if (lod == MinimapLOD::Detail) {
+        return true;
+    }
+    if (lod == MinimapLOD::Tactical) {
+        return detail != RoadDetailClass::Local; // Drop local at LOD1.
+    }
+    return detail == RoadDetailClass::Arterial; // Drop collector/local at LOD2.
+}
+
+static const char* MinimapLODStatusText() {
+    return s_minimap_lod_status_text.c_str();
+}
+
+static void RenderMinimapSelectionHighlights(
+    ImDrawList* draw_list,
+    const RogueCity::Core::Editor::GlobalState& gs,
+    const RogueCity::Core::Vec2& camera_pos,
+    const ImVec2& minimap_pos) {
+    if (gs.selection_manager.Count() == 0) {
+        return;
+    }
+
+    const auto* primary = gs.selection_manager.Primary();
+    for (const auto& item : gs.selection_manager.Items()) {
+        RogueCity::Core::Vec2 anchor{};
+        if (!ResolveSelectionAnchor(gs, item.kind, item.id, anchor)) {
+            continue;
+        }
+
+        const ImVec2 uv = WorldToMinimapUV(anchor, camera_pos);
+        if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) {
+            continue;
+        }
+
+        const bool is_primary = primary != nullptr && primary->kind == item.kind && primary->id == item.id;
+        const ImU32 ring_color = is_primary ? IM_COL32(255, 230, 90, 235) : IM_COL32(255, 255, 255, 200);
+        const float radius = is_primary ? 5.5f : 4.0f;
+        const float thickness = is_primary ? 2.0f : 1.4f;
+
+        const ImVec2 screen_pos(minimap_pos.x + uv.x * kMinimapSize, minimap_pos.y + uv.y * kMinimapSize);
+        draw_list->AddCircle(screen_pos, radius, ring_color, 20, thickness);
+    }
+}
+
+static ImU32 DistrictColor(RogueCity::Core::DistrictType type, MinimapLOD lod) {
+    const int alpha = (lod == MinimapLOD::Strategic) ? 120 : 165;
+    switch (type) {
+        case RogueCity::Core::DistrictType::Residential: return IM_COL32(80, 210, 120, alpha);
+        case RogueCity::Core::DistrictType::Commercial: return IM_COL32(120, 170, 255, alpha);
+        case RogueCity::Core::DistrictType::Industrial: return IM_COL32(225, 170, 80, alpha);
+        case RogueCity::Core::DistrictType::Civic: return IM_COL32(210, 120, 210, alpha);
+        case RogueCity::Core::DistrictType::Mixed:
+        default: return IM_COL32(190, 190, 190, alpha);
+    }
+}
+
+static void RenderHeightOverlay(
+    ImDrawList* draw_list,
+    const RogueCity::Core::Data::TextureSpace& texture_space,
+    const RogueCity::Core::Vec2& camera_pos,
+    const ImVec2& minimap_pos,
+    MinimapLOD lod) {
+    const int lod_stride = OverlayStrideForLOD(lod);
+    const int sample_step = 4 * lod_stride;
+    for (int py = 0; py < static_cast<int>(kMinimapSize); py += sample_step) {
+        for (int px = 0; px < static_cast<int>(kMinimapSize); px += sample_step) {
+            const ImVec2 pixel(minimap_pos.x + static_cast<float>(px), minimap_pos.y + static_cast<float>(py));
+            const RogueCity::Core::Vec2 world = MinimapPixelToWorld(pixel, minimap_pos, camera_pos);
+            if (!texture_space.coordinateSystem().isInBounds(world)) {
+                continue;
+            }
+
+            const float h = texture_space.heightLayer().sampleBilinear(
+                texture_space.coordinateSystem().worldToUV(world));
+            const float normalized = std::clamp(h / 120.0f, 0.0f, 1.0f);
+            const uint8_t r = static_cast<uint8_t>(40.0f + normalized * 180.0f);
+            const uint8_t g = static_cast<uint8_t>(70.0f + normalized * 120.0f);
+            const uint8_t b = static_cast<uint8_t>(140.0f + normalized * 80.0f);
+            const ImU32 color = IM_COL32(r, g, b, 48);
+            draw_list->AddRectFilled(
+                pixel,
+                ImVec2(pixel.x + static_cast<float>(sample_step), pixel.y + static_cast<float>(sample_step)),
+                color);
+        }
+    }
+}
+
+static void RenderTensorOverlay(
+    ImDrawList* draw_list,
+    const RogueCity::Core::Data::TextureSpace& texture_space,
+    const RogueCity::Core::Vec2& camera_pos,
+    const ImVec2& minimap_pos,
+    MinimapLOD lod) {
+    const int lod_stride = OverlayStrideForLOD(lod);
+    const int sample_step = 24 * lod_stride;
+    for (int py = sample_step / 2; py < static_cast<int>(kMinimapSize); py += sample_step) {
+        for (int px = sample_step / 2; px < static_cast<int>(kMinimapSize); px += sample_step) {
+            const ImVec2 pixel(minimap_pos.x + static_cast<float>(px), minimap_pos.y + static_cast<float>(py));
+            const RogueCity::Core::Vec2 world = MinimapPixelToWorld(pixel, minimap_pos, camera_pos);
+            if (!texture_space.coordinateSystem().isInBounds(world)) {
+                continue;
+            }
+
+            const RogueCity::Core::Vec2 dir = texture_space.tensorLayer().sampleBilinearTyped<RogueCity::Core::Vec2>(
+                texture_space.coordinateSystem().worldToUV(world));
+            if (dir.lengthSquared() <= 1e-6) {
+                continue;
+            }
+            RogueCity::Core::Vec2 unit = dir;
+            unit.normalize();
+            const float half_len = 5.0f;
+            const ImVec2 a(pixel.x - static_cast<float>(unit.x) * half_len, pixel.y - static_cast<float>(unit.y) * half_len);
+            const ImVec2 b(pixel.x + static_cast<float>(unit.x) * half_len, pixel.y + static_cast<float>(unit.y) * half_len);
+            draw_list->AddLine(a, b, IM_COL32(120, 255, 240, 130), 1.0f);
+        }
     }
 }
 
@@ -1022,16 +1279,33 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::Text("%s", mode_text);
     ImGui::PopStyleColor();
 
-    const auto& gs = RogueCity::Core::Editor::GetGlobalState();
-    const MinimapLOD base_lod = ActiveMinimapLOD();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    const float viewport_zoom = ComputeViewportZoomForLOD();
+    const MinimapLOD base_lod = ActiveBaseMinimapLOD(viewport_zoom);
     const MinimapLOD active_lod = ComputeAdaptiveMinimapLOD(base_lod, gs);
+    s_minimap_effective_lod = active_lod;
+    gs.minimap_manual_lod = !s_minimap_auto_lod;
+    gs.minimap_lod_level = static_cast<uint8_t>(MinimapLODLevel(active_lod));
+
+    {
+        std::ostringstream status;
+        if (s_minimap_auto_lod) {
+            status << "LOD: Auto (" << MinimapLODLevel(active_lod) << ")";
+        } else {
+            status << "LOD: Manual (" << MinimapLODLevel(s_minimap_lod) << ")";
+        }
+        if (active_lod != base_lod) {
+            status << " -> " << MinimapLODLevel(active_lod);
+        }
+        if (s_minimap_adaptive_quality) {
+            status << " AQ";
+        }
+        s_minimap_lod_status_text = status.str();
+    }
+
     ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + 24.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, DesignTokens::TextSecondary);
-    ImGui::Text(
-        "%s %s%s",
-        MinimapLODName(active_lod),
-        s_minimap_auto_lod ? "AUTO" : "MAN",
-        (active_lod != base_lod) ? " ADAPT" : "");
+    ImGui::Text("%s", MinimapLODStatusText());
     ImGui::PopStyleColor();
     
     // Alert level indicator (bottom-right corner)
@@ -1077,100 +1351,149 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     }
     
     if (output != nullptr) {
-        if (active_lod == MinimapLOD::Strategic) {
-            auto districtColor = [](RogueCity::Core::DistrictType type) {
-                switch (type) {
-                    case RogueCity::Core::DistrictType::Residential: return IM_COL32(80, 210, 120, 170);
-                    case RogueCity::Core::DistrictType::Commercial: return IM_COL32(120, 170, 255, 170);
-                    case RogueCity::Core::DistrictType::Industrial: return IM_COL32(225, 170, 80, 170);
-                    case RogueCity::Core::DistrictType::Civic: return IM_COL32(210, 120, 210, 170);
-                    case RogueCity::Core::DistrictType::Mixed:
-                    default: return IM_COL32(190, 190, 190, 170);
+        const size_t district_step = (active_lod == MinimapLOD::Detail) ? 1u : ((active_lod == MinimapLOD::Tactical) ? 2u : 6u);
+        for (const auto& district : output->districts) {
+            if (district.border.empty()) {
+                continue;
+            }
+
+            if (active_lod != MinimapLOD::Strategic) {
+                for (size_t i = 0; i < district.border.size(); i += district_step) {
+                    const size_t ni = (i + district_step) % district.border.size();
+                    const ImVec2 uv1 = WorldToMinimapUV(district.border[i], camera_pos);
+                    const ImVec2 uv2 = WorldToMinimapUV(district.border[ni], camera_pos);
+                    if ((uv1.x < 0.0f || uv1.x > 1.0f || uv1.y < 0.0f || uv1.y > 1.0f) &&
+                        (uv2.x < 0.0f || uv2.x > 1.0f || uv2.y < 0.0f || uv2.y > 1.0f)) {
+                        continue;
+                    }
+                    draw_list->AddLine(
+                        ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
+                        ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
+                        DistrictColor(district.type, active_lod),
+                        1.0f);
                 }
-            };
-            for (const auto& district : output->districts) {
-                if (district.border.empty()) {
-                    continue;
-                }
-                RogueCity::Core::Vec2 centroid{};
-                for (const auto& p : district.border) {
-                    centroid += p;
-                }
-                centroid /= static_cast<double>(district.border.size());
-                const ImVec2 uv = WorldToMinimapUV(centroid, camera_pos);
-                if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) {
-                    continue;
-                }
-                const ImVec2 screen_pos(
-                    minimap_pos.x + uv.x * kMinimapSize,
-                    minimap_pos.y + uv.y * kMinimapSize);
-                draw_list->AddCircleFilled(screen_pos, 3.5f, districtColor(district.type));
+            }
+
+            RogueCity::Core::Vec2 centroid{};
+            for (const auto& p : district.border) {
+                centroid += p;
+            }
+            centroid /= static_cast<double>(district.border.size());
+            const ImVec2 uv = WorldToMinimapUV(centroid, camera_pos);
+            if (uv.x >= 0.0f && uv.x <= 1.0f && uv.y >= 0.0f && uv.y <= 1.0f) {
+                const ImVec2 screen_pos(minimap_pos.x + uv.x * kMinimapSize, minimap_pos.y + uv.y * kMinimapSize);
+                draw_list->AddCircleFilled(screen_pos, (active_lod == MinimapLOD::Strategic) ? 3.5f : 2.5f, DistrictColor(district.type, active_lod));
             }
         }
 
         const auto& roads = output->roads;
-        const size_t sample_step = (active_lod == MinimapLOD::Detail) ? 1u : ((active_lod == MinimapLOD::Tactical) ? 4u : 10u);
+        const size_t sample_step = (active_lod == MinimapLOD::Detail) ? 1u : ((active_lod == MinimapLOD::Tactical) ? 3u : 8u);
         const float road_width = (active_lod == MinimapLOD::Detail) ? 1.25f : 1.0f;
-        const ImU32 road_color = (active_lod == MinimapLOD::Strategic)
-            ? IM_COL32(90, 180, 200, 150)
-            : DesignTokens::CyanAccent;
-
+        const ImU32 road_color = (active_lod == MinimapLOD::Strategic) ? IM_COL32(90, 180, 200, 150) : DesignTokens::CyanAccent;
         for (auto it = roads.begin(); it != roads.end(); ++it) {
             const auto& road = *it;
-            if (road.points.size() < 2) {
+            if (road.points.size() < 2 || !ShouldRenderRoadForLOD(road.type, active_lod)) {
                 continue;
             }
 
             for (size_t i = 0; i + 1 < road.points.size(); i += sample_step) {
                 const size_t next_i = std::min(i + sample_step, road.points.size() - 1);
-                ImVec2 uv1 = WorldToMinimapUV(road.points[i], camera_pos);
-                ImVec2 uv2 = WorldToMinimapUV(road.points[next_i], camera_pos);
-
-                if ((uv1.x >= 0.0f && uv1.x <= 1.0f && uv1.y >= 0.0f && uv1.y <= 1.0f) ||
-                    (uv2.x >= 0.0f && uv2.x <= 1.0f && uv2.y >= 0.0f && uv2.y <= 1.0f)) {
-                    ImVec2 screen1(
-                        minimap_pos.x + uv1.x * kMinimapSize,
-                        minimap_pos.y + uv1.y * kMinimapSize);
-                    ImVec2 screen2(
-                        minimap_pos.x + uv2.x * kMinimapSize,
-                        minimap_pos.y + uv2.y * kMinimapSize);
-
-                    draw_list->AddLine(screen1, screen2, road_color, road_width);
+                const ImVec2 uv1 = WorldToMinimapUV(road.points[i], camera_pos);
+                const ImVec2 uv2 = WorldToMinimapUV(road.points[next_i], camera_pos);
+                if ((uv1.x < 0.0f || uv1.x > 1.0f || uv1.y < 0.0f || uv1.y > 1.0f) &&
+                    (uv2.x < 0.0f || uv2.x > 1.0f || uv2.y < 0.0f || uv2.y > 1.0f)) {
+                    continue;
                 }
+                draw_list->AddLine(
+                    ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
+                    ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
+                    road_color,
+                    road_width);
             }
         }
 
         if (active_lod == MinimapLOD::Detail) {
+            std::unordered_map<uint32_t, const RogueCity::Core::LotToken*> lots_by_id;
+            lots_by_id.reserve(output->lots.size());
+            for (const auto& lot : output->lots) {
+                lots_by_id[lot.id] = &lot;
+            }
+
+            for (const auto& building : output->buildings) {
+                const auto lot_it = lots_by_id.find(building.lot_id);
+                if (lot_it == lots_by_id.end() || lot_it->second == nullptr || lot_it->second->boundary.size() < 3) {
+                    const ImVec2 uv = WorldToMinimapUV(building.position, camera_pos);
+                    if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) {
+                        continue;
+                    }
+                    const ImVec2 screen_pos(minimap_pos.x + uv.x * kMinimapSize, minimap_pos.y + uv.y * kMinimapSize);
+                    draw_list->AddRectFilled(
+                        ImVec2(screen_pos.x - 1.5f, screen_pos.y - 1.5f),
+                        ImVec2(screen_pos.x + 1.5f, screen_pos.y + 1.5f),
+                        IM_COL32(245, 245, 245, 220));
+                    continue;
+                }
+
+                const auto& footprint = lot_it->second->boundary;
+                for (size_t i = 0; i < footprint.size(); ++i) {
+                    const size_t ni = (i + 1) % footprint.size();
+                    const ImVec2 uv1 = WorldToMinimapUV(footprint[i], camera_pos);
+                    const ImVec2 uv2 = WorldToMinimapUV(footprint[ni], camera_pos);
+                    if ((uv1.x < 0.0f || uv1.x > 1.0f || uv1.y < 0.0f || uv1.y > 1.0f) &&
+                        (uv2.x < 0.0f || uv2.x > 1.0f || uv2.y < 0.0f || uv2.y > 1.0f)) {
+                        continue;
+                    }
+                    draw_list->AddLine(
+                        ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
+                        ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
+                        IM_COL32(245, 245, 245, 210),
+                        1.0f);
+                }
+            }
+        } else if (active_lod == MinimapLOD::Tactical) {
             for (const auto& building : output->buildings) {
                 const ImVec2 uv = WorldToMinimapUV(building.position, camera_pos);
                 if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) {
                     continue;
                 }
-                const ImVec2 screen_pos(
-                    minimap_pos.x + uv.x * kMinimapSize,
-                    minimap_pos.y + uv.y * kMinimapSize);
-                draw_list->AddRectFilled(
-                    ImVec2(screen_pos.x - 1.5f, screen_pos.y - 1.5f),
-                    ImVec2(screen_pos.x + 1.5f, screen_pos.y + 1.5f),
-                    IM_COL32(245, 245, 245, 220));
+                const ImVec2 screen_pos(minimap_pos.x + uv.x * kMinimapSize, minimap_pos.y + uv.y * kMinimapSize);
+                draw_list->AddCircleFilled(screen_pos, 1.4f, IM_COL32(245, 245, 245, 185));
             }
         }
     }
-    
-    // === PHASE 1: DRAW FRUSTUM RECTANGLE (MAIN CAMERA VIEW) ===
-    // Draw a rectangle showing the main viewport's visible area
-    // For now, draw a simple rectangle around the center (placeholder)
-    const float frustum_size = 50.0f;  // Placeholder size in pixels
-    const ImVec2 frustum_center = ImVec2(
-        minimap_pos.x + kMinimapSize / 2.0f,
-        minimap_pos.y + kMinimapSize / 2.0f
-    );
-    draw_list->AddRect(
-        ImVec2(frustum_center.x - frustum_size, frustum_center.y - frustum_size),
-        ImVec2(frustum_center.x + frustum_size, frustum_center.y + frustum_size),
-        DesignTokens::YellowWarning,
-        0.0f, 0, 2.0f
-    );
+
+    // Selection highlights are always visible regardless of LOD policy.
+    RenderMinimapSelectionHighlights(draw_list, gs, camera_pos, minimap_pos);
+
+    if (gs.HasTextureSpace()) {
+        const auto& texture_space = gs.TextureSpaceRef();
+        if (gs.debug_show_height_overlay) {
+            RenderHeightOverlay(draw_list, texture_space, camera_pos, minimap_pos, active_lod);
+        }
+        if (gs.debug_show_tensor_overlay) {
+            RenderTensorOverlay(draw_list, texture_space, camera_pos, minimap_pos, active_lod);
+        }
+    }
+
+    // Frustum rectangle from current primary viewport zoom (replaces placeholder).
+    const double half_w_world = (static_cast<double>(viewport_size.x) * 0.5) / std::max(0.05f, viewport_zoom);
+    const double half_h_world = (static_cast<double>(viewport_size.y) * 0.5) / std::max(0.05f, viewport_zoom);
+    const std::array<RogueCity::Core::Vec2, 4> frustum_world = {
+        RogueCity::Core::Vec2(camera_pos.x - half_w_world, camera_pos.y - half_h_world),
+        RogueCity::Core::Vec2(camera_pos.x + half_w_world, camera_pos.y - half_h_world),
+        RogueCity::Core::Vec2(camera_pos.x + half_w_world, camera_pos.y + half_h_world),
+        RogueCity::Core::Vec2(camera_pos.x - half_w_world, camera_pos.y + half_h_world)
+    };
+    for (size_t i = 0; i < frustum_world.size(); ++i) {
+        const size_t ni = (i + 1) % frustum_world.size();
+        const ImVec2 uv1 = WorldToMinimapUV(frustum_world[i], camera_pos);
+        const ImVec2 uv2 = WorldToMinimapUV(frustum_world[ni], camera_pos);
+        draw_list->AddLine(
+            ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
+            ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
+            DesignTokens::YellowWarning,
+            1.5f);
+    }
     
     // Center crosshair (current camera position)
     const ImVec2 center = ImVec2(
@@ -1975,10 +2298,10 @@ void Draw(float dt) {
         
         // Check if mouse is over minimap
         const ImVec2 mouse_screen = ImGui::GetMousePos();
-        const bool minimap_hovered = (mouse_screen.x >= minimap_interact_pos.x && mouse_screen.x <= minimap_interact_max.x &&
-                                       mouse_screen.y >= minimap_interact_pos.y && mouse_screen.y <= minimap_interact_max.y);
+        const bool minimap_overlay_hovered = (mouse_screen.x >= minimap_interact_pos.x && mouse_screen.x <= minimap_interact_max.x &&
+                                              mouse_screen.y >= minimap_interact_pos.y && mouse_screen.y <= minimap_interact_max.y);
         
-        if (minimap_hovered) {
+        if (minimap_overlay_hovered) {
             // Scroll to zoom
             float scroll = ImGui::GetIO().MouseWheel;
             if (scroll != 0.0f) {
@@ -1989,10 +2312,27 @@ void Draw(float dt) {
             const ImGuiIO& io = ImGui::GetIO();
             if (ImGui::IsKeyPressed(ImGuiKey_L) && !io.WantTextInput) {
                 if (io.KeyShift) {
-                    s_minimap_auto_lod = !s_minimap_auto_lod;
-                } else if (!s_minimap_auto_lod) {
+                    // Release manual pin and return to auto LOD switching.
+                    s_minimap_auto_lod = true;
+                } else if (s_minimap_auto_lod) {
+                    // First press enters manual mode and pins the current effective level.
+                    s_minimap_auto_lod = false;
+                    s_minimap_lod = s_minimap_effective_lod;
+                } else {
                     CycleManualMinimapLOD();
                 }
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_1) && !io.WantTextInput) {
+                s_minimap_auto_lod = false;
+                s_minimap_lod = MinimapLODFromLevel(0);
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_2) && !io.WantTextInput) {
+                s_minimap_auto_lod = false;
+                s_minimap_lod = MinimapLODFromLevel(1);
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_3) && !io.WantTextInput) {
+                s_minimap_auto_lod = false;
+                s_minimap_lod = MinimapLODFromLevel(2);
             }
             if (ImGui::IsKeyPressed(ImGuiKey_K) && !io.WantTextInput) {
                 s_minimap_adaptive_quality = !s_minimap_adaptive_quality;

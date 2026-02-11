@@ -222,6 +222,10 @@ add_executable(test_texture_replay_hash tests/unit/test_texture_replay_hash.cpp)
 target_link_libraries(test_texture_replay_hash PRIVATE RogueCityCore RogueCityGenerators)
 target_compile_features(test_texture_replay_hash PRIVATE cxx_std_20)
 
+add_executable(test_minimap_lod_determinism tests/unit/test_minimap_lod_determinism.cpp)
+target_link_libraries(test_minimap_lod_determinism PRIVATE RogueCityCore RogueCityGenerators)
+target_compile_features(test_minimap_lod_determinism PRIVATE cxx_std_20)
+
 # === EDITOR HFSM SMOKE TEST ===
 add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
 target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
@@ -269,6 +273,8 @@ if(BUILD_TESTING)
     add_test(NAME test_terrain_constraints COMMAND test_terrain_constraints)
     add_test(NAME test_tensor_texture_integration COMMAND test_tensor_texture_integration)
     add_test(NAME test_texture_replay_hash COMMAND test_texture_replay_hash)
+    add_test(NAME test_minimap_lod_determinism COMMAND test_minimap_lod_determinism)
+    add_test(NAME test_generators COMMAND test_generators)
 endif()
 
 message(STATUS "===========================================")

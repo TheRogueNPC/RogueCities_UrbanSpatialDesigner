@@ -45,6 +45,14 @@ void SetFlowRate(float flowRate);
 [[nodiscard]] const char* GetRogueNavFilterName();
 bool SetRogueNavModeByName(const std::string& mode);
 bool SetRogueNavFilterByName(const std::string& filter);
+[[nodiscard]] bool IsMinimapManualLODOverride();
+void SetMinimapManualLODOverride(bool enabled);
+[[nodiscard]] int GetMinimapManualLODLevel();
+void SetMinimapManualLODLevel(int level);
+[[nodiscard]] bool IsMinimapAdaptiveQualityEnabled();
+void SetMinimapAdaptiveQualityEnabled(bool enabled);
+[[nodiscard]] int GetMinimapEffectiveLODLevel();
+[[nodiscard]] const char* GetMinimapLODStatusText();
 
 [[nodiscard]] bool CanUndo();
 [[nodiscard]] bool CanRedo();

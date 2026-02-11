@@ -1,4 +1,5 @@
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
+#include <algorithm>
 #include <cmath>
 
 namespace RogueCity::App {
@@ -47,24 +48,70 @@ void MinimapViewport::render() {
     
     // Render city output (simplified 2D top-down)
     if (city_output_) {
-        // TODO: Render simplified roads as lines
-        // TODO: Render axioms as colored circles
-        // For now, show center crosshair
-        const float center_x = minimap_pos.x + minimap_size.x * 0.5f;
-        const float center_y = minimap_pos.y + minimap_size.y * 0.5f;
-        
-        draw_list->AddLine(
-            ImVec2(center_x - 10, center_y),
-            ImVec2(center_x + 10, center_y),
-            IM_COL32(0, 255, 0, 200),
-            2.0f
-        );
-        draw_list->AddLine(
-            ImVec2(center_x, center_y - 10),
-            ImVec2(center_x, center_y + 10),
-            IM_COL32(0, 255, 0, 200),
-            2.0f
-        );
+        Core::Bounds world_bounds{};
+        bool has_bounds = false;
+        if (city_output_->world_constraints.isValid()) {
+            world_bounds.min = Core::Vec2(0.0, 0.0);
+            world_bounds.max = Core::Vec2(
+                static_cast<double>(city_output_->world_constraints.width) * city_output_->world_constraints.cell_size,
+                static_cast<double>(city_output_->world_constraints.height) * city_output_->world_constraints.cell_size);
+            has_bounds = true;
+        }
+
+        if (!has_bounds) {
+            for (const auto& road : city_output_->roads) {
+                for (const auto& p : road.points) {
+                    if (!has_bounds) {
+                        world_bounds.min = p;
+                        world_bounds.max = p;
+                        has_bounds = true;
+                    } else {
+                        world_bounds.min.x = std::min(world_bounds.min.x, p.x);
+                        world_bounds.min.y = std::min(world_bounds.min.y, p.y);
+                        world_bounds.max.x = std::max(world_bounds.max.x, p.x);
+                        world_bounds.max.y = std::max(world_bounds.max.y, p.y);
+                    }
+                }
+            }
+        }
+
+        if (has_bounds && world_bounds.width() > 1e-6 && world_bounds.height() > 1e-6) {
+            const auto world_to_screen = [&](const Core::Vec2& p) {
+                const float u = static_cast<float>((p.x - world_bounds.min.x) / world_bounds.width());
+                const float v = static_cast<float>((p.y - world_bounds.min.y) / world_bounds.height());
+                return ImVec2(
+                    minimap_pos.x + u * minimap_size.x,
+                    minimap_pos.y + v * minimap_size.y);
+            };
+
+            for (const auto& road : city_output_->roads) {
+                if (road.points.size() < 2) {
+                    continue;
+                }
+                for (size_t i = 1; i < road.points.size(); ++i) {
+                    draw_list->AddLine(
+                        world_to_screen(road.points[i - 1]),
+                        world_to_screen(road.points[i]),
+                        IM_COL32(80, 220, 255, 180),
+                        1.25f);
+                }
+            }
+        } else {
+            const float center_x = minimap_pos.x + minimap_size.x * 0.5f;
+            const float center_y = minimap_pos.y + minimap_size.y * 0.5f;
+            draw_list->AddLine(
+                ImVec2(center_x - 10, center_y),
+                ImVec2(center_x + 10, center_y),
+                IM_COL32(0, 255, 0, 200),
+                2.0f
+            );
+            draw_list->AddLine(
+                ImVec2(center_x, center_y - 10),
+                ImVec2(center_x, center_y + 10),
+                IM_COL32(0, 255, 0, 200),
+                2.0f
+            );
+        }
     }
     
     // Camera position indicator (pulsing reticle)

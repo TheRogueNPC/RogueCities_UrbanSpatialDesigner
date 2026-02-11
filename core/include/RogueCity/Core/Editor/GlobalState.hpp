@@ -210,6 +210,8 @@ namespace RogueCity::Core::Editor {
         bool debug_show_tensor_overlay{ false };
         bool debug_show_height_overlay{ false };
         bool debug_show_zone_overlay{ false };
+        bool minimap_manual_lod{ false };   // Render-only state; must not affect generation output.
+        uint8_t minimap_lod_level{ 1 };     // 0=full,1=medium,2=coarse.
         GizmoState gizmo{};
         LayerManagerState layer_manager{};
         std::unordered_map<uint64_t, uint8_t> entity_layers{};
@@ -223,6 +225,7 @@ namespace RogueCity::Core::Editor {
         std::unique_ptr<Data::TextureSpace> texture_space{};
         Bounds texture_space_bounds{};
         int texture_space_resolution{ 0 };
+        uint64_t last_texture_edit_frame{ 0 };
 
         uint64_t frame_counter{ 0 };
 
@@ -299,6 +302,10 @@ namespace RogueCity::Core::Editor {
         [[nodiscard]] bool applyTerrainBrush(const TerrainBrush::Stroke& stroke) { return ApplyTerrainBrush(stroke); }
         [[nodiscard]] bool ApplyTexturePaint(const TexturePainting::Stroke& stroke);
         [[nodiscard]] bool applyTexturePaint(const TexturePainting::Stroke& stroke) { return ApplyTexturePaint(stroke); }
+        [[nodiscard]] bool IsTextureEditingInProgress(uint64_t frame_window = 3) const {
+            return frame_counter >= last_texture_edit_frame &&
+                (frame_counter - last_texture_edit_frame) <= frame_window;
+        }
     };
 
     GlobalState& GetGlobalState();
