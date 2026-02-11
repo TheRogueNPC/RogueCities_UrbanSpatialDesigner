@@ -5,6 +5,22 @@
 
 namespace RogueCity::Generators {
 
+    namespace {
+        [[nodiscard]] uint8_t DecodeFloodMask(uint8_t material_value) {
+            return static_cast<uint8_t>(material_value & 0x03u);
+        }
+
+        [[nodiscard]] bool DecodeNoBuild(uint8_t material_value) {
+            return (material_value & 0x80u) != 0u;
+        }
+
+        [[nodiscard]] uint8_t SampleTextureMaterial(const Core::Data::TextureSpace& texture_space, const Vec2& world) {
+            const Vec2 uv = texture_space.coordinateSystem().worldToUV(world);
+            const float sample = texture_space.materialLayer().sampleBilinearU8(uv);
+            return static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(sample)), 0, 255));
+        }
+    } // namespace
+
     std::vector<Vec2> StreamlineTracer::traceMajor(
         const Vec2& seed,
         const TensorFieldGenerator& field,
@@ -146,16 +162,43 @@ namespace RogueCity::Generators {
         const Params& params,
         bool forward
     ) {
-        if (params.constraints != nullptr) {
-            if (params.stop_at_no_build && params.constraints->sampleNoBuild(seed)) {
-                return {};
+        auto failsConstraintCheck = [&](const Vec2& world) {
+            if (params.texture_space != nullptr) {
+                const float slope = params.texture_space->distanceLayer().sampleBilinear(
+                    params.texture_space->coordinateSystem().worldToUV(world));
+                if (slope > params.max_slope_degrees) {
+                    return true;
+                }
+
+                const uint8_t material = SampleTextureMaterial(*params.texture_space, world);
+                if (params.stop_at_no_build && DecodeNoBuild(material)) {
+                    return true;
+                }
+                if (DecodeFloodMask(material) > params.max_flood_level) {
+                    return true;
+                }
             }
-            if (params.constraints->sampleSlopeDegrees(seed) > params.max_slope_degrees) {
-                return {};
+
+            if (params.constraints != nullptr) {
+                if (params.stop_at_no_build && params.constraints->sampleNoBuild(world)) {
+                    return true;
+                }
+                if (params.constraints->sampleSlopeDegrees(world) > params.max_slope_degrees) {
+                    return true;
+                }
+                if (params.constraints->sampleFloodMask(world) > params.max_flood_level) {
+                    return true;
+                }
+                if (params.constraints->sampleSoilStrength(world) < params.min_soil_strength) {
+                    return true;
+                }
             }
-            if (params.constraints->sampleFloodMask(seed) > params.max_flood_level) {
-                return {};
-            }
+
+            return false;
+        };
+
+        if (failsConstraintCheck(seed)) {
+            return {};
         }
 
         std::vector<Vec2> polyline;
@@ -170,27 +213,21 @@ namespace RogueCity::Generators {
             Vec2 next = integrateRK4(current, field, use_major, step_size);
 
             // Check boundary conditions
-            double world_width = field.getWidth() * field.getCellSize();
-            double world_height = field.getHeight() * field.getCellSize();
-
-            if (next.x < 0.0 || next.x > world_width ||
-                next.y < 0.0 || next.y > world_height) {
-                break;  // Escaped domain
+            if (params.texture_space != nullptr) {
+                if (!params.texture_space->coordinateSystem().isInBounds(next)) {
+                    break;  // Escaped domain
+                }
+            } else {
+                const double world_width = field.getWidth() * field.getCellSize();
+                const double world_height = field.getHeight() * field.getCellSize();
+                if (next.x < 0.0 || next.x > world_width ||
+                    next.y < 0.0 || next.y > world_height) {
+                    break;  // Escaped domain
+                }
             }
 
-            if (params.constraints != nullptr) {
-                if (params.stop_at_no_build && params.constraints->sampleNoBuild(next)) {
-                    break;
-                }
-                if (params.constraints->sampleSlopeDegrees(next) > params.max_slope_degrees) {
-                    break;
-                }
-                if (params.constraints->sampleFloodMask(next) > params.max_flood_level) {
-                    break;
-                }
-                if (params.constraints->sampleSoilStrength(next) < params.min_soil_strength) {
-                    break;
-                }
+            if (failsConstraintCheck(next)) {
+                break;
             }
 
             // Check step length

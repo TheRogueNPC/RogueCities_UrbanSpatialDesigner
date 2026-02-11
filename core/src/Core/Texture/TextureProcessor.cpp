@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace RogueCity::Core::Texture {
 
@@ -13,6 +14,13 @@ namespace RogueCity::Core::Texture {
 
     void TextureProcessor::boxBlur(Data::Texture2D<float>& texture, int radius) {
         if (radius <= 0 || texture.empty()) {
+            return;
+        }
+
+        if (radius == 1) {
+            Data::Texture2D<float> destination{};
+            SIMDProcessor::boxBlur3x3(texture, destination);
+            texture = std::move(destination);
             return;
         }
 
@@ -127,4 +135,3 @@ namespace RogueCity::Core::Texture {
     }
 
 } // namespace RogueCity::Core::Texture
-

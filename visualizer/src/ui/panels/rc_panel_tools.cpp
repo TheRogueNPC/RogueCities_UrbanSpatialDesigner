@@ -11,6 +11,7 @@
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 
+#include <cmath>
 #include <imgui.h>
 
 namespace RC_UI::Panels::Tools {
@@ -30,7 +31,7 @@ static void RenderToolButton(
     
     // Y2K affordance: glow when active
     if (is_active) {
-        float pulse = 0.5f + 0.5f * sinf(ImGui::GetTime() * 4.0f);
+        const float pulse = 0.5f + 0.5f * static_cast<float>(std::sin(ImGui::GetTime() * 4.0));
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f * pulse + 0.2f, 0.2f, 1.0f));
     }
     
@@ -183,6 +184,83 @@ void Draw(float dt)
     ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
     ImGui::SameLine();
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
+    ImGui::SameLine();
+    ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
+    ImGui::TextDisabled("Minimap LOD: hover minimap, wheel to zoom, L to cycle manual LOD, Shift+L toggles auto.");
+
+    ImGui::SeparatorText("Texture Editing (Phase 6)");
+    if (gs.HasTextureSpace()) {
+        static float brush_radius_m = 30.0f;
+        static float brush_strength = 1.0f;
+        static int zone_value = 1;
+        static int material_value = 1;
+
+        ImGui::SetNextItemWidth(120.0f);
+        ImGui::DragFloat("Brush Radius (m)", &brush_radius_m, 1.0f, 1.0f, 250.0f, "%.1f");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        ImGui::DragFloat("Brush Strength", &brush_strength, 0.05f, 0.05f, 10.0f, "%.2f");
+
+        const RogueCity::Core::Vec2 brush_center = gs.TextureSpaceRef().bounds().center();
+        if (ImGui::Button("Raise Height @ Center")) {
+            TerrainBrush::Stroke stroke{};
+            stroke.world_center = brush_center;
+            stroke.radius_meters = brush_radius_m;
+            stroke.strength = brush_strength;
+            stroke.mode = TerrainBrush::Mode::Raise;
+            const bool applied = gs.ApplyTerrainBrush(stroke);
+            (void)applied;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Lower Height @ Center")) {
+            TerrainBrush::Stroke stroke{};
+            stroke.world_center = brush_center;
+            stroke.radius_meters = brush_radius_m;
+            stroke.strength = brush_strength;
+            stroke.mode = TerrainBrush::Mode::Lower;
+            const bool applied = gs.ApplyTerrainBrush(stroke);
+            (void)applied;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Smooth Height @ Center")) {
+            TerrainBrush::Stroke stroke{};
+            stroke.world_center = brush_center;
+            stroke.radius_meters = brush_radius_m;
+            stroke.strength = 0.6f;
+            stroke.mode = TerrainBrush::Mode::Smooth;
+            const bool applied = gs.ApplyTerrainBrush(stroke);
+            (void)applied;
+        }
+
+        ImGui::SetNextItemWidth(100.0f);
+        ImGui::DragInt("Zone Value", &zone_value, 1.0f, 0, 255);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        ImGui::DragInt("Material Value", &material_value, 1.0f, 0, 255);
+        if (ImGui::Button("Paint Zone @ Center")) {
+            TexturePainting::Stroke stroke{};
+            stroke.layer = TexturePainting::Layer::Zone;
+            stroke.world_center = brush_center;
+            stroke.radius_meters = brush_radius_m;
+            stroke.opacity = 1.0f;
+            stroke.value = static_cast<uint8_t>(zone_value);
+            const bool applied = gs.ApplyTexturePaint(stroke);
+            (void)applied;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Paint Material @ Center")) {
+            TexturePainting::Stroke stroke{};
+            stroke.layer = TexturePainting::Layer::Material;
+            stroke.world_center = brush_center;
+            stroke.radius_meters = brush_radius_m;
+            stroke.opacity = 1.0f;
+            stroke.value = static_cast<uint8_t>(material_value);
+            const bool applied = gs.ApplyTexturePaint(stroke);
+            (void)applied;
+        }
+    } else {
+        ImGui::TextDisabled("TextureSpace not initialized yet.");
+    }
 
     if (dirty_any) {
         if (ImGui::Button("Clear Dirty Flags")) {

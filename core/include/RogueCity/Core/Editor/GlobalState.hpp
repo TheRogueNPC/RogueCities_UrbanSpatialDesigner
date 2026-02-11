@@ -3,6 +3,8 @@
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Core/Data/TextureSpace.hpp"
+#include "RogueCity/Core/Editor/TerrainBrush.hpp"
+#include "RogueCity/Core/Editor/TexturePainting.hpp"
 #include "RogueCity/Core/Editor/SelectionManager.hpp"
 #include "RogueCity/Core/Editor/ViewportIndex.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
@@ -207,6 +209,7 @@ namespace RogueCity::Core::Editor {
         ValidationOverlayState validation_overlay{};
         bool debug_show_tensor_overlay{ false };
         bool debug_show_height_overlay{ false };
+        bool debug_show_zone_overlay{ false };
         GizmoState gizmo{};
         LayerManagerState layer_manager{};
         std::unordered_map<uint64_t, uint8_t> entity_layers{};
@@ -283,6 +286,11 @@ namespace RogueCity::Core::Editor {
         void markAllTextureLayersDirty() { MarkAllTextureLayersDirty(); }
         void ClearAllTextureLayersDirty();
         void clearAllTextureLayersDirty() { ClearAllTextureLayersDirty(); }
+
+        [[nodiscard]] bool ApplyTerrainBrush(const TerrainBrush::Stroke& stroke);
+        [[nodiscard]] bool applyTerrainBrush(const TerrainBrush::Stroke& stroke) { return ApplyTerrainBrush(stroke); }
+        [[nodiscard]] bool ApplyTexturePaint(const TexturePainting::Stroke& stroke);
+        [[nodiscard]] bool applyTexturePaint(const TexturePainting::Stroke& stroke) { return ApplyTexturePaint(stroke); }
     };
 
     GlobalState& GetGlobalState();

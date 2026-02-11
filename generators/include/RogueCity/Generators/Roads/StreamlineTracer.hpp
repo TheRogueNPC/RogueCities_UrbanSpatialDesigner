@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Data/TextureSpace.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include <vector>
@@ -21,6 +22,7 @@ namespace RogueCity::Generators {
 
             // Optional world-constraint sampling.
             const WorldConstraintField* constraints{ nullptr };
+            const Data::TextureSpace* texture_space{ nullptr };
             double max_slope_degrees{ 30.0 };
             uint8_t max_flood_level{ 1u };
             float min_soil_strength{ 0.15f };

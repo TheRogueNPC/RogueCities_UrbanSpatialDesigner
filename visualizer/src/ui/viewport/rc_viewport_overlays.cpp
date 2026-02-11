@@ -161,6 +161,10 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
         RenderTensorField(gs);
     }
 
+    if (config.show_zone_field) {
+        RenderZoneField(gs);
+    }
+
     if (config.show_validation_errors) {
         RenderValidationErrors(gs);
     }
@@ -486,6 +490,55 @@ void ViewportOverlays::RenderTensorField(const RogueCity::Core::Editor::GlobalSt
                 0.9f - 0.7f * std::abs(angle - 0.5f),
                 0.8f);
             draw_list->AddLine(a, b, ImGui::ColorConvertFloat4ToU32(color), 1.4f);
+        }
+    }
+}
+
+void ViewportOverlays::RenderZoneField(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.HasTextureSpace()) {
+        return;
+    }
+
+    const auto& texture_space = gs.TextureSpaceRef();
+    const auto& zone = texture_space.zoneLayer();
+    if (zone.empty()) {
+        return;
+    }
+
+    const int stride = std::max(1, zone.width() / 110);
+    const float radius = std::max(1.0f, WorldToScreenScale(texture_space.coordinateSystem().metersPerPixel() * stride * 0.30));
+    const auto& coords = texture_space.coordinateSystem();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    auto zoneColor = [](uint8_t zone_value) {
+        if (zone_value == 0u) {
+            return ImVec4(0.45f, 0.45f, 0.45f, 0.18f);
+        }
+        const uint8_t district_value = static_cast<uint8_t>(zone_value - 1u);
+        switch (static_cast<RogueCity::Core::DistrictType>(district_value)) {
+            case RogueCity::Core::DistrictType::Residential: return ImVec4(0.28f, 0.52f, 0.95f, 0.24f);
+            case RogueCity::Core::DistrictType::Commercial: return ImVec4(0.20f, 0.82f, 0.46f, 0.24f);
+            case RogueCity::Core::DistrictType::Industrial: return ImVec4(0.93f, 0.34f, 0.30f, 0.26f);
+            case RogueCity::Core::DistrictType::Civic: return ImVec4(0.92f, 0.76f, 0.30f, 0.26f);
+            case RogueCity::Core::DistrictType::Mixed:
+            default:
+                return ImVec4(0.72f, 0.72f, 0.72f, 0.22f);
+        }
+    };
+
+    for (int y = 0; y < zone.height(); y += stride) {
+        for (int x = 0; x < zone.width(); x += stride) {
+            const uint8_t zone_value = zone.at(x, y);
+            if (zone_value == 0u) {
+                continue;
+            }
+
+            const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
+            const ImVec4 color = zoneColor(zone_value);
+            draw_list->AddCircleFilled(
+                WorldToScreen(world),
+                radius,
+                ImGui::ColorConvertFloat4ToU32(color));
         }
     }
 }

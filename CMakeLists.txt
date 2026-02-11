@@ -202,6 +202,14 @@ add_executable(test_texture_processor tests/unit/test_texture_processor.cpp)
 target_link_libraries(test_texture_processor PRIVATE RogueCityCore)
 target_compile_features(test_texture_processor PRIVATE cxx_std_20)
 
+add_executable(test_simd_processor tests/unit/test_simd_processor.cpp)
+target_link_libraries(test_simd_processor PRIVATE RogueCityCore)
+target_compile_features(test_simd_processor PRIVATE cxx_std_20)
+
+add_executable(test_texture_editing tests/unit/test_texture_editing.cpp)
+target_link_libraries(test_texture_editing PRIVATE RogueCityCore)
+target_compile_features(test_texture_editing PRIVATE cxx_std_20)
+
 add_executable(test_terrain_constraints tests/unit/test_terrain_constraints.cpp)
 target_link_libraries(test_terrain_constraints PRIVATE RogueCityCore RogueCityGenerators)
 target_compile_features(test_terrain_constraints PRIVATE cxx_std_20)
@@ -209,6 +217,10 @@ target_compile_features(test_terrain_constraints PRIVATE cxx_std_20)
 add_executable(test_tensor_texture_integration tests/unit/test_tensor_texture_integration.cpp)
 target_link_libraries(test_tensor_texture_integration PRIVATE RogueCityCore RogueCityGenerators)
 target_compile_features(test_tensor_texture_integration PRIVATE cxx_std_20)
+
+add_executable(test_texture_replay_hash tests/unit/test_texture_replay_hash.cpp)
+target_link_libraries(test_texture_replay_hash PRIVATE RogueCityCore RogueCityGenerators)
+target_compile_features(test_texture_replay_hash PRIVATE cxx_std_20)
 
 # === EDITOR HFSM SMOKE TEST ===
 add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
@@ -252,8 +264,11 @@ message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage need
 if(BUILD_TESTING)
     add_test(NAME test_texture_space COMMAND test_texture_space)
     add_test(NAME test_texture_processor COMMAND test_texture_processor)
+    add_test(NAME test_simd_processor COMMAND test_simd_processor)
+    add_test(NAME test_texture_editing COMMAND test_texture_editing)
     add_test(NAME test_terrain_constraints COMMAND test_terrain_constraints)
     add_test(NAME test_tensor_texture_integration COMMAND test_tensor_texture_integration)
+    add_test(NAME test_texture_replay_hash COMMAND test_texture_replay_hash)
 endif()
 
 message(STATUS "===========================================")

@@ -89,6 +89,36 @@ namespace RogueCity::Core::Editor {
         texture_space->clearAllDirty();
     }
 
+    bool GlobalState::ApplyTerrainBrush(const TerrainBrush::Stroke& stroke) {
+        if (texture_space == nullptr) {
+            return false;
+        }
+
+        if (!TerrainBrush::applyStroke(*texture_space, stroke)) {
+            return false;
+        }
+
+        MarkTextureLayerDirty(Data::TextureLayer::Height);
+        return true;
+    }
+
+    bool GlobalState::ApplyTexturePaint(const TexturePainting::Stroke& stroke) {
+        if (texture_space == nullptr) {
+            return false;
+        }
+
+        if (!TexturePainting::applyStroke(*texture_space, stroke)) {
+            return false;
+        }
+
+        const Data::TextureLayer dirty_layer =
+            (stroke.layer == TexturePainting::Layer::Zone)
+            ? Data::TextureLayer::Zone
+            : Data::TextureLayer::Material;
+        MarkTextureLayerDirty(dirty_layer);
+        return true;
+    }
+
     GlobalState& GetGlobalState()
     {
         static GlobalState gs{};

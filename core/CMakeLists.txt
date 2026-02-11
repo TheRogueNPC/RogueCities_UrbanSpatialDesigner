@@ -17,9 +17,13 @@ set(CORE_HEADERS
     include/RogueCity/Core/Data/CoordinateSystem.hpp
     include/RogueCity/Core/Data/Texture2D.hpp
     include/RogueCity/Core/Data/TextureSpace.hpp
+    include/RogueCity/Core/Export/TextureReplayHash.hpp
     include/RogueCity/Core/Editor/EditorState.hpp
     include/RogueCity/Core/Editor/GlobalState.hpp
+    include/RogueCity/Core/Editor/TerrainBrush.hpp
+    include/RogueCity/Core/Editor/TexturePainting.hpp
     include/RogueCity/Core/Editor/SelectionSync.hpp
+    include/RogueCity/Core/Texture/SIMDProcessor.hpp
     include/RogueCity/Core/Texture/TextureProcessor.hpp
     include/RogueCity/Core/Util/FastVectorArray.hpp
     include/RogueCity/Core/Util/IndexVector.hpp
@@ -36,8 +40,12 @@ set(CORE_SOURCES
     src/Core/Data/CitySpec.cpp
     src/Core/Data/CoordinateSystem.cpp
     src/Core/Data/TextureSpace.cpp
+    src/Core/Export/TextureReplayHash.cpp
     src/Core/Editor/EditorState.cpp
     src/Core/Editor/GlobalState.cpp
+    src/Core/Editor/TerrainBrush.cpp
+    src/Core/Editor/TexturePainting.cpp
+    src/Core/Texture/SIMDProcessor.cpp
     src/Core/Texture/TextureProcessor.cpp
     src/Core/Validation/EditorIntegrity.cpp
     src/Core/Validation/EditorOverlayValidation.cpp
@@ -63,6 +71,16 @@ target_link_libraries(RogueCityCore PUBLIC
 
 # === C++ STANDARD ===
 target_compile_features(RogueCityCore PUBLIC cxx_std_20)
+
+option(ROGUECITY_ENABLE_SIMD_AVX2 "Enable AVX2 code paths for RogueCityCore texture ops" OFF)
+if(ROGUECITY_ENABLE_SIMD_AVX2)
+    if(MSVC)
+        target_compile_options(RogueCityCore PRIVATE /arch:AVX2)
+    else()
+        target_compile_options(RogueCityCore PRIVATE -mavx2)
+    endif()
+    target_compile_definitions(RogueCityCore PRIVATE ROGUECITY_ENABLE_SIMD_AVX2=1)
+endif()
 
 # === PRECOMPILED HEADERS (FAST BUILDS) ===
 target_precompile_headers(RogueCityCore PUBLIC

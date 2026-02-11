@@ -24,6 +24,7 @@ struct OverlayConfig {
     bool show_nature_heatmap = false;
     bool show_tensor_field = false;
     bool show_height_field = false;
+    bool show_zone_field = false;
     bool show_validation_errors = true;
     bool show_gizmos = true;
     
@@ -91,6 +92,7 @@ public:
     void RenderNatureHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderTensorField(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderHeightField(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderZoneField(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderValidationErrors(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderGizmos(const RogueCity::Core::Editor::GlobalState& gs);
     

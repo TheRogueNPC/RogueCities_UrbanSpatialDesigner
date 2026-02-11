@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RogueCity/Core/Data/Texture2D.hpp"
+#include "RogueCity/Core/Texture/SIMDProcessor.hpp"
 
 #include <vector>
 
@@ -17,4 +18,3 @@ namespace RogueCity::Core::Texture {
     };
 
 } // namespace RogueCity::Core::Texture
-

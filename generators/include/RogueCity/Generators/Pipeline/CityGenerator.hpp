@@ -18,6 +18,9 @@
 namespace RogueCity::Core::Editor {
     struct GlobalState;
 }
+namespace RogueCity::Core::Data {
+    class TextureSpace;
+}
 
 namespace RogueCity::Generators {
 
@@ -106,12 +109,15 @@ namespace RogueCity::Generators {
 
         /// Pipeline stages
         TensorFieldGenerator generateTensorField(const std::vector<AxiomInput>& axioms);
-        std::vector<Vec2> generateSeeds(const WorldConstraintField* constraints);
+        std::vector<Vec2> generateSeeds(
+            const WorldConstraintField* constraints,
+            const Core::Data::TextureSpace* texture_space);
         fva::Container<Road> traceRoads(
             const TensorFieldGenerator& field,
             const std::vector<Vec2>& seeds,
             const WorldConstraintField* constraints,
-            const SiteProfile* profile);
+            const SiteProfile* profile,
+            const Core::Data::TextureSpace* texture_space);
         std::vector<District> classifyDistricts(
             const fva::Container<Road>& roads,
             const WorldConstraintField* constraints);
@@ -124,6 +130,14 @@ namespace RogueCity::Generators {
         siv::Vector<BuildingSite> generateBuildings(
             const std::vector<LotToken>& lots,
             const SiteProfile* profile);
+        void rasterizeDistrictZonesToTexture(
+            const std::vector<District>& districts,
+            Core::Data::TextureSpace& texture_space) const;
+        siv::Vector<BuildingSite> filterBuildingsByTexture(
+            const siv::Vector<BuildingSite>& buildings,
+            const std::vector<LotToken>& lots,
+            const std::vector<District>& districts,
+            const Core::Data::TextureSpace& texture_space) const;
         void initializeTextureSpaceIfNeeded(
             Core::Editor::GlobalState* global_state,
             const WorldConstraintField* constraints) const;
