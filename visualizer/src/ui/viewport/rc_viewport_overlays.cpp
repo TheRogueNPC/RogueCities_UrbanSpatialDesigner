@@ -153,6 +153,14 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
         RenderNatureHeatmap(gs);
     }
 
+    if (config.show_height_field) {
+        RenderHeightField(gs);
+    }
+
+    if (config.show_tensor_field) {
+        RenderTensorField(gs);
+    }
+
     if (config.show_validation_errors) {
         RenderValidationErrors(gs);
     }
@@ -397,6 +405,87 @@ void ViewportOverlays::RenderNatureHeatmap(const RogueCity::Core::Editor::Global
                 WorldToScreen(center),
                 radius,
                 ImGui::ColorConvertFloat4ToU32(color));
+        }
+    }
+}
+
+void ViewportOverlays::RenderHeightField(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.HasTextureSpace()) {
+        return;
+    }
+
+    const auto& texture_space = gs.TextureSpaceRef();
+    const auto& height = texture_space.heightLayer();
+    if (height.empty()) {
+        return;
+    }
+
+    float min_h = height.data().front();
+    float max_h = min_h;
+    for (const float value : height.data()) {
+        min_h = std::min(min_h, value);
+        max_h = std::max(max_h, value);
+    }
+    const float range = std::max(1e-4f, max_h - min_h);
+
+    const int stride = std::max(1, height.width() / 96);
+    const float radius = std::max(1.0f, WorldToScreenScale(texture_space.coordinateSystem().metersPerPixel() * stride * 0.32));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const auto& coords = texture_space.coordinateSystem();
+
+    for (int y = 0; y < height.height(); y += stride) {
+        for (int x = 0; x < height.width(); x += stride) {
+            const float h = height.at(x, y);
+            const float t = std::clamp((h - min_h) / range, 0.0f, 1.0f);
+            const ImVec4 color(
+                0.15f + 0.75f * t,
+                0.20f + 0.55f * (1.0f - std::abs(t - 0.5f) * 1.7f),
+                0.85f - 0.65f * t,
+                0.10f + 0.28f * t);
+            const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
+            draw_list->AddCircleFilled(WorldToScreen(world), radius, ImGui::ColorConvertFloat4ToU32(color));
+        }
+    }
+}
+
+void ViewportOverlays::RenderTensorField(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.HasTextureSpace()) {
+        return;
+    }
+
+    const auto& texture_space = gs.TextureSpaceRef();
+    const auto& tensor = texture_space.tensorLayer();
+    if (tensor.empty()) {
+        return;
+    }
+
+    const int stride = std::max(1, tensor.width() / 60);
+    const auto& coords = texture_space.coordinateSystem();
+    const double world_step = coords.metersPerPixel() * static_cast<double>(stride);
+    const float half_len = std::max(2.0f, WorldToScreenScale(world_step * 0.35));
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    for (int y = 0; y < tensor.height(); y += stride) {
+        for (int x = 0; x < tensor.width(); x += stride) {
+            const RogueCity::Core::Vec2 dir = tensor.at(x, y);
+            const double mag_sq = dir.lengthSquared();
+            if (mag_sq <= 1e-8) {
+                continue;
+            }
+
+            const RogueCity::Core::Vec2 n = dir / std::sqrt(mag_sq);
+            const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
+            const ImVec2 center = WorldToScreen(world);
+            const ImVec2 a(center.x - static_cast<float>(n.x) * half_len, center.y - static_cast<float>(n.y) * half_len);
+            const ImVec2 b(center.x + static_cast<float>(n.x) * half_len, center.y + static_cast<float>(n.y) * half_len);
+
+            const float angle = static_cast<float>((std::atan2(n.y, n.x) + 3.14159265) / (2.0 * 3.14159265));
+            const ImVec4 color(
+                0.2f + 0.7f * angle,
+                0.8f - 0.5f * angle,
+                0.9f - 0.7f * std::abs(angle - 0.5f),
+                0.8f);
+            draw_list->AddLine(a, b, ImGui::ColorConvertFloat4ToU32(color), 1.4f);
         }
     }
 }

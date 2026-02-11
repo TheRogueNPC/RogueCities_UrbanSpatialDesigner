@@ -237,6 +237,7 @@ namespace RogueCity::Core {
         int height{ 0 };
         double cell_size{ 10.0 };
 
+        std::vector<float> height_meters;      // Authoritative terrain height in meters.
         std::vector<float> slope_degrees;      // Terrain slope in degrees.
         std::vector<uint8_t> flood_mask;       // 0 none, 1 minor, 2 severe.
         std::vector<float> soil_strength;      // 0..1.
@@ -249,6 +250,7 @@ namespace RogueCity::Core {
             height = std::max(0, h);
             cell_size = cell;
             const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
+            height_meters.assign(cells, 0.0f);
             slope_degrees.assign(cells, 0.0f);
             flood_mask.assign(cells, 0u);
             soil_strength.assign(cells, 1.0f);
@@ -262,7 +264,8 @@ namespace RogueCity::Core {
                 return false;
             }
             const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
-            return slope_degrees.size() == cells &&
+            return height_meters.size() == cells &&
+                slope_degrees.size() == cells &&
                 flood_mask.size() == cells &&
                 soil_strength.size() == cells &&
                 no_build_mask.size() == cells &&
@@ -296,6 +299,15 @@ namespace RogueCity::Core {
                 return 0.0f;
             }
             return slope_degrees[static_cast<size_t>(toIndex(gx, gy))];
+        }
+
+        [[nodiscard]] float sampleHeightMeters(const Vec2& world) const {
+            int gx = 0;
+            int gy = 0;
+            if (!worldToGrid(world, gx, gy)) {
+                return 0.0f;
+            }
+            return height_meters[static_cast<size_t>(toIndex(gx, gy))];
         }
 
         [[nodiscard]] uint8_t sampleFloodMask(const Vec2& world) const {

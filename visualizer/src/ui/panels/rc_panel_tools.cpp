@@ -179,6 +179,11 @@ void Draw(float dt)
     draw_chip("Buildings", gs.dirty_layers.IsDirty(DirtyLayer::Buildings)); ImGui::SameLine();
     draw_chip("Viewport", gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex));
 
+    ImGui::SeparatorText("Debug Overlays");
+    ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
+    ImGui::SameLine();
+    ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
+
     if (dirty_any) {
         if (ImGui::Button("Clear Dirty Flags")) {
             gs.dirty_layers.MarkAllClean();

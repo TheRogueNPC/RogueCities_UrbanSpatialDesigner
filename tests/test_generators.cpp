@@ -120,6 +120,11 @@ int main() {
     {
         Roads::NoderConfig noder_cfg;
         noder_cfg.max_layers = 2;
+        noder_cfg.global_weld_radius = 0.25f;
+        noder_cfg.type_params.resize(Core::road_type_count);
+        for (auto& params : noder_cfg.type_params) {
+            params.weld_radius = 0.25f;
+        }
         Roads::RoadNoder noder(noder_cfg);
 
         Roads::PolylineRoadCandidate a;

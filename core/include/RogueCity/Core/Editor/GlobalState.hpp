@@ -205,6 +205,8 @@ namespace RogueCity::Core::Editor {
         std::vector<VpProbeData> viewport_index{};
         DirtyLayerState dirty_layers{};
         ValidationOverlayState validation_overlay{};
+        bool debug_show_tensor_overlay{ false };
+        bool debug_show_height_overlay{ false };
         GizmoState gizmo{};
         LayerManagerState layer_manager{};
         std::unordered_map<uint64_t, uint8_t> entity_layers{};

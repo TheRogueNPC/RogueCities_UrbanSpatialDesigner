@@ -2,6 +2,7 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace RogueCity::Generators {
@@ -34,6 +35,12 @@ namespace RogueCity::Generators {
 
         // Stage 1: Generate tensor field from axioms
         output.tensor_field = generateTensorField(axioms);
+        if (global_state != nullptr && global_state->HasTextureSpace()) {
+            auto& texture_space = global_state->TextureSpaceRef();
+            output.tensor_field.writeToTextureSpace(texture_space);
+            output.tensor_field.bindTextureSpace(&texture_space);
+            global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Tensor);
+        }
 
         // Stage 2: Generate seed points for streamline tracing
         const SiteProfile* site_profile = constraints != nullptr ? &output.site_profile : nullptr;
@@ -303,6 +310,11 @@ namespace RogueCity::Generators {
         int resolution = 0;
         if (constraints != nullptr && constraints->isValid()) {
             resolution = std::max(constraints->width, constraints->height);
+            const double constraints_world_width = static_cast<double>(constraints->width) * constraints->cell_size;
+            const double constraints_world_height = static_cast<double>(constraints->height) * constraints->cell_size;
+            const double tolerance = std::max(1.0, constraints->cell_size);
+            assert(std::abs(constraints_world_width - static_cast<double>(config_.width)) <= tolerance);
+            assert(std::abs(constraints_world_height - static_cast<double>(config_.height)) <= tolerance);
         }
         if (resolution <= 0 && config_.cell_size > 0.0) {
             const double meters = static_cast<double>(std::max(config_.width, config_.height));
@@ -311,7 +323,28 @@ namespace RogueCity::Generators {
 
         resolution = std::max(1, resolution);
         global_state->InitializeTextureSpace(world_bounds, resolution);
-        global_state->MarkAllTextureLayersDirty();
+
+        if (constraints != nullptr && constraints->isValid() && global_state->HasTextureSpace()) {
+            auto& texture_space = global_state->TextureSpaceRef();
+            auto& height_layer = texture_space.heightLayer();
+            auto& material_layer = texture_space.materialLayer();
+            auto& distance_layer = texture_space.distanceLayer();
+            const auto& coords = texture_space.coordinateSystem();
+
+            for (int y = 0; y < height_layer.height(); ++y) {
+                for (int x = 0; x < height_layer.width(); ++x) {
+                    const Vec2 world = coords.pixelToWorld({ x, y });
+                    height_layer.at(x, y) = constraints->sampleHeightMeters(world);
+                    material_layer.at(x, y) = constraints->sampleFloodMask(world);
+                    distance_layer.at(x, y) = constraints->sampleSlopeDegrees(world);
+                }
+            }
+
+            global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Height);
+            global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Material);
+            global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Distance);
+            global_state->MarkTextureLayerDirty(Core::Data::TextureLayer::Tensor);
+        }
     }
 
 } // namespace RogueCity::Generators

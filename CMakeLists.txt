@@ -202,6 +202,14 @@ add_executable(test_texture_processor tests/unit/test_texture_processor.cpp)
 target_link_libraries(test_texture_processor PRIVATE RogueCityCore)
 target_compile_features(test_texture_processor PRIVATE cxx_std_20)
 
+add_executable(test_terrain_constraints tests/unit/test_terrain_constraints.cpp)
+target_link_libraries(test_terrain_constraints PRIVATE RogueCityCore RogueCityGenerators)
+target_compile_features(test_terrain_constraints PRIVATE cxx_std_20)
+
+add_executable(test_tensor_texture_integration tests/unit/test_tensor_texture_integration.cpp)
+target_link_libraries(test_tensor_texture_integration PRIVATE RogueCityCore RogueCityGenerators)
+target_compile_features(test_tensor_texture_integration PRIVATE cxx_std_20)
+
 # === EDITOR HFSM SMOKE TEST ===
 add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
 target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
@@ -244,6 +252,8 @@ message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage need
 if(BUILD_TESTING)
     add_test(NAME test_texture_space COMMAND test_texture_space)
     add_test(NAME test_texture_processor COMMAND test_texture_processor)
+    add_test(NAME test_terrain_constraints COMMAND test_terrain_constraints)
+    add_test(NAME test_tensor_texture_integration COMMAND test_tensor_texture_integration)
 endif()
 
 message(STATUS "===========================================")

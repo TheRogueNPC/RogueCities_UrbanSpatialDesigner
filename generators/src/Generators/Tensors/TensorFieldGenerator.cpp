@@ -147,6 +147,17 @@ namespace RogueCity::Generators {
     }
 
     Tensor2D TensorFieldGenerator::sampleTensor(const Vec2& world_pos) const {
+        if (texture_space_ != nullptr) {
+            const auto& tensor_layer = texture_space_->tensorLayer();
+            if (!tensor_layer.empty()) {
+                const Vec2 uv = texture_space_->coordinateSystem().worldToUV(world_pos);
+                const Vec2 sampled_dir = tensor_layer.sampleBilinearVec2(uv);
+                if (sampled_dir.lengthSquared() > 1e-8) {
+                    return Tensor2D::fromVector(sampled_dir);
+                }
+            }
+        }
+
         if (!field_generated_) {
             // Fallback: Real-time sampling (slower but works if generateField() not called)
             Tensor2D result = Tensor2D::zero();
@@ -171,6 +182,42 @@ namespace RogueCity::Generators {
 
         // Fast path: Interpolate from pre-generated grid
         return interpolateTensor(world_pos);
+    }
+
+    void TensorFieldGenerator::writeToTextureSpace(Core::Data::TextureSpace& texture_space) const {
+        auto& tensor_layer = texture_space.tensorLayer();
+        if (tensor_layer.empty()) {
+            return;
+        }
+
+        const auto& coords = texture_space.coordinateSystem();
+        for (int y = 0; y < tensor_layer.height(); ++y) {
+            for (int x = 0; x < tensor_layer.width(); ++x) {
+                const Vec2 world = coords.pixelToWorld({ x, y });
+                Tensor2D tensor = Tensor2D::zero();
+
+                if (field_generated_) {
+                    tensor = interpolateTensor(world);
+                } else {
+                    double total_weight = 0.0;
+                    for (const auto& field : basis_fields_) {
+                        const double weight = field->getWeight(world);
+                        if (weight <= 1e-6) {
+                            continue;
+                        }
+                        Tensor2D sample = field->sample(world);
+                        sample.scale(weight);
+                        tensor.add(sample, true);
+                        total_weight += weight;
+                    }
+                    if (total_weight > 1e-6) {
+                        tensor.scale(1.0 / total_weight);
+                    }
+                }
+
+                tensor_layer.at(x, y) = tensor.majorEigenvector();
+            }
+        }
     }
 
     bool TensorFieldGenerator::worldToGrid(const Vec2& world_pos, int& gx, int& gy) const {

@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Data/TextureSpace.hpp"
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include <vector>
 #include <memory>
@@ -41,6 +42,14 @@ namespace RogueCity::Generators {
         /// Generate field by evaluating all basis fields at grid points
         void generateField();
 
+        /// Write major-direction tensor vectors into TextureSpace tensor layer.
+        void writeToTextureSpace(Core::Data::TextureSpace& texture_space) const;
+
+        /// Bind an existing TextureSpace tensor layer as runtime sampling substrate.
+        void bindTextureSpace(const Core::Data::TextureSpace* texture_space) { texture_space_ = texture_space; }
+        void clearTextureSpaceBinding() { texture_space_ = nullptr; }
+        [[nodiscard]] bool usesTextureSpace() const { return texture_space_ != nullptr; }
+
         /// Clear all basis fields
         void clear();
 
@@ -55,6 +64,7 @@ namespace RogueCity::Generators {
         std::vector<Tensor2D> grid_;  // width * height tensor grid
         std::vector<std::unique_ptr<BasisField>> basis_fields_;
         bool field_generated_{ false };
+        const Core::Data::TextureSpace* texture_space_{ nullptr };
 
         /// Convert world position to grid indices
         [[nodiscard]] bool worldToGrid(const Vec2& world_pos, int& gx, int& gy) const;

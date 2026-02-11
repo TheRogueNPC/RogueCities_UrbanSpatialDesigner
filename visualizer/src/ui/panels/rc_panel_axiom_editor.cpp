@@ -130,6 +130,43 @@ namespace {
         gs.site_profile = output.site_profile;
         gs.plan_violations = output.plan_violations;
         gs.plan_approved = output.plan_approved;
+        RogueCity::Core::Bounds world_bounds{};
+        world_bounds.min = RogueCity::Core::Vec2(0.0, 0.0);
+        if (output.world_constraints.isValid()) {
+            world_bounds.max = RogueCity::Core::Vec2(
+                static_cast<double>(output.world_constraints.width) * output.world_constraints.cell_size,
+                static_cast<double>(output.world_constraints.height) * output.world_constraints.cell_size);
+        } else {
+            world_bounds.max = RogueCity::Core::Vec2(
+                static_cast<double>(output.tensor_field.getWidth()) * output.tensor_field.getCellSize(),
+                static_cast<double>(output.tensor_field.getHeight()) * output.tensor_field.getCellSize());
+        }
+        const int resolution = output.world_constraints.isValid()
+            ? std::max(output.world_constraints.width, output.world_constraints.height)
+            : std::max(output.tensor_field.getWidth(), output.tensor_field.getHeight());
+        gs.InitializeTextureSpace(world_bounds, std::max(1, resolution));
+        if (gs.HasTextureSpace()) {
+            auto& texture_space = gs.TextureSpaceRef();
+            if (output.world_constraints.isValid()) {
+                auto& height_layer = texture_space.heightLayer();
+                auto& material_layer = texture_space.materialLayer();
+                auto& distance_layer = texture_space.distanceLayer();
+                const auto& coords = texture_space.coordinateSystem();
+                for (int y = 0; y < height_layer.height(); ++y) {
+                    for (int x = 0; x < height_layer.width(); ++x) {
+                        const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
+                        height_layer.at(x, y) = output.world_constraints.sampleHeightMeters(world);
+                        material_layer.at(x, y) = output.world_constraints.sampleFloodMask(world);
+                        distance_layer.at(x, y) = output.world_constraints.sampleSlopeDegrees(world);
+                    }
+                }
+                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Height);
+                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Material);
+                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Distance);
+            }
+            output.tensor_field.writeToTextureSpace(texture_space);
+            gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Tensor);
+        }
         gs.entity_layers.clear();
         RogueCity::App::ViewportIndexBuilder::Build(gs);
         gs.dirty_layers.MarkAllClean();
@@ -1642,6 +1679,8 @@ void Draw(float dt) {
         gs.world_constraints.isValid() &&
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Districts ||
          current_state == RogueCity::Core::Editor::EditorState::Editing_Lots);
+    overlay_config.show_height_field = gs.debug_show_height_overlay;
+    overlay_config.show_tensor_field = gs.debug_show_tensor_overlay;
     overlay_config.show_aesp_heatmap =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
          current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) &&

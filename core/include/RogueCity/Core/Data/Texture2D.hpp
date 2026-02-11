@@ -125,6 +125,35 @@ namespace RogueCity::Core::Data {
             return static_cast<float>(a * (1.0 - ty) + b * ty);
         }
 
+        template <typename U = T>
+        [[nodiscard]] std::enable_if_t<std::is_same_v<U, Vec2>, Vec2> sampleBilinearVec2(const Vec2& uv) const {
+            if (empty()) {
+                return Vec2{};
+            }
+
+            const double u = std::clamp(uv.x, 0.0, 1.0);
+            const double v = std::clamp(uv.y, 0.0, 1.0);
+            const double x = u * static_cast<double>(width_ - 1);
+            const double y = v * static_cast<double>(height_ - 1);
+
+            const int x0 = std::clamp(static_cast<int>(std::floor(x)), 0, width_ - 1);
+            const int y0 = std::clamp(static_cast<int>(std::floor(y)), 0, height_ - 1);
+            const int x1 = std::clamp(x0 + 1, 0, width_ - 1);
+            const int y1 = std::clamp(y0 + 1, 0, height_ - 1);
+
+            const double tx = x - static_cast<double>(x0);
+            const double ty = y - static_cast<double>(y0);
+
+            const Vec2 c00 = at(x0, y0);
+            const Vec2 c10 = at(x1, y0);
+            const Vec2 c01 = at(x0, y1);
+            const Vec2 c11 = at(x1, y1);
+
+            const Vec2 a = c00 * (1.0 - tx) + c10 * tx;
+            const Vec2 b = c01 * (1.0 - tx) + c11 * tx;
+            return a * (1.0 - ty) + b * ty;
+        }
+
     private:
         [[nodiscard]] size_t indexOf(int x, int y) const {
             return static_cast<size_t>(y) * static_cast<size_t>(width_) + static_cast<size_t>(x);
@@ -136,4 +165,3 @@ namespace RogueCity::Core::Data {
     };
 
 } // namespace RogueCity::Core::Data
-
