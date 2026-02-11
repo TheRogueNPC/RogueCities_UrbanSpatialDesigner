@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -7,7 +8,8 @@ namespace RogueCity::Generators {
 
     CityGenerator::CityOutput CityGenerator::generate(
         const std::vector<AxiomInput>& axioms,
-        const Config& config
+        const Config& config,
+        Core::Editor::GlobalState* global_state
     ) {
         config_ = config;
         rng_ = RNG(config_.seed);
@@ -27,11 +29,13 @@ namespace RogueCity::Generators {
             output.site_profile = terrain_output.profile;
         }
 
+        const WorldConstraintField* constraints = output.world_constraints.isValid() ? &output.world_constraints : nullptr;
+        initializeTextureSpaceIfNeeded(global_state, constraints);
+
         // Stage 1: Generate tensor field from axioms
         output.tensor_field = generateTensorField(axioms);
 
         // Stage 2: Generate seed points for streamline tracing
-        const WorldConstraintField* constraints = output.world_constraints.isValid() ? &output.world_constraints : nullptr;
         const SiteProfile* site_profile = constraints != nullptr ? &output.site_profile : nullptr;
         std::vector<Vec2> seeds = generateSeeds(constraints);
 
@@ -283,6 +287,31 @@ namespace RogueCity::Generators {
             site_cfg.max_buildings = std::max<uint32_t>(1000u, config_.max_buildings / 2u);
         }
         return Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
+    }
+
+    void CityGenerator::initializeTextureSpaceIfNeeded(
+        Core::Editor::GlobalState* global_state,
+        const WorldConstraintField* constraints) const {
+        if (global_state == nullptr) {
+            return;
+        }
+
+        Bounds world_bounds{};
+        world_bounds.min = Vec2(0.0, 0.0);
+        world_bounds.max = Vec2(static_cast<double>(config_.width), static_cast<double>(config_.height));
+
+        int resolution = 0;
+        if (constraints != nullptr && constraints->isValid()) {
+            resolution = std::max(constraints->width, constraints->height);
+        }
+        if (resolution <= 0 && config_.cell_size > 0.0) {
+            const double meters = static_cast<double>(std::max(config_.width, config_.height));
+            resolution = static_cast<int>(std::round(meters / config_.cell_size));
+        }
+
+        resolution = std::max(1, resolution);
+        global_state->InitializeTextureSpace(world_bounds, resolution);
+        global_state->MarkAllTextureLayersDirty();
     }
 
 } // namespace RogueCity::Generators

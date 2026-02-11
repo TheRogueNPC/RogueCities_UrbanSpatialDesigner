@@ -9,6 +9,8 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+
 namespace RC_UI::Panels::AxiomBar {
 
 namespace {
@@ -145,7 +147,7 @@ void Draw(float dt)
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float bar_height = ImClamp(avail.y, 32.0f, 46.0f);
+    const float bar_height = std::clamp(avail.y, 32.0f, 46.0f);
     if (bar_height < 32.0f || avail.x < 120.0f) {
         EndWindowContainer();
         uiint.EndPanel();
@@ -161,7 +163,7 @@ void Draw(float dt)
     static std::array<ReactiveF, RC_UI::kToolLibraryOrder.size()> chip_hover;
     constexpr float kChipBaseWidth = 110.0f;
     constexpr float kChipHoverExpansion = 30.0f;
-    const float chip_height = ImClamp(bar_height - 10.0f, 20.0f, 28.0f);
+    const float chip_height = std::clamp(bar_height - 10.0f, 20.0f, 28.0f);
     const ImVec2 chip_box(140.0f, chip_height);
 
     for (size_t i = 0; i < RC_UI::kToolLibraryOrder.size(); ++i) {

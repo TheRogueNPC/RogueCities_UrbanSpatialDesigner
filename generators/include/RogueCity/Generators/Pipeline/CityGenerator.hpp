@@ -15,6 +15,10 @@
 #include <vector>
 #include <cstdint>
 
+namespace RogueCity::Core::Editor {
+    struct GlobalState;
+}
+
 namespace RogueCity::Generators {
 
     using namespace Core;
@@ -87,7 +91,8 @@ namespace RogueCity::Generators {
         /// Generate city from axioms
         [[nodiscard]] CityOutput generate(
             const std::vector<AxiomInput>& axioms,
-            const Config& config
+            const Config& config,
+            Core::Editor::GlobalState* global_state = nullptr
         );
 
         /// Generate with default config
@@ -119,6 +124,9 @@ namespace RogueCity::Generators {
         siv::Vector<BuildingSite> generateBuildings(
             const std::vector<LotToken>& lots,
             const SiteProfile* profile);
+        void initializeTextureSpaceIfNeeded(
+            Core::Editor::GlobalState* global_state,
+            const WorldConstraintField* constraints) const;
     };
 
 } // namespace RogueCity::Generators

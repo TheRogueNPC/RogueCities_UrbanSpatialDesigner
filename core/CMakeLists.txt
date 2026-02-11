@@ -14,9 +14,13 @@ set(CORE_HEADERS
     include/RogueCity/Core/Data/CityTypes.hpp
     include/RogueCity/Core/Data/TensorTypes.hpp
     include/RogueCity/Core/Data/CitySpec.hpp
+    include/RogueCity/Core/Data/CoordinateSystem.hpp
+    include/RogueCity/Core/Data/Texture2D.hpp
+    include/RogueCity/Core/Data/TextureSpace.hpp
     include/RogueCity/Core/Editor/EditorState.hpp
     include/RogueCity/Core/Editor/GlobalState.hpp
     include/RogueCity/Core/Editor/SelectionSync.hpp
+    include/RogueCity/Core/Texture/TextureProcessor.hpp
     include/RogueCity/Core/Util/FastVectorArray.hpp
     include/RogueCity/Core/Util/IndexVector.hpp
     include/RogueCity/Core/Util/StableIndexVector.hpp
@@ -30,8 +34,11 @@ set(CORE_SOURCES
     src/Core/Data/CityTypes.cpp
     src/Core/Data/TensorTypes.cpp
     src/Core/Data/CitySpec.cpp
+    src/Core/Data/CoordinateSystem.cpp
+    src/Core/Data/TextureSpace.cpp
     src/Core/Editor/EditorState.cpp
     src/Core/Editor/GlobalState.cpp
+    src/Core/Texture/TextureProcessor.cpp
     src/Core/Validation/EditorIntegrity.cpp
     src/Core/Validation/EditorOverlayValidation.cpp
 )

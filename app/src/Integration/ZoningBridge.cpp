@@ -68,7 +68,7 @@ bool ZoningBridge::GenerateFromCitySpec(
     }
 
     Generators::CityGenerator city_generator;
-    auto city_output = city_generator.generate(request.axioms, request.config);
+    auto city_output = city_generator.generate(request.axioms, request.config, &gs);
 
     gs.params.seed = request.config.seed;
     gs.generation.seed = request.config.seed;

@@ -2,6 +2,7 @@
 
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
+#include "RogueCity/Core/Data/TextureSpace.hpp"
 #include "RogueCity/Core/Editor/SelectionManager.hpp"
 #include "RogueCity/Core/Editor/ViewportIndex.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
@@ -10,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -213,6 +215,9 @@ namespace RogueCity::Core::Editor {
         SiteProfile site_profile{};
         std::vector<PlanViolation> plan_violations{};
         bool plan_approved{ true };
+        std::unique_ptr<Data::TextureSpace> texture_space{};
+        Bounds texture_space_bounds{};
+        int texture_space_resolution{ 0 };
 
         uint64_t frame_counter{ 0 };
 
@@ -249,6 +254,33 @@ namespace RogueCity::Core::Editor {
         [[nodiscard]] bool IsEntityVisible(VpEntityKind kind, uint32_t id) const {
             return IsLayerVisible(GetEntityLayer(kind, id));
         }
+
+        void InitializeTextureSpace(const Bounds& bounds, int resolution);
+        void initializeTextureSpace(const Bounds& bounds, int resolution) { InitializeTextureSpace(bounds, resolution); }
+
+        [[nodiscard]] bool HasTextureSpace() const {
+            return texture_space != nullptr;
+        }
+        [[nodiscard]] bool hasTextureSpace() const { return HasTextureSpace(); }
+
+        [[nodiscard]] Data::TextureSpace& TextureSpaceRef() {
+            return *texture_space;
+        }
+        [[nodiscard]] Data::TextureSpace& textureSpace() { return TextureSpaceRef(); }
+
+        [[nodiscard]] const Data::TextureSpace& TextureSpaceRef() const {
+            return *texture_space;
+        }
+        [[nodiscard]] const Data::TextureSpace& textureSpace() const { return TextureSpaceRef(); }
+
+        void MarkTextureLayerDirty(Data::TextureLayer layer);
+        void markTextureLayerDirty(Data::TextureLayer layer) { MarkTextureLayerDirty(layer); }
+        void ClearTextureLayerDirty(Data::TextureLayer layer);
+        void clearTextureLayerDirty(Data::TextureLayer layer) { ClearTextureLayerDirty(layer); }
+        void MarkAllTextureLayersDirty();
+        void markAllTextureLayersDirty() { MarkAllTextureLayersDirty(); }
+        void ClearAllTextureLayersDirty();
+        void clearAllTextureLayersDirty() { ClearAllTextureLayersDirty(); }
     };
 
     GlobalState& GetGlobalState();

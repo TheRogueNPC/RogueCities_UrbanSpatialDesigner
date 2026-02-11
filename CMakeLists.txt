@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.20)
 # AI_INTEGRATION_TAG: V1_PASS1_TASK1_ENABLE_C_FOR_LUA
 # Enable C language for Lua library compilation
 project(RogueCities VERSION 0.10.0 LANGUAGES CXX C)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -193,6 +194,14 @@ add_executable(test_core tests/test_core.cpp)
 target_link_libraries(test_core PRIVATE RogueCityCore)
 target_compile_features(test_core PRIVATE cxx_std_20)
 
+add_executable(test_texture_space tests/unit/test_texture_space.cpp)
+target_link_libraries(test_texture_space PRIVATE RogueCityCore)
+target_compile_features(test_texture_space PRIVATE cxx_std_20)
+
+add_executable(test_texture_processor tests/unit/test_texture_processor.cpp)
+target_link_libraries(test_texture_processor PRIVATE RogueCityCore)
+target_compile_features(test_texture_processor PRIVATE cxx_std_20)
+
 # === EDITOR HFSM SMOKE TEST ===
 add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
 target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
@@ -232,6 +241,10 @@ target_compile_features(test_ai PRIVATE cxx_std_20)
 #     target_compile_definitions(test_ui_toolchain PRIVATE ROGUECITY_HAS_SOL2=1)
 # endif()
 message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage needs fix)")
+if(BUILD_TESTING)
+    add_test(NAME test_texture_space COMMAND test_texture_space)
+    add_test(NAME test_texture_processor COMMAND test_texture_processor)
+endif()
 
 message(STATUS "===========================================")
 message(STATUS "Core configured successfully!")
