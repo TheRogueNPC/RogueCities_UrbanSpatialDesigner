@@ -8,7 +8,7 @@ pool:
 
 steps:
 - checkout: self
-  submodules: true
+  submodules: recursive
 
 - task: CMake@1
   displayName: "Configure (VS2022 x64)"

@@ -42,6 +42,11 @@ namespace RogueCity::Generators {
             bool enable_world_constraints{ true };
             TerrainConstraintGenerator::Config terrain{};
             PlanValidatorGenerator::Config validator{};
+            
+            // Incremental generation (RC-0.09-Test P0 fix)
+            bool incremental_mode{ false };         // Enable stepping mode
+            int max_iterations_per_axiom{ 5 };      // Limit iterations per placement
+            // TODO: RC-0.10 - Implement async task queue with cancellation tokens
         };
 
         /// Axiom input (user-placed planning intent)

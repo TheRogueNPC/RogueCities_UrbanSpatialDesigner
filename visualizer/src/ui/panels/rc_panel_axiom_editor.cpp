@@ -1487,6 +1487,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     }
 
     // Frustum rectangle from current primary viewport zoom.
+    // RC-0.09-Test P1 fix: Clamp frustum to minimap bounds
     const double half_w_world = (static_cast<double>(viewport_size.x) * 0.5) / std::max(0.05f, viewport_zoom);
     const double half_h_world = (static_cast<double>(viewport_size.y) * 0.5) / std::max(0.05f, viewport_zoom);
     const std::array<RogueCity::Core::Vec2, 4> frustum_world = {
@@ -1495,15 +1496,23 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         RogueCity::Core::Vec2(camera_pos.x + half_w_world, camera_pos.y + half_h_world),
         RogueCity::Core::Vec2(camera_pos.x - half_w_world, camera_pos.y + half_h_world)
     };
+    const ImVec2 minimap_min = minimap_pos;
+    const ImVec2 minimap_max = ImVec2(minimap_pos.x + kMinimapSize, minimap_pos.y + kMinimapSize);
+    
     for (size_t i = 0; i < frustum_world.size(); ++i) {
         const size_t ni = (i + 1) % frustum_world.size();
         const ImVec2 uv1 = WorldToMinimapUV(frustum_world[i], camera_pos);
         const ImVec2 uv2 = WorldToMinimapUV(frustum_world[ni], camera_pos);
-        draw_list->AddLine(
-            ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize),
-            ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize),
-            UITokens::YellowWarning,
-            1.5f);
+        ImVec2 p1 = ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize);
+        ImVec2 p2 = ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize);
+        
+        // Clamp frustum line endpoints to minimap bounds
+        p1.x = std::clamp(p1.x, minimap_min.x, minimap_max.x);
+        p1.y = std::clamp(p1.y, minimap_min.y, minimap_max.y);
+        p2.x = std::clamp(p2.x, minimap_min.x, minimap_max.x);
+        p2.y = std::clamp(p2.y, minimap_min.y, minimap_max.y);
+        
+        draw_list->AddLine(p1, p2, UITokens::YellowWarning, 1.5f);
     }
     
     // Center crosshair (current camera position)

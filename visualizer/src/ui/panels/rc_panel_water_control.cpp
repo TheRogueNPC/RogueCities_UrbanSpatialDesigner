@@ -90,10 +90,14 @@ void Draw(float dt)
         gs.waterbodies.add(std::move(body));
     }
     ImGui::SameLine();
-    if (ImGui::Button("Remove Last") && gs.waterbodies.size() > 0) {
-        const auto handle = gs.waterbodies.createHandleFromData(gs.waterbodies.size() - 1u);
-        if (handle) {
-            gs.waterbodies.remove(handle);
+    if (ImGui::Button("Remove Last")) {
+        const auto size = gs.waterbodies.size();
+        if (size > 0) {
+            const auto handle = gs.waterbodies.createHandleFromData(size - 1u);
+            // Validate handle and size hasn't changed during creation
+            if (handle && gs.waterbodies.size() == size) {
+                gs.waterbodies.remove(handle);
+            }
         }
     }
 

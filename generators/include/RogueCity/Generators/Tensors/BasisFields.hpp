@@ -24,10 +24,26 @@ namespace RogueCity::Generators {
         /// Sample tensor at world position
         [[nodiscard]] virtual Tensor2D sample(const Vec2& p) const = 0;
 
-        /// Compute influence weight at position (exponential decay)
+        /// Compute influence weight at position (exponential decay with falloff)
         [[nodiscard]] double getWeight(const Vec2& p) const {
             double dist = p.distanceTo(center);
-            if (dist > radius) return 0.0;
+            // RC-0.09-Test P0 fix: Add 20% falloff margin to contain generation
+            const double falloff_margin = radius * 0.2;
+            const double max_dist = radius + falloff_margin;
+            
+            if (dist > max_dist) return 0.0;
+            
+            // Smoothstep falloff in margin zone
+            if (dist > radius) {
+                const double falloff_t = (dist - radius) / falloff_margin;
+                const double falloff = 1.0 - falloff_t; // Linear falloff
+                // Apply smoothstep for smooth curve: smoothstep(0, 1, falloff)
+                const double t = std::clamp(falloff, 0.0, 1.0);
+                const double smooth_falloff = t * t * (3.0 - 2.0 * t);
+                return std::exp(-decay * (dist / max_dist)) * smooth_falloff;
+            }
+            
+            // Inside radius: standard exponential decay
             double norm_dist = dist / radius;
             return std::exp(-decay * norm_dist);
         }
