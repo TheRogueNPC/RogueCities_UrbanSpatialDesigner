@@ -233,11 +233,22 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
 // RingControlKnob Implementation
 void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
     const ImVec2 screen_pos = viewport.world_to_screen(world_position);
-    const float knob_size = is_hovered ? 8.0f : 6.0f;
+    
+    // RC-0.09-Test P1: Golden ratio sizing (30% icon, 60% spacing, 10% vignette)
+    const float base_knob_size = 6.0f;
+    const float ring_thickness = 10.0f;  // Visual ring thickness in screen space
+    const float icon_size = ring_thickness * 0.3f;  // 30% for icon
+    
+    // Pulsing hover effect with 1.5x snap radius
+    float pulse = 1.0f;
+    if (is_hovered || is_dragging) {
+        pulse = 1.0f + 0.2f * sinf(ImGui::GetTime() * 5.0f);  // Pulse at 5Hz
+    }
+    const float knob_size = is_hovered ? icon_size * pulse * 1.5f : icon_size;
 
-    // Y2K Capsule design: Rounded rect with hard edges
+    // Y2K color shift: bright yellow on hover, white on drag, gray default
     const ImU32 knob_color = is_dragging ? IM_COL32(255, 255, 0, 255) : 
-                             is_hovered  ? IM_COL32(255, 255, 255, 255) :
+                             is_hovered  ? IM_COL32(255, 200, 0, 255) :  // Amber glow
                                            IM_COL32(180, 180, 180, 255);
     
     // Background capsule
@@ -251,10 +262,12 @@ void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewp
 }
 
 bool RingControlKnob::check_hover(const Core::Vec2& world_pos, float world_radius) {
+    // RC-0.09-Test P1: 1.5x snap radius for easier interaction
+    const float snap_radius = world_radius * 1.5f;
     const float dx = world_pos.x - world_position.x;
     const float dy = world_pos.y - world_position.y;
     const float dist_sq = dx * dx + dy * dy;
-    is_hovered = dist_sq <= (world_radius * world_radius);
+    is_hovered = dist_sq <= (snap_radius * snap_radius);
     return is_hovered;
 }
 

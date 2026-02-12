@@ -152,7 +152,8 @@ public:
                     Traits::OnEntitySelected(entity, idx);
                 }
 
-                if (ImGui::IsItemHovered()) {
+                // RC-0.09-Test P1: Hover tooltip for inline editing
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
                     Traits::OnEntityHovered(entity, idx);
                 }
                 

@@ -119,6 +119,25 @@ struct RoadIndexTraits {
 
     static void OnEntityHovered(EntityType& road, size_t index) {
         (void)index;
+        
+        // RC-0.09-Test P1: Inline editing tooltip
+        ImGui::BeginTooltip();
+        ImGui::Text("Road ID: %u", road.id);
+        
+        // Editable user-created flag
+        bool is_user = road.is_user_created;
+        if (ImGui::Checkbox("User Created", &is_user)) {
+            road.is_user_created = is_user;
+            auto& gs = GetGlobalState();
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Roads);
+        }
+        
+        // Display point count (read-only for now)
+        ImGui::Text("Points: %zu", road.points.size());
+        
+        ImGui::EndTooltip();
+        
+        // Viewport highlighting
         if (!road.points.empty()) {
             const auto midpoint = road.points[road.points.size() / 2];
             RC_UI::Viewport::GetViewportOverlays().SetHoveredLot(midpoint);

@@ -66,6 +66,10 @@ void Draw(float dt)
         true
     );
 
+    // RC-0.09-Test P1: Add scrollable region for long content
+    ImGui::BeginChild("ToolsScrollRegion", ImVec2(0, 0), false, 
+                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
     // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
     // === TOOL MODE BUTTONS (HFSM-driven) ===
     ImGui::SeparatorText("Editor Tools");
@@ -345,6 +349,7 @@ void Draw(float dt)
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "%s", err);
     }
 
+    ImGui::EndChild();  // End scrollable region
     uiint.EndPanel();
     RC_UI::EndDockableWindow();
 }
