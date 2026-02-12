@@ -6,10 +6,6 @@
 	path = 3rdparty/glm
 	url = https://github.com/g-truc/glm.git
 
-[submodule "3rdparty/imvue"]
-	path = 3rdparty/imvue
-	url = https://github.com/Unix4ever/imvue.git
-
 [submodule "3rdparty/magic_enum"]
 	path = 3rdparty/magic_enum
 	url = https://github.com/Neargye/magic_enum.git
