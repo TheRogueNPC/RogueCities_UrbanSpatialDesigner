@@ -8,8 +8,8 @@ Project: RogueCities_UrbanSpatialDesigner
 - **Rendering / UI:** Dear ImGui (ImGui + gl3w / platform backends)
 - **Math & Utilities:** GLM, magic_enum, nlohmann_json
 - **Scripting / Embedding:** Lua (sol2)
-- **Third-party libs (in `3rdparty/`):** gl3w, glm, ImDesignManager, imvue, LInput, lua, magic_enum, nlohmann_json, sol2, tabulate, ymery-cpp, nanosvg, libcss (vendor list)
-- **Packaging / deps:** vcpkg (repo includes vcpkg folder and integration points)
+- **Third-party libs (in `3rdparty/`):** gl3w, glfw, glm, imgui, ImDesignManager, LInput, lua, magic_enum, nlohmann_json, sol2, tabulate, ymery-cpp (all as git submodules)
+- **Packaging / deps:** Vendored dependencies in 3rdparty/ (no external package manager required)
 - **AI / Tooling:** Python FastAPI toolserver (tools/toolserver.py), PowerShell & batch bridge scripts for AI bridge (tools/*.ps1, .bat), AI client code under `AI/client`.
 - **Tests:** CTest-compatible test executables (targets like `test_generators`, `test_core`, etc.)
 - **CI / Pipeline:** Azure Pipelines (`azure-pipelines.yml` present)
@@ -30,9 +30,10 @@ RogueCityVisualizerGui.lnk
 StartupBuild.bat
 3rdparty/
 	gl3w/
+	glfw/
 	glm/
+	imgui/
 	ImDesignManager/
-	imvue/
 	LInput/
 	lua/
 	magic_enum/
@@ -127,7 +128,6 @@ generators/
 mcp-server/
 tests/
 tools/
-vcpkg/
 visualizer/
 
 ```

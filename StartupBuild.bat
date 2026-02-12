@@ -42,7 +42,7 @@ exit /b 2
 
 :args_done
 
-set "IMGUI_HDR=%ROOT%3rdparty\imvue\imgui\imgui.h"
+set "IMGUI_HDR=%ROOT%3rdparty\imgui\imgui.h"
 if /I "%VISUALIZER%"=="auto" (
   if exist "%IMGUI_HDR%" (set "VISUALIZER=on") else (set "VISUALIZER=off")
 )

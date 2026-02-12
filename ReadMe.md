@@ -262,15 +262,15 @@ A **portal** is a vertex shared by ≥2 layers (edges adjacent belong to differe
 
 - **CMake 3.20+**
 - **C++20 compiler** (MSVC 2022, GCC 11+, Clang 14+)
-- **GLM** (via vcpkg or vendored in `3rdparty/glm`)
-- **magic_enum** (vendored in `3rdparty/magic_enum`)
+- **Git submodules** (all dependencies are vendored in `3rdparty/`)
+  - GLM, ImGui, GLFW, magic_enum, sol2, etc.
 
 ### Quick Start
 
 ```bash
-# Clone repository
-git clone https://github.com/TheRogueNPC/RogueCityMVP.git
-cd RogueCityMVP
+# Clone repository with submodules
+git clone --recursive https://github.com/TheRogueNPC/RogueCities_UrbanSpatialDesigner.git
+cd RogueCities_UrbanSpatialDesigner
 
 # Build core library
 cmake -B build -S .
