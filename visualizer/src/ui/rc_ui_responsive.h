@@ -279,4 +279,33 @@ struct ResponsiveButtonLayout {
     }
 };
 
+// ============================================================================
+// CONVENIENCE HELPERS (RC-0.09-Test P1 addition)
+// ============================================================================
+namespace Responsive {
+    // Get responsive button size scaled to viewport resolution
+    // Base: 48px @ 1080p, scales proportionally with screen height
+    [[nodiscard]] inline float GetButtonSize() {
+        const float viewport_height = ImGui::GetIO().DisplaySize.y;
+        const float base_height = 1080.0f;
+        const float base_button = 48.0f;
+        return std::max(ResponsiveConstants::MIN_BUTTON_WIDTH, 
+                        base_button * (viewport_height / base_height));
+    }
+    
+    // Get responsive margin scaled to viewport resolution
+    // Base: 8px @ 1080p
+    [[nodiscard]] inline float GetMargin() {
+        const float viewport_height = ImGui::GetIO().DisplaySize.y;
+        const float base_height = 1080.0f;
+        const float base_margin = 8.0f;
+        return std::max(4.0f, base_margin * (viewport_height / base_height));
+    }
+    
+    // Get responsive spacing between elements
+    [[nodiscard]] inline float GetSpacing() {
+        return GetMargin() * 0.5f; // Half margin for tight spacing
+    }
+}
+
 } // namespace RC_UI
