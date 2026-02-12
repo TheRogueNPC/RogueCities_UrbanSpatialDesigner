@@ -17,4 +17,5 @@ CMakeFiles/
 .DS_Store
 desktop.ini
 /mcp-server/
+/3rdparty/vcpkg/
 
