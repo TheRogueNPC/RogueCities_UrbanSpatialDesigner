@@ -104,23 +104,20 @@ endif()
     # ==================================================
     find_package(OpenGL REQUIRED)
     
-    # Use bundled GLFW from imgui examples
+    # Build GLFW from source (official glfw/glfw submodule)
     set(GLFW_DIR "${CMAKE_SOURCE_DIR}/3rdparty/glfw")
     
-    if(EXISTS "${GLFW_DIR}/include/GLFW/glfw3.h")
-        # Detect architecture and select appropriate GLFW library
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(GLFW_LIB_DIR "${GLFW_DIR}/lib-vc2010-64")
-        else()
-            set(GLFW_LIB_DIR "${GLFW_DIR}/lib-vc2010-32")
-        endif()
+    if(EXISTS "${GLFW_DIR}/CMakeLists.txt")
+        # Configure GLFW to build as static library without examples/tests/docs
+        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
         
-        if(EXISTS "${GLFW_LIB_DIR}/glfw3.lib")
-            add_library(glfw_bundled STATIC IMPORTED)
-            set_target_properties(glfw_bundled PROPERTIES
-                IMPORTED_LOCATION "${GLFW_LIB_DIR}/glfw3.lib"
-                INTERFACE_INCLUDE_DIRECTORIES "${GLFW_DIR}/include"
-            )
+        add_subdirectory("${GLFW_DIR}" "${CMAKE_BINARY_DIR}/glfw" EXCLUDE_FROM_ALL)
+        
+        # GLFW target is now 'glfw' from add_subdirectory
+        if(TARGET glfw)
             
             add_executable(RogueCityVisualizerGui
                 src/main_gui.cpp
@@ -170,7 +167,6 @@ endif()
                 "${IMGUI_DIR}"
                 "${IMGUI_DIR}/backends"
                 "${ROGUECITY_GL3W_DIR}"
-                "${GLFW_DIR}/include"
             )
 
             target_compile_definitions(RogueCityVisualizerGui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GL3W=1)
@@ -181,7 +177,7 @@ endif()
                 RogueCityAI          # NEW: For AI assist controls
                 RogueCityImGui 
                 OpenGL::GL 
-                glfw_bundled
+                glfw
             )
             
             # Link sol2/lua if available (for UI scripting/toolchain)
