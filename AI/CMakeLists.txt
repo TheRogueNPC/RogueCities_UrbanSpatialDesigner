@@ -66,7 +66,7 @@ target_link_libraries(RogueCityAI PUBLIC RogueCityCore)
 # RogueCityImGui is created in app/CMakeLists.txt
 if(NOT TARGET RogueCityImGui)
     # Create ImGui target if it doesn't exist
-    set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
+    set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imgui")
     if(EXISTS "${IMGUI_DIR}/imgui.h")
         add_library(RogueCityImGui STATIC
             "${IMGUI_DIR}/imgui.cpp"

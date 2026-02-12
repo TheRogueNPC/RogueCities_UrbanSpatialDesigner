@@ -10,7 +10,7 @@ if(NOT ROGUECITY_BUILD_VISUALIZER)
 endif()
 
 if(ROGUECITY_BUILD_VISUALIZER)
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imgui")
 set(ROGUECITY_GL3W_DIR "${CMAKE_SOURCE_DIR}/3rdparty/gl3w")
 
 function(rc_configure_msvc_pdb target base_name)
@@ -34,7 +34,7 @@ function(rc_configure_msvc_pdb target base_name)
 endfunction()
 
 if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
-    message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Ensure 3rdparty/imvue submodules are initialized.")
+    message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Run: git submodule update --init --recursive")
 endif()
 
 # Only create RogueCityImGui if it doesn't already exist (from app layer)
@@ -105,7 +105,7 @@ endif()
     find_package(OpenGL REQUIRED)
     
     # Use bundled GLFW from imgui examples
-    set(GLFW_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui/examples/libs/glfw")
+    set(GLFW_DIR "${CMAKE_SOURCE_DIR}/3rdparty/glfw")
     
     if(EXISTS "${GLFW_DIR}/include/GLFW/glfw3.h")
         # Detect architecture and select appropriate GLFW library

@@ -74,7 +74,7 @@ set(APP_HEADERS
 # === IMGUI LIBRARY TARGET ===
 # Check if ImGui target already exists (from visualizer)
 if(NOT TARGET RogueCityImGui)
-    set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imvue/imgui")
+    set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/3rdparty/imgui")
     
     if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
         message(FATAL_ERROR 
