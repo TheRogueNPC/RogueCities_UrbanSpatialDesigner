@@ -1,6 +1,7 @@
 // FILE: rc_ui_root.cpp - Editor window routing with hardened docking
 
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/rc_ui_responsive.h"
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_root.h"
@@ -35,10 +36,14 @@
 #include <string>
 #include <array>
 #include <vector>
+#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 #include <span>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace RC_UI {
 
@@ -69,10 +74,76 @@ namespace {
     static std::vector<DockRequest> s_pending_dock_requests;
     static std::unordered_map<std::string, std::string> s_last_dock_area;
     static constexpr size_t kMaxPendingDockRequests = 128u;
+    static constexpr const char* kWorkspacePresetFile = "AI/docs/ui/workspace_presets.json";
+
+    struct WorkspacePresetStore {
+        std::unordered_map<std::string, std::string> presets;
+    };
+
+    [[nodiscard]] static std::filesystem::path WorkspacePresetPath() {
+        return std::filesystem::path(kWorkspacePresetFile);
+    }
+
+    static void LoadWorkspacePresetStore(WorkspacePresetStore& store) {
+        store.presets.clear();
+        const std::filesystem::path path = WorkspacePresetPath();
+        if (!std::filesystem::exists(path)) {
+            return;
+        }
+
+        std::ifstream in(path, std::ios::binary);
+        if (!in.is_open()) {
+            return;
+        }
+
+        try {
+            nlohmann::json j;
+            in >> j;
+            if (!j.contains("presets") || !j["presets"].is_object()) {
+                return;
+            }
+            for (const auto& item : j["presets"].items()) {
+                if (item.value().is_string()) {
+                    store.presets[item.key()] = item.value().get<std::string>();
+                }
+            }
+        } catch (...) {
+            // Keep editor running even if preset file is malformed.
+        }
+    }
+
+    static bool SaveWorkspacePresetStore(const WorkspacePresetStore& store, std::string* error) {
+        try {
+            const std::filesystem::path path = WorkspacePresetPath();
+            std::filesystem::create_directories(path.parent_path());
+
+            nlohmann::json j;
+            j["schema"] = 1;
+            j["presets"] = nlohmann::json::object();
+            for (const auto& [name, ini] : store.presets) {
+                j["presets"][name] = ini;
+            }
+
+            std::ofstream out(path, std::ios::binary | std::ios::trunc);
+            if (!out.is_open()) {
+                if (error != nullptr) {
+                    *error = "Failed to open preset store for writing: " + path.string();
+                }
+                return false;
+            }
+            out << j.dump(2);
+            return true;
+        } catch (const std::exception& e) {
+            if (error != nullptr) {
+                *error = e.what();
+            }
+            return false;
+        }
+    }
 }
 
 static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const ImVec2& center, float size) {
-    const ImU32 color = IM_COL32(220, 220, 220, 255);
+    const ImU32 color = UITokens::TextPrimary;
     const float half = size * 0.5f;
     switch (tool) {
         case ToolLibrary::Water:
@@ -135,7 +206,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
         return;
     }
 
-    const bool open = ImGui::Begin(window_name, nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = Components::BeginTokenPanel(window_name, UITokens::CyanAccent);
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
         RogueCity::UIInt::PanelMeta{
@@ -158,7 +229,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             library_avail.y < ResponsiveConstants::MIN_PANEL_HEIGHT) {
             EndWindowContainer();
             uiint.EndPanel();
-            ImGui::End();
+            Components::EndTokenPanel();
             return;
         }
 
@@ -176,7 +247,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
         if (layout.visible_count <= 0) {
             EndWindowContainer();
             uiint.EndPanel();
-            ImGui::End();
+            Components::EndTokenPanel();
             return;
         }
 
@@ -196,8 +267,8 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             const ImVec2 bmax = ImGui::GetItemRectMax();
             const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
             ImDrawList* draw_list = ImGui::GetWindowDrawList();
-            draw_list->AddRectFilled(bmin, bmax, IM_COL32(20, 20, 20, 180), 8.0f);
-            draw_list->AddRect(bmin, bmax, IM_COL32(120, 140, 160, 200), 8.0f, 0, 1.5f);
+            draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::PanelBackground, 220u), 8.0f);
+            draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::TextSecondary, 180u), 8.0f, 0, 1.5f);
             DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("%s", entries[static_cast<size_t>(i)]);
@@ -221,7 +292,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
     }
 
     uiint.EndPanel();
-    ImGui::End();
+    Components::EndTokenPanel();
 }
 
 // Static minimap instance (Phase 5: Polish)
@@ -808,6 +879,82 @@ void ResetDockLayout() {
     s_pending_dock_requests.clear();
 }
 
+bool SaveWorkspacePreset(const char* presetName, std::string* error) {
+    if (presetName == nullptr || presetName[0] == '\0') {
+        if (error != nullptr) {
+            *error = "Preset name is empty.";
+        }
+        return false;
+    }
+
+    if (ImGui::GetCurrentContext() == nullptr) {
+        if (error != nullptr) {
+            *error = "ImGui context is not initialized.";
+        }
+        return false;
+    }
+
+    size_t ini_size = 0;
+    const char* ini_data = ImGui::SaveIniSettingsToMemory(&ini_size);
+    if (ini_data == nullptr || ini_size == 0) {
+        if (error != nullptr) {
+            *error = "ImGui returned empty layout data.";
+        }
+        return false;
+    }
+
+    WorkspacePresetStore store;
+    LoadWorkspacePresetStore(store);
+    store.presets[presetName] = std::string(ini_data, ini_size);
+
+    // TODO(ai-layout): expose preset metadata to the UI agent for monitor-aware workspace suggestions.
+    return SaveWorkspacePresetStore(store, error);
+}
+
+bool LoadWorkspacePreset(const char* presetName, std::string* error) {
+    if (presetName == nullptr || presetName[0] == '\0') {
+        if (error != nullptr) {
+            *error = "Preset name is empty.";
+        }
+        return false;
+    }
+
+    if (ImGui::GetCurrentContext() == nullptr) {
+        if (error != nullptr) {
+            *error = "ImGui context is not initialized.";
+        }
+        return false;
+    }
+
+    WorkspacePresetStore store;
+    LoadWorkspacePresetStore(store);
+    const auto it = store.presets.find(presetName);
+    if (it == store.presets.end()) {
+        if (error != nullptr) {
+            *error = "Preset not found: " + std::string(presetName);
+        }
+        return false;
+    }
+
+    ImGui::LoadIniSettingsFromMemory(it->second.c_str(), static_cast<size_t>(it->second.size()));
+    s_pending_dock_requests.clear();
+    s_dock_layout_dirty = false;
+    s_dock_built = true;
+    return true;
+}
+
+std::vector<std::string> ListWorkspacePresets() {
+    WorkspacePresetStore store;
+    LoadWorkspacePresetStore(store);
+    std::vector<std::string> names;
+    names.reserve(store.presets.size());
+    for (const auto& [name, _] : store.presets) {
+        names.push_back(name);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
 void NotifyDockedWindow(const char* windowName, const char* dockArea) {
     if (!windowName || !dockArea || dockArea[0] == '\0') {
         return;
@@ -830,6 +977,36 @@ void ReturnWindowToLastDock(const char* windowName, const char* fallbackArea) {
     QueueDockWindow(windowName, target);
 }
 
+[[nodiscard]] static bool IsRectVisibleOnAnyViewport(const ImVec2& pos, const ImVec2& size) {
+    if (size.x <= 1.0f || size.y <= 1.0f) {
+        return true;
+    }
+
+    const ImRect rect(pos, ImVec2(pos.x + size.x, pos.y + size.y));
+#if defined(IMGUI_HAS_DOCK)
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    for (ImGuiViewport* viewport : platform_io.Viewports) {
+        if (viewport == nullptr) {
+            continue;
+        }
+        const ImRect viewport_rect(
+            viewport->Pos,
+            ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y));
+        if (viewport_rect.Overlaps(rect)) {
+            return true;
+        }
+    }
+#endif
+
+    if (ImGuiViewport* main_viewport = ImGui::GetMainViewport(); main_viewport != nullptr) {
+        const ImRect viewport_rect(
+            main_viewport->Pos,
+            ImVec2(main_viewport->Pos.x + main_viewport->Size.x, main_viewport->Pos.y + main_viewport->Size.y));
+        return viewport_rect.Overlaps(rect);
+    }
+    return true;
+}
+
 bool BeginDockableWindow(const char* windowName,
                          DockableWindowState& state,
                          const char* fallbackDockArea,
@@ -843,6 +1020,19 @@ bool BeginDockableWindow(const char* windowName,
     is_docked = ImGui::IsWindowDocked();
 #endif
     state.was_docked = is_docked;
+
+    if (!is_docked) {
+        const ImVec2 window_pos = ImGui::GetWindowPos();
+        const ImVec2 window_size = ImGui::GetWindowSize();
+        if (!IsRectVisibleOnAnyViewport(window_pos, window_size)) {
+            // Rescue floating windows that were dragged off-screen.
+            if (ImGuiViewport* main_viewport = ImGui::GetMainViewport(); main_viewport != nullptr) {
+                const ImVec2 rescue_pos(main_viewport->Pos.x + 48.0f, main_viewport->Pos.y + 48.0f);
+                ImGui::SetWindowPos(windowName, rescue_pos, ImGuiCond_Always);
+            }
+            ReturnWindowToLastDock(windowName, fallbackDockArea);
+        }
+    }
 
     if (is_docked) {
         NotifyDockedWindow(windowName, fallbackDockArea);

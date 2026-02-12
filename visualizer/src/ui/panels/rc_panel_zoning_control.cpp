@@ -4,6 +4,7 @@
 
 #include "ui/panels/rc_panel_zoning_control.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include <imgui.h>
@@ -61,9 +62,12 @@ void Draw(float dt) {
     }
 
     const ImU32 window_bg = LerpColor(UITokens::BackgroundDark, panel_tint, 0.15f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(WithAlpha(window_bg, 242u)));
-    
-    const bool open = ImGui::Begin("Zoning Control", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = Components::BeginTokenPanel(
+        "Zoning Control",
+        panel_tint,
+        nullptr,
+        ImGuiWindowFlags_NoCollapse,
+        WithAlpha(window_bg, 242u));
     
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -80,8 +84,7 @@ void Draw(float dt) {
     
     if (!open) {
         uiint.EndPanel();
-        ImGui::PopStyleColor();
-        ImGui::End();
+        Components::EndTokenPanel();
         return;
     }
     
@@ -196,8 +199,7 @@ void Draw(float dt) {
     
     uiint.RegisterWidget({"button", "Generate", "generate_button", {"action"}});
     uiint.EndPanel();
-    ImGui::PopStyleColor();
-    ImGui::End();
+    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::ZoningControl

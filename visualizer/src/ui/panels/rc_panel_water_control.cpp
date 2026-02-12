@@ -28,7 +28,11 @@ void Draw(float dt)
         return;
     }
     
-    const bool open = Components::BeginTokenPanel("Water Editing Control", UITokens::InfoBlue, ImGuiWindowFlags_AlwaysAutoResize);
+    const bool open = Components::BeginTokenPanel(
+        "Water Editing Control",
+        UITokens::InfoBlue,
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize);
     
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(

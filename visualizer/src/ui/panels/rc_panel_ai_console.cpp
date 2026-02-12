@@ -8,13 +8,18 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include <imgui.h>
 
 namespace RogueCity::UI {
 
 void AiConsolePanel::Render() {
     RC_UI::ApplyUnifiedWindowSchema();
-    const bool open = ImGui::Begin("AI Console", &m_showWindow, ImGuiWindowFlags_NoCollapse);
+    const bool open = RC_UI::Components::BeginTokenPanel(
+        "AI Console",
+        RC_UI::UITokens::InfoBlue,
+        &m_showWindow,
+        ImGuiWindowFlags_NoCollapse);
     RC_UI::PopUnifiedWindowSchema();
     RC_UI::BeginUnifiedTextWrap();
 
@@ -34,7 +39,7 @@ void AiConsolePanel::Render() {
     if (!open) {
         RC_UI::EndUnifiedTextWrap();
         uiint.EndPanel();
-        ImGui::End();
+        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -99,7 +104,7 @@ void AiConsolePanel::Render() {
 
     uiint.EndPanel();
     RC_UI::EndUnifiedTextWrap();
-    ImGui::End();
+    RC_UI::Components::EndTokenPanel();
 }
 
 } // namespace RogueCity::UI

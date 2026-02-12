@@ -12,6 +12,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include <imgui.h>
 #include <algorithm>
 #include <thread>
@@ -36,7 +37,11 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
 
 void CitySpecPanel::Render() {
     RC_UI::ApplyUnifiedWindowSchema();
-    const bool open = ImGui::Begin("City Spec Generator", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = RC_UI::Components::BeginTokenPanel(
+        "City Spec Generator",
+        RC_UI::UITokens::MagentaHighlight,
+        nullptr,
+        ImGuiWindowFlags_NoCollapse);
     RC_UI::PopUnifiedWindowSchema();
     RC_UI::BeginUnifiedTextWrap();
 
@@ -56,7 +61,7 @@ void CitySpecPanel::Render() {
     if (!open) {
         RC_UI::EndUnifiedTextWrap();
         uiint.EndPanel();
-        ImGui::End();
+        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -70,7 +75,7 @@ void CitySpecPanel::Render() {
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
         uiint.EndPanel();
         RC_UI::EndUnifiedTextWrap();
-        ImGui::End();
+        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -189,7 +194,7 @@ void CitySpecPanel::Render() {
 
     uiint.EndPanel();
     RC_UI::EndUnifiedTextWrap();
-    ImGui::End();
+    RC_UI::Components::EndTokenPanel();
 }
 
 } // namespace RogueCity::UI

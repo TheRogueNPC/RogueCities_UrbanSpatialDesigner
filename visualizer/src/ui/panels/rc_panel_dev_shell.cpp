@@ -9,6 +9,7 @@
 
 #include <imgui.h>
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -17,6 +18,7 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 namespace RC_UI::Panels::DevShell {
 
@@ -26,6 +28,8 @@ namespace {
     static char s_lastOutput[512] = "";
     static char s_lastError[512] = "";
     static bool s_includeDockTree = true;
+    static char s_workspacePresetName[96] = "default";
+    static int s_workspacePresetIndex = 0;
 
     static char s_designGoal[512] = "Unify inspector-like panels and propose reusable patterns";
     static std::atomic<bool> s_designBusy{false};
@@ -135,6 +139,54 @@ void Draw(float /*dt*/) {
     ImGui::TextUnformatted(preview.c_str());
     ImGui::EndChild();
     uiint.RegisterWidget({"tree", "Snapshot Preview", "uiint.preview", {"dev"}});
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Workspace Presets");
+    ImGui::InputText("Preset Name", s_workspacePresetName, sizeof(s_workspacePresetName));
+    uiint.RegisterWidget({"text", "Preset Name", "workspace.preset_name", {"dev", "layout"}});
+
+    if (ImGui::Button("Save Workspace Preset")) {
+        std::string err;
+        if (RC_UI::SaveWorkspacePreset(s_workspacePresetName, &err)) {
+            std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Saved workspace preset: %s", s_workspacePresetName);
+            s_lastError[0] = '\0';
+        } else {
+            std::snprintf(s_lastError, sizeof(s_lastError), "%s", err.c_str());
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset Dock Layout")) {
+        RC_UI::ResetDockLayout();
+        std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Dock layout reset to defaults");
+        s_lastError[0] = '\0';
+    }
+    uiint.RegisterWidget({"button", "Save Workspace Preset", "action:workspace.save_preset", {"action", "layout"}});
+    uiint.RegisterWidget({"button", "Reset Dock Layout", "action:workspace.reset_layout", {"action", "layout"}});
+
+    const std::vector<std::string> presets = RC_UI::ListWorkspacePresets();
+    if (presets.empty()) {
+        ImGui::TextDisabled("No saved presets yet.");
+    } else {
+        std::vector<const char*> preset_names;
+        preset_names.reserve(presets.size());
+        for (const std::string& preset : presets) {
+            preset_names.push_back(preset.c_str());
+        }
+        s_workspacePresetIndex = std::clamp(s_workspacePresetIndex, 0, static_cast<int>(preset_names.size()) - 1);
+        ImGui::Combo("Saved Presets", &s_workspacePresetIndex, preset_names.data(), static_cast<int>(preset_names.size()));
+        if (ImGui::Button("Load Selected Preset")) {
+            std::string err;
+            const std::string& selected = presets[static_cast<size_t>(s_workspacePresetIndex)];
+            if (RC_UI::LoadWorkspacePreset(selected.c_str(), &err)) {
+                std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Loaded workspace preset: %s", selected.c_str());
+                s_lastError[0] = '\0';
+            } else {
+                std::snprintf(s_lastError, sizeof(s_lastError), "%s", err.c_str());
+            }
+        }
+        uiint.RegisterWidget({"combo", "Saved Presets", "workspace.saved_presets", {"layout"}});
+        uiint.RegisterWidget({"button", "Load Selected Preset", "action:workspace.load_preset", {"action", "layout"}});
+    }
 
     ImGui::Separator();
     ImGui::TextUnformatted("Input Debug");

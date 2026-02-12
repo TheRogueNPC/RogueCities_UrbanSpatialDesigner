@@ -5,6 +5,7 @@
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 
 #include <imgui.h>
@@ -119,8 +120,7 @@ namespace {
 
 void Draw(float dt)
 {
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    const bool open = ImGui::Begin("Tool Deck", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = Components::BeginTokenPanel("Tool Deck", UITokens::CyanAccent);
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -137,8 +137,7 @@ void Draw(float dt)
 
     if (!open) {
         uiint.EndPanel();
-        ImGui::End();
-        ImGui::PopStyleColor();
+        Components::EndTokenPanel();
         return;
     }
 
@@ -151,8 +150,7 @@ void Draw(float dt)
     if (bar_height < 32.0f || avail.x < 120.0f) {
         EndWindowContainer();
         uiint.EndPanel();
-        ImGui::End();
-        ImGui::PopStyleColor();
+        Components::EndTokenPanel();
         return;
     }
 
@@ -195,8 +193,7 @@ void Draw(float dt)
     EndWindowContainer();
 
     uiint.EndPanel();
-    ImGui::End();
-    ImGui::PopStyleColor();
+    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::AxiomBar

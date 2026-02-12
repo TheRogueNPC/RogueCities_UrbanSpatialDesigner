@@ -19,6 +19,7 @@ option(ROGUECITY_ENABLE_SLTERRAIN "Enable SLTerrainGeneration integration when p
 option(ROGUECITY_ENABLE_FASTNOISE2 "Enable FastNoise2 integration when present" OFF)
 option(ROGUECITY_ENABLE_DELAUNATOR "Enable delaunator-cpp integration when present" OFF)
 option(ROGUECITY_ENABLE_NANOFLANN "Enable nanoflann integration when present" OFF)
+option(ROGUEUI_ENFORCE_DESIGN_SYSTEM "Fail fast when UI panels bypass token/wrapper architecture" ON)
 
 # AI_INTEGRATION_TAG: V1_PASS1_TASK1_MSVC_RUNTIME_FIX
 # AGENT: Debug_Manager + Coder_Agent
@@ -198,6 +199,27 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/../bin)
 # This keeps UI concerns separate from core/generators.
 if(EXISTS "${CMAKE_SOURCE_DIR}/visualizer/CMakeLists.txt")
     add_subdirectory(visualizer)
+endif()
+
+if(ROGUEUI_ENFORCE_DESIGN_SYSTEM)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/visualizer/CMakeLists.txt")
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(NOT Python3_Interpreter_FOUND)
+            message(FATAL_ERROR "ROGUEUI_ENFORCE_DESIGN_SYSTEM=ON requires Python3 to run tools/check_ui_compliance.py")
+        endif()
+        add_custom_target(check_ui_compliance ALL
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/check_ui_compliance.py"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Checking UI token/wrapper compliance")
+        if(TARGET RogueCityVisualizerGui)
+            add_dependencies(RogueCityVisualizerGui check_ui_compliance)
+        endif()
+        if(TARGET RogueCityVisualizerHeadless)
+            add_dependencies(RogueCityVisualizerHeadless check_ui_compliance)
+        endif()
+    endif()
+else()
+    message(STATUS "ROGUEUI_ENFORCE_DESIGN_SYSTEM=OFF (UI compliance checks disabled)")
 endif()
 # === TESTS ===
 if(BUILD_TESTING)

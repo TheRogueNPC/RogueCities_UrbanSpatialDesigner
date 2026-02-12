@@ -4,6 +4,8 @@
 #pragma once
 
 #include <array>
+#include <string>
+#include <vector>
 #include <imgui.h>
 
 namespace RogueCity::App { class MinimapViewport; }
@@ -56,6 +58,11 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
 
 // Reset dock layout to default (useful if user messes up docking)
 void ResetDockLayout();
+
+// Workspace preset persistence (layout + docking state across runs).
+bool SaveWorkspacePreset(const char* presetName, std::string* error = nullptr);
+bool LoadWorkspacePreset(const char* presetName, std::string* error = nullptr);
+std::vector<std::string> ListWorkspacePresets();
 
 // Track last docked area for windows (for re-docking on close).
 void NotifyDockedWindow(const char* windowName, const char* dockArea);

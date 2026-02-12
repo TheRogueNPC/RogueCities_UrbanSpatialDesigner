@@ -6,6 +6,7 @@
 
 #include "ui/panels/rc_panel_lot_control.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
@@ -32,7 +33,11 @@ void Draw(float dt)
         return;
     }
     
-    const bool open = ImGui::Begin("Lot Subdivision Control", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    const bool open = Components::BeginTokenPanel(
+        "Lot Subdivision Control",
+        UITokens::SuccessGreen,
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize);
     
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -49,7 +54,7 @@ void Draw(float dt)
     
     if (!open) {
         uiint.EndPanel();
-        ImGui::End();
+        Components::EndTokenPanel();
         return;
     }
     
@@ -126,7 +131,7 @@ void Draw(float dt)
     }
     
     uiint.EndPanel();
-    ImGui::End();
+    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::LotControl

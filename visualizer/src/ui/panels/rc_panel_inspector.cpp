@@ -4,6 +4,7 @@
 
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/rc_ui_components.h"
 #include "ui/panels/rc_property_editor.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -15,8 +16,11 @@ namespace RC_UI::Panels::Inspector {
 
 void Draw(float dt)
 {
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ColorPanel);
-    ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = Components::BeginTokenPanel("Inspector", UITokens::MagentaHighlight);
+    if (!open) {
+        Components::EndTokenPanel();
+        return;
+    }
 
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
@@ -54,8 +58,7 @@ void Draw(float dt)
 
     uiint.EndPanel();
 
-    ImGui::End();
-    ImGui::PopStyleColor();
+    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::Inspector

@@ -12,6 +12,7 @@
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
 #include <algorithm>
@@ -268,7 +269,11 @@ static bool ApplyUiCommand(const AI::UiCommand& cmd, std::string& lineOut) {
 
 void UiAgentPanel::Render() {
     RC_UI::ApplyUnifiedWindowSchema();
-    const bool open = ImGui::Begin("UI Agent Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
+    const bool open = RC_UI::Components::BeginTokenPanel(
+        "UI Agent Assistant",
+        RC_UI::UITokens::CyanAccent,
+        nullptr,
+        ImGuiWindowFlags_NoCollapse);
     RC_UI::PopUnifiedWindowSchema();
     RC_UI::BeginUnifiedTextWrap();
 
@@ -288,7 +293,7 @@ void UiAgentPanel::Render() {
     if (!open) {
         RC_UI::EndUnifiedTextWrap();
         uiint.EndPanel();
-        ImGui::End();
+        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -302,7 +307,7 @@ void UiAgentPanel::Render() {
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
         uiint.EndPanel();
         RC_UI::EndUnifiedTextWrap();
-        ImGui::End();
+        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -434,7 +439,7 @@ void UiAgentPanel::Render() {
 
     uiint.EndPanel();
     RC_UI::EndUnifiedTextWrap();
-    ImGui::End();
+    RC_UI::Components::EndTokenPanel();
 }
 
 } // namespace RogueCity::UI

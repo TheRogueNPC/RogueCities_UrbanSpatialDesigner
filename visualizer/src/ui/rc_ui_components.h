@@ -5,17 +5,20 @@
 #include "ui/rc_ui_tokens.h"
 
 #include <imgui.h>
+#include <cstdarg>
 
 namespace RC_UI::Components {
 
 inline bool BeginTokenPanel(
     const char* title,
     ImU32 border_color = UITokens::YellowWarning,
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse) {
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(UITokens::PanelBackground));
+    bool* p_open = nullptr,
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse,
+    ImU32 window_bg = UITokens::PanelBackground) {
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(window_bg));
     ImGui::PushStyleColor(ImGuiCol_Border, ImGui::ColorConvertU32ToFloat4(WithAlpha(border_color, 180)));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, UITokens::BorderNormal);
-    return ImGui::Begin(title, nullptr, flags);
+    return ImGui::Begin(title, p_open, flags);
 }
 
 inline void EndTokenPanel() {
@@ -96,6 +99,15 @@ inline void DrawScanlineBackdrop(const ImVec2& min, const ImVec2& max, float tim
             WithAlpha(tint, static_cast<uint8_t>(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)),
             UITokens::BorderThin);
     }
+}
+
+inline void TextToken(ImU32 color, const char* fmt, ...) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color));
+    va_list args;
+    va_start(args, fmt);
+    ImGui::TextV(fmt, args);
+    va_end(args);
+    ImGui::PopStyleColor();
 }
 
 } // namespace RC_UI::Components

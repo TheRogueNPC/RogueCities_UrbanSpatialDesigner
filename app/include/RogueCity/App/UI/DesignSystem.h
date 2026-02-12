@@ -3,6 +3,8 @@
 #pragma once
 #include <imgui.h>
 #include <cstdint>
+#include <cstddef>
+#include <string>
 
 namespace RogueCity::UI {
 
@@ -116,6 +118,33 @@ public:
     
 private:
     static void ApplyButtonStyle(ImU32 base_color, ImU32 hover_color, ImU32 active_color);
+};
+
+// ============================================================================
+// SAFE UI WRAPPER SURFACE
+// ============================================================================
+// Prefer this API in editor/panel code instead of raw style/window setup.
+class UI {
+public:
+    static bool BeginPanel(const char* title, bool* p_open = nullptr, ImGuiWindowFlags flags = 0);
+    static void EndPanel();
+
+    static bool InputText(const char* label, std::string& text, size_t max_chars = 512);
+    static bool InputFloat(const char* label, float& value, float step = 0.0f, float step_fast = 0.0f, const char* format = "%.3f");
+    static bool Checkbox(const char* label, bool& value);
+    static bool ColorEdit(const char* label, ImVec4& color, ImGuiColorEditFlags flags = 0);
+    static bool BeginCombo(const char* label, const char* preview, ImGuiComboFlags flags = 0);
+    static void EndCombo();
+
+    static void Space();
+    static void SpaceM();
+    static void SpaceL();
+
+    static void TextPrimary(const char* fmt, ...);
+    static void TextSecondary(const char* fmt, ...);
+    static void TextSuccess(const char* fmt, ...);
+    static void TextError(const char* fmt, ...);
+    static void TextWarning(const char* fmt, ...);
 };
 
 // ============================================================================

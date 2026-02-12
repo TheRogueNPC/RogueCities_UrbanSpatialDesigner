@@ -1,9 +1,23 @@
 // DesignSystem.cpp - Implementation of Cockpit Doctrine theme & helpers
 #include "RogueCity/App/UI/DesignSystem.h"
+#include <algorithm>
 #include <cmath>
 #include <cassert>
+#include <cstdarg>
+#include <cstring>
+#include <vector>
 
 namespace RogueCity::UI {
+
+namespace {
+
+void TextWithColor(ImU32 color, const char* fmt, va_list args) {
+    ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(color));
+    ImGui::TextV(fmt, args);
+    ImGui::PopStyleColor();
+}
+
+} // namespace
 
 // ============================================================================
 // THEME APPLICATION
@@ -211,6 +225,98 @@ void DesignSystem::ValidateNoHardcodedValues() {
     // Implementation: scan ImGui draw list for non-token colors (future)
     // For now, this is a reminder to use tokens
 #endif
+}
+
+bool UI::BeginPanel(const char* title, bool* p_open, ImGuiWindowFlags flags) {
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, DesignSystem::ToVec4(DesignTokens::PanelBackground));
+    return ImGui::Begin(title, p_open, flags);
+}
+
+void UI::EndPanel() {
+    ImGui::End();
+    ImGui::PopStyleColor();
+}
+
+bool UI::InputText(const char* label, std::string& text, size_t max_chars) {
+    const size_t capacity = std::max<size_t>(max_chars, 2u);
+    std::vector<char> buffer(capacity, '\0');
+    const size_t copy_len = std::min(text.size(), capacity - 1u);
+    if (copy_len > 0u) {
+        std::memcpy(buffer.data(), text.data(), copy_len);
+    }
+
+    const bool changed = ImGui::InputText(label, buffer.data(), buffer.size());
+    if (changed) {
+        text.assign(buffer.data());
+    }
+    return changed;
+}
+
+bool UI::InputFloat(const char* label, float& value, float step, float step_fast, const char* format) {
+    return ImGui::InputFloat(label, &value, step, step_fast, format);
+}
+
+bool UI::Checkbox(const char* label, bool& value) {
+    return ImGui::Checkbox(label, &value);
+}
+
+bool UI::ColorEdit(const char* label, ImVec4& color, ImGuiColorEditFlags flags) {
+    return ImGui::ColorEdit4(label, &color.x, flags);
+}
+
+bool UI::BeginCombo(const char* label, const char* preview, ImGuiComboFlags flags) {
+    return ImGui::BeginCombo(label, preview, flags);
+}
+
+void UI::EndCombo() {
+    ImGui::EndCombo();
+}
+
+void UI::Space() {
+    ImGui::Dummy(ImVec2(0.0f, DesignTokens::SpaceS));
+}
+
+void UI::SpaceM() {
+    ImGui::Dummy(ImVec2(0.0f, DesignTokens::SpaceM));
+}
+
+void UI::SpaceL() {
+    ImGui::Dummy(ImVec2(0.0f, DesignTokens::SpaceL));
+}
+
+void UI::TextPrimary(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    TextWithColor(DesignTokens::TextPrimary, fmt, args);
+    va_end(args);
+}
+
+void UI::TextSecondary(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    TextWithColor(DesignTokens::TextSecondary, fmt, args);
+    va_end(args);
+}
+
+void UI::TextSuccess(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    TextWithColor(DesignTokens::SuccessGreen, fmt, args);
+    va_end(args);
+}
+
+void UI::TextError(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    TextWithColor(DesignTokens::ErrorRed, fmt, args);
+    va_end(args);
+}
+
+void UI::TextWarning(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    TextWithColor(DesignTokens::YellowWarning, fmt, args);
+    va_end(args);
 }
 
 } // namespace RogueCity::UI

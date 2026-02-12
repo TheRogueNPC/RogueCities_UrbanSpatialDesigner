@@ -5,6 +5,7 @@
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
@@ -1629,7 +1630,11 @@ void Draw(float dt) {
 
     // Axiom Library (palette) - toggled by "Axiom Deck"
     if (RC_UI::IsAxiomLibraryOpen()) {
-        const bool open = ImGui::Begin("Axiom Library", nullptr, ImGuiWindowFlags_NoCollapse);
+        const bool open = Components::BeginTokenPanel(
+            "Axiom Library",
+            UITokens::MagentaHighlight,
+            nullptr,
+            ImGuiWindowFlags_NoCollapse);
 
         uiint.BeginPanel(
             RogueCity::UIInt::PanelMeta{
@@ -1691,12 +1696,14 @@ void Draw(float dt) {
 
         uiint.RegisterWidget({"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
         uiint.EndPanel();
-        ImGui::End();
+        Components::EndTokenPanel();
     }
 
     // ---------------------------------------------------------------------
     // Viewport mouse interaction (placement + manipulation)
     // ---------------------------------------------------------------------
+    // TODO(hfsm-context): Route right-click context actions through HFSM command maps,
+    // then expose user-customizable context->ribbon transforms for workspace tailoring.
     const ImVec2 mouse_pos = ImGui::GetMousePos();
     const ImVec2 vp_min = viewport_pos;
     const ImVec2 vp_max(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y);
