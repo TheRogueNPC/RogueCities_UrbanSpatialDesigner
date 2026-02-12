@@ -8,6 +8,10 @@
 #include <algorithm>
 #include <cmath>
 
+#if !defined(IMGUI_HAS_DOCK)
+struct ImGuiDockNode;
+#endif
+
 namespace RC_UI {
 
 // ============================================================================
@@ -91,20 +95,31 @@ struct ViewportBounds {
 struct DockNodeValidator {
     // Check if a dock node is valid and usable
     [[nodiscard]] static bool IsNodeValid(ImGuiDockNode* node) {
+#if defined(IMGUI_HAS_DOCK)
         if (node == nullptr) return false;
         if (node->ID == 0) return false;
         return true;
+#else
+        (void)node;
+        return false;
+#endif
     }
     
     // Check if a dock node has adequate size
     [[nodiscard]] static bool IsNodeSizeValid(ImGuiDockNode* node) {
+#if defined(IMGUI_HAS_DOCK)
         if (!IsNodeValid(node)) return false;
         return node->Size.x >= ViewportConfig::MIN_DOCK_NODE_SIZE &&
                node->Size.y >= ViewportConfig::MIN_DOCK_NODE_SIZE;
+#else
+        (void)node;
+        return false;
+#endif
     }
     
     // Get root node safely with null checks
     [[nodiscard]] static ImGuiDockNode* GetRootNodeSafe(ImGuiDockNode* node) {
+#if defined(IMGUI_HAS_DOCK)
         if (node == nullptr) return nullptr;
         ImGuiDockNode* current = node;
         int depth = 0;
@@ -114,21 +129,36 @@ struct DockNodeValidator {
             ++depth;
         }
         return current;
+#else
+        (void)node;
+        return nullptr;
+#endif
     }
     
     // Validate dock node belongs to expected dockspace
     [[nodiscard]] static bool BelongsToDockspace(ImGuiDockNode* node, ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
         if (node == nullptr || dockspace_id == 0) return false;
         ImGuiDockNode* root = GetRootNodeSafe(node);
         return root != nullptr && root->ID == dockspace_id;
+#else
+        (void)node;
+        (void)dockspace_id;
+        return false;
+#endif
     }
     
     // Check if window has valid dock assignment
     [[nodiscard]] static bool IsWindowDockValid(ImGuiWindow* window, ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
         if (window == nullptr) return false;
         if (window->DockId == 0) return true; // Not docked is valid
         ImGuiDockNode* node = ImGui::DockBuilderGetNode(window->DockId);
         return node != nullptr && BelongsToDockspace(node, dockspace_id);
+#else
+        (void)dockspace_id;
+        return window != nullptr;
+#endif
     }
 };
 
@@ -236,19 +266,30 @@ inline void EndViewportWindow() {
 
 // Safely get dock node, returns nullptr on any error
 [[nodiscard]] inline ImGuiDockNode* GetDockNodeSafe(ImGuiID dock_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (dock_id == 0) return nullptr;
     return ImGui::DockBuilderGetNode(dock_id);
+#else
+    (void)dock_id;
+    return nullptr;
+#endif
 }
 
 // Check if dockspace exists and is valid
 [[nodiscard]] inline bool IsDockspaceValid(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (dockspace_id == 0) return false;
     ImGuiDockNode* node = GetDockNodeSafe(dockspace_id);
     return DockNodeValidator::IsNodeValid(node);
+#else
+    (void)dockspace_id;
+    return false;
+#endif
 }
 
 // Safely dock a window with validation
 inline bool DockWindowSafe(const char* window_name, ImGuiID dock_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (window_name == nullptr || window_name[0] == '\0') return false;
     if (dock_id == 0) return false;
     
@@ -257,6 +298,11 @@ inline bool DockWindowSafe(const char* window_name, ImGuiID dock_id) {
     
     ImGui::DockBuilderDockWindow(window_name, dock_id);
     return true;
+#else
+    (void)window_name;
+    (void)dock_id;
+    return false;
+#endif
 }
 
 } // namespace RC_UI

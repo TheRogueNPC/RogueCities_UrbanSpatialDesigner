@@ -16,6 +16,22 @@ namespace RogueCity::UI {
 
 namespace {
 
+[[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_DockingEnable;
+#else
+    return 0;
+#endif
+}
+
+[[nodiscard]] constexpr ImGuiConfigFlags ViewportsConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_ViewportsEnable;
+#else
+    return 0;
+#endif
+}
+
 struct PanelRuntimeEntry {
     std::string windowName;
     std::string dockArea;
@@ -96,8 +112,8 @@ AI::UiSnapshot AiAssist::BuildSnapshot() {
 
     // ImGui docking config
     const ImGuiIO& io = ImGui::GetIO();
-    s.dockingEnabled       = (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) != 0;
-    s.multiViewportEnabled = (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0;
+    s.dockingEnabled       = (io.ConfigFlags & DockingConfigFlag()) != 0;
+    s.multiViewportEnabled = (io.ConfigFlags & ViewportsConfigFlag()) != 0;
 
     for (const auto& [panelId, panel] : runtime.panels) {
         AI::UiPanelInfo info;

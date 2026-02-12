@@ -12,6 +12,18 @@ using RogueCity::Core::Editor::EditorHFSM;
 using RogueCity::Core::Editor::EditorState;
 using RogueCity::Core::Editor::GlobalState;
 
+namespace {
+
+[[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_DockingEnable;
+#else
+    return 0;
+#endif
+}
+
+} // namespace
+
 static void draw_main_menu(EditorHFSM& hfsm, GlobalState& gs)
 {
     (void)gs;
@@ -85,7 +97,7 @@ int main()
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2(1280.0f, 720.0f);
     // ADDED (visualizer/src/main.cpp): Enable ImGui docking for the RC_UI dockspace.
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= DockingConfigFlag();
     io.Fonts->Build();
     unsigned char* font_pixels = nullptr;
     int font_width = 0;

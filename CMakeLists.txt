@@ -12,6 +12,14 @@ include(CTest)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Geometry backend migration switches.
+# Keep the legacy path available while Boost.Geometry is validated.
+option(USE_LEGACY_GEOS "Use GEOS instead of Boost.Geometry for geometry backend" ON)
+option(ROGUECITY_ENABLE_SLTERRAIN "Enable SLTerrainGeneration integration when present" ON)
+option(ROGUECITY_ENABLE_FASTNOISE2 "Enable FastNoise2 integration when present" OFF)
+option(ROGUECITY_ENABLE_DELAUNATOR "Enable delaunator-cpp integration when present" OFF)
+option(ROGUECITY_ENABLE_NANOFLANN "Enable nanoflann integration when present" OFF)
+
 # AI_INTEGRATION_TAG: V1_PASS1_TASK1_MSVC_RUNTIME_FIX
 # AGENT: Debug_Manager + Coder_Agent
 # CATEGORY: Build_System_Hardening
@@ -41,6 +49,8 @@ message(STATUS "===========================================")
 message(STATUS "Building RogueCity Core (MVP Mode)")
 message(STATUS "Ignoring old src/Generator/ code")
 message(STATUS "===========================================")
+message(STATUS "Geometry backend preference: USE_LEGACY_GEOS=${USE_LEGACY_GEOS}")
+message(STATUS "Optional terrain backend: ROGUECITY_ENABLE_SLTERRAIN=${ROGUECITY_ENABLE_SLTERRAIN}")
 
 # === GLM ===
 find_package(glm CONFIG QUIET)
@@ -190,86 +200,91 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/visualizer/CMakeLists.txt")
     add_subdirectory(visualizer)
 endif()
 # === TESTS ===
-add_executable(test_generators tests/test_generators.cpp)
-target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
-target_compile_features(test_generators PRIVATE cxx_std_20)
-
-add_executable(test_core tests/test_core.cpp)
-target_link_libraries(test_core PRIVATE RogueCityCore)
-target_compile_features(test_core PRIVATE cxx_std_20)
-
-add_executable(test_texture_space tests/unit/test_texture_space.cpp)
-target_link_libraries(test_texture_space PRIVATE RogueCityCore)
-target_compile_features(test_texture_space PRIVATE cxx_std_20)
-
-add_executable(test_texture_processor tests/unit/test_texture_processor.cpp)
-target_link_libraries(test_texture_processor PRIVATE RogueCityCore)
-target_compile_features(test_texture_processor PRIVATE cxx_std_20)
-
-add_executable(test_simd_processor tests/unit/test_simd_processor.cpp)
-target_link_libraries(test_simd_processor PRIVATE RogueCityCore)
-target_compile_features(test_simd_processor PRIVATE cxx_std_20)
-
-add_executable(test_texture_editing tests/unit/test_texture_editing.cpp)
-target_link_libraries(test_texture_editing PRIVATE RogueCityCore)
-target_compile_features(test_texture_editing PRIVATE cxx_std_20)
-
-add_executable(test_terrain_constraints tests/unit/test_terrain_constraints.cpp)
-target_link_libraries(test_terrain_constraints PRIVATE RogueCityCore RogueCityGenerators)
-target_compile_features(test_terrain_constraints PRIVATE cxx_std_20)
-
-add_executable(test_tensor_texture_integration tests/unit/test_tensor_texture_integration.cpp)
-target_link_libraries(test_tensor_texture_integration PRIVATE RogueCityCore RogueCityGenerators)
-target_compile_features(test_tensor_texture_integration PRIVATE cxx_std_20)
-
-add_executable(test_texture_replay_hash tests/unit/test_texture_replay_hash.cpp)
-target_link_libraries(test_texture_replay_hash PRIVATE RogueCityCore RogueCityGenerators)
-target_compile_features(test_texture_replay_hash PRIVATE cxx_std_20)
-
-add_executable(test_minimap_lod_determinism tests/unit/test_minimap_lod_determinism.cpp)
-target_link_libraries(test_minimap_lod_determinism PRIVATE RogueCityCore RogueCityGenerators)
-target_compile_features(test_minimap_lod_determinism PRIVATE cxx_std_20)
-
-# === EDITOR HFSM SMOKE TEST ===
-add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
-target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
-target_compile_features(test_editor_hfsm PRIVATE cxx_std_20)
-
-# === VIEWPORT COORDINATE TESTS (Phase 2) ===
-add_executable(test_viewport tests/test_viewport.cpp)
-target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
-target_compile_features(test_viewport PRIVATE cxx_std_20)
-
-# === EDITOR PLAN GAP TESTS (viewport index + dirty layers + undo determinism) ===
-add_executable(test_editor_plan tests/test_editor_plan.cpp)
-target_link_libraries(test_editor_plan PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
-target_compile_features(test_editor_plan PRIVATE cxx_std_20)
-
-# === AI LAYER TESTS ===
-add_executable(test_ai tests/test_ai.cpp)
-target_link_libraries(test_ai PRIVATE RogueCityAI)
-target_compile_features(test_ai PRIVATE cxx_std_20)
-
-# === UI TOOLCHAIN PROBE (console, pre-ImGui) ===
-# AI_INTEGRATION_TAG: V1_PASS1_TASK1_DISABLE_LUA_TEST_TEMPORARILY
-# TEMPORARILY DISABLED: Lua linkage issues need resolution
-# This test can be re-enabled after Lua library builds correctly
-# The main application doesn't use Lua yet, so this doesn't block V1 finalization
-# This small executable is a console-only harness used to verify that
-# the external UI/toolchain dependencies are reachable. It intentionally
-# avoids any imgui/glfw/glad usage so that Core/Generators stay UI-free.
-# add_executable(test_ui_toolchain tests/ui_toolchain_demo.cpp)
-# target_compile_features(test_ui_toolchain PRIVATE cxx_std_20)
-# if(ROGUECITY_HAS_TABULATE)
-#     target_link_libraries(test_ui_toolchain PRIVATE tabulate::tabulate)
-#     target_compile_definitions(test_ui_toolchain PRIVATE ROGUECITY_HAS_TABULATE=1)
-# endif()
-# if(ROGUECITY_HAS_SOL2)
-#     target_link_libraries(test_ui_toolchain PRIVATE sol2::sol2)
-#     target_compile_definitions(test_ui_toolchain PRIVATE ROGUECITY_HAS_SOL2=1)
-# endif()
-message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage needs fix)")
 if(BUILD_TESTING)
+    add_executable(test_generators tests/test_generators.cpp)
+    target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generators PRIVATE cxx_std_20)
+
+    add_executable(test_geometry_adapter tests/test_geometry_adapter.cpp)
+    target_link_libraries(test_geometry_adapter PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_geometry_adapter PRIVATE cxx_std_20)
+
+    add_executable(test_core tests/test_core.cpp)
+    target_link_libraries(test_core PRIVATE RogueCityCore)
+    target_compile_features(test_core PRIVATE cxx_std_20)
+
+    add_executable(test_texture_space tests/unit/test_texture_space.cpp)
+    target_link_libraries(test_texture_space PRIVATE RogueCityCore)
+    target_compile_features(test_texture_space PRIVATE cxx_std_20)
+
+    add_executable(test_texture_processor tests/unit/test_texture_processor.cpp)
+    target_link_libraries(test_texture_processor PRIVATE RogueCityCore)
+    target_compile_features(test_texture_processor PRIVATE cxx_std_20)
+
+    add_executable(test_simd_processor tests/unit/test_simd_processor.cpp)
+    target_link_libraries(test_simd_processor PRIVATE RogueCityCore)
+    target_compile_features(test_simd_processor PRIVATE cxx_std_20)
+
+    add_executable(test_texture_editing tests/unit/test_texture_editing.cpp)
+    target_link_libraries(test_texture_editing PRIVATE RogueCityCore)
+    target_compile_features(test_texture_editing PRIVATE cxx_std_20)
+
+    add_executable(test_terrain_constraints tests/unit/test_terrain_constraints.cpp)
+    target_link_libraries(test_terrain_constraints PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_terrain_constraints PRIVATE cxx_std_20)
+
+    add_executable(test_tensor_texture_integration tests/unit/test_tensor_texture_integration.cpp)
+    target_link_libraries(test_tensor_texture_integration PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_tensor_texture_integration PRIVATE cxx_std_20)
+
+    add_executable(test_texture_replay_hash tests/unit/test_texture_replay_hash.cpp)
+    target_link_libraries(test_texture_replay_hash PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_texture_replay_hash PRIVATE cxx_std_20)
+
+    add_executable(test_minimap_lod_determinism tests/unit/test_minimap_lod_determinism.cpp)
+    target_link_libraries(test_minimap_lod_determinism PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_minimap_lod_determinism PRIVATE cxx_std_20)
+
+    # === EDITOR HFSM SMOKE TEST ===
+    add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
+    target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
+    target_compile_features(test_editor_hfsm PRIVATE cxx_std_20)
+
+    # === VIEWPORT COORDINATE TESTS (Phase 2) ===
+    add_executable(test_viewport tests/test_viewport.cpp)
+    target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
+    target_compile_features(test_viewport PRIVATE cxx_std_20)
+
+    # === EDITOR PLAN GAP TESTS (viewport index + dirty layers + undo determinism) ===
+    add_executable(test_editor_plan tests/test_editor_plan.cpp)
+    target_link_libraries(test_editor_plan PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
+    target_compile_features(test_editor_plan PRIVATE cxx_std_20)
+
+    # === AI LAYER TESTS ===
+    add_executable(test_ai tests/test_ai.cpp)
+    target_link_libraries(test_ai PRIVATE RogueCityAI)
+    target_compile_features(test_ai PRIVATE cxx_std_20)
+
+    # === UI TOOLCHAIN PROBE (console, pre-ImGui) ===
+    # AI_INTEGRATION_TAG: V1_PASS1_TASK1_DISABLE_LUA_TEST_TEMPORARILY
+    # TEMPORARILY DISABLED: Lua linkage issues need resolution
+    # This test can be re-enabled after Lua library builds correctly
+    # The main application doesn't use Lua yet, so this doesn't block V1 finalization
+    # This small executable is a console-only harness used to verify that
+    # the external UI/toolchain dependencies are reachable. It intentionally
+    # avoids any imgui/glfw/glad usage so that Core/Generators stay UI-free.
+    # add_executable(test_ui_toolchain tests/ui_toolchain_demo.cpp)
+    # target_compile_features(test_ui_toolchain PRIVATE cxx_std_20)
+    # if(ROGUECITY_HAS_TABULATE)
+    #     target_link_libraries(test_ui_toolchain PRIVATE tabulate::tabulate)
+    #     target_compile_definitions(test_ui_toolchain PRIVATE ROGUECITY_HAS_TABULATE=1)
+    # endif()
+    # if(ROGUECITY_HAS_SOL2)
+    #     target_link_libraries(test_ui_toolchain PRIVATE sol2::sol2)
+    #     target_compile_definitions(test_ui_toolchain PRIVATE ROGUECITY_HAS_SOL2=1)
+    # endif()
+    message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage needs fix)")
+
     add_test(NAME test_texture_space COMMAND test_texture_space)
     add_test(NAME test_texture_processor COMMAND test_texture_processor)
     add_test(NAME test_simd_processor COMMAND test_simd_processor)
@@ -279,6 +294,9 @@ if(BUILD_TESTING)
     add_test(NAME test_texture_replay_hash COMMAND test_texture_replay_hash)
     add_test(NAME test_minimap_lod_determinism COMMAND test_minimap_lod_determinism)
     add_test(NAME test_generators COMMAND test_generators)
+    add_test(NAME test_geometry_adapter COMMAND test_geometry_adapter)
+else()
+    message(STATUS "BUILD_TESTING=OFF: skipping test executable targets")
 endif()
 
 message(STATUS "===========================================")

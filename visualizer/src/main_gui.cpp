@@ -30,6 +30,26 @@ using RogueCity::Core::Editor::EditorHFSM;
 using RogueCity::Core::Editor::EditorState;
 using RogueCity::Core::Editor::GlobalState;
 
+namespace {
+
+[[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_DockingEnable;
+#else
+    return 0;
+#endif
+}
+
+[[nodiscard]] constexpr ImGuiConfigFlags ViewportsConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_ViewportsEnable;
+#else
+    return 0;
+#endif
+}
+
+} // namespace
+
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -76,12 +96,12 @@ int main(int, char**)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     
     // CRITICAL: Enable docking + multi-viewport for floating windows
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= DockingConfigFlag();
+    io.ConfigFlags |= ViewportsConfigFlag();
     
     // When viewports are enabled, tweak WindowRounding/WindowBg for platform windows
     ImGuiStyle& style = ImGui::GetStyle();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    if (io.ConfigFlags & ViewportsConfigFlag())
     {
         style.WindowRounding = 0.0f;  // Y2K hard edges
         style.Colors[ImGuiCol_WindowBg].w = 1.0f;  // Opaque backgrounds for OS windows
@@ -177,13 +197,15 @@ int main(int, char**)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Update and render platform windows (multi-viewport support)
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+#if defined(IMGUI_HAS_DOCK)
+        if (io.ConfigFlags & ViewportsConfigFlag())
         {
             GLFWwindow* backup_current_context = glfwGetCurrentContext();
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
             glfwMakeContextCurrent(backup_current_context);
         }
+#endif
 
         glfwSwapBuffers(window);
     }

@@ -61,6 +61,30 @@ If you need to reconfigure the build (e.g., after pulling new changes), run:
 cmake -B build_vs -S . -DROGUECITY_BUILD_VISUALIZER=ON
 ```
 
+## Geometry Migration Flags
+
+The build now supports dual geometry backend flags for incremental migration:
+
+```powershell
+# Legacy path (GEOS if available, otherwise legacy shim)
+cmake -B build_vs -S . -DUSE_LEGACY_GEOS=ON
+
+# Boost.Geometry path (falls back to legacy shim if Boost is unavailable)
+cmake -B build_vs -S . -DUSE_LEGACY_GEOS=OFF
+```
+
+Recommended vcpkg install command for migration dependencies:
+
+```powershell
+vcpkg install boost-geometry fastnoise2 nanoflann delaunator-cpp
+```
+
+Optional terrain backend is auto-detected from `3rdparty/SLTerrainGeneration` when:
+
+```powershell
+-DROGUECITY_ENABLE_SLTERRAIN=ON
+```
+
 ## Recent Fixes Applied
 
 1. **Missing header include** - Added `GlobalState.hpp` include to `rc_panel_tools.cpp`

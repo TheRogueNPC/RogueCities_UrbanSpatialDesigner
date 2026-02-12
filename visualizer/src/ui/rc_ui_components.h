@@ -73,7 +73,9 @@ inline void StatusChip(const char* label, ImU32 color, bool emphasized = false) 
     draw->AddRect(cursor, ImVec2(cursor.x + w, cursor.y + h), WithAlpha(UITokens::TextPrimary, 110), rounding, 0, UITokens::BorderThin);
     ImGui::SetCursorScreenPos(ImVec2(cursor.x + pad_x, cursor.y + pad_y));
     ImGui::TextUnformatted(label);
-    ImGui::SetCursorScreenPos(ImVec2(cursor.x, cursor.y + h + UITokens::SpaceXS));
+    ImGui::SetCursorScreenPos(cursor);
+    // Submit a layout item so SetCursorScreenPos does not leave the window in an invalid state.
+    ImGui::Dummy(ImVec2(w, h + UITokens::SpaceXS));
 }
 
 inline void DrawScanlineBackdrop(const ImVec2& min, const ImVec2& max, float time_sec, ImU32 tint = UITokens::GreenHUD) {

@@ -10,6 +10,12 @@ steps:
 - checkout: self
   submodules: recursive
 
+- task: PowerShell@2
+  displayName: "License policy check"
+  inputs:
+    targetType: inline
+    script: ./tools/check_licenses.ps1
+
 - task: CMake@1
   displayName: "Configure (VS2022 x64)"
   inputs:

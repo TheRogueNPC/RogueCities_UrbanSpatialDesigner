@@ -24,6 +24,26 @@
 
 namespace RogueCity::UI {
 
+namespace {
+
+[[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_DockingEnable;
+#else
+    return 0;
+#endif
+}
+
+[[nodiscard]] constexpr ImGuiConfigFlags ViewportsConfigFlag() {
+#if defined(IMGUI_HAS_DOCK)
+    return ImGuiConfigFlags_ViewportsEnable;
+#else
+    return 0;
+#endif
+}
+
+} // namespace
+
 static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeconds) {
     if (!busyFlag.load()) return;
 
@@ -101,8 +121,8 @@ static AI::UiSnapshot BuildEnhancedSnapshot() {
     snapshot.header.filter = RC_UI::Panels::AxiomEditor::GetRogueNavFilterName();
 
     const ImGuiIO& io = ImGui::GetIO();
-    snapshot.dockingEnabled = (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) != 0;
-    snapshot.multiViewportEnabled = (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0;
+    snapshot.dockingEnabled = (io.ConfigFlags & DockingConfigFlag()) != 0;
+    snapshot.multiViewportEnabled = (io.ConfigFlags & ViewportsConfigFlag()) != 0;
 
     const auto& introspection = RogueCity::UIInt::UiIntrospector::Instance().Snapshot();
     for (const auto& panel : introspection.panels) {

@@ -8,6 +8,14 @@ namespace RogueCity::App {
 
 namespace {
 
+[[nodiscard]] constexpr bool DockingAvailable() {
+#if defined(IMGUI_HAS_DOCK)
+    return true;
+#else
+    return false;
+#endif
+}
+
 std::string Trim(const std::string& s) {
     const size_t first = s.find_first_not_of(" \t\r\n");
     if (first == std::string::npos) {
@@ -116,6 +124,7 @@ void DockLayoutManager::load_layout(Core::Editor::EditorState state) {
 void DockLayoutManager::save_current_layout() {
     DockLayoutState& layout = layouts_[current_state_];
     layout.state = current_state_;
+    layout.panel_dock_ids.clear();
     
     // Gather visible panels
     layout.visible_panels.clear();
@@ -128,9 +137,11 @@ void DockLayoutManager::save_current_layout() {
             continue;
         }
         layout.visible_panels.push_back(panel_name);
+#if defined(IMGUI_HAS_DOCK)
         if (window->DockId != 0) {
             layout.panel_dock_ids[panel_name] = window->DockId;
         }
+#endif
     }
 }
 
@@ -248,9 +259,13 @@ void DockLayoutManager::save_layouts_to_disk() {
 
 void DockLayoutManager::apply_layout(const DockLayoutState& layout) {
     current_state_ = layout.state;
+    if (!DockingAvailable()) {
+        return;
+    }
     if (main_dock_id_ == 0) {
         return;
     }
+#if defined(IMGUI_HAS_DOCK)
     ImGuiDockNode* root = ImGui::DockBuilderGetNode(main_dock_id_);
     if (root == nullptr) {
         return;
@@ -266,6 +281,7 @@ void DockLayoutManager::apply_layout(const DockLayoutState& layout) {
         }
     }
     ImGui::DockBuilderFinish(main_dock_id_);
+#endif
 }
 
 } // namespace RogueCity::App

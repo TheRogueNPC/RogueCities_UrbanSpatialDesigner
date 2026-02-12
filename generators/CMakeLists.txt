@@ -9,6 +9,7 @@ message(STATUS "Configuring Generators Library...")
 
 # Source files
 set(GENERATOR_SOURCES
+    src/Generators/Geometry/GeometryAdapter.cpp
     src/Generators/Tensors/TensorFieldGenerator.cpp
     src/Generators/Tensors/BasisFields.cpp
     src/Generators/Roads/StreamlineTracer.cpp
@@ -41,6 +42,7 @@ set(GENERATOR_SOURCES
 
 # Header files (for IDE integration)
 set(GENERATOR_HEADERS
+    include/RogueCity/Generators/Geometry/GeometryAdapter.hpp
     include/RogueCity/Generators/Tensors/TensorFieldGenerator.hpp
     include/RogueCity/Generators/Tensors/BasisFields.hpp
     include/RogueCity/Generators/Roads/StreamlineTracer.hpp
@@ -84,6 +86,75 @@ target_include_directories(RogueCityGenerators
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+
+# Geometry backend selection for incremental GEOS -> Boost migration.
+if(USE_LEGACY_GEOS)
+    find_package(GEOS CONFIG QUIET)
+    if(GEOS_FOUND)
+        target_link_libraries(RogueCityGenerators PUBLIC GEOS::geos_c)
+        target_compile_definitions(RogueCityGenerators PUBLIC
+            ROGUECITY_USE_LEGACY_GEOS=1
+            ROGUECITY_HAS_GEOS=1
+        )
+        message(STATUS "Generators geometry backend: GEOS")
+    else()
+        target_compile_definitions(RogueCityGenerators PUBLIC
+            ROGUECITY_USE_LEGACY_GEOS=1
+            ROGUECITY_GEOMETRY_LEGACY_SHIM=1
+        )
+        message(WARNING "USE_LEGACY_GEOS=ON but GEOS was not found. Using legacy shim backend.")
+    endif()
+else()
+    find_package(Boost QUIET)
+    if(Boost_FOUND)
+        target_include_directories(RogueCityGenerators PRIVATE ${Boost_INCLUDE_DIRS})
+        target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
+        message(STATUS "Generators geometry backend: Boost.Geometry")
+    else()
+        target_compile_definitions(RogueCityGenerators PUBLIC
+            ROGUECITY_USE_LEGACY_GEOS=1
+            ROGUECITY_GEOMETRY_LEGACY_SHIM=1
+        )
+        message(WARNING "USE_LEGACY_GEOS=OFF but Boost was not found. Falling back to legacy shim backend.")
+    endif()
+endif()
+
+# Optional SLTerrainGeneration integration (header-first fallback).
+if(ROGUECITY_ENABLE_SLTERRAIN)
+    set(SLTERRAIN_DIR "${CMAKE_SOURCE_DIR}/3rdparty/SLTerrainGeneration")
+    set(ROGUECITY_HAS_SLTERRAIN OFF)
+    if(EXISTS "${SLTERRAIN_DIR}")
+        if(EXISTS "${SLTERRAIN_DIR}/CMakeLists.txt")
+            add_subdirectory(
+                "${SLTERRAIN_DIR}"
+                "${CMAKE_BINARY_DIR}/_deps/SLTerrainGeneration"
+                EXCLUDE_FROM_ALL
+            )
+        endif()
+
+        if(TARGET SLTerrainGeneration)
+            target_link_libraries(RogueCityGenerators PUBLIC SLTerrainGeneration)
+            set(ROGUECITY_HAS_SLTERRAIN ON)
+        else()
+            if(NOT TARGET SLTerrainGeneration)
+                add_library(SLTerrainGeneration INTERFACE)
+                target_include_directories(SLTerrainGeneration INTERFACE
+                    "${SLTERRAIN_DIR}"
+                    "${SLTERRAIN_DIR}/include"
+                )
+            endif()
+            target_link_libraries(RogueCityGenerators PUBLIC SLTerrainGeneration)
+            set(ROGUECITY_HAS_SLTERRAIN ON)
+        endif()
+    endif()
+
+    if(ROGUECITY_HAS_SLTERRAIN)
+        target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_HAS_SLTERRAIN=1)
+        message(STATUS "Generators terrain backend: SLTerrainGeneration")
+    else()
+        message(STATUS "SLTerrainGeneration not found (expected at: ${SLTERRAIN_DIR})")
+    endif()
+endif()
 
 # Link dependencies
 target_link_libraries(RogueCityGenerators

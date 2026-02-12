@@ -409,6 +409,7 @@ void EndWindowContainer() {
 }
 
 static void BuildDockLayout(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (dockspace_id == 0) {
         return;
     }
@@ -472,9 +473,14 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
     s_dock_nodes.center = dock_main;
     s_dock_nodes.bottom = dock_bottom;
     s_dock_nodes.bottom_tabs = dock_bottom_tabs;
+#else
+    (void)dockspace_id;
+    s_dock_nodes = {};
+#endif
 }
 
 static bool AreDockNodesHealthy(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (!IsDockspaceValid(dockspace_id)) {
         return false;
     }
@@ -488,6 +494,10 @@ static bool AreDockNodesHealthy(ImGuiID dockspace_id) {
         DockNodeValidator::IsNodeSizeValid(tool_deck) &&
         DockNodeValidator::IsNodeSizeValid(library) &&
         DockNodeValidator::IsNodeSizeValid(bottom);
+#else
+    (void)dockspace_id;
+    return true;
+#endif
 }
 
 static ImGuiID NodeForDockArea(const std::string& dock_area) {
@@ -513,6 +523,7 @@ static ImGuiID NodeForDockArea(const std::string& dock_area) {
 }
 
 static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     if (s_pending_dock_requests.empty()) {
         return false;
     }
@@ -562,9 +573,15 @@ static bool ProcessPendingDockRequests(ImGuiID dockspace_id) {
 
     s_pending_dock_requests.clear();
     return any_applied;
+#else
+    (void)dockspace_id;
+    s_pending_dock_requests.clear();
+    return false;
+#endif
 }
 
 static void ClearInvalidDockAssignments(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     ImGuiContext* ctx = ImGui::GetCurrentContext();
     if (ctx == nullptr) {
         return;
@@ -580,9 +597,13 @@ static void ClearInvalidDockAssignments(ImGuiID dockspace_id) {
             window->DockNode = nullptr;
         }
     }
+#else
+    (void)dockspace_id;
+#endif
 }
 
 static void UpdateDockLayout(ImGuiID dockspace_id) {
+#if defined(IMGUI_HAS_DOCK)
     bool layout_changed = false;
     if (!IsDockspaceValid(dockspace_id)) {
         s_dock_built = false;
@@ -604,6 +625,12 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
         ClearInvalidDockAssignments(dockspace_id);
         ImGui::DockBuilderFinish(dockspace_id);
     }
+#else
+    (void)dockspace_id;
+    s_pending_dock_requests.clear();
+    s_dock_built = true;
+    s_dock_layout_dirty = false;
+#endif
 }
 
 void DrawRoot(float dt)
@@ -631,7 +658,9 @@ void DrawRoot(float dt)
 
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
+#if defined(IMGUI_HAS_DOCK)
     ImGui::SetNextWindowViewport(viewport->ID);
+#endif
 
     const ImGuiWindowFlags host_flags =
         ImGuiWindowFlags_NoTitleBar |
@@ -651,8 +680,9 @@ void DrawRoot(float dt)
     ImGui::PopStyleVar(3);
 
     ImGuiID dockspace_id = ImGui::GetID("RogueDockSpace");
+#if defined(IMGUI_HAS_DOCK)
     ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
-
+#endif
     UpdateDockLayout(dockspace_id);
 
     ImGui::End();
@@ -808,7 +838,10 @@ bool BeginDockableWindow(const char* windowName,
     bool* p_open = show_close ? &state.open : nullptr;
 
     const bool open = ImGui::Begin(windowName, p_open, flags);
-    const bool is_docked = ImGui::IsWindowDocked();
+    bool is_docked = false;
+#if defined(IMGUI_HAS_DOCK)
+    is_docked = ImGui::IsWindowDocked();
+#endif
     state.was_docked = is_docked;
 
     if (is_docked) {
