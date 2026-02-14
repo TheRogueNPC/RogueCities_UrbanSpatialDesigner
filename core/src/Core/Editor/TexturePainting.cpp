@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-
+// Implementation of a simple texture painting brush that modifies a color texture based on user input strokes.
 namespace RogueCity::Core::Editor {
 
     namespace {

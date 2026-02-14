@@ -1550,31 +1550,10 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::PopStyleColor();
 }
 
-void Draw(float dt) {
- Initialize();
+void DrawContent(float dt) {
+    Initialize();
     
-    RC_UI::ScopedViewportPadding viewport_padding;
-    static RC_UI::DockableWindowState s_viewport_window;
-    if (!RC_UI::BeginDockableWindow("RogueVisualizer", s_viewport_window, "Center",
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoScrollWithMouse)) {
-        return;
-    }
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "RogueVisualizer",
-            "RogueVisualizer",
-            "viewport",
-            "Center",
-            "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
-            {"viewport", "axiom", "minimap"}
-        },
-        true
-    );
-    uiint.RegisterWidget({"viewport", "Primary Viewport", "viewport.primary", {"viewport"}});
 
     // Get editor state to determine if axiom tool should be active
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
@@ -2397,6 +2376,34 @@ void Draw(float dt) {
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).
     draw_list->PopClipRect();
 
+}
+
+void Draw(float dt) {
+    RC_UI::ScopedViewportPadding viewport_padding;
+    static RC_UI::DockableWindowState s_viewport_window;
+    if (!RC_UI::BeginDockableWindow("RogueVisualizer", s_viewport_window, "Center",
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse)) {
+        return;
+    }
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "RogueVisualizer",
+            "RogueVisualizer",
+            "viewport",
+            "Center",
+            "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+            {"viewport", "axiom", "minimap"}
+        },
+        true
+    );
+    uiint.RegisterWidget({"viewport", "Primary Viewport", "viewport.primary", {"viewport"}});
+    
+    DrawContent(dt);
+    
     uiint.EndPanel();
     RC_UI::EndDockableWindow();
 }

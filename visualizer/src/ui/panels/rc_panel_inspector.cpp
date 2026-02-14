@@ -14,17 +14,11 @@
 
 namespace RC_UI::Panels::Inspector {
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    const bool open = Components::BeginTokenPanel("Inspector", UITokens::MagentaHighlight);
-    if (!open) {
-        Components::EndTokenPanel();
-        return;
-    }
-
-    auto& gs = RogueCity::Core::Editor::GetGlobalState();
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    
     static ReactiveF focus;
     constexpr float kBaseBorderThickness = 2.0f;
     const bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);
@@ -56,8 +50,32 @@ void Draw(float dt)
     editor.Draw(gs);
     uiint.RegisterWidget({"property_editor", "Selection", "selection_manager", {"detail"}});
 
-    uiint.EndPanel();
+}
 
+void Draw(float dt)
+{
+    const bool open = Components::BeginTokenPanel("Inspector", UITokens::MagentaHighlight);
+    if (!open) {
+        Components::EndTokenPanel();
+        return;
+    }
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Inspector",
+            "Inspector",
+            "inspector",
+            "ToolDeck",
+            "visualizer/src/ui/panels/rc_panel_inspector.cpp",
+            {"detail", "selection"}
+        },
+        true
+    );
+    
+    DrawContent(dt);
+    
+    uiint.EndPanel();
     Components::EndTokenPanel();
 }
 

@@ -11,9 +11,12 @@
 
 namespace RC_UI::Panels::ZoningControl {
 
-// Draw the zoning control panel
+// Draw the zoning control panel (legacy - creates window)
 void Draw(float dt);
 
+// Draw panel content only (for Master Panel drawer)
+void DrawContent(float dt);
+//todo consider splitting this into smaller components if it grows too complex, such as separate sections for lot sizing, building constraints, and budget/population controls, each with their own state and animations to keep the code organized and maintainable as we add more features in future phases.
 // Panel state (persists between frames)
 struct PanelState {
     // UI parameters

@@ -34,60 +34,14 @@ PanelState& GetPanelState() {
     return state;
 }
 
-void Draw(float dt) {
+// Content-only draw (for Master Panel drawer)
+void DrawContent(float dt) {
     using RogueCity::Core::Editor::GetGlobalState;
-    using RogueCity::Core::Editor::GetEditorHFSM;
     
     auto& gs = GetGlobalState();
-    auto& hfsm = GetEditorHFSM();
     auto& state = GetPanelState();
     auto& bridge = state.bridge;
-    
-    // Panel visibility based on HFSM state (Cockpit Doctrine)
-    auto editor_state = hfsm.state();
-    bool is_visible = (editor_state == RogueCity::Core::Editor::EditorState::Editing_Districts ||
-                       editor_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
-                       editor_state == RogueCity::Core::Editor::EditorState::Editing_Buildings);
-    
-    if (!is_visible) return;
-    
-    // State-reactive color (Y2K geometry)
-    ImU32 panel_tint = UITokens::TextPrimary;
-    if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Districts) {
-        panel_tint = UITokens::InfoBlue;
-    } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Lots) {
-        panel_tint = UITokens::SuccessGreen;
-    } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) {
-        panel_tint = UITokens::AmberGlow;
-    }
-
-    const ImU32 window_bg = LerpColor(UITokens::BackgroundDark, panel_tint, 0.15f);
-    const bool open = Components::BeginTokenPanel(
-        "Zoning Control",
-        panel_tint,
-        nullptr,
-        ImGuiWindowFlags_NoCollapse,
-        WithAlpha(window_bg, 242u));
-    
-    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Zoning Control",
-            "Zoning Control",
-            "toolbox",
-            "Right",
-            "visualizer/src/ui/panels/rc_panel_zoning_control.cpp",
-            {"zoning", "generator", "control"}
-        },
-        open
-    );
-    
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-    
+    //todo consider adding a preview section with a mini-map or schematic representation of the generated zones and buildings, which updates in real-time as parameters are adjusted, providing immediate visual feedback to the user and enhancing the interactivity of the panel. This could be implemented using ImGui's drawing API to render a simplified top-down view of the city layout, with color-coded zones and building footprints, allowing users to quickly understand the impact of their parameter changes before generating the full city.
     // === PARAMETER SLIDERS ===
     ImGui::SeparatorText("Lot Sizing");
     
@@ -196,6 +150,64 @@ void Draw(float dt) {
                 violation.message.empty() ? "Validation issue" : violation.message.c_str());
         }
     }
+    
+}
+
+// Legacy window-owning draw (for backward compatibility)
+void Draw(float dt) {
+    using RogueCity::Core::Editor::GetGlobalState;
+    using RogueCity::Core::Editor::GetEditorHFSM;
+    
+    auto& gs = GetGlobalState();
+    auto& hfsm = GetEditorHFSM();
+    
+    // Panel visibility based on HFSM state (Cockpit Doctrine)
+    auto editor_state = hfsm.state();
+    bool is_visible = (editor_state == RogueCity::Core::Editor::EditorState::Editing_Districts ||
+                       editor_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
+                       editor_state == RogueCity::Core::Editor::EditorState::Editing_Buildings);
+    
+    if (!is_visible) return;
+    
+    // State-reactive color (Y2K geometry)
+    ImU32 panel_tint = UITokens::TextPrimary;
+    if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Districts) {
+        panel_tint = UITokens::InfoBlue;
+    } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Lots) {
+        panel_tint = UITokens::SuccessGreen;
+    } else if (editor_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) {
+        panel_tint = UITokens::AmberGlow;
+    }
+
+    const ImU32 window_bg = LerpColor(UITokens::BackgroundDark, panel_tint, 0.15f);
+    const bool open = Components::BeginTokenPanel(
+        "Zoning Control",
+        panel_tint,
+        nullptr,
+        ImGuiWindowFlags_NoCollapse,
+        WithAlpha(window_bg, 242u));
+    
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Zoning Control",
+            "Zoning Control",
+            "toolbox",
+            "Right",
+            "visualizer/src/ui/panels/rc_panel_zoning_control.cpp",
+            {"zoning", "generator", "control"}
+        },
+        open
+    );
+    
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    // Delegate to content-only method
+    DrawContent(dt);
     
     uiint.RegisterWidget({"button", "Generate", "generate_button", {"action"}});
     uiint.EndPanel();

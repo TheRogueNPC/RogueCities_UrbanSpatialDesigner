@@ -4,4 +4,5 @@
 
 namespace RC_UI::Panels::Inspector {
 void Draw(float dt);
+void DrawContent(float dt);
 } // namespace RC_UI::Panels::Inspector

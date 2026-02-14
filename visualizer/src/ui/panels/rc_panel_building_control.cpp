@@ -23,40 +23,10 @@ static bool s_is_generating = false;
 static float s_gen_start_time = 0.0f;
 static RogueCity::App::Integration::ZoningBridge s_zoning_bridge;
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
     using namespace RogueCity::Core::Editor;
-    
-    // State-reactive: Only show if in BuildingPlacement mode
-    EditorHFSM& hfsm = GetEditorHFSM();
-    if (hfsm.state() != EditorState::Editing_Buildings) {
-        return;
-    }
-    
-    const bool open = Components::BeginTokenPanel(
-        "Building Placement Control",
-        UITokens::AmberGlow,
-        nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize);
-    
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Building Placement Control",
-            "BuildingControl",
-            "building_placement",
-            "Right",
-            "visualizer/src/ui/panels/rc_panel_building_control.cpp",
-            {"generation", "building", "controls"}
-        },
-        open
-    );
-    
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
     
     // === Building Parameters ===
     ImGui::SeparatorText("Building Parameters");
@@ -137,6 +107,45 @@ void Draw(float dt)
         ImGui::Text("  Generation Time: %.1f ms", stats.generation_time_ms);
         ImGui::Unindent();
     }
+    
+}
+
+void Draw(float dt)
+{
+    using namespace RogueCity::Core::Editor;
+    
+    // State-reactive: Only show if in BuildingPlacement mode
+    EditorHFSM& hfsm = GetEditorHFSM();
+    if (hfsm.state() != EditorState::Editing_Buildings) {
+        return;
+    }
+    
+    const bool open = Components::BeginTokenPanel(
+        "Building Placement Control",
+        UITokens::AmberGlow,
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize);
+    
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Building Placement Control",
+            "BuildingControl",
+            "building_placement",
+            "Right",
+            "visualizer/src/ui/panels/rc_panel_building_control.cpp",
+            {"generation", "building", "controls"}
+        },
+        open
+    );
+    
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
     
     uiint.EndPanel();
     Components::EndTokenPanel();

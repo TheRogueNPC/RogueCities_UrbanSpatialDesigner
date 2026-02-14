@@ -6,6 +6,7 @@ namespace RogueCity::UI {
 class AiConsolePanel {
 public:
     void Render();
+    void RenderContent();
     
 private:
     bool m_showWindow = true;

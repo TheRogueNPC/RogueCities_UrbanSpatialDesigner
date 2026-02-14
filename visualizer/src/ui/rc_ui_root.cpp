@@ -30,6 +30,10 @@
 #include "ui/rc_ui_theme.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 
+// MASTER PANEL ARCHITECTURE (RC-0.10)
+#include "ui/panels/RcMasterPanel.h"
+#include "ui/panels/PanelRegistry.h"
+
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <memory>
@@ -47,11 +51,16 @@
 
 namespace RC_UI {
 
-// AI Console panel instance (static wrapper)
+// MASTER PANEL SYSTEM (RC-0.10 architecture refactor)
+// Replaces individual panel windows with unified container + drawer registry
 namespace {
-    static RogueCity::UI::AiConsolePanel s_ai_console_instance;
-    static RogueCity::UI::UiAgentPanel s_ui_agent_instance;     // Phase 2
-    static RogueCity::UI::CitySpecPanel s_city_spec_instance;   // Phase 3
+    static std::unique_ptr<RC_UI::Panels::RcMasterPanel> s_master_panel;
+    static bool s_registry_initialized = false;
+    
+    // DEPRECATED: Old AI panel instances (will be removed after full drawer conversion)
+    // static RogueCity::UI::AiConsolePanel s_ai_console_instance;
+    // static RogueCity::UI::UiAgentPanel s_ui_agent_instance;
+    // static RogueCity::UI::CitySpecPanel s_city_spec_instance;
 
     struct DockRequest {
         std::string window_name;
@@ -141,7 +150,8 @@ namespace {
         }
     }
 }
-
+// Utility for drawing icons for the tool library entries.
+//TODO: Phase 2 - Refactor to use a more flexible icon system, potentially with support for custom icons per tool and theming.
 static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const ImVec2& center, float size) {
     const ImU32 color = UITokens::TextPrimary;
     const float half = size * 0.5f;
@@ -296,6 +306,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
 }
 
 // Static minimap instance (Phase 5: Polish)
+//TODO: Phase 5 - Refactor to support multiple viewport types and dynamic viewport management, with the minimap as a special case or plugin.
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
 static bool s_dock_built = false;
 static bool s_dock_layout_dirty = true;
@@ -325,6 +336,8 @@ static std::string ActiveModeFromHFSM() {
     return "IDLE";
 }
 
+// Utility function to generate a default dock tree layout for new workspaces or when no saved layout is available.
+// TODO: Phase 4 - Refactor to support multiple dock tree configurations and user-customizable default layouts, potentially with a visual layout editor.
 static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
     using RogueCity::UIInt::DockTreeNode;
     DockTreeNode root;
@@ -390,7 +403,7 @@ static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
     root.children = {main_row, bottom};
     return root;
 }
-
+// Initialization of the minimap viewport instance, with default settings.
 void InitializeMinim() {
     if (!s_minimap) {
         s_minimap = std::make_unique<RogueCity::App::MinimapViewport>();
@@ -777,7 +790,7 @@ void DrawRoot(float dt)
         "Selection", "Direct Select", "Pen", "Convert Anchor", "Add/Remove Anchor",
         "Handle Tangents", "Snap/Align", "Join/Split", "Simplify"
     };
-
+// Tool libraries (docked in library area, show based on toggle state)
     RenderToolLibraryWindow(ToolLibrary::Water,
         "Water Library",
         "visualizer/src/ui/rc_ui_root.cpp",
@@ -809,34 +822,30 @@ void DrawRoot(float dt)
         building_tools,
         std::span<const char* const>{});
 
-    // Panels/windows (docked by name)
-    Panels::AxiomBar::Draw(dt);
-    Panels::AxiomEditor::Draw(dt);
-    Panels::Telemetry::Draw(dt);
-    Panels::Inspector::Draw(dt);
-    Panels::Tools::Draw(dt);
-    Panels::DistrictIndex::Draw(dt);
-    Panels::RoadIndex::Draw(dt);
-    Panels::LotIndex::Draw(dt);
-    Panels::RiverIndex::Draw(dt);
-    Panels::BuildingIndex::Draw(dt);      // NEW: RC-0.10
-    Panels::ZoningControl::Draw(dt);      // NEW: RC-0.10
+    // MASTER PANEL SYSTEM (RC-0.10)
+    // All panels now routed through unified drawer registry
+    // Provides: tabs, search overlay (Ctrl+P), popout support, state-reactive visibility
     
-    // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
-    // State-reactive control panels (show based on HFSM mode)
-    Panels::LotControl::Draw(dt);
-    Panels::BuildingControl::Draw(dt);
-    Panels::WaterControl::Draw(dt);
+    // Initialize registry once
+    if (!s_registry_initialized) {
+        RC_UI::Panels::InitializePanelRegistry();
+        s_master_panel = std::make_unique<RC_UI::Panels::RcMasterPanel>();
+        s_registry_initialized = true;
+    }
     
-    Panels::Log::Draw(dt);
+    // Single master panel hosts all 19 panel drawers
+    if (s_master_panel) {
+        s_master_panel->Draw(dt);
+    }
     
-    // AI panels (use static instances)
-    s_ai_console_instance.Render();
-    s_ui_agent_instance.Render();    // Phase 2
-    s_city_spec_instance.Render();   // Phase 3
-    Panels::DevShell::Draw(dt);
+    // DEPRECATED: Old individual panel calls (replaced by Master Panel)
+    // Panels::AxiomBar::Draw(dt);
+    // Panels::AxiomEditor::Draw(dt);
+    // Panels::Telemetry::Draw(dt);
+    // ... (18 more panels)
 
     // Minimap is now embedded as overlay in RogueVisualizer (no separate panel)
+    // TODO investigate potentially decoupleing the minimap from root to allow it to be used as a standalone veiwport in other contexte s (e.g. floating, secondary monitor) in the future. also to ensure that the mimimap redocks gracefully to the main veiwport
     // Still update the minimap viewport for shared camera sync
     if (s_minimap) {
         s_minimap->update(dt);

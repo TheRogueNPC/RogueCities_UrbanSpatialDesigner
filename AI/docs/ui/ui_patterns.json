@@ -1,8 +1,33 @@
 {
   "protocol_version": "ui-patterns-v1",
   "description": "Canonical UI pattern catalog for RogueCity Visualizer",
+  "architecture_version": "RC-0.10 Master Panel",
   
   "patterns": [
+    {
+      "name": "MasterPanel",
+      "template": "RcMasterPanel",
+      "roles": ["container", "router", "master"],
+      "description": "Root panel container with registry-based drawer routing. Provides hybrid tabs+search navigation, popout support, and state-reactive visibility. Single ImGui window hosts all 19 panel drawers",
+      "required_tags": ["master", "registry", "tabs"],
+      "suggested_widgets": ["tab_bar", "search_overlay", "popout_button"],
+      "examples": [
+        "visualizer/src/ui/panels/RcMasterPanel.cpp"
+      ],
+      "notes": "RC-0.10 architecture refactor: replaces individual panel windows with unified container. Ctrl+P opens search overlay."
+    },
+    {
+      "name": "PanelDrawer",
+      "template": "IPanelDrawer",
+      "roles": ["drawer", "panel_content"],
+      "description": "Content-only panel interface for Master Panel architecture. Drawers render without window creation - Master Panel owns ImGui::Begin/End",
+      "required_tags": ["drawer"],
+      "suggested_widgets": ["none - content only"],
+      "examples": [
+        "visualizer/src/ui/panels/RcPanelDrawers.cpp"
+      ],
+      "notes": "Each panel implements draw(DrawContext&) method. No ImGui::Begin/End in drawers."
+    },
     {
       "name": "InspectorPanel",
       "template": "RcInspectorPanel<T>",

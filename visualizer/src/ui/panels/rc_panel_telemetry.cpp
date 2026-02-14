@@ -14,29 +14,9 @@
 
 namespace RC_UI::Panels::Telemetry {
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    const bool open = Components::BeginTokenPanel("Analytics", UITokens::CyanAccent);
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Analytics",
-            "Analytics",
-            "analytics",
-            "ToolDeck",
-            "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
-            {"analytics", "metrics"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     const float fps = ImGui::GetIO().Framerate;
     const float frame_ms = (fps > 0.0f) ? (1000.0f / fps) : 0.0f;
@@ -84,6 +64,33 @@ void Draw(float dt)
         true);
     uiint.RegisterWidget({"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
 
+}
+
+void Draw(float dt)
+{
+    const bool open = Components::BeginTokenPanel("Analytics", UITokens::CyanAccent);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Analytics",
+            "Analytics",
+            "analytics",
+            "ToolDeck",
+            "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
+            {"analytics", "metrics"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
+    
     uiint.EndPanel();
     Components::EndTokenPanel();
 }

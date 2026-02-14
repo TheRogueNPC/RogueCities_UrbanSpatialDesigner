@@ -61,30 +61,10 @@ void Toggle() {
     s_open = !s_open;
 }
 
-void Draw(float /*dt*/) {
-    if (!s_open) return;
-
-    static RC_UI::DockableWindowState s_dev_shell_window;
-    if (!RC_UI::BeginDockableWindow("Dev Shell", s_dev_shell_window, "Right", ImGuiWindowFlags_NoCollapse)) {
-        return;
-    }
-
+void DrawContent(float /*dt*/)
+{
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Dev Shell",
-            "Dev Shell",
-            "settings",
-            "Floating",
-            "visualizer/src/ui/panels/rc_panel_dev_shell.cpp",
-            {"dev", "introspection"}
-        },
-        true
-    );
-
-    ImGui::TextUnformatted("Development Features (disabled by default)");
-    ImGui::Separator();
-
+    
     ImGui::TextUnformatted("UI Introspection Export");
     ImGui::Checkbox("Include dock_tree", &s_includeDockTree);
     ImGui::InputText("Output dir", s_outputDir, sizeof(s_outputDir));
@@ -247,6 +227,31 @@ void Draw(float /*dt*/) {
         }
     }
 
+}
+
+void Draw(float dt) {
+    if (!s_open) return;
+
+    static RC_UI::DockableWindowState s_dev_shell_window;
+    if (!RC_UI::BeginDockableWindow("Dev Shell", s_dev_shell_window, "Right", ImGuiWindowFlags_NoCollapse)) {
+        return;
+    }
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Dev Shell",
+            "Dev Shell",
+            "settings",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_dev_shell.cpp",
+            {"dev", "introspection"}
+        },
+        true
+    );
+    
+    DrawContent(dt);
+    
     uiint.EndPanel();
     RC_UI::EndDockableWindow();
 }

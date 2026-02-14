@@ -130,6 +130,45 @@ void Draw(float dt)
         ImGui::Unindent();
     }
     
+}
+
+void Draw(float dt)
+{
+    using namespace RogueCity::Core::Editor;
+    
+    // State-reactive: Only show if in LotPlacement mode
+    EditorHFSM& hfsm = GetEditorHFSM();
+    if (hfsm.state() != EditorState::Editing_Lots) {
+        return;
+    }
+    
+    const bool open = Components::BeginTokenPanel(
+        "Lot Subdivision Control",
+        UITokens::SuccessGreen,
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize);
+    
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Lot Subdivision Control",
+            "LotControl",
+            "lot_subdivision",
+            "Right",
+            "visualizer/src/ui/panels/rc_panel_lot_control.cpp",
+            {"generation", "lot", "controls"}
+        },
+        open
+    );
+    
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
+    
     uiint.EndPanel();
     Components::EndTokenPanel();
 }

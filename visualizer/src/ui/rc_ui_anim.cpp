@@ -3,7 +3,7 @@
 #include "ui/rc_ui_anim.h"
 
 #include <cmath>
-
+// Implementation of simple animation utilities for UI elements, including exponential smoothing and oscillators for pulsing effects.
 namespace RC_UI {
 
 float Damp(float current, float target, float lambda, float dt)

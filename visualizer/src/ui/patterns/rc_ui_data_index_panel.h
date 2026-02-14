@@ -64,8 +64,132 @@ public:
     {
     }
     
-    // Main draw function
+    // Main draw function (legacy - creates its own window)
     void Draw(float dt) {
+        using RogueCity::Core::Editor::GetGlobalState;
+        auto& gs = GetGlobalState();
+        
+        static RC_UI::DockableWindowState s_index_window;
+        if (!RC_UI::BeginDockableWindow(m_panel_title, s_index_window, "Bottom", ImGuiWindowFlags_NoCollapse)) {
+            return;
+        }
+        
+        // Register with introspection system
+        auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+        uiint.BeginPanel(
+            RogueCity::UIInt::PanelMeta{
+                m_panel_title,
+                m_panel_title,
+                "index",
+                "Bottom",
+                m_source_file,
+                Traits::GetTags()
+            },
+            true
+        );
+        
+        // Draw content
+        DrawContent(gs, uiint);
+        
+        uiint.EndPanel();
+        RC_UI::EndDockableWindow();
+    }
+    
+    // Content-only draw (for drawer mode - no window creation)
+    void DrawContent(RogueCity::Core::Editor::GlobalState& gs, RogueCity::UIInt::UiIntrospector& uiint) {
+        // Get data
+        auto& data = Traits::GetData(gs);
+        
+        // Header with count
+        ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));
+        
+        // Filter input
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
+        
+        // Sort button
+        ImGui::SameLine();
+        if (ImGui::SmallButton(m_sort_ascending ? "? Sort" : "? Sort")) {
+            m_sort_ascending = !m_sort_ascending;
+        }
+        
+        ImGui::Separator();
+        
+        // Table
+        const ImGuiTableFlags table_flags = 
+            ImGuiTableFlags_RowBg | 
+            ImGuiTableFlags_Borders | 
+            ImGuiTableFlags_ScrollY |
+            ImGuiTableFlags_Resizable |
+            ImGuiTableFlags_Hideable;
+        
+        if (ImGui::BeginTable("##data_table", 1, table_flags, ImVec2(0, -ImGui::GetFrameHeightWithSpacing()))) {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("Entity", ImGuiTableColumnFlags_NoHide);
+            ImGui::TableHeadersRow();
+            
+            // Filter and sort
+            std::vector<size_t> visible_indices;
+            std::string filter_str(m_filter_text);
+            
+            for (size_t i = 0; i < data.size(); ++i) {
+                if (filter_str.empty() || Traits::FilterEntity(data[i], filter_str)) {
+                    visible_indices.push_back(i);
+                }
+            }
+            
+            // Sort if requested
+            if (!m_sort_ascending) {
+                std::reverse(visible_indices.begin(), visible_indices.end());
+            }
+            
+            // Render rows
+            for (size_t idx : visible_indices) {
+                auto& entity = data[idx];
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                
+                // Create unique ID for selectable
+                ImGui::PushID(static_cast<int>(idx));
+                
+                std::string label = Traits::GetEntityLabel(entity, idx);
+                const bool is_selected = (m_selected_index == static_cast<int>(idx));
+                
+                if (ImGui::Selectable(label.c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+                    m_selected_index = static_cast<int>(idx);
+                    Traits::OnEntitySelected(entity, idx);
+                }
+
+                // RC-0.09-Test P1: Hover tooltip for inline editing
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                    Traits::OnEntityHovered(entity, idx);
+                }
+                
+                // Right-click context menu
+                if (ImGui::BeginPopupContextItem()) {
+                    Traits::ShowContextMenu(entity, idx);
+                    ImGui::EndPopup();
+                }
+                
+                ImGui::PopID();
+            }
+            
+            ImGui::EndTable();
+        }
+        
+        // Footer with selection info
+        if (m_selected_index >= 0 && m_selected_index < static_cast<int>(data.size())) {
+            ImGui::Separator();
+            ImGui::Text("Selected: %s", Traits::GetEntityLabel(data[m_selected_index], m_selected_index).c_str());
+        }
+        
+        uiint.RegisterWidget({"table", Traits::GetDataName(), std::string(Traits::GetDataName()) + "[]", {"index"}});
+    }
+    
+    // DEPRECATED: Old Draw() method kept for backward compatibility
+    // TODO: Remove after all panels converted to drawer pattern
+    void DrawLegacy(float dt) {
         using RogueCity::Core::Editor::GetGlobalState;
         auto& gs = GetGlobalState();
         
@@ -90,6 +214,9 @@ public:
         
         // Get data
         auto& data = Traits::GetData(gs);
+        
+        // Header with count
+        ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));
         
         // Header with count
         ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));

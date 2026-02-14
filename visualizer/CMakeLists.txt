@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.20)
 project(RogueCityVisualizer LANGUAGES CXX C)
 
 option(ROGUECITY_BUILD_VISUALIZER "Build the (headless) ImGui visualizer example" OFF)
+option(ROGUE_AI_DLC_ENABLED "Enable feature-gated AI panels (AI Console, UI Agent, City Spec)" ON)
 
 if(NOT ROGUECITY_BUILD_VISUALIZER)
     message(STATUS "Visualizer disabled (set -DROGUECITY_BUILD_VISUALIZER=ON to build examples)")
@@ -82,6 +83,11 @@ endif()
         # RC-0.10: Zoning control and viewport overlays
         src/ui/panels/rc_panel_zoning_control.cpp
         src/ui/viewport/rc_viewport_overlays.cpp
+        # Master Panel Architecture (RC-0.10)
+        src/ui/panels/IPanelDrawer.cpp
+        src/ui/panels/PanelRegistry.cpp
+        src/ui/panels/RcMasterPanel.cpp
+        src/ui/panels/RcPanelDrawers.cpp
     )
 
     target_link_libraries(RogueCityVisualizerHeadless PRIVATE
@@ -97,6 +103,12 @@ endif()
         "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
     )
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
+    
+    # Define AI DLC flag for conditional compilation
+    if(ROGUE_AI_DLC_ENABLED)
+        target_compile_definitions(RogueCityVisualizerHeadless PRIVATE ROGUE_AI_DLC_ENABLED=1)
+    endif()
+    
     rc_configure_msvc_pdb(RogueCityVisualizerHeadless "RogueCityVisualizerHeadless")
     
     # ==================================================
@@ -149,6 +161,12 @@ endif()
                 src/ui/panels/rc_panel_building_control.cpp
                 src/ui/panels/rc_panel_water_control.cpp
                 src/ui/panels/rc_panel_dev_shell.cpp
+                # Master Panel Architecture (RC-0.10)
+                src/ui/panels/IPanelDrawer.cpp
+                src/ui/panels/PanelRegistry.cpp
+                src/ui/panels/RcMasterPanel.cpp
+                src/ui/panels/RcPanelDrawers.cpp
+                src/ui/panels/rc_panel_dev_shell.cpp
                 # Viewport overlays (RC-0.10)
                 src/ui/viewport/rc_viewport_overlays.cpp
                 # ImGui backend implementations
@@ -198,6 +216,12 @@ endif()
             endif()
             
             target_compile_features(RogueCityVisualizerGui PRIVATE cxx_std_20)
+            
+            # Define AI DLC flag for conditional compilation (same as headless)
+            if(ROGUE_AI_DLC_ENABLED)
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUE_AI_DLC_ENABLED=1)
+            endif()
+            
             rc_configure_msvc_pdb(RogueCityVisualizerGui "RogueCityVisualizerGui")
             
             # Disable precompiled headers for this target (mixed C/C++)

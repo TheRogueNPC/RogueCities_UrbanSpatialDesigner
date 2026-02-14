@@ -1,3 +1,4 @@
+// namespace main.cpp: Entry point for the visualizer, demonstrating integration of the EditorHFSM with a simple ImGui interface. This file should remain focused on application setup and the main loop, while delegating UI rendering and state management to other modules to maintain separation of concerns and avoid ODR violations. Any shared state or utilities needed across multiple files should be defined in appropriate header/source files within the Core/Editor namespace, and this file should only include those headers without defining any additional state or non-trivial functions here.
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
@@ -13,7 +14,9 @@ using RogueCity::Core::Editor::EditorState;
 using RogueCity::Core::Editor::GlobalState;
 
 namespace {
-
+// this namespace is for internal linkage of helper functions and should not contain any state or definitions that need to be shared across translation units.
+// we must not define any non-trivial functions or state here that are needed in other files, to avoid ODR violations and maintain clear separation of concerns. This is strictly for implementation details local to this file.
+// we must always ensure that any function defined here is either inline or static to prevent linkage issues, and we should avoid including any headers here that are not needed for the implementation of these functions to minimize coupling and compilation dependencies.
 [[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {
 #if defined(IMGUI_HAS_DOCK)
     return ImGuiConfigFlags_DockingEnable;

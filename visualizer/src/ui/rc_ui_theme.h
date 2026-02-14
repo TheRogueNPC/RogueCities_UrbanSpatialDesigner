@@ -1,5 +1,7 @@
 // FILE: visualizer/src/ui/rc_ui_theme.h (RogueCities_UrbanSpatialDesigner)
 // PURPOSE: LCARS-inspired palette + semantic color tokens for the UI layer.
+//todo track and store use config for theme customization in user settings, allowing users to create and save their own themes - plug in Ai for "Smart Assignment"
+//todo ensure that these are added to the style tokens are exposed for unified theming and user overrides in the future.
 #pragma once
 
 #include <imgui.h>

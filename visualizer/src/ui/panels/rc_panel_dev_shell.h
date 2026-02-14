@@ -6,6 +6,7 @@
 namespace RC_UI::Panels::DevShell {
 
 void Draw(float dt);
+void DrawContent(float dt);
 bool IsOpen();
 void Toggle();
 

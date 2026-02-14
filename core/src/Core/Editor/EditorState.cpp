@@ -5,11 +5,11 @@
 
 #include <vector>
 #include <optional>
-
+// Implementation of a hierarchical finite state machine for editor states, with validation hooks on state transitions.
 namespace RogueCity::Core::Editor {
 
     namespace {
-
+// Utility for determining parent states in the hierarchy, used for state transitions and LCA calculations.
         [[nodiscard]] std::optional<EditorState> Parent(EditorState s)
         {
             switch (s) {
@@ -45,7 +45,7 @@ namespace RogueCity::Core::Editor {
                 return std::nullopt;
             }
         }
-
+// Utility for determining if a state is an editing leaf/tool mode, which should be returned to after viewport interactions.
         [[nodiscard]] bool IsEditingLeaf(EditorState s)
         {
             switch (s) {
@@ -60,7 +60,7 @@ namespace RogueCity::Core::Editor {
                 return false;
             }
         }
-
+// Utility for determining if a state is a viewport interaction mode, which should return to the previous editing tool on exit.
         [[nodiscard]] bool IsViewportState(EditorState s)
         {
             switch (s) {
@@ -74,7 +74,7 @@ namespace RogueCity::Core::Editor {
                 return false;
             }
         }
-
+// Utility for marking texture space dirty regions and corresponding editor state.
         [[nodiscard]] std::vector<EditorState> ChainToRoot(EditorState s)
         {
             std::vector<EditorState> chain;
@@ -88,7 +88,7 @@ namespace RogueCity::Core::Editor {
             }
             return chain;
         }
-
+// Find least common ancestor in the state hierarchy, used for determining which states to exit/enter on a transition.
         [[nodiscard]] std::optional<EditorState> FindLCA(const std::vector<EditorState>& a, const std::vector<EditorState>& b)
         {
             for (EditorState sa : a) {
@@ -321,13 +321,13 @@ namespace RogueCity::Core::Editor {
     void EditorHFSM::update(GlobalState& gs, float /*dt*/)
     {
         if (m_state == EditorState::Simulation_Stepping) {
-            // Placeholder for a single deterministic simulation step.
+            //TODO Placeholder for a single deterministic simulation step.
             // Future: run one tick of sim systems using RogueWorker for heavy workloads.
             ++gs.frame_counter;
             transition_to(EditorState::Simulation_Paused, gs);
         }
     }
-
+// Singleton Accessor
     void EditorHFSM::transition_to(EditorState next, GlobalState& gs)
     {
         if (next == m_state) {
@@ -361,7 +361,7 @@ namespace RogueCity::Core::Editor {
 
         m_state = next;
     }
-
+// State Entry/Exit Actions (validation, etc.)
     void EditorHFSM::on_enter(EditorState s, GlobalState& gs)
     {
         switch (s) {

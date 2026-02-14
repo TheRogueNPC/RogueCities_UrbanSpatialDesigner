@@ -13,7 +13,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
-// Header-only input adapter (Win32 polling)
+// Header-only input adapter (Win32 polling) //todo ensure we are not hardcoding platform-specific input handling and that this can be easily extended or replaced with a more robust solution in the future (e.g. event-driven, multi-platform support).
 #if __has_include(<LInput.h>)
     #include <LInput.h>
     #define ROGUECITY_HAS_LINPUT 1
@@ -29,7 +29,19 @@ using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
 using RogueCity::Core::Editor::EditorState;
 using RogueCity::Core::Editor::GlobalState;
+// Note: This example code is using the GL3W OpenGL loader. You may use any other loader (e.g. glad, glew, etc.) by changing the include and initialization code.
+// If you use a different loader, be sure to initialize it before calling any OpenGL functions.
+// For example, with glad you would do:
+// #include <glad/glad.h>
+// if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+//     fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+//     return 1;
+// }
+// The rest of the code should work regardless of the OpenGL loader you choose, as long as it is properly initialized before use.
 
+// todo: refactor this main function to delegate responsibilities to a dedicated Application class that manages the lifecycle, state, and main loop of the application. This will improve modularity, testability, and maintainability by encapsulating application logic and allowing for cleaner separation of concerns. The Application class can handle initialization, event processing, state updates, and rendering, while the main function simply creates an instance of the Application and starts it.
+// todo consider unifying the main loop with a more robust game loop structure that includes fixed timestep updates for simulation and variable timestep rendering, to ensure consistent behavior regardless of frame rate fluctuations. This would involve implementing a time accumulator and separating the update and render phases more cleanly, allowing for smoother simulations and better handling of edge cases like slow frames or pauses.
+// todo  look into unifying  Glew vs Glad vs GLew with a single abstraction layer for OpenGL loading, to allow for easier switching between loaders and better modularity. This could involve creating a simple wrapper that abstracts the initialization and function loading process, allowing the underlying loader to be swapped out with minimal changes to the rest of the codebase. This would also help with testing and platform compatibility in the future.
 namespace {
 
 [[nodiscard]] constexpr ImGuiConfigFlags DockingConfigFlag() {

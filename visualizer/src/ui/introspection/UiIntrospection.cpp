@@ -1,3 +1,4 @@
+// This file implements the UiIntrospector class, which provides a way to capture and serialize the structure and state of the UI for introspection and debugging purposes. It defines the data structures for representing panels, widgets, actions, and the overall UI snapshot, as well as functions for converting these structures to and from JSON using the nlohmann::json library. The UiIntrospector class maintains a snapshot of the current UI state that can be updated each frame and saved to a file for later analysis. This allows developers to understand the composition of the UI at runtime, identify patterns, and debug issues related to panel layout, widget configuration, and action handling.
 #include "UiIntrospection.h"
 
 #include <filesystem>

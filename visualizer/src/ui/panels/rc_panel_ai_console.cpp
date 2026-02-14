@@ -13,35 +13,8 @@
 
 namespace RogueCity::UI {
 
-void AiConsolePanel::Render() {
-    RC_UI::ApplyUnifiedWindowSchema();
-    const bool open = RC_UI::Components::BeginTokenPanel(
-        "AI Console",
-        RC_UI::UITokens::InfoBlue,
-        &m_showWindow,
-        ImGuiWindowFlags_NoCollapse);
-    RC_UI::PopUnifiedWindowSchema();
-    RC_UI::BeginUnifiedTextWrap();
-
+void AiConsolePanel::RenderContent() {
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "AI Console",
-            "AI Console",
-            "settings",
-            "Floating",
-            "visualizer/src/ui/panels/rc_panel_ai_console.cpp",
-            {"ai", "bridge", "control"}
-        },
-        open
-    );
-
-    if (!open) {
-        RC_UI::EndUnifiedTextWrap();
-        uiint.EndPanel();
-        RC_UI::Components::EndTokenPanel();
-        return;
-    }
     
     auto& runtime = AI::AiBridgeRuntime::Instance();
     auto& config = AI::AiConfigManager::Instance().GetConfig();
@@ -102,6 +75,40 @@ void AiConsolePanel::Render() {
         ImGui::Text("PowerShell Preference: %s", config.preferPwsh ? "pwsh" : "powershell");
     }
 
+}
+
+void AiConsolePanel::Render() {
+    RC_UI::ApplyUnifiedWindowSchema();
+    const bool open = RC_UI::Components::BeginTokenPanel(
+        "AI Console",
+        RC_UI::UITokens::InfoBlue,
+        &m_showWindow,
+        ImGuiWindowFlags_NoCollapse);
+    RC_UI::PopUnifiedWindowSchema();
+    RC_UI::BeginUnifiedTextWrap();
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "AI Console",
+            "AI Console",
+            "settings",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_ai_console.cpp",
+            {"ai", "bridge", "control"}
+        },
+        open
+    );
+
+    if (!open) {
+        RC_UI::EndUnifiedTextWrap();
+        uiint.EndPanel();
+        RC_UI::Components::EndTokenPanel();
+        return;
+    }
+    
+    RenderContent();
+    
     uiint.EndPanel();
     RC_UI::EndUnifiedTextWrap();
     RC_UI::Components::EndTokenPanel();

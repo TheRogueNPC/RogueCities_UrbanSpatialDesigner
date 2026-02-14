@@ -10,6 +10,7 @@ namespace RogueCity::UI {
 class CitySpecPanel {
 public:
     void Render();
+    void RenderContent();
     
 private:
     char m_descBuffer[512] = "A coastal tech city with dense downtown and residential suburbs";

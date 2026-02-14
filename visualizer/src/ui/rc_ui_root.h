@@ -1,5 +1,6 @@
 // FILE: rc_ui_root.h
 // PURPOSE: Root-level entry points for the procedural editor UI.
+// todo phase 2 - refactor to dynamic panel management system with factory registration for better modularity and decoupling. This file should serve as the main entry point for rendering the UI each frame, managing the dockspace, and providing shared utilities for panel management and workspace presets, while individual panels and components should be defined in their own headers and source files to maintain separation of concerns and avoid ODR violations.
 
 #pragma once
 

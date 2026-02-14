@@ -118,31 +118,10 @@ namespace {
     }
 }
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    const bool open = Components::BeginTokenPanel("Tool Deck", UITokens::CyanAccent);
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Tool Deck",
-            "Tool Deck",
-            "tool_deck",
-            "ToolDeck",
-            "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp",
-            {"deck", "nav"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
-    BeginWindowContainer("##tool_deck_container");
-
+    
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -190,8 +169,36 @@ void Draw(float dt)
         ImGui::PopID();
     }
 
-    EndWindowContainer();
+}
 
+void Draw(float dt)
+{
+    const bool open = Components::BeginTokenPanel("Tool Deck", UITokens::CyanAccent);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Tool Deck",
+            "Tool Deck",
+            "tool_deck",
+            "ToolDeck",
+            "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp",
+            {"deck", "nav"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+
+    BeginWindowContainer("##tool_deck_container");
+    
+    DrawContent(dt);
+    
+    EndWindowContainer();
     uiint.EndPanel();
     Components::EndTokenPanel();
 }

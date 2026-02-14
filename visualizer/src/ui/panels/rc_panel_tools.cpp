@@ -46,30 +46,10 @@ static void RenderToolButton(
     }
 }
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    static RC_UI::DockableWindowState s_tools_window;
-    if (!RC_UI::BeginDockableWindow("Tools", s_tools_window, "Bottom", ImGuiWindowFlags_NoCollapse)) {
-        return;
-    }
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Tools",
-            "Tools",
-            "toolbox",
-            "Bottom",
-            "visualizer/src/ui/panels/rc_panel_tools.cpp",
-            {"generation", "controls", "cockpit"}
-        },
-        true
-    );
-
-    // RC-0.09-Test P1: Add scrollable region for long content
-    ImGui::BeginChild("ToolsScrollRegion", ImVec2(0, 0), false, 
-                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
-
+    
     // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
     // === TOOL MODE BUTTONS (HFSM-driven) ===
     ImGui::SeparatorText("Editor Tools");
@@ -349,6 +329,34 @@ void Draw(float dt)
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "%s", err);
     }
 
+}
+
+void Draw(float dt)
+{
+    static RC_UI::DockableWindowState s_tools_window;
+    if (!RC_UI::BeginDockableWindow("Tools", s_tools_window, "Bottom", ImGuiWindowFlags_NoCollapse)) {
+        return;
+    }
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Tools",
+            "Tools",
+            "toolbox",
+            "Bottom",
+            "visualizer/src/ui/panels/rc_panel_tools.cpp",
+            {"generation", "controls", "cockpit"}
+        },
+        true
+    );
+
+    // RC-0.09-Test P1: Add scrollable region for long content 
+    ImGui::BeginChild("ToolsScrollRegion", ImVec2(0, 0), false, 
+                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    
+    DrawContent(dt);
+    
     ImGui::EndChild();  // End scrollable region
     uiint.EndPanel();
     RC_UI::EndDockableWindow();

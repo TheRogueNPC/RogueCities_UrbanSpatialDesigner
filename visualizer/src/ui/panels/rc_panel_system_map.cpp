@@ -13,29 +13,9 @@
 
 namespace RC_UI::Panels::SystemMap {
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    const bool open = Components::BeginTokenPanel("System Map", UITokens::MagentaHighlight);
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "System Map",
-            "System Map",
-            "nav",
-            "Left",
-            "visualizer/src/ui/panels/rc_panel_system_map.cpp",
-            {"map", "nav"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 panel_pos = ImGui::GetCursorScreenPos();
@@ -127,8 +107,34 @@ void Draw(float dt)
     ImGui::Text("Hover for enhanced scan");
 
     uiint.RegisterWidget({"viewport", "System Map", "map.system", {"map"}});
-    uiint.EndPanel();
+}
 
+void Draw(float dt)
+{
+    const bool open = Components::BeginTokenPanel("System Map", UITokens::MagentaHighlight);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "System Map",
+            "System Map",
+            "nav",
+            "Left",
+            "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+            {"map", "nav"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
+    
+    uiint.EndPanel();
     Components::EndTokenPanel();
 }
 

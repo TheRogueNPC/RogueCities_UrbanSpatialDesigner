@@ -45,7 +45,8 @@ struct ViewportConfig {
 };
 
 // ============================================================================
-// VIEWPORT BOUNDS VALIDATION
+// VIEWPORT BOUNDS VALIDATION // this struct encapsulates viewport bounds and provides utility functions for validation, clamping, 
+// and conversion from ImGui coordinates, ensuring that all viewport calculations are centralized and consistent across the application.
 // ============================================================================
 struct ViewportBounds {
     float x = 0.0f;
@@ -242,7 +243,7 @@ inline void EndViewportWindow() {
 }
 
 // ============================================================================
-// CONTENT REGION VALIDATION
+// CONTENT REGION VALIDATION // needs to be applied to all menus and floating windows to prevent rendering issues when content region is too small or off-screen. This ensures that all UI elements are rendered within valid bounds and improves robustness against edge cases like tiny viewports or multi-monitor setups.
 // ============================================================================
 
 // Check if content region is usable (not too small)
@@ -261,7 +262,7 @@ inline void EndViewportWindow() {
 }
 
 // ============================================================================
-// DOCKING SAFETY UTILITIES
+// DOCKING SAFETY UTILITIES strictly enforced to prevent invalid dock states, orphaned windows, and off-screen issues. These functions should be used for all docking operations to ensure a robust and user-friendly docking experience.
 // ============================================================================
 
 // Safely get dock node, returns nullptr on any error

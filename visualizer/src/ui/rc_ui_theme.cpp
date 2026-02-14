@@ -1,9 +1,11 @@
 // FILE: visualizer/src/ui/rc_ui_theme.cpp (RogueCities_UrbanSpatialDesigner)
 // PURPOSE: Centralized palette and theme application.
+//todo add utility functions for User color manipulation (e.g. brightness adjustment, alpha modulation) to support dynamic theming and state-based color changes in the future.
+//todo track and store use config for theme customization in user settings, allowing users to create and save their own themes - plug in Ai for "Smart Assignment"
 #include "ui/rc_ui_theme.h"
 
 namespace RC_UI {
-
+// Centralized color palette for the UI, defined as a set of named ImVec4 constants for easy reference and consistency across the application.
 namespace Palette {
 const ImVec4 DeepSpace = ImVec4(0.06f, 0.07f, 0.09f, 1.0f);
 const ImVec4 Slate = ImVec4(0.16f, 0.18f, 0.22f, 1.0f);
@@ -25,7 +27,7 @@ const ImVec4 ColorAccentA = Palette::Amber;
 const ImVec4 ColorAccentB = Palette::Cyan;
 const ImVec4 ColorWarn = ImVec4(0.95f, 0.35f, 0.24f, 1.0f);
 const ImVec4 ColorGood = Palette::Green;
-
+// Additional semantic colors can be defined here as needed, e.g. for specific UI states, categories, or data types.
 void ApplyTheme()
 {
     ImGui::StyleColorsDark();

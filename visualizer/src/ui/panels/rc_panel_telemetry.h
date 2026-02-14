@@ -7,5 +7,6 @@ namespace RC_UI::Panels::Telemetry {
 
 // Draw the analytics/telemetry panel. Supply delta time to update reactive animations.
 void Draw(float dt);
+void DrawContent(float dt);
 
 } // namespace RC_UI::Panels::Telemetry

@@ -35,35 +35,8 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
     ImGui::Separator();
 }
 
-void CitySpecPanel::Render() {
-    RC_UI::ApplyUnifiedWindowSchema();
-    const bool open = RC_UI::Components::BeginTokenPanel(
-        "City Spec Generator",
-        RC_UI::UITokens::MagentaHighlight,
-        nullptr,
-        ImGuiWindowFlags_NoCollapse);
-    RC_UI::PopUnifiedWindowSchema();
-    RC_UI::BeginUnifiedTextWrap();
-
+void CitySpecPanel::RenderContent() {
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "City Spec Generator",
-            "City Spec Generator",
-            "toolbox",
-            "Floating",
-            "visualizer/src/ui/panels/rc_panel_city_spec.cpp",
-            {"ai", "city_spec", "generator_bridge", "v0.0.9"}
-        },
-        open
-    );
-
-    if (!open) {
-        RC_UI::EndUnifiedTextWrap();
-        uiint.EndPanel();
-        RC_UI::Components::EndTokenPanel();
-        return;
-    }
     
     auto& runtime = AI::AiBridgeRuntime::Instance();
     
@@ -192,6 +165,40 @@ void CitySpecPanel::Render() {
         }
     }
 
+}
+
+void CitySpecPanel::Render() {
+    RC_UI::ApplyUnifiedWindowSchema();
+    const bool open = RC_UI::Components::BeginTokenPanel(
+        "City Spec Generator",
+        RC_UI::UITokens::MagentaHighlight,
+        nullptr,
+        ImGuiWindowFlags_NoCollapse);
+    RC_UI::PopUnifiedWindowSchema();
+    RC_UI::BeginUnifiedTextWrap();
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "City Spec Generator",
+            "City Spec Generator",
+            "toolbox",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_city_spec.cpp",
+            {"ai", "city_spec", "generator_bridge", "v0.0.9"}
+        },
+        open
+    );
+
+    if (!open) {
+        RC_UI::EndUnifiedTextWrap();
+        uiint.EndPanel();
+        RC_UI::Components::EndTokenPanel();
+        return;
+    }
+    
+    RenderContent();
+    
     uiint.EndPanel();
     RC_UI::EndUnifiedTextWrap();
     RC_UI::Components::EndTokenPanel();

@@ -8,4 +8,5 @@
 
 namespace RC_UI::Panels::LotControl {
     void Draw(float dt);
+    void DrawContent(float dt);
 } // namespace RC_UI::Panels::LotControl

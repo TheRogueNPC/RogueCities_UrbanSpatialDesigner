@@ -7,5 +7,6 @@ namespace RC_UI::Panels::Tools {
 
 // Draw the state-reactive editor tools panel.
 void Draw(float dt);
+void DrawContent(float dt);
 
 } // namespace RC_UI::Panels::Tools

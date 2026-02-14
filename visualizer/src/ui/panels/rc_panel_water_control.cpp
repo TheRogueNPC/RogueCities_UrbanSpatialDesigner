@@ -18,41 +18,11 @@
 
 namespace RC_UI::Panels::WaterControl {
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
     using namespace RogueCity::Core::Editor;
-    
-    // State-reactive: Only show if in WaterEditing mode
-    EditorHFSM& hfsm = GetEditorHFSM();
-    if (hfsm.state() != EditorState::Editing_Water) {
-        return;
-    }
-    
-    const bool open = Components::BeginTokenPanel(
-        "Water Editing Control",
-        UITokens::InfoBlue,
-        nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize);
-    
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Water Editing Control",
-            "WaterControl",
-            "water_editing",
-            "Right",
-            "visualizer/src/ui/panels/rc_panel_water_control.cpp",
-            {"water", "controls", "authoring"}
-        },
-        open
-    );
     
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
     GlobalState& gs = GetGlobalState();
     static int selected_type = 0;
     static float depth_m = 6.0f;
@@ -111,7 +81,46 @@ void Draw(float dt)
         gs.waterbodies.size() > 0 ? UITokens::SuccessGreen : UITokens::YellowWarning,
         true);
     ImGui::TextDisabled("Sample authoring is now live; spline/paint tools remain next.");
+}
 
+
+void Draw(float dt)
+{
+    using namespace RogueCity::Core::Editor;
+    
+    // State-reactive: Only show if in Water mode
+    EditorHFSM& hfsm = GetEditorHFSM();
+    if (hfsm.state() != EditorState::Editing_Water) {
+        return;
+    }
+    
+    const bool open = Components::BeginTokenPanel(
+        "Water Body Authoring",
+        UITokens::InfoBlue,
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize);
+    
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Water Body Authoring",
+            "WaterControl",
+            "water_authoring",
+            "Right",
+            "visualizer/src/ui/panels/rc_panel_water_control.cpp",
+            {"authoring", "water", "controls"}
+        },
+        open
+    );
+    
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
+    
     uiint.EndPanel();
     Components::EndTokenPanel();
 }

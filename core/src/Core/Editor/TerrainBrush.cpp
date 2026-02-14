@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-
+// Implementation of a simple terrain editing brush that modifies a heightmap texture based on user input strokes.
 namespace RogueCity::Core::Editor {
 
     namespace {

@@ -5,10 +5,11 @@
 
 namespace RogueCity::UI {
 
-/// UI Agent Assistant panel for interactive layout optimization AND design/refactor planning
+/// UI Agent Assistant panel for interactive layoutoptimization AND design/refactor planning
 class UiAgentPanel {
 public:
     void Render();
+    void RenderContent();
     
 private:
     // Layout commands mode

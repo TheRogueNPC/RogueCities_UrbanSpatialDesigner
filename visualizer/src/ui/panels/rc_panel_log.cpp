@@ -77,30 +77,11 @@ namespace {
     }
 } // namespace
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
-    CaptureRuntimeEvents();
-
-    const bool open = Components::BeginTokenPanel("Log", UITokens::AmberGlow);
-
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Log",
-            "Log",
-            "log",
-            "Bottom",
-            "visualizer/src/ui/panels/rc_panel_log.cpp",
-            {"events", "telemetry"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
+    
+    CaptureRuntimeEvents();
 
     static ReactiveF flash;
     constexpr float kGlowBase = 0.2f;
@@ -142,8 +123,34 @@ void Draw(float dt)
     ImGui::PopStyleColor();
 
     uiint.RegisterWidget({"tree", "LogStream", "log.tail", {"log"}});
-    uiint.EndPanel();
+}
 
+void Draw(float dt)
+{
+    const bool open = Components::BeginTokenPanel("Log", UITokens::AmberGlow);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "Log",
+            "Log",
+            "log",
+            "Bottom",
+            "visualizer/src/ui/panels/rc_panel_log.cpp",
+            {"events", "telemetry"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+    
+    DrawContent(dt);
+    
+    uiint.EndPanel();
     Components::EndTokenPanel();
 }
 

@@ -60,7 +60,7 @@ struct UITokens {
     static constexpr float BorderThick  = 3.0f;
     
     // ========================================================================
-    // CORNER ROUNDING (Minimal for Y2K)
+    // CORNER ROUNDING (Minimal for Y2K) 
     // ========================================================================
     static constexpr float RoundingNone    = 0.0f;
     static constexpr float RoundingSubtle  = 2.0f;
@@ -69,7 +69,7 @@ struct UITokens {
     static constexpr float RoundingChip    = 14.0f;
     
     // ========================================================================
-    // RESPONSIVE LAYOUT TOKENS
+    // RESPONSIVE LAYOUT TOKENS (For dynamic resizing and adaptive UI)
     // ========================================================================
     // 75% shrinkage with 25% cull threshold
     static constexpr float ResponsiveMaxShrink   = 0.75f;
@@ -101,7 +101,7 @@ struct UITokens {
     static constexpr float ClickScaleDown        = 0.95f;  // Slight shrink on click
     
     // ========================================================================
-    // TYPOGRAPHY
+    // TYPOGRAPHY TOKENS (Y2K digital font vibes)
     // ========================================================================
     static constexpr float FontSizeSmall   = 12.0f;
     static constexpr float FontSizeMedium  = 14.0f;
@@ -109,7 +109,7 @@ struct UITokens {
     static constexpr float FontSizeTitle   = 24.0f;
     
     // ========================================================================
-    // DECK/CHIP SIZING
+    // DECK/CHIP SIZING (For tool decks, status chips, etc.)
     // ========================================================================
     static constexpr float ChipBaseWidth      = 110.0f;
     static constexpr float ChipHoverExpansion = 30.0f;
@@ -119,7 +119,7 @@ struct UITokens {
     static constexpr float ChipSpacing        = 8.0f;
     
     // ========================================================================
-    // PANEL CONSTRAINTS
+    // PANEL CONSTRAINTS (Enforce minimum sizes for usability)
     // ========================================================================
     static constexpr float PanelMinWidth  = 120.0f;
     static constexpr float PanelMinHeight = 80.0f;
@@ -128,7 +128,7 @@ struct UITokens {
 };
 
 // ============================================================================
-// VISUAL FEEDBACK UTILITIES
+// VISUAL FEEDBACK UTILITIES //todo: expand this section to include more complex feedback patterns (e.g. multi-stage clicks, long-press, toggle states) and integrate with a centralized input handling system for consistent state management across the UI.
 // ============================================================================
 
 // Calculate hover glow color with intensity
@@ -164,7 +164,7 @@ inline ImU32 LerpColor(ImU32 a, ImU32 b, float t) {
 }
 
 // ============================================================================
-// GAMIFIED BUTTON FEEDBACK
+// GAMIFIED BUTTON FEEDBACK //todo: expand this to support more complex feedback patterns (e.g. multi-stage clicks, long-press, toggle states) and integrate with a centralized input handling system for consistent state management across the UI.
 // ============================================================================
 struct ButtonFeedback {
     float hover_t = 0.0f;      // 0.0 = not hovered, 1.0 = fully hovered
