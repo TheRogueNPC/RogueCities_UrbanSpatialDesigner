@@ -16,6 +16,6 @@ CMakeFiles/
 .idea/
 .DS_Store
 desktop.ini
+imgui.ini
 /mcp-server/
 /3rdparty/vcpkg/
-

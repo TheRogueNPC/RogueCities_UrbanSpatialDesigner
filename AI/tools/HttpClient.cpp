@@ -2,6 +2,7 @@
 #include "config/AiConfig.h"
 #include "tools/Url.h"
 #include <iostream>
+#include <limits>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -63,11 +64,20 @@ std::string HttpClient::PostJson(const std::string& url, const std::string& body
     }
     
     std::wstring headers = L"Content-Type: application/json\r\n";
+    if (bodyJson.size() > static_cast<size_t>((std::numeric_limits<DWORD>::max)())) {
+        std::cerr << "[HttpClient] Request body too large" << std::endl;
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return "[]";
+    }
+    const DWORD bodySize = static_cast<DWORD>(bodyJson.size());
+    constexpr DWORD kHeaderLength = static_cast<DWORD>(-1);
     BOOL sent = WinHttpSendRequest(
         hRequest,
-        headers.c_str(), -1,
-        (LPVOID)bodyJson.c_str(), bodyJson.size(),
-        bodyJson.size(), 0
+        headers.c_str(), kHeaderLength,
+        const_cast<char*>(bodyJson.c_str()), bodySize,
+        bodySize, 0
     );
     
     if (!sent) {

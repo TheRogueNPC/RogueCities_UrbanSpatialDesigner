@@ -88,7 +88,6 @@ namespace ZoningControl { IPanelDrawer* CreateDrawer(); }
 namespace LotControl { IPanelDrawer* CreateDrawer(); }
 namespace BuildingControl { IPanelDrawer* CreateDrawer(); }
 namespace WaterControl { IPanelDrawer* CreateDrawer(); }
-namespace AxiomBar { IPanelDrawer* CreateDrawer(); }
 namespace AxiomEditor { IPanelDrawer* CreateDrawer(); }
 namespace Telemetry { IPanelDrawer* CreateDrawer(); }
 namespace Log { IPanelDrawer* CreateDrawer(); }
@@ -96,6 +95,7 @@ namespace Tools { IPanelDrawer* CreateDrawer(); }
 namespace Inspector { IPanelDrawer* CreateDrawer(); }
 namespace SystemMap { IPanelDrawer* CreateDrawer(); }
 namespace DevShell { IPanelDrawer* CreateDrawer(); }
+namespace UISettings { IPanelDrawer* CreateDrawer(); }
 
 #if defined(ROGUE_AI_DLC_ENABLED)
 namespace AiConsole { IPanelDrawer* CreateDrawer(); }
@@ -119,10 +119,6 @@ void InitializePanelRegistry() {
     registry.Register(std::unique_ptr<IPanelDrawer>(BuildingControl::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(WaterControl::CreateDrawer()));
     
-    // Register Tools
-    registry.Register(std::unique_ptr<IPanelDrawer>(AxiomBar::CreateDrawer()));
-    registry.Register(std::unique_ptr<IPanelDrawer>(AxiomEditor::CreateDrawer()));
-    
     // Register System
     registry.Register(std::unique_ptr<IPanelDrawer>(Telemetry::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(Log::CreateDrawer()));
@@ -130,6 +126,7 @@ void InitializePanelRegistry() {
     registry.Register(std::unique_ptr<IPanelDrawer>(Inspector::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(SystemMap::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(DevShell::CreateDrawer()));
+    registry.Register(std::unique_ptr<IPanelDrawer>(UISettings::CreateDrawer()));
     
     // Register AI panels (feature-gated)
 #if defined(ROGUE_AI_DLC_ENABLED)

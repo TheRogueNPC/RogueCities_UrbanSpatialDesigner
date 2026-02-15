@@ -12,6 +12,7 @@ message(STATUS "Configuring App Layer...")
 set(APP_SOURCES
     # UI Design System (SINGLE SOURCE OF TRUTH - Cockpit Doctrine enforcement)
     src/UI/DesignSystem.cpp
+    src/UI/ThemeManager.cpp
     
     # Tools (Axiom placement and visualization)
     src/Tools/AxiomVisual.cpp
@@ -42,6 +43,7 @@ set(APP_SOURCES
 set(APP_HEADERS
     # UI Design System (Cockpit Doctrine theme + tokens)
     include/RogueCity/App/UI/DesignSystem.h
+    include/RogueCity/App/UI/ThemeManager.h
     
     # Tools
     include/RogueCity/App/Tools/AxiomVisual.hpp
@@ -105,6 +107,7 @@ target_include_directories(RogueCityApp
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include
 )
 
 # === DEPENDENCIES ===

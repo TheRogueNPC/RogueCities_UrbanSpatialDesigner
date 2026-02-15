@@ -5,6 +5,7 @@
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 #include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine theme
+#include "RogueCity/App/UI/ThemeManager.h"  // Multi-theme system
 
 // AI system includes
 #include "config/AiConfig.h"
@@ -24,6 +25,10 @@
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
+#include <cstdlib>
+#include <cstring>
+#include <thread>
+#include <chrono>
 
 using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
@@ -57,6 +62,33 @@ namespace {
     return ImGuiConfigFlags_ViewportsEnable;
 #else
     return 0;
+#endif
+}
+
+[[nodiscard]] bool ShouldEnablePlatformViewports() {
+#if defined(IMGUI_HAS_DOCK)
+#if defined(_WIN32)
+    char* value = nullptr;
+    size_t value_len = 0;
+    if (_dupenv_s(&value, &value_len, "ROGUE_ENABLE_IMGUI_VIEWPORTS") != 0 || value == nullptr) {
+        return false;
+    }
+    const bool enabled = std::strcmp(value, "1") == 0 ||
+        std::strcmp(value, "true") == 0 ||
+        std::strcmp(value, "TRUE") == 0;
+    std::free(value);
+    return enabled;
+#else
+    const char* value = std::getenv("ROGUE_ENABLE_IMGUI_VIEWPORTS");
+    if (value == nullptr) {
+        return false;
+    }
+    return std::strcmp(value, "1") == 0 ||
+        std::strcmp(value, "true") == 0 ||
+        std::strcmp(value, "TRUE") == 0;
+#endif
+#else
+    return false;
 #endif
 }
 
@@ -106,10 +138,21 @@ int main(int, char**)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    
-    // CRITICAL: Enable docking + multi-viewport for floating windows
+    auto& gs_early = RogueCity::Core::Editor::GetGlobalState();
+
+    // Enable docking in all GUI builds.
     io.ConfigFlags |= DockingConfigFlag();
-    io.ConfigFlags |= ViewportsConfigFlag();
+    io.ConfigDpiScaleFonts = gs_early.config.ui_dpi_scale_fonts_enabled;
+    io.ConfigDpiScaleViewports = gs_early.config.ui_dpi_scale_viewports_enabled;
+
+    // Multi-viewport remains opt-in (config or explicit env override).
+    const bool enable_platform_viewports =
+        gs_early.config.ui_multi_viewport_enabled || ShouldEnablePlatformViewports();
+    if (enable_platform_viewports) {
+        io.ConfigFlags |= ViewportsConfigFlag();
+    } else {
+        io.ConfigFlags &= ~ViewportsConfigFlag();
+    }
     
     // When viewports are enabled, tweak WindowRounding/WindowBg for platform windows
     ImGuiStyle& style = ImGui::GetStyle();
@@ -119,8 +162,15 @@ int main(int, char**)
         style.Colors[ImGuiCol_WindowBg].w = 1.0f;  // Opaque backgrounds for OS windows
     }
 
-    // Apply Cockpit Doctrine theme (MUST be before any UI rendering)
-    RogueCity::UI::DesignSystem::ApplyCockpitTheme();
+    // Initialize Theme Manager and apply saved theme
+    auto& theme_mgr = RogueCity::UI::ThemeManager::Instance();
+    if (!gs_early.config.active_theme.empty()) {
+        theme_mgr.LoadTheme(gs_early.config.active_theme);
+    } else {
+        // Default theme on first launch
+        theme_mgr.LoadTheme("Default");
+        gs_early.config.active_theme = "Default";
+    }
     
     // Load AI configuration
     RogueCity::AI::AiConfigManager::Instance().LoadFromFile("AI/ai_config.json");
@@ -148,27 +198,39 @@ int main(int, char**)
     static bool g_disable_linput_injection = true;
     #endif
 
+    bool was_iconified = false;
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
+        const bool is_iconified = glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE;
+        if (is_iconified) {
+            was_iconified = true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+            continue;
+        }
+        if (was_iconified) {
+            RC_UI::ResetDockLayout();
+            was_iconified = false;
+        }
+
         #if defined(ROGUECITY_HAS_LINPUT)
         // Poll platform input and (optionally) feed ImGui IO
         input.Update();
         if (!g_disable_linput_injection) {
-            io.MousePos = ImVec2(static_cast<float>(input.Mouse.X()), static_cast<float>(input.Mouse.Y()));
-            io.MouseDown[0] = input.Mouse.LeftButtonDown();
-            io.MouseDown[1] = input.Mouse.RightButtonDown();
-            io.MouseDown[2] = input.Mouse.MiddleButtonDown();
-
-            io.KeyCtrl = input.Keyboard.CtrlDown();
-            io.KeyShift = input.Keyboard.ShiftDown();
-            io.KeyAlt = input.Keyboard.AltDown();
+            io.AddMousePosEvent(static_cast<float>(input.Mouse.X()), static_cast<float>(input.Mouse.Y()));
+            io.AddMouseButtonEvent(ImGuiMouseButton_Left, input.Mouse.LeftButtonDown());
+            io.AddMouseButtonEvent(ImGuiMouseButton_Right, input.Mouse.RightButtonDown());
+            io.AddMouseButtonEvent(ImGuiMouseButton_Middle, input.Mouse.MiddleButtonDown());
+            io.AddKeyEvent(ImGuiMod_Ctrl, input.Keyboard.CtrlDown());
+            io.AddKeyEvent(ImGuiMod_Shift, input.Keyboard.ShiftDown());
+            io.AddKeyEvent(ImGuiMod_Alt, input.Keyboard.AltDown());
         }
 
         // Legacy key array feed removed: this imgui build does not expose `io.KeysDown`.
-        // We still set modifier keys above (KeyCtrl/KeyShift/KeyAlt) when injection is enabled.
+        // Modifier state is forwarded through io.AddKeyEvent(ImGuiMod_*).
         #endif
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -179,21 +241,12 @@ int main(int, char**)
         float dt = io.DeltaTime;
         hfsm.update(gs, dt);
         
-        // Add main menu bar for window management
-        if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("Window")) {
-                if (ImGui::MenuItem("Reset Layout", "Ctrl+R")) {
-                    RC_UI::ResetDockLayout();
-                }
-                ImGui::Separator();
-                ImGui::Text("Tip: Drag panel titles to dock/undock");
-                ImGui::EndMenu();
-            }
-            ImGui::EndMainMenuBar();
-        }
-        
-        // Hotkey for reset layout
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+        // Hard reset (Ctrl+Shift+R): clear all saved ImGui window state.
+        if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_R)) {
+            ImGui::LoadIniSettingsFromMemory("", 0);
+            RC_UI::ResetDockLayout();
+        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+            // Soft reset (Ctrl+R): rebuild dock tree but keep persisted window settings.
             RC_UI::ResetDockLayout();
         }
         

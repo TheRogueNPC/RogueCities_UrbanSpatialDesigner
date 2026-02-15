@@ -1,0 +1,227 @@
+{
+  "main": {
+    "id": "b3f9ebf6c14f099e",
+    "type": "split",
+    "children": [
+      {
+        "id": "4d77e390dedebea9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ee0399504a558c3d",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "rc-0-10-git-commit-message"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c93d7e094139c67d",
+    "type": "split",
+    "children": [
+      {
+        "id": "ff818d83c5427972",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "31ee6c065130d6b6",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "0bb27a615e2334b8",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "8bdda66f3aa01d78",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "127c6ccf619c590c",
+    "type": "split",
+    "children": [
+      {
+        "id": "42e0440ed937b795",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "68dc9df08a045f04",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for rc-0-10-git-commit-message"
+            }
+          },
+          {
+            "id": "e101e6f2b54adb2c",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from rc-0-10-git-commit-message"
+            }
+          },
+          {
+            "id": "59fba9dcec4c31aa",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "4bc2542ceccfcfcf",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "eed33afef7ab81fa",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of rc-0-10-git-commit-message"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "31ee6c065130d6b6",
+  "lastOpenFiles": [
+    "Doxy/docbook/man",
+    "Doxy/docbook/rtf",
+    "Doxy/docbook/latex",
+    "Doxy/docbook/xml",
+    "Doxy/docbook/docbook",
+    "Doxy/docbook/html/doxygen_crawl.html",
+    "Doxy/docbook/html",
+    "Doxy/html/navtree.js",
+    "Doxy/html/navtreeindex0.js",
+    "Doxy/html/navtreedata.js",
+    "Doxy/latex/refman.tex",
+    "Doxy/html/doxygen.svg",
+    "20_specs/ui-faq-compliance-matrix.md",
+    "LICENSES.md",
+    "30_architecture/architecture-map.md",
+    "30_architecture/architecture-diagram.md",
+    "20_specs/ui-patterns.md",
+    "20_specs/ui-migration.md",
+    "20_specs/ui-loop-state-model.md",
+    "20_specs/type-alias-migration-guide.md",
+    "20_specs/tech-stack.md",
+    "20_specs/quick-start.md",
+    "20_specs/masterpanel-conversion-guide.md",
+    "20_specs/masterpanel-build-verification.md",
+    "20_specs/docking-guide.md",
+    "20_specs/axiom-tools/ui-architecture-axiom-system.md",
+    "10_book/book-outline-template.md",
+    "00_index/README.md",
+    "00_index/plans-and-todos-index.md",
+    "00_index/migration-log.md",
+    "20_specs/design-and-research/the-rogue-city-designer-soft.md",
+    "20_specs/design-and-research/rogueworkers-and-you.md",
+    "20_specs/design-and-research/fast-versatile-container-reference.md",
+    "20_specs/design-and-research/constant-indexed-vector-reference.md",
+    "90_archive/legacy_temp/temp_documentation/README.md",
+    "40_implementation_completed/releases/rc-0-10-zoninggenerator-implementation-status.md",
+    "40_implementation_completed/releases/rc-0-10-phase1-complete.md",
+    "generated/doxygen/Doxy/html/doxygen.svg"
+  ]
+}

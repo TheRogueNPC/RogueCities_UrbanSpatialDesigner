@@ -7,5 +7,7 @@ namespace RC_UI::Panels::RiverIndex {
 
 // Draw the river index panel.
 void Draw(float dt);
+// Draw only the panel body (for Master Panel drawer embedding).
+void DrawContent(float dt);
 
 } // namespace RC_UI::Panels::RiverIndex

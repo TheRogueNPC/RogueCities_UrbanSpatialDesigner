@@ -1,4 +1,5 @@
 #include "RogueCity/App/Integration/GeneratorBridge.hpp"
+#include <cmath>
 
 namespace RogueCity::App {
 
@@ -49,10 +50,10 @@ bool GeneratorBridge::validate_axioms(
             const auto& a = axioms[i];
             const auto& b = axioms[j];
             
-            const float dx = a.position.x - b.position.x;
-            const float dy = a.position.y - b.position.y;
-            const float dist = sqrtf(dx * dx + dy * dy);
-            const float combined_radius = a.radius + b.radius;
+            const double dx = a.position.x - b.position.x;
+            const double dy = a.position.y - b.position.y;
+            const double dist = std::sqrt(dx * dx + dy * dy);
+            const double combined_radius = static_cast<double>(a.radius + b.radius);
             
             // If distance < 20% of combined radius, it's extreme overlap
             if (dist < combined_radius * 0.2) {

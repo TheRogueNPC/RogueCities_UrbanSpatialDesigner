@@ -5,6 +5,7 @@ project(RogueCityVisualizer LANGUAGES CXX C)
 
 option(ROGUECITY_BUILD_VISUALIZER "Build the (headless) ImGui visualizer example" OFF)
 option(ROGUE_AI_DLC_ENABLED "Enable feature-gated AI panels (AI Console, UI Agent, City Spec)" ON)
+option(ROGUE_SHIP_DEMO_MODE "Ship demo mode - completely hides AI tab and DLC features" OFF)
 
 if(NOT ROGUECITY_BUILD_VISUALIZER)
     message(STATUS "Visualizer disabled (set -DROGUECITY_BUILD_VISUALIZER=ON to build examples)")
@@ -56,6 +57,7 @@ endif()
         # Hyper-reactive UI module sources.
         src/main.cpp
         src/ui/rc_ui_anim.cpp
+        src/ui/rc_ui_input_gate.cpp
         src/ui/rc_ui_root.cpp
         src/ui/rc_ui_theme.cpp
         src/ui/introspection/UiIntrospection.cpp
@@ -66,6 +68,7 @@ endif()
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
         src/ui/panels/rc_panel_inspector.cpp
+        src/ui/panels/rc_panel_ui_settings.cpp
         src/ui/panels/rc_property_editor.cpp
         src/ui/panels/rc_panel_tools.cpp
         src/ui/panels/rc_panel_district_index.cpp
@@ -105,7 +108,11 @@ endif()
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
     
     # Define AI DLC flag for conditional compilation
-    if(ROGUE_AI_DLC_ENABLED)
+    # SHIP_DEMO_MODE overrides and disables AI features completely
+    if(ROGUE_SHIP_DEMO_MODE)
+        message(STATUS "Demo Mode: AI features disabled (ROGUE_SHIP_DEMO_MODE=ON)")
+        target_compile_definitions(RogueCityVisualizerHeadless PRIVATE ROGUE_AI_DLC_ENABLED=0)
+    elseif(ROGUE_AI_DLC_ENABLED)
         target_compile_definitions(RogueCityVisualizerHeadless PRIVATE ROGUE_AI_DLC_ENABLED=1)
     endif()
     
@@ -135,6 +142,7 @@ endif()
                 src/main_gui.cpp
                 # UI system sources
                 src/ui/rc_ui_anim.cpp
+                src/ui/rc_ui_input_gate.cpp
                 src/ui/rc_ui_root.cpp
                 src/ui/rc_ui_theme.cpp
                 src/ui/introspection/UiIntrospection.cpp
@@ -145,6 +153,7 @@ endif()
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
                 src/ui/panels/rc_panel_inspector.cpp
+                src/ui/panels/rc_panel_ui_settings.cpp
                 src/ui/panels/rc_property_editor.cpp
                 src/ui/panels/rc_panel_tools.cpp
                 src/ui/panels/rc_panel_district_index.cpp
@@ -166,7 +175,6 @@ endif()
                 src/ui/panels/PanelRegistry.cpp
                 src/ui/panels/RcMasterPanel.cpp
                 src/ui/panels/RcPanelDrawers.cpp
-                src/ui/panels/rc_panel_dev_shell.cpp
                 # Viewport overlays (RC-0.10)
                 src/ui/viewport/rc_viewport_overlays.cpp
                 # ImGui backend implementations
@@ -218,7 +226,11 @@ endif()
             target_compile_features(RogueCityVisualizerGui PRIVATE cxx_std_20)
             
             # Define AI DLC flag for conditional compilation (same as headless)
-            if(ROGUE_AI_DLC_ENABLED)
+            # SHIP_DEMO_MODE overrides and disables AI features completely
+            if(ROGUE_SHIP_DEMO_MODE)
+                message(STATUS "Demo Mode: AI features disabled (ROGUE_SHIP_DEMO_MODE=ON)")
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUE_AI_DLC_ENABLED=0)
+            elseif(ROGUE_AI_DLC_ENABLED)
                 target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUE_AI_DLC_ENABLED=1)
             endif()
             

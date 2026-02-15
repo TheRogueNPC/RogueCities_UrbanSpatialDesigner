@@ -1,0 +1,348 @@
+\chapter{Rogue City Designer }
+\hypertarget{md__read_me}{}\label{md__read_me}\index{Rogue City Designer@{Rogue City Designer}}
+\label{md__read_me_autotoc_md17}%
+\Hypertarget{md__read_me_autotoc_md17}%
+\hypertarget{md__read_me_autotoc_md18}{}\doxysubsection{\texorpdfstring{An Urban Spatial City Generator}{An Urban Spatial City Generator}}\label{md__read_me_autotoc_md18}
+\href{https://github.com/TheRogueNPC/RogueCityMVP}{\texttt{}} \href{https://en.cppreference.com/w/cpp/20}{\texttt{}} \+[]\+(LICENSE) \href{https://github.com/TheRogueNPC/RogueCityMVP/actions}{\texttt{}}
+
+\begin{quote}
+{\bfseries{Procedural city generation through tensor field-\/guided street networks, AESP-\/based district classification, and topological street analysis}} \end{quote}
+
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md20}{}\doxysection{\texorpdfstring{R0 Release:\+ AI-\/\+Assisted Development Integration ✨}{R0 Release:\+ AI-\/\+Assisted Development Integration ✨}}\label{md__read_me_autotoc_md20}
+\begin{quote}
+{\bfseries{NEW}}:\+ Integrated AI assistant for layout optimization, city design, and code refactoring \end{quote}
+\hypertarget{md__read_me_autotoc_md21}{}\doxysubsection{\texorpdfstring{What\textquotesingle{}s New in R0}{What\textquotesingle{}s New in R0}}\label{md__read_me_autotoc_md21}
+{\bfseries{🤖 AI Bridge System}} -\/ One-\/click AI assistant startup with automatic Power\+Shell detection and health monitoring
+
+{\bfseries{🎨 UI Agent}} -\/ Natural language UI layout optimization ("{}optimize layout for road editing"{}) with real-\/time command generation
+
+{\bfseries{🏙️ City\+Spec Generator}} -\/ AI-\/driven city design from natural language descriptions ("{}a coastal tech city with dense downtown"{})
+
+{\bfseries{🔧 Design Assistant}} -\/ Code-\/shape aware refactoring suggestions with pattern extraction and architecture analysis
+
+{\bfseries{📊 Pattern Catalog}} -\/ Canonical UI patterns (Inspector\+Panel$<$\+T$>$, Data\+Index\+Panel$<$\+T$>$) with AI-\/guided refactoring opportunities
+
+{\bfseries{Status}}:\+ All 4 phases complete • Build:\+ Passing • Integration:\+ Working-\/\+WIP not all tools are properly hooked in yet, but the AI bridge and clients are functional.
+
+→ Read Full AI Integration Documentation
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md23}{}\doxysection{\texorpdfstring{Abstract}{Abstract}}\label{md__read_me_autotoc_md23}
+Cities function as {\bfseries{complex adaptive systems}} formed through the interplay of decentralized bottom-\/up self-\/organization and centralized top-\/down planning interventions. {\bfseries{Rogue City Designer}} is a procedural generation framework that models this duality through:\+
+
+
+\begin{DoxyEnumerate}
+\item {\bfseries{Tensor field axioms}} encoding top-\/down planning intent (radial, grid, organic)
+\item {\bfseries{AESP-\/based district emergence}} from road network topology (Access, Exposure, Serviceability, Privacy)
+\item {\bfseries{Multi-\/scale street analysis}} using persistent homology and grid quality metrics
+\item {\bfseries{Layered graph support}} for bridges, tunnels, and grade-\/separated infrastructure
+\end{DoxyEnumerate}
+
+Unlike traditional square-\/grid generators, this system produces {\bfseries{coherent, believable urban environments}} ranging from rigid Manhattan-\/style grids to organic European networks, based on axiom configuration and urban complexity principles.
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md25}{}\doxysection{\texorpdfstring{Research Foundation}{Research Foundation}}\label{md__read_me_autotoc_md25}
+\hypertarget{md__read_me_autotoc_md26}{}\doxysubsection{\texorpdfstring{Urban Complexity Framework}{Urban Complexity Framework}}\label{md__read_me_autotoc_md26}
+Cities exhibit \texorpdfstring{$\ast$}{*}\texorpdfstring{$\ast$}{*}organized complexity\texorpdfstring{$\ast$}{*}\texorpdfstring{$\ast$}{*}—a balance between chaos (overstimulation, incoherence) and order (sterility, monotony). The framework evaluates this balance through:\+
+
+
+\begin{DoxyItemize}
+\item {\bfseries{Network Density}}:\+ Nodes, intersections, edges per unit area
+\item {\bfseries{Network Resilience}}:\+ Functionality under disruption (blocked streets, damage)
+\item {\bfseries{Network Connectedness}}:\+ Path diversity, permeability, routing options
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md27}{}\doxysubsection{\texorpdfstring{Grid Quality Metrics}{Grid Quality Metrics}}\label{md__read_me_autotoc_md27}
+The generator evaluates street networks using a {\bfseries{composite grid index}} balancing four components:\+\hypertarget{md__read_me_autotoc_md28}{}\doxysubsubsection{\texorpdfstring{1. Straightness (ς)}{1. Straightness (ς)}}\label{md__read_me_autotoc_md28}
+\$\$\textbackslash{}varsigma = \textbackslash{}frac\{\textbackslash{}text\{average great-\/circle distance\}\}\{\textbackslash{}text\{average segment length\}\}\$\$
+
+Measures how closely streets approximate straight lines, affecting navigation efficiency and visual coherence.\hypertarget{md__read_me_autotoc_md29}{}\doxysubsubsection{\texorpdfstring{2. Orientation Order (Φ)}{2. Orientation Order (Φ)}}\label{md__read_me_autotoc_md29}
+Analyzes internal consistency of street orientations through:\+
+\begin{DoxyEnumerate}
+\item Calculate bidirectional compass bearings of every street
+\item Compute street orientation entropy
+\item Normalize as orientation order indicator
+\end{DoxyEnumerate}
+
+High order → consistent grid patterns (Manhattan) ~\newline
+ Low order → organic networks (medieval European)\hypertarget{md__read_me_autotoc_md30}{}\doxysubsubsection{\texorpdfstring{3. Terrain Adaptation}{3. Terrain Adaptation}}\label{md__read_me_autotoc_md30}
+Evaluates variance and inconsistency as roads adapt to slopes, elevation changes, and natural obstacles.\hypertarget{md__read_me_autotoc_md31}{}\doxysubsubsection{\texorpdfstring{4. Four-\/\+Way Intersection Proportion (I)}{4. Four-\/\+Way Intersection Proportion (I)}}\label{md__read_me_autotoc_md31}
+\$\$I = \textbackslash{}frac\{\textbackslash{}text\{four-\/way intersections\}\}\{\textbackslash{}text\{total intersections\}\}\$\$
+
+Tracks the share of nodes that are four-\/way junctions, influencing traffic flow and grid character.
+
+{\bfseries{Composite Grid Index:\+}}
+
+\$\$\textbackslash{}text\{Grid\+Index\} = (\textbackslash{}varsigma \textbackslash{}times \textbackslash{}\+Phi \textbackslash{}times I)\texorpdfstring{$^\wedge$}{\string^}\{1/\+3\}\$\$
+
+The geometric mean ensures non-\/compensatory aggregation—poor performance in any component significantly impacts the final score.
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md33}{}\doxysection{\texorpdfstring{System Architecture}{System Architecture}}\label{md__read_me_autotoc_md33}
+\hypertarget{md__read_me_autotoc_md34}{}\doxysubsection{\texorpdfstring{Pipeline Overview}{Pipeline Overview}}\label{md__read_me_autotoc_md34}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{User\ Axioms\ →\ Tensor\ Field\ →\ Streamline\ Tracing\ →\ Road\ Network\ →\ }
+\DoxyCodeLine{Block\ Extraction\ →\ District\ Classification\ (AESP)\ →\ Lot\ Subdivision\ →\ }
+\DoxyCodeLine{Building\ Site\ Placement\ →\ Export\ (JSON/OBJ)}
+
+\end{DoxyCode}
+\hypertarget{md__read_me_autotoc_md35}{}\doxysubsection{\texorpdfstring{Layer Structure}{Layer Structure}}\label{md__read_me_autotoc_md35}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{core/\ \ \ \ \ \ \ \ \ \ Pure\ data\ structures\ (Vec2,\ Tensors,\ AESP\ types)}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ Zero\ UI\ dependencies}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ └─\ Fast\ builds\ (\string~20\ seconds)}
+\DoxyCodeLine{}
+\DoxyCodeLine{generators/\ \ \ \ Generation\ algorithms\ (tensor\ fields,\ roads,\ districts)}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ Tensor\ field\ generation\ from\ axioms}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ Streamline\ integration\ (RK4)}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ AESP\ district\ classification}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ └─\ OBB\ lot\ subdivision}
+\DoxyCodeLine{}
+\DoxyCodeLine{app/\ \ \ \ \ \ \ \ \ \ \ ImGui-\/based\ interactive\ editor}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ Axiom\ placement\ UI}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ├─\ Real-\/time\ visualization}
+\DoxyCodeLine{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ └─\ Export\ workflows}
+
+\end{DoxyCode}
+
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md37}{}\doxysection{\texorpdfstring{Axiom System}{Axiom System}}\label{md__read_me_autotoc_md37}
+\hypertarget{md__read_me_autotoc_md38}{}\doxysubsection{\texorpdfstring{Axiom Types}{Axiom Types}}\label{md__read_me_autotoc_md38}
+Users place {\bfseries{axioms}} as representations of geographical topology to guide road network generation:\+
+
+
+\begin{DoxyTable}{3}{}{}{1}
+\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Axiom Type  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Effect  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Use Case  \\
+{\bfseries{Block}}  &Produces 4-\/way intersections, grid-\/style roads  &Manhattan, Chicago, modern planned cities  \\
+{\bfseries{Radial (Star/\+\+Crescent)}}  &Produces rounded European-\/style roads  &Paris, Moscow, baroque cities  \\
+{\bfseries{Delta (Triangle)}}  &Produces 3-\/way intersections, naturalistic style  &Organic growth, hillside towns  \\
+{\bfseries{Grid Corrective}}  &Straightens/\+gridifies radial/\+delta roads  &Hybrid planning (e.\+g., Washington DC)  \\
+\end{DoxyTable}
+\hypertarget{md__read_me_autotoc_md39}{}\doxysubsection{\texorpdfstring{Axiom Data Structure}{Axiom Data Structure}}\label{md__read_me_autotoc_md39}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keyword}{struct\ }AxiomInput\ \{}
+\DoxyCodeLine{\ \ \ \ \textcolor{keywordtype}{int}\ id;\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \textcolor{comment}{//\ Unique\ identifier}}
+\DoxyCodeLine{\ \ \ \ \textcolor{keywordtype}{int}\ type;\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \textcolor{comment}{//\ Axiom\ type\ index\ (Radial,\ Delta,\ Block,\ Grid)}}
+\DoxyCodeLine{\ \ \ \ CityModel::Vec2\ pos;\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \textcolor{comment}{//\ World\ position}}
+\DoxyCodeLine{\ \ \ \ \textcolor{keywordtype}{double}\ radius;\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \textcolor{comment}{//\ Influence\ radius\ (falloff\ bound)}}
+\DoxyCodeLine{\ \ \ \ InfluencerType\ influencer;\ \ \ \ \ \ \ \ \ \ \ \ \ \textcolor{comment}{//\ Optional\ district\ bias\ (Market,\ Harbor,\ etc.)}}
+\DoxyCodeLine{\};}
+
+\end{DoxyCode}
+
+
+Axioms generate a {\bfseries{tensor field}} that guides {\bfseries{streamline integration}} for road tracing.
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md41}{}\doxysection{\texorpdfstring{AESP Frontage System}{AESP Frontage System}}\label{md__read_me_autotoc_md41}
+\hypertarget{md__read_me_autotoc_md42}{}\doxysubsection{\texorpdfstring{Frontage Profile Components}{Frontage Profile Components}}\label{md__read_me_autotoc_md42}
+Roads are scored on four dimensions that determine adjacent land use:\+
+
+
+\begin{DoxyItemize}
+\item {\bfseries{Access (A)}}:\+ Ease of vehicular/\+pedestrian entry
+\item {\bfseries{Exposure (E)}}:\+ Visual prominence and visibility
+\item {\bfseries{Serviceability (S)}}:\+ Capacity for deliveries, utilities
+\item {\bfseries{Privacy (P)}}:\+ Seclusion from public thoroughfare
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md43}{}\doxysubsection{\texorpdfstring{Road Type → AESP Mapping}{Road Type → AESP Mapping}}\label{md__read_me_autotoc_md43}
+\hypertarget{md__read_me_autotoc_md44}{}\doxysubsubsection{\texorpdfstring{Major Roads (M\+\_\+\+Major)}{Major Roads (M\+\_\+\+Major)}}\label{md__read_me_autotoc_md44}
+
+\begin{DoxyTable}{3}{}{}{1}
+\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Type  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}AESP Score  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Characteristics  \\
+{\bfseries{Highway}}  &A:\+1.\+00, E:\+1.\+00, S:\+0.\+70, P:\+0.\+00  &Maximum access/\+exposure, zero privacy  \\
+{\bfseries{Arterial}}  &A:\+0.\+90, E:\+0.\+90, S:\+0.\+90, P:\+0.\+20  &High accessibility, balanced service  \\
+{\bfseries{Avenue}}  &A:\+0.\+80, E:\+0.\+80, S:\+0.\+80, P:\+0.\+50  &Balanced urban street  \\
+{\bfseries{Boulevard}}  &A:\+0.\+70, E:\+0.\+90, S:\+0.\+50, P:\+0.\+70  &High exposure, privacy emphasis  \\
+{\bfseries{Street}}  &A:\+0.\+80, E:\+0.\+50, S:\+0.\+80, P:\+0.\+80  &Residential balance  \\
+\end{DoxyTable}
+\hypertarget{md__read_me_autotoc_md45}{}\doxysubsubsection{\texorpdfstring{Minor Roads (M\+\_\+\+Minor)}{Minor Roads (M\+\_\+\+Minor)}}\label{md__read_me_autotoc_md45}
+
+\begin{DoxyTable}{3}{}{}{1}
+\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Type  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}AESP Score  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Characteristics  \\
+{\bfseries{Lane}}  &A:\+0.\+50, E:\+0.\+20, S:\+0.\+50, P:\+1.\+00  &Maximum privacy, limited exposure  \\
+{\bfseries{Alleyway}}  &A:\+0.\+30, E:\+0.\+10, S:\+1.\+00, P:\+0.\+70  &Service-\/focused, minimal visibility  \\
+{\bfseries{Cul-\/de-\/\+Sac}}  &A:\+0.\+30, E:\+0.\+20, S:\+0.\+50, P:\+1.\+00  &Residential seclusion  \\
+{\bfseries{Drive}}  &A:\+0.\+50, E:\+0.\+30, S:\+0.\+60, P:\+0.\+90  &Private access  \\
+{\bfseries{Driveway}}  &A:\+0.\+20, E:\+0.\+05, S:\+0.\+70, P:\+1.\+00  &Minimal public interface  \\
+\end{DoxyTable}
+
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md47}{}\doxysection{\texorpdfstring{District Classification}{District Classification}}\label{md__read_me_autotoc_md47}
+The generator converts {\bfseries{Frontage Profiles (AESP)}} into {\bfseries{district-\/type affinities}} using weighted formulas reflecting urban planning principles:\+\hypertarget{md__read_me_autotoc_md48}{}\doxysubsection{\texorpdfstring{District Type Formulas}{District Type Formulas}}\label{md__read_me_autotoc_md48}
+\hypertarget{md__read_me_autotoc_md49}{}\doxysubsubsection{\texorpdfstring{1. Mixed-\/\+Use:\+ 0.\+25(A + E + S + P) — Balanced}{1. Mixed-\/\+Use:\+ 0.\+25(A + E + S + P) — Balanced}}\label{md__read_me_autotoc_md49}
+
+\begin{DoxyItemize}
+\item {\bfseries{Character}}:\+ Versatile neighborhoods combining residential, commercial, light industrial
+\item {\bfseries{Buildings}}:\+ Mid-\/rise apartments with ground-\/floor retail, live-\/work lofts, mixed-\/use towers
+\item {\bfseries{Height}}:\+ 3-\/8 stories
+\item {\bfseries{Features}}:\+ Active street frontage, pedestrian-\/friendly, diverse architecture
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md50}{}\doxysubsubsection{\texorpdfstring{2. Residential:\+ 0.\+60P + 0.\+20A + 0.\+10S + 0.\+10E — Privacy-\/dominant}{2. Residential:\+ 0.\+60P + 0.\+20A + 0.\+10S + 0.\+10E — Privacy-\/dominant}}\label{md__read_me_autotoc_md50}
+
+\begin{DoxyItemize}
+\item {\bfseries{Character}}:\+ Housing-\/focused areas prioritizing privacy and quality of life
+\item {\bfseries{Buildings}}:\+ Single-\/family homes, townhouses, apartment complexes, condos
+\item {\bfseries{Height}}:\+ 1-\/6 stories
+\item {\bfseries{Features}}:\+ Setbacks with landscaping, lower density, recreational spaces
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md51}{}\doxysubsubsection{\texorpdfstring{3. Commercial:\+ 0.\+60E + 0.\+20A + 0.\+10S + 0.\+10P — Exposure-\/dominant}{3. Commercial:\+ 0.\+60E + 0.\+20A + 0.\+10S + 0.\+10P — Exposure-\/dominant}}\label{md__read_me_autotoc_md51}
+
+\begin{DoxyItemize}
+\item {\bfseries{Character}}:\+ Business and retail areas maximizing visibility and foot traffic
+\item {\bfseries{Buildings}}:\+ Storefronts, shopping centers, office buildings, hotels
+\item {\bfseries{Height}}:\+ 2-\/20+ stories
+\item {\bfseries{Features}}:\+ Large display windows, prominent signage, minimal setbacks
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md52}{}\doxysubsubsection{\texorpdfstring{4. Civic:\+ 0.\+50E + 0.\+20A + 0.\+10S + 0.\+20P — Exposure with privacy balance}{4. Civic:\+ 0.\+50E + 0.\+20A + 0.\+10S + 0.\+20P — Exposure with privacy balance}}\label{md__read_me_autotoc_md52}
+
+\begin{DoxyItemize}
+\item {\bfseries{Character}}:\+ Public/\+institutional areas serving community-\/wide functions
+\item {\bfseries{Buildings}}:\+ Government buildings, libraries, museums, schools, hospitals
+\item {\bfseries{Height}}:\+ 2-\/12 stories
+\item {\bfseries{Features}}:\+ Monumental architecture, plazas, symbolic design, accessibility
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md53}{}\doxysubsubsection{\texorpdfstring{5. Industrial:\+ 0.\+60S + 0.\+25A + 0.\+10E + 0.\+05P — Serviceability-\/dominant}{5. Industrial:\+ 0.\+60S + 0.\+25A + 0.\+10E + 0.\+05P — Serviceability-\/dominant}}\label{md__read_me_autotoc_md53}
+
+\begin{DoxyItemize}
+\item {\bfseries{Character}}:\+ Production, manufacturing, logistics areas requiring heavy service access
+\item {\bfseries{Buildings}}:\+ Warehouses, factories, distribution centers, utilities
+\item {\bfseries{Height}}:\+ 1-\/4 stories
+\item {\bfseries{Features}}:\+ Large footprints, truck access, rail sidings, utilitarian design
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md54}{}\doxysubsection{\texorpdfstring{Practical Application}{Practical Application}}\label{md__read_me_autotoc_md54}
+When processing a parcel, the lot generator:\+
+\begin{DoxyEnumerate}
+\item Queries nearest road type using distance-\/to-\/segment calculations
+\item Retrieves road\textquotesingle{}s frontage profile (A, E, S, P values)
+\item Applies district formulas to generate affinity scores
+\item Combines with axiom biases and influencer landmarks
+\item Uses classification to inform building height, setback, density, ground-\/floor use
+\end{DoxyEnumerate}
+
+{\bfseries{Emergent Result}}:\+ Buildings along highways exhibit industrial/\+commercial characteristics (high service, low privacy), while cul-\/de-\/sacs spawn residential structures (high privacy, low exposure).
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md56}{}\doxysection{\texorpdfstring{Multi-\/\+Level City Support}{Multi-\/\+Level City Support}}\label{md__read_me_autotoc_md56}
+\hypertarget{md__read_me_autotoc_md57}{}\doxysubsection{\texorpdfstring{Layered Graph Representation}{Layered Graph Representation}}\label{md__read_me_autotoc_md57}
+For cities with bridges, tunnels, and elevated structures, the system uses {\bfseries{layered graphs}}:\+
+
+
+\begin{DoxyItemize}
+\item {\bfseries{G = (V, E)}}:\+ Piecewise-\/linear graph embedded in ℝ²
+\item {\bfseries{ℓ :\+ E → ℕ}}:\+ Layer assignment oracle
+\item {\bfseries{Lᵢ = ℓ⁻¹(i)}}:\+ Set of edges on layer i
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md58}{}\doxysubsection{\texorpdfstring{Portals}{Portals}}\label{md__read_me_autotoc_md58}
+A {\bfseries{portal}} is a vertex shared by ≥2 layers (edges adjacent belong to different layers). Conceptually, there are {\ttfamily m} copies of ℝ², one per layer, glued together at portals. This layered space is denoted {\bfseries{L}}.
+
+{\bfseries{Key Innovation}}:\+ All computational steps occur within the multi-\/layer space {\bfseries{L}}, using portal-\/aware distance calculations. This ensures topological signatures and distance measurements account for bridges/\+tunnels rather than artificially flattening the network.
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md60}{}\doxysection{\texorpdfstring{Building \& Usage}{Building \& Usage}}\label{md__read_me_autotoc_md60}
+\hypertarget{md__read_me_autotoc_md61}{}\doxysubsection{\texorpdfstring{Prerequisites}{Prerequisites}}\label{md__read_me_autotoc_md61}
+
+\begin{DoxyItemize}
+\item {\bfseries{CMake 3.\+20+}}
+\item {\bfseries{C++20 compiler}} (MSVC 2022, GCC 11+, Clang 14+)
+\item {\bfseries{Git submodules}} (all dependencies are vendored in {\ttfamily 3rdparty/\+})
+\begin{DoxyItemize}
+\item GLM, Im\+Gui, GLFW, magic\+\_\+enum, sol2, etc.
+\end{DoxyItemize}
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md62}{}\doxysubsection{\texorpdfstring{Quick Start}{Quick Start}}\label{md__read_me_autotoc_md62}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\#\ Clone\ repository\ with\ submodules}
+\DoxyCodeLine{git\ clone\ -\/-\/recursive\ https://github.com/TheRogueNPC/RogueCities\_UrbanSpatialDesigner.git}
+\DoxyCodeLine{cd\ RogueCities\_UrbanSpatialDesigner}
+\DoxyCodeLine{}
+\DoxyCodeLine{\#\ Build\ core\ library}
+\DoxyCodeLine{cmake\ -\/B\ build\ -\/S\ .}
+\DoxyCodeLine{cmake\ -\/-\/build\ build\ -\/-\/target\ RogueCityCore\ -\/-\/config\ Release}
+\DoxyCodeLine{}
+\DoxyCodeLine{\#\ Run\ tests\ (Phase\ 4)}
+\DoxyCodeLine{ctest\ -\/-\/test-\/dir\ build\ -\/-\/output-\/on-\/failure}
+\DoxyCodeLine{}
+\DoxyCodeLine{\#\ Build\ full\ application\ (Phase\ 3+)}
+\DoxyCodeLine{cmake\ -\/-\/build\ build\ -\/-\/target\ RogueCityDesigner\ -\/-\/config\ Release}
+\DoxyCodeLine{./build/bin/RogueCityDesigner}
+
+\end{DoxyCode}
+\hypertarget{md__read_me_autotoc_md63}{}\doxysubsection{\texorpdfstring{Development Build (Core-\/\+Only)}{Development Build (Core-\/\+Only)}}\label{md__read_me_autotoc_md63}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\#\ Fast\ iteration\ during\ development}
+\DoxyCodeLine{cmake\ -\/B\ build\_core\ -\/S\ .\ -\/DBUILD\_CORE\_ONLY=ON}
+\DoxyCodeLine{cmake\ -\/-\/build\ build\_core\ -\/-\/target\ RogueCityCore\ -\/-\/config\ Release}
+
+\end{DoxyCode}
+
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md65}{}\doxysection{\texorpdfstring{Project Status}{Project Status}}\label{md__read_me_autotoc_md65}
+\hypertarget{md__read_me_autotoc_md66}{}\doxysubsection{\texorpdfstring{Current Phase:\+ {\bfseries{R0 Complete}} + {\bfseries{Phase 3 In Progress}} (Feb 6, 2026)}{Current Phase:\+ {\bfseries{R0 Complete}} + {\bfseries{Phase 3 In Progress}} (Feb 6, 2026)}}\label{md__read_me_autotoc_md66}
+
+\begin{DoxyTable}{4}{}{}{1}
+\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Phase  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Status  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Description  &\SetCell{c,bg=\tableheadbgcolor,font=\bfseries}Target Date  \\
+{\bfseries{Phase 1}}  &✅ {\bfseries{Complete}}  &Core data layer (Vec2, Tensor2D, AESP types)  &Feb 4  \\
+{\bfseries{Phase 2}}  &✅ {\bfseries{Complete}}  &Generators library (tensor fields, roads, districts)  &Feb 5-\/7  \\
+{\bfseries{Phase 3}}  &💭 {\bfseries{Functional-\/\+WIP}}  &Minimal Im\+Gui UI (axiom placement, visualization)  &Feb 8-\/10  \\
+{\bfseries{Phase 4}}  &⏳ In Progress  &Export system (JSON, OBJ, GLTF)  &Feb 11-\/12  \\
+{\bfseries{Phase 5}}  &🔜 Planned  &MVP polish, presets, documentation  &Feb 13-\/15  \\
+{\bfseries{R0}}  &✅ {\bfseries{Complete}}  &AI-\/assisted development integration (4 sub-\/phases)  &Feb 6  \\
+\end{DoxyTable}
+
+
+{\bfseries{R0 Integration}}:\+ AI Bridge + UI Agent + City\+Spec + Design Assistant ~\newline
+ {\bfseries{MVP Target}}:\+ February 15, 2026
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md68}{}\doxysection{\texorpdfstring{Research References}{Research References}}\label{md__read_me_autotoc_md68}
+\hypertarget{md__read_me_autotoc_md69}{}\doxysubsection{\texorpdfstring{Core Papers}{Core Papers}}\label{md__read_me_autotoc_md69}
+
+\begin{DoxyItemize}
+\item Chen et al. (2008) -\/ {\itshape Interactive Procedural Street Modeling}
+\item Parish \& Müller (2001) -\/ {\itshape Procedural Modeling of Cities}
+\item Lechner et al. (2003) -\/ {\itshape Tensor Fields for Interactive Procedural Content}
+\item Boeing (2021) -\/ {\itshape Street Network Analysis in Urban Form Studies}
+\end{DoxyItemize}\hypertarget{md__read_me_autotoc_md70}{}\doxysubsection{\texorpdfstring{Urban Planning Theory}{Urban Planning Theory}}\label{md__read_me_autotoc_md70}
+
+\begin{DoxyItemize}
+\item Jacobs, J. (1961) -\/ {\itshape The Death and Life of Great American Cities}
+\item Alexander, C. (1977) -\/ {\itshape A Pattern Language:\+ Towns, Buildings, Construction}
+\item Lynch, K. (1960) -\/ {\itshape The Image of the City}
+\end{DoxyItemize}
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md72}{}\doxysection{\texorpdfstring{License}{License}}\label{md__read_me_autotoc_md72}
+MIT License
+
+Copyright (c) 2026 Mariku (The\+Rogue\+NPC) /\+ Nefarious Crows Int
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md74}{}\doxysection{\texorpdfstring{Citation}{Citation}}\label{md__read_me_autotoc_md74}
+If you use this research or implementation in academic work, please cite:\+
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{@software\{roguecity2026,}
+\DoxyCodeLine{\ \ author\ =\ \{Mariku\ (TheRogueNPC)\},}
+\DoxyCodeLine{\ \ title\ =\ \{Rogue\ City\ Designer:\ Tensor\ Field-\/Guided\ Urban\ Spatial\ Generation\},}
+\DoxyCodeLine{\ \ year\ =\ \{2026\},}
+\DoxyCodeLine{\ \ publisher\ =\ \{GitHub\},}
+\DoxyCodeLine{\ \ url\ =\ \{https://github.com/TheRogueNPC/RogueCityMVP\}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+
+
+\DoxyHorRuler{0}
+\hypertarget{md__read_me_autotoc_md76}{}\doxysection{\texorpdfstring{Contact}{Contact}}\label{md__read_me_autotoc_md76}
+
+\begin{DoxyItemize}
+\item {\bfseries{Author}}:\+ Mariku (The\+Rogue\+NPC)
+\item {\bfseries{Organization}}:\+ Nefarious Crows Int
+\item {\bfseries{Email}}:\+ \href{mailto:Team.Crow@yahoo.com}{\texttt{Team.\+Crow@yahoo.\+com}}
+\item {\bfseries{Git\+Hub}}:\+ \href{https://github.com/TheRogueNPC}{\texttt{@\+The\+Rogue\+NPC}}
+\end{DoxyItemize}
+
+\DoxyHorRuler{0}
+ {\itshape "{}\+Cities are defined by their roads. From roads emerge parcels, lots, buildings, and ultimately districts. This structural view from urban morphology emphasizes how these elements create functional urban form."{}}\`{}\`{}\`{} 

@@ -127,6 +127,7 @@ goto collect
 
 :collect
 call :CollectExecutibles
+call :UpdateVisualizerShortcut
 
 echo.
 if "%BUILT_OK%"=="1" (
@@ -186,6 +187,7 @@ exit /b 0
 :PickSolution
 set "FALLBACK_SLN="
 
+if exist "%ROOT%build_vs\RogueCities.sln" (set "FALLBACK_SLN=%ROOT%build_vs\RogueCities.sln" & exit /b 0)
 if exist "%ROOT%build\RogueCityMVP.sln" (set "FALLBACK_SLN=%ROOT%build\RogueCityMVP.sln" & exit /b 0)
 if exist "%ROOT%build_core\RogueCityMVP.sln" (set "FALLBACK_SLN=%ROOT%build_core\RogueCityMVP.sln" & exit /b 0)
 if exist "%ROOT%build\core\RogueCityCore.sln" (set "FALLBACK_SLN=%ROOT%build\core\RogueCityCore.sln" & exit /b 0)
@@ -246,4 +248,24 @@ if exist "%OUT%" (
 
 copy /y "%EXE%" "!OUT!" >nul
 if not errorlevel 1 set /a COPIED+=1
+exit /b 0
+
+:UpdateVisualizerShortcut
+set "VIS_EXE=%ROOT%bin\RogueCityVisualizerGui.exe"
+set "VIS_SHORTCUT=%ROOT%RogueCityVisualizerGui.lnk"
+
+if not exist "%VIS_EXE%" exit /b 0
+
+where powershell >nul 2>nul
+if errorlevel 1 (
+  echo WARNING: PowerShell not found; could not create shortcut "%VIS_SHORTCUT%".
+  exit /b 0
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('%VIS_SHORTCUT%'); $S.TargetPath='%VIS_EXE%'; $S.WorkingDirectory='%ROOT%'; $S.IconLocation='%VIS_EXE%,0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
+if errorlevel 1 (
+  echo WARNING: Failed to update shortcut "%VIS_SHORTCUT%".
+) else (
+  echo Shortcut updated: "%VIS_SHORTCUT%"
+)
 exit /b 0

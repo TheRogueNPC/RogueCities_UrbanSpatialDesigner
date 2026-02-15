@@ -155,10 +155,8 @@ void DrawContent(float dt) {
 
 // Legacy window-owning draw (for backward compatibility)
 void Draw(float dt) {
-    using RogueCity::Core::Editor::GetGlobalState;
     using RogueCity::Core::Editor::GetEditorHFSM;
-    
-    auto& gs = GetGlobalState();
+
     auto& hfsm = GetEditorHFSM();
     
     // Panel visibility based on HFSM state (Cockpit Doctrine)

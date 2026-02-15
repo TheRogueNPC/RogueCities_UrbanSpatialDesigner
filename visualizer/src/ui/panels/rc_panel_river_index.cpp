@@ -23,32 +23,8 @@ const char* WaterTypeLabel(RogueCity::Core::WaterType type) {
     }
     return "Unknown";
 }
-} // namespace
 
-void Draw(float dt)
-{
-    (void)dt;
-    const bool open = Components::BeginTokenPanel("River Index", UITokens::InfoBlue);
-
-    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "River Index",
-            "River Index",
-            "index",
-            "Bottom",
-            "visualizer/src/ui/panels/rc_panel_river_index.cpp",
-            {"rivers", "index"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
+void DrawRiverIndexBody(RogueCity::UIInt::UiIntrospector& uiint) {
     const auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
     size_t river_count = 0;
@@ -101,8 +77,42 @@ void Draw(float dt)
     }
 
     uiint.RegisterWidget({"table", "Rivers", "rivers[]", {"index", "water"}});
+}
+} // namespace
+
+void Draw(float dt)
+{
+    (void)dt;
+    const bool open = Components::BeginTokenPanel("River Index", UITokens::InfoBlue);
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "River Index",
+            "River Index",
+            "index",
+            "Bottom",
+            "visualizer/src/ui/panels/rc_panel_river_index.cpp",
+            {"rivers", "index"}
+        },
+        open
+    );
+
+    if (!open) {
+        uiint.EndPanel();
+        Components::EndTokenPanel();
+        return;
+    }
+
+    DrawRiverIndexBody(uiint);
     uiint.EndPanel();
     Components::EndTokenPanel();
+}
+
+void DrawContent(float dt) {
+    (void)dt;
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    DrawRiverIndexBody(uiint);
 }
 
 } // namespace RC_UI::Panels::RiverIndex

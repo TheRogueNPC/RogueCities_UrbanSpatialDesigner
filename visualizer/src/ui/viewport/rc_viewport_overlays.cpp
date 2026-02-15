@@ -2,6 +2,7 @@
 // PURPOSE: Implementation of viewport overlays
 
 #include "ui/viewport/rc_viewport_overlays.h"
+#include "RogueCity/App/UI/ThemeManager.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -186,6 +187,9 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_gizmos) {
         RenderGizmos(gs);
     }
+
+    // Grid overlay (draw behind everything)
+    RenderGridOverlay(gs);
 
     RenderSelectionOutlines(gs);
     RenderHighlights();
@@ -1043,6 +1047,61 @@ void ViewportOverlays::RenderLotBoundaries(const RogueCity::Core::Editor::Global
             true, // Closed loop
             1.0f
         );
+    }
+}
+
+// Y2K Grid Overlay - 50px grid with themed color
+void ViewportOverlays::RenderGridOverlay(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (!gs.config.show_grid_overlay) {
+        return;
+    }
+    
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    auto& theme_mgr = ::RogueCity::UI::ThemeManager::Instance();
+    const auto& theme = theme_mgr.GetActiveTheme();
+    
+    // Grid in subtle primary accent (low alpha)
+    ImVec4 primary_accent = ImGui::ColorConvertU32ToFloat4(theme.primary_accent);
+    primary_accent.w = 0.15f;
+    ImU32 grid_color = ImGui::ColorConvertFloat4ToU32(primary_accent);
+    
+    // Grid spacing: 50px in world space (adjust per zoom if needed)
+    const double grid_spacing = 50.0;
+    
+    // Calculate visible bounds in world space
+    const ImVec2 viewport_min = view_transform_.viewport_pos;
+    const ImVec2 viewport_max = ImVec2(
+        viewport_min.x + view_transform_.viewport_size.x,
+        viewport_min.y + view_transform_.viewport_size.y
+    );
+    
+    // Compute world bounds from viewport (simple approximation)
+    // For proper implementation, invert camera projection
+    const double world_min_x = view_transform_.camera_xy.x - view_transform_.viewport_size.x / (2.0 * view_transform_.zoom);
+    const double world_max_x = view_transform_.camera_xy.x + view_transform_.viewport_size.x / (2.0 * view_transform_.zoom);
+    const double world_min_y = view_transform_.camera_xy.y - view_transform_.viewport_size.y / (2.0 * view_transform_.zoom);
+    const double world_max_y = view_transform_.camera_xy.y + view_transform_.viewport_size.y / (2.0 * view_transform_.zoom);
+    
+    // Snap to grid multiples
+    const int grid_start_x = static_cast<int>(std::floor(world_min_x / grid_spacing)) - 1;
+    const int grid_end_x = static_cast<int>(std::ceil(world_max_x / grid_spacing)) + 1;
+    const int grid_start_y = static_cast<int>(std::floor(world_min_y / grid_spacing)) - 1;
+    const int grid_end_y = static_cast<int>(std::ceil(world_max_y / grid_spacing)) + 1;
+    
+    // Draw vertical grid lines
+    for (int i = grid_start_x; i <= grid_end_x; ++i) {
+        const double world_x = static_cast<double>(i) * grid_spacing;
+        const ImVec2 p1 = WorldToScreen(RogueCity::Core::Vec2{world_x, world_min_y});
+        const ImVec2 p2 = WorldToScreen(RogueCity::Core::Vec2{world_x, world_max_y});
+        draw_list->AddLine(p1, p2, grid_color, 1.0f);
+    }
+    
+    // Draw horizontal grid lines
+    for (int i = grid_start_y; i <= grid_end_y; ++i) {
+        const double world_y = static_cast<double>(i) * grid_spacing;
+        const ImVec2 p1 = WorldToScreen(RogueCity::Core::Vec2{world_min_x, world_y});
+        const ImVec2 p2 = WorldToScreen(RogueCity::Core::Vec2{world_max_x, world_y});
+        draw_list->AddLine(p1, p2, grid_color, 1.0f);
     }
 }
 

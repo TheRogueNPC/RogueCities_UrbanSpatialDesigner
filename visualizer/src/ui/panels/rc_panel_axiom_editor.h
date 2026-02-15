@@ -24,6 +24,7 @@ void Shutdown();
 /// Render axiom editor panel with integrated viewport and tool
 void Draw(float dt);
 void DrawContent(float dt);
+void DrawAxiomLibraryContent();
 
 // Cross-panel access (Analytics + Tools strip)
 [[nodiscard]] RogueCity::App::AxiomPlacementTool* GetAxiomTool();

@@ -95,6 +95,7 @@ public:
     void RenderZoneField(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderValidationErrors(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderGizmos(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderGridOverlay(const RogueCity::Core::Editor::GlobalState& gs);
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_VIEWPORT_OVERLAYS
     void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs);

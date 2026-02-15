@@ -36,6 +36,17 @@ struct ViewportConfig {
     static constexpr float MAX_VIEWPORT_WIDTH = 8192.0f;
     static constexpr float MAX_VIEWPORT_HEIGHT = 8192.0f;
     
+    // Minimum panel sizes (for text legibility and control usability)
+    static constexpr float MIN_PANEL_WIDTH = 320.0f;
+    static constexpr float MIN_PANEL_HEIGHT = 240.0f;
+    
+    // Button safety margin (prevents cut-off at edges)
+    static constexpr float BUTTON_SAFE_MARGIN = 16.0f;
+    
+    // Recommended minimum viewport for full UI (below triggers warnings)
+    static constexpr float RECOMMENDED_VIEWPORT_WIDTH = 1280.0f;
+    static constexpr float RECOMMENDED_VIEWPORT_HEIGHT = 720.0f;
+    
     // Dock node validation thresholds
     static constexpr float MIN_DOCK_NODE_SIZE = 50.0f;
     

@@ -21,7 +21,6 @@ namespace RC_UI::Panels::WaterControl {
 void DrawContent(float dt)
 {
     using namespace RogueCity::Core::Editor;
-    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
     GlobalState& gs = GetGlobalState();
     static int selected_type = 0;

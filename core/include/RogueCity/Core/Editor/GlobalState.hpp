@@ -21,6 +21,17 @@
 
 namespace RogueCity::Core::Editor {
 
+    /// Editor configuration (persisted across sessions)
+    struct EditorConfig {
+        bool dev_mode_enabled{ false };  ///< Unlocks feature-gated panels (AI, experimental)
+        std::string active_theme{ "Default" };  ///< Active UI theme name
+        bool show_grid_overlay{ false };  ///< Viewport grid overlay toggle
+        float ui_scale{ 1.0f };  ///< Global UI scale multiplier
+        bool ui_multi_viewport_enabled{ false };  ///< Dear ImGui platform windows (opt-in stability policy)
+        bool ui_dpi_scale_fonts_enabled{ true };  ///< Dear ImGui font DPI scaling
+        bool ui_dpi_scale_viewports_enabled{ false };  ///< Dear ImGui viewport DPI scaling (opt-in)
+    };
+
     struct EditorParameters {
         uint32_t seed{ 1 };
         bool snap_to_grid{ true };
@@ -198,6 +209,7 @@ namespace RogueCity::Core::Editor {
         // Internal scratch buffers (do NOT expose directly to UI)
         civ::IndexVector<Vec2> scratch_points;
 
+        EditorConfig config{};  // Editor configuration (dev mode, theme, etc.)
         EditorParameters params{};
         CityGenerationParams generation{};
         GenerationStats generation_stats{};

@@ -22,6 +22,8 @@ private:
     std::mutex m_specMutex;
     std::string m_applyResult;
     bool m_applyError = false;
+    std::string m_generationStatus;
+    bool m_generationStatusError = false;
 };
 
 } // namespace RogueCity::UI

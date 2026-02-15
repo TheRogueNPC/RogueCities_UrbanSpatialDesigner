@@ -120,60 +120,89 @@ namespace {
 
 void DrawContent(float dt)
 {
+    (void)dt;
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    const ImVec2 start = ImGui::GetCursorScreenPos();
     const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float bar_height = std::clamp(avail.y, 32.0f, 46.0f);
-    if (bar_height < 32.0f || avail.x < 120.0f) {
-        EndWindowContainer();
-        uiint.EndPanel();
-        Components::EndTokenPanel();
+    if (avail.x < 180.0f || avail.y < 40.0f) {
+        ImGui::TextDisabled("Expand Tool Deck to access library controls.");
+        if (avail.x > 110.0f && ImGui::Button("Reset Dock Layout")) {
+            RC_UI::ResetDockLayout();
+        }
         return;
     }
 
-    const ImVec2 bar_end(start.x + avail.x, start.y + bar_height);
-    draw_list->AddRectFilled(start, bar_end, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.base), 22.0f);
+    const int tool_count = static_cast<int>(RC_UI::kToolLibraryOrder.size());
+    const float min_icon_size = 34.0f;
+    const float base_icon_size = 46.0f;
+    const float min_spacing = 6.0f;
 
-    ImGui::SetCursorScreenPos(ImVec2(start.x + 18.0f, start.y + (bar_height - 28.0f) * 0.5f));
-    static std::array<ReactiveF, RC_UI::kToolLibraryOrder.size()> chip_hover;
-    constexpr float kChipBaseWidth = 110.0f;
-    constexpr float kChipHoverExpansion = 30.0f;
-    const float chip_height = std::clamp(bar_height - 10.0f, 20.0f, 28.0f);
-    const ImVec2 chip_box(140.0f, chip_height);
+    float icon_size = base_icon_size;
+    float spacing = 10.0f;
+    const float preferred_width = tool_count * icon_size + (tool_count - 1) * spacing;
+    if (preferred_width > avail.x) {
+        icon_size = std::max(min_icon_size, (avail.x - (tool_count - 1) * min_spacing) / tool_count);
+        spacing = std::max(min_spacing, (avail.x - icon_size * tool_count) / std::max(1, tool_count - 1));
+    } else {
+        spacing = std::max(8.0f, (avail.x - icon_size * tool_count) / std::max(1, tool_count - 1));
+    }
 
     for (size_t i = 0; i < RC_UI::kToolLibraryOrder.size(); ++i) {
         const auto tool = RC_UI::kToolLibraryOrder[i];
         if (i > 0) {
-            ImGui::SameLine();
+            ImGui::SameLine(0.0f, spacing);
         }
         ImGui::PushID(static_cast<int>(i));
-        ImGui::InvisibleButton("ToolChip", chip_box);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            RC_UI::ToggleToolLibrary(tool);
+
+        ImGui::InvisibleButton("ToolChip", ImVec2(icon_size, icon_size));
+        const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        const bool double_clicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+        if (double_clicked && tool != RC_UI::ToolLibrary::Axiom) {
+            RC_UI::PopoutToolLibrary(tool);
+        } else if (clicked) {
+            RC_UI::ActivateToolLibrary(tool);
         }
+
         const char* label = ToolLabel(tool);
         uiint.RegisterWidget({"button", label, ToolActionId(tool), {"action", "nav"}});
         uiint.RegisterAction({ToolActionKey(tool), ToolActionLabel(tool), "Tool Deck", {}, "RC_UI::ToggleToolLibrary"});
-        chip_hover[i].target = ImGui::IsItemHovered() ? 1.0f : 0.0f;
-        chip_hover[i].Update(dt);
 
-        const ImVec2 chip_min = ImGui::GetItemRectMin();
-        const float chip_width = kChipBaseWidth + kChipHoverExpansion * chip_hover[i].v;
-        const ImVec2 chip_max(chip_min.x + chip_width, chip_min.y + chip_box.y);
-        draw_list->AddRectFilled(chip_min, chip_max, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.accent), 14.0f);
-        draw_list->AddText(ImVec2(chip_min.x + 30.0f, chip_min.y + (chip_box.y - 16.0f) * 0.5f),
-            ImGui::ColorConvertFloat4ToU32(ColorBG), label);
-        DrawToolIcon(draw_list, tool, ImVec2(chip_min.x + 14.0f, chip_min.y + chip_box.y * 0.5f), 12.0f);
+        const bool is_open = RC_UI::IsToolLibraryOpen(tool);
+        const bool is_popout = RC_UI::IsToolLibraryPopoutOpen(tool);
+        const bool hovered = ImGui::IsItemHovered();
+        const ImVec2 bmin = ImGui::GetItemRectMin();
+        const ImVec2 bmax = ImGui::GetItemRectMax();
+        const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+        const ImU32 fill = hovered
+            ? WithAlpha(UITokens::PanelBackground, 235u)
+            : WithAlpha(UITokens::PanelBackground, 210u);
+        const ImU32 border = is_popout
+            ? WithAlpha(UITokens::MagentaHighlight, 240u)
+            : (is_open ? WithAlpha(UITokens::CyanAccent, 230u) : WithAlpha(UITokens::TextSecondary, 170u));
+
+        draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
+        draw_list->AddRect(bmin, bmax, border, 8.0f, 0, is_open || is_popout ? 2.2f : 1.4f);
+        DrawToolIcon(draw_list, tool, center, icon_size * 0.44f);
+
+        if (hovered) {
+            if (tool == RC_UI::ToolLibrary::Axiom) {
+                ImGui::SetTooltip("%s\nClick: open shared library frame", label);
+            } else {
+                ImGui::SetTooltip("%s\nClick: open shared library frame\nDouble-click: popout clone", label);
+            }
+        }
         ImGui::PopID();
     }
-
+    ImGui::Spacing();
+    ImGui::TextDisabled("Click opens in library frame. Double-click pops out a duplicate.");
 }
 
 void Draw(float dt)
 {
-    const bool open = Components::BeginTokenPanel("Tool Deck", UITokens::CyanAccent);
+    static RC_UI::DockableWindowState s_tool_deck_window;
+    const bool open = RC_UI::BeginDockableWindow("Tool Deck", s_tool_deck_window, "ToolDeck", ImGuiWindowFlags_NoCollapse);
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
@@ -188,19 +217,11 @@ void Draw(float dt)
         open
     );
 
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
+    if (open) {
+        DrawContent(dt);
+        RC_UI::EndDockableWindow();
     }
-
-    BeginWindowContainer("##tool_deck_container");
-    
-    DrawContent(dt);
-    
-    EndWindowContainer();
     uiint.EndPanel();
-    Components::EndTokenPanel();
 }
 
 } // namespace RC_UI::Panels::AxiomBar

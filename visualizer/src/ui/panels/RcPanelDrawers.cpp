@@ -4,6 +4,8 @@
 
 #include "IPanelDrawer.h"
 #include "PanelRegistry.h"
+#include "RogueCity/Core/Editor/EditorState.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 
 // Include all existing panel headers
 #include "ui/panels/rc_panel_road_index.h"
@@ -23,6 +25,7 @@
 #include "ui/panels/rc_panel_inspector.h"
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/panels/rc_panel_dev_shell.h"
+#include "ui/panels/rc_panel_ui_settings.h"
 
 #if defined(ROGUE_AI_DLC_ENABLED)
 #include "ui/panels/rc_panel_ai_console.h"
@@ -100,8 +103,7 @@ namespace RiverIndex {
         std::vector<std::string> tags() const override { return {"index", "river", "water", "data"}; }
         
         void draw(DrawContext& ctx) override {
-            auto& panel = RC_UI::Panels::RiverIndex::GetPanel();
-            panel.DrawContent(ctx.global_state, ctx.introspector);
+            RC_UI::Panels::RiverIndex::DrawContent(ctx.dt);
         }
     };
     
@@ -350,6 +352,23 @@ namespace DevShell {
     IPanelDrawer* CreateDrawer() { return new Drawer(); }
 }
 
+namespace UISettings {
+    class Drawer : public IPanelDrawer {
+    public:
+        PanelType type() const override { return PanelType::UISettings; }
+        const char* display_name() const override { return "UI Settings"; }
+        PanelCategory category() const override { return PanelCategory::System; }
+        const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_ui_settings.cpp"; }
+        std::vector<std::string> tags() const override { return {"system", "settings", "theme", "ui"}; }
+        
+        void draw(DrawContext& ctx) override {
+            RC_UI::Panels::UiSettings::DrawContent(ctx.dt);
+        }
+    };
+    
+    IPanelDrawer* CreateDrawer() { return new Drawer(); }
+}
+
 // ============================================================================
 // AI PANEL DRAWERS (Feature-gated)
 // ============================================================================
@@ -357,6 +376,9 @@ namespace DevShell {
 #if defined(ROGUE_AI_DLC_ENABLED)
 
 namespace AiConsole {
+    // Forward declare the panel content function
+    void DrawContent(float dt);
+    
     class Drawer : public IPanelDrawer {
     public:
         PanelType type() const override { return PanelType::AiConsole; }
@@ -364,12 +386,13 @@ namespace AiConsole {
         PanelCategory category() const override { return PanelCategory::AI; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_ai_console.cpp"; }
         std::vector<std::string> tags() const override { return {"ai", "console", "bridge"}; }
+
+        bool is_visible(DrawContext& ctx) const override {
+            return ctx.global_state.config.dev_mode_enabled;
+        }
         
         void draw(DrawContext& ctx) override {
-            // AI Console uses Render() method - needs adaptation
-            // TODO: Refactor AiConsolePanel to use DrawContent pattern
-            static RogueCity::UI::AiConsolePanel instance;
-            instance.RenderContent(); // Will need to add this method
+            DrawContent(ctx.dt);
         }
     };
     
@@ -377,6 +400,9 @@ namespace AiConsole {
 }
 
 namespace UiAgent {
+    // Forward declare the panel content function
+    void DrawContent(float dt);
+    
     class Drawer : public IPanelDrawer {
     public:
         PanelType type() const override { return PanelType::UiAgent; }
@@ -384,10 +410,13 @@ namespace UiAgent {
         PanelCategory category() const override { return PanelCategory::AI; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_ui_agent.cpp"; }
         std::vector<std::string> tags() const override { return {"ai", "ui", "assistant"}; }
+
+        bool is_visible(DrawContext& ctx) const override {
+            return ctx.global_state.config.dev_mode_enabled;
+        }
         
         void draw(DrawContext& ctx) override {
-            static RogueCity::UI::UiAgentPanel instance;
-            instance.RenderContent(); // Will need to add this method
+            DrawContent(ctx.dt);
         }
     };
     
@@ -395,6 +424,9 @@ namespace UiAgent {
 }
 
 namespace CitySpec {
+    // Forward declare the panel content function
+    void DrawContent(float dt);
+    
     class Drawer : public IPanelDrawer {
     public:
         PanelType type() const override { return PanelType::CitySpec; }
@@ -402,10 +434,13 @@ namespace CitySpec {
         PanelCategory category() const override { return PanelCategory::AI; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_city_spec.cpp"; }
         std::vector<std::string> tags() const override { return {"ai", "cityspec", "generator"}; }
+
+        bool is_visible(DrawContext& ctx) const override {
+            return ctx.global_state.config.dev_mode_enabled;
+        }
         
         void draw(DrawContext& ctx) override {
-            static RogueCity::UI::CitySpecPanel instance;
-            instance.RenderContent(); // Will need to add this method
+            DrawContent(ctx.dt);
         }
     };
     

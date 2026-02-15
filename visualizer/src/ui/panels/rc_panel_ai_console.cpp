@@ -3,8 +3,10 @@
 
 #include "rc_panel_ai_console.h"
 #include "runtime/AiBridgeRuntime.h"
+#include "runtime/AiAvailability.h"
 #include "config/AiConfig.h"
 #include "RogueCity/App/UI/DesignSystem.h"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
@@ -13,8 +15,87 @@
 
 namespace RogueCity::UI {
 
+// === UNLOCK FEATURES MOCK UI ===
+static void DrawUnlockFeaturesMock() {
+    auto& gs = Core::Editor::GetGlobalState();
+    
+    // Y2K styled lock icon area
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, DesignSystem::ToVec4(DesignTokens::PanelBackground));
+    ImGui::BeginChild("LockArea", ImVec2(0, 120), true, ImGuiWindowFlags_NoScrollbar);
+    
+    ImGui::SetCursorPosY(20);
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Increase font size if available
+    
+    const char* lockIcon = "[ LOCKED ]";
+    ImVec2 textSize = ImGui::CalcTextSize(lockIcon);
+    ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - textSize.x) * 0.5f);
+    ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
+    ImGui::Text("%s", lockIcon);
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+    
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+    
+    DesignSystem::Separator();
+    DesignSystem::SectionHeader("AI Bridge Unavailable");
+    
+    const char* reason = AI::AiAvailability::GetUnavailableReason();
+    if (reason && reason[0]) {
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::ErrorRed));
+        ImGui::TextWrapped("Reason: %s", reason);
+        ImGui::PopStyleColor();
+        DesignSystem::Separator();
+    }
+    
+    ImGui::TextWrapped("AI features require additional dependencies:");
+
+    ImGui::TextWrapped("AI features require additional dependencies:");
+    ImGui::Spacing();
+    ImGui::Bullet(); ImGui::Text("Python 3.10+ with FastAPI");
+    ImGui::Bullet(); ImGui::Text("WinHTTP.dll (Windows HTTP Services)");
+    ImGui::Bullet(); ImGui::Text("AI Bridge toolserver (tools/toolserver.py)");
+    ImGui::Spacing();
+    
+    DesignSystem::Separator();
+    
+    ImGui::TextWrapped("Enable Dev Mode in the Dev Shell panel to unlock AI features (requires runtime dependencies).");
+    ImGui::Spacing();
+    
+    if (gs.config.dev_mode_enabled) {
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::SuccessGreen));
+        ImGui::Text("Dev Mode: ENABLED");
+        ImGui::PopStyleColor();
+        ImGui::TextWrapped("AI features unlocked but dependencies are missing. Install Python and run Start_Ai_Bridge_Fixed.ps1");
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::TextSecondary));
+        ImGui::Text("Dev Mode: DISABLED");
+        ImGui::PopStyleColor();
+    }
+}
+
 void AiConsolePanel::RenderContent() {
+    auto& gs = Core::Editor::GetGlobalState();
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    
+    // Check availability first
+    bool ai_available = AI::AiAvailability::IsAvailable();
+    bool unlocked = gs.config.dev_mode_enabled || ai_available;
+    
+    if (!unlocked) {
+        DrawUnlockFeaturesMock();
+        return;
+    }
+    
+    if (!ai_available) {
+        // Dev mode enabled but dependencies missing
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
+        ImGui::TextWrapped("Dev Mode enabled but AI bridge dependencies not found.");
+        ImGui::PopStyleColor();
+        DesignSystem::Separator();
+        DrawUnlockFeaturesMock();
+        return;
+    }
     
     auto& runtime = AI::AiBridgeRuntime::Instance();
     auto& config = AI::AiConfigManager::Instance().GetConfig();
@@ -115,3 +196,14 @@ void AiConsolePanel::Render() {
 }
 
 } // namespace RogueCity::UI
+
+// === NAMESPACE-LEVEL DRAW FUNCTION FOR DRAWER PATTERN ===
+namespace RC_UI::Panels::AiConsole {
+
+void DrawContent(float dt) {
+    // Reuse the class method for now
+    static RogueCity::UI::AiConsolePanel panel_instance;
+    panel_instance.RenderContent();
+}
+
+} // namespace RC_UI::Panels::AiConsole

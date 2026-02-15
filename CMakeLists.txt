@@ -138,6 +138,14 @@ if(EXISTS "${SOL2_DIR}/include/sol/sol.hpp")
     set(ROGUECITY_LUA_VENDORED_SRC_DIR "${ROGUECITY_LUA_VENDORED_DIR}/src")
     if(EXISTS "${ROGUECITY_LUA_VENDORED_DIR}/CMakeLists.txt" AND EXISTS "${ROGUECITY_LUA_VENDORED_SRC_DIR}/lua.h")
         add_subdirectory(${ROGUECITY_LUA_VENDORED_DIR} EXCLUDE_FROM_ALL)
+        if(TARGET lua_548)
+            # Third-party warning noise should not pollute project warning hygiene.
+            if(MSVC)
+                target_compile_options(lua_548 PRIVATE /W0)
+            else()
+                target_compile_options(lua_548 PRIVATE -w)
+            endif()
+        endif()
         set(LUA_FOUND TRUE)
         set(LUA_INCLUDE_DIRS "${ROGUECITY_LUA_VENDORED_SRC_DIR}")
         set(LUA_LIBRARIES lua::lua)
@@ -211,11 +219,17 @@ if(ROGUEUI_ENFORCE_DESIGN_SYSTEM)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/check_ui_compliance.py"
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
             COMMENT "Checking UI token/wrapper compliance")
+        add_custom_target(check_imgui_contracts ALL
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/check_imgui_contracts.py"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Checking ImGui input/ID/window ownership contracts")
         if(TARGET RogueCityVisualizerGui)
             add_dependencies(RogueCityVisualizerGui check_ui_compliance)
+            add_dependencies(RogueCityVisualizerGui check_imgui_contracts)
         endif()
         if(TARGET RogueCityVisualizerHeadless)
             add_dependencies(RogueCityVisualizerHeadless check_ui_compliance)
+            add_dependencies(RogueCityVisualizerHeadless check_imgui_contracts)
         endif()
     endif()
 else()

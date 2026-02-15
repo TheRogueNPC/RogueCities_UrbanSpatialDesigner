@@ -46,9 +46,6 @@ void CitySpecPanel::RenderContent() {
         ImGui::Text("AI Bridge offline - start it in AI Console");
         ImGui::PopStyleColor();
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
-        uiint.EndPanel();
-        RC_UI::EndUnifiedTextWrap();
-        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -67,18 +64,38 @@ void CitySpecPanel::RenderContent() {
     if (DesignSystem::ButtonPrimary("Generate CitySpec", ImVec2(180, 30))) {
         if (!m_processing.exchange(true)) {
             m_busyTime = 0.0f;
+            {
+                std::scoped_lock lock(m_specMutex);
+                m_generationStatus = "Generating...";
+                m_generationStatusError = false;
+            }
 
             std::string desc = std::string(m_descBuffer);
             std::string scaleStr = scales[m_scaleIndex];
-            std::transform(scaleStr.begin(), scaleStr.end(), scaleStr.begin(), ::tolower);
+            std::transform(scaleStr.begin(), scaleStr.end(), scaleStr.begin(),
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
             std::thread([this, desc, scaleStr]() {
-                Core::CitySpec spec = AI::CitySpecClient::GenerateSpec(desc, scaleStr);
-                bool hasSpec = !spec.intent.description.empty();
-                {
+                try {
+                    Core::CitySpec spec = AI::CitySpecClient::GenerateSpec(desc, scaleStr);
+                    bool hasSpec = !spec.intent.description.empty();
+                    {
+                        std::scoped_lock lock(m_specMutex);
+                        m_currentSpec = std::move(spec);
+                        m_hasSpec = hasSpec;
+                        m_generationStatus = hasSpec
+                            ? "CitySpec generated successfully."
+                            : "CitySpec request returned no usable data.";
+                        m_generationStatusError = !hasSpec;
+                    }
+                } catch (const std::exception& e) {
                     std::scoped_lock lock(m_specMutex);
-                    m_currentSpec = std::move(spec);
-                    m_hasSpec = hasSpec;
+                    m_generationStatus = std::string("CitySpec generation failed: ") + e.what();
+                    m_generationStatusError = true;
+                } catch (...) {
+                    std::scoped_lock lock(m_specMutex);
+                    m_generationStatus = "CitySpec generation failed: unknown exception";
+                    m_generationStatusError = true;
                 }
                 m_processing = false;
             }).detach();
@@ -87,6 +104,17 @@ void CitySpecPanel::RenderContent() {
     ImGui::EndDisabled();
     uiint.RegisterWidget({"button", "Generate CitySpec", "action:ai.city_spec.generate", {"action", "ai", "city_spec"}});
     uiint.RegisterAction({"ai.city_spec.generate", "Generate CitySpec", "City Spec Generator", {"ai", "city_spec"}, "AI::CitySpecClient::GenerateSpec"});
+
+    std::string generation_status_copy;
+    bool generation_status_error_copy = false;
+    {
+        std::scoped_lock lock(m_specMutex);
+        generation_status_copy = m_generationStatus;
+        generation_status_error_copy = m_generationStatusError;
+    }
+    if (!generation_status_copy.empty()) {
+        DesignSystem::StatusMessage(generation_status_copy.c_str(), generation_status_error_copy);
+    }
     
     Core::CitySpec specCopy;
     bool hasSpecCopy = false;
@@ -205,3 +233,14 @@ void CitySpecPanel::Render() {
 }
 
 } // namespace RogueCity::UI
+
+// === NAMESPACE-LEVEL DRAW FUNCTION FOR DRAWER PATTERN ===
+namespace RC_UI::Panels::CitySpec {
+
+void DrawContent(float dt) {
+    // Reuse the class method for now
+    static RogueCity::UI::CitySpecPanel panel_instance;
+    panel_instance.RenderContent();
+}
+
+} // namespace RC_UI::Panels::CitySpec

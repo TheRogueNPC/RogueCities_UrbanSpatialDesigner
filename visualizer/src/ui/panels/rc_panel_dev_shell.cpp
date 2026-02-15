@@ -6,6 +6,7 @@
 #include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 
 #include <imgui.h>
 #include <atomic>
@@ -35,6 +36,10 @@ namespace {
     static std::atomic<bool> s_designBusy{false};
     static std::mutex s_designMutex;
     static std::string s_designStatus;
+    static bool s_show_metrics_window = false;
+    static bool s_show_debug_log_window = false;
+    static bool s_show_id_stack_tool_window = false;
+    static bool s_debug_begin_return_value_loop = false;
 
     static std::string TimestampForFilename() {
         using namespace std::chrono;
@@ -63,8 +68,51 @@ void Toggle() {
 
 void DrawContent(float /*dt*/)
 {
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
+    // ======================================================================
+    // DEV MODE FEATURE TOGGLE (unlocks AI panels and experimental features)
+    // ======================================================================
+    ImGui::PushStyleColor(ImGuiCol_Header, ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
+    if (ImGui::CollapsingHeader("Developer Mode", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::PopStyleColor();
+        
+        bool dev_mode_changed = ImGui::Checkbox("Enable Dev Mode", &gs.config.dev_mode_enabled);
+        uiint.RegisterWidget({"checkbox", "Enable Dev Mode", "dev.mode_enabled", {"dev", "features"}});
+        
+        if (dev_mode_changed) {
+            if (gs.config.dev_mode_enabled) {
+                std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Dev Mode ENABLED - AI features unlocked");
+            } else {
+                std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Dev Mode DISABLED - AI features locked");
+            }
+            s_lastError[0] = '\0';
+        }
+        
+        ImGui::SameLine();
+        if (gs.config.dev_mode_enabled) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen));
+            ImGui::Text(" [ACTIVE]");
+            ImGui::PopStyleColor();
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
+            ImGui::Text(" [INACTIVE]");
+            ImGui::PopStyleColor();
+        }
+        
+        ImGui::Spacing();
+        ImGui::TextWrapped("Dev Mode unlocks feature-gated panels (AI Console, UI Agent, City Spec) and experimental tools. Requires AI bridge dependencies at runtime.");
+        ImGui::Spacing();
+    } else {
+        ImGui::PopStyleColor();
+    }
+    
+    ImGui::Separator();
+    
+    // ======================================================================
+    // UI INTROSPECTION EXPORT
+    // ======================================================================
     ImGui::TextUnformatted("UI Introspection Export");
     ImGui::Checkbox("Include dock_tree", &s_includeDockTree);
     ImGui::InputText("Output dir", s_outputDir, sizeof(s_outputDir));
@@ -180,6 +228,23 @@ void DrawContent(float /*dt*/)
         io.KeyCtrl ? 1 : 0, io.KeyShift ? 1 : 0, io.KeyAlt ? 1 : 0,
         io.WantCaptureMouse ? 1 : 0, io.WantCaptureKeyboard ? 1 : 0);
     ImGui::Text("WantTextInput: %d", io.WantTextInput ? 1 : 0);
+    const auto& input_gate = RC_UI::GetUiInputGateState();
+    ImGui::Text("Input Gate: mouse=%d key=%d",
+        input_gate.allow_viewport_mouse_actions ? 1 : 0,
+        input_gate.allow_viewport_key_actions ? 1 : 0);
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("ImGui Diagnostics");
+    ImGui::Checkbox("Show Metrics Window", &s_show_metrics_window);
+    ImGui::Checkbox("Show Debug Log Window", &s_show_debug_log_window);
+    ImGui::Checkbox("Show ID Stack Tool", &s_show_id_stack_tool_window);
+    if (ImGui::Checkbox("Debug Begin/BeginChild Return Loop", &s_debug_begin_return_value_loop)) {
+        io.ConfigDebugBeginReturnValueLoop = s_debug_begin_return_value_loop;
+    }
+    uiint.RegisterWidget({"checkbox", "Show Metrics Window", "dev.imgui.metrics", {"dev", "imgui"}});
+    uiint.RegisterWidget({"checkbox", "Show Debug Log Window", "dev.imgui.debug_log", {"dev", "imgui"}});
+    uiint.RegisterWidget({"checkbox", "Show ID Stack Tool", "dev.imgui.id_stack", {"dev", "imgui"}});
+    uiint.RegisterWidget({"checkbox", "Debug Begin/BeginChild Return Loop", "dev.imgui.begin_return_loop", {"dev", "imgui"}});
 
     ImGui::Separator();
     ImGui::TextUnformatted("UI Design Assistant");
@@ -225,6 +290,16 @@ void DrawContent(float /*dt*/)
         if (!s_designStatus.empty()) {
             ImGui::TextWrapped("%s", s_designStatus.c_str());
         }
+    }
+
+    if (s_show_metrics_window) {
+        ImGui::ShowMetricsWindow(&s_show_metrics_window);
+    }
+    if (s_show_debug_log_window) {
+        ImGui::ShowDebugLogWindow(&s_show_debug_log_window);
+    }
+    if (s_show_id_stack_tool_window) {
+        ImGui::ShowIDStackToolWindow(&s_show_id_stack_tool_window);
     }
 
 }

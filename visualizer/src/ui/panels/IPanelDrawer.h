@@ -9,7 +9,7 @@
 #include <cstdint>
 
 namespace RogueCity::Core::Editor {
-    class GlobalState;
+    struct GlobalState;
     class EditorHFSM;
 }
 
@@ -48,13 +48,14 @@ enum class PanelType : uint8_t {
     AxiomBar,
     AxiomEditor,
     
-    // System (6)
+    // System (7)
     Telemetry,
     Log,
     Tools,
     Inspector,
     SystemMap,
     DevShell,
+    UISettings,
     
     // AI (3) - feature-gated
     AiConsole,

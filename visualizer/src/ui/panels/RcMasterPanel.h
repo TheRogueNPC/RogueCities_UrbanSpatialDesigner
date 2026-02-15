@@ -50,6 +50,7 @@ private:
     // State
     PanelType m_active_panel = PanelType::RoadIndex;  // Default to first index panel
     PanelCategory m_active_category = PanelCategory::Indices;
+    PanelType m_context_menu_target = PanelType::RoadIndex;  // For right-click context menu
     
     // Popout tracking (true = floating window, false = embedded)
     std::unordered_map<PanelType, bool> m_popout_states;

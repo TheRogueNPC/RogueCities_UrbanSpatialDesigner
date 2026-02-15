@@ -23,40 +23,10 @@ static bool s_is_generating = false;
 static float s_gen_start_time = 0.0f;
 static RogueCity::App::Integration::ZoningBridge s_zoning_bridge;
 
-void Draw(float dt)
+void DrawContent(float dt)
 {
     using namespace RogueCity::Core::Editor;
-    
-    // State-reactive: Only show if in LotSubdivision mode
-    EditorHFSM& hfsm = GetEditorHFSM();
-    if (hfsm.state() != EditorState::Editing_Lots) {
-        return;
-    }
-    
-    const bool open = Components::BeginTokenPanel(
-        "Lot Subdivision Control",
-        UITokens::SuccessGreen,
-        nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize);
-    
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Lot Subdivision Control",
-            "LotControl",
-            "lot_subdivision",
-            "Right",
-            "visualizer/src/ui/panels/rc_panel_lot_control.cpp",
-            {"generation", "lot", "controls"}
-        },
-        open
-    );
-    
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
     
     // === Parameters Section ===
     ImGui::SeparatorText("Lot Parameters");

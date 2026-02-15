@@ -135,10 +135,11 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
 }
 
 bool AxiomVisual::is_hovered(const Core::Vec2& world_pos, float world_radius) const {
-    const float dx = world_pos.x - position_.x;
-    const float dy = world_pos.y - position_.y;
-    const float dist_sq = dx * dx + dy * dy;
-    return dist_sq <= (world_radius * world_radius);
+    const double dx = world_pos.x - position_.x;
+    const double dy = world_pos.y - position_.y;
+    const double dist_sq = dx * dx + dy * dy;
+    const double radius_sq = static_cast<double>(world_radius) * static_cast<double>(world_radius);
+    return dist_sq <= radius_sq;
 }
 
 RingControlKnob* AxiomVisual::get_hovered_knob(const Core::Vec2& world_pos) {
@@ -235,14 +236,14 @@ void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewp
     const ImVec2 screen_pos = viewport.world_to_screen(world_position);
     
     // RC-0.09-Test P1: Golden ratio sizing (30% icon, 60% spacing, 10% vignette)
-    const float base_knob_size = 6.0f;
     const float ring_thickness = 10.0f;  // Visual ring thickness in screen space
     const float icon_size = ring_thickness * 0.3f;  // 30% for icon
     
     // Pulsing hover effect with 1.5x snap radius
     float pulse = 1.0f;
     if (is_hovered || is_dragging) {
-        pulse = 1.0f + 0.2f * sinf(ImGui::GetTime() * 5.0f);  // Pulse at 5Hz
+        const float t = static_cast<float>(ImGui::GetTime());
+        pulse = 1.0f + 0.2f * sinf(t * 5.0f);  // Pulse at 5Hz
     }
     const float knob_size = is_hovered ? icon_size * pulse * 1.5f : icon_size;
 
@@ -263,10 +264,10 @@ void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewp
 
 bool RingControlKnob::check_hover(const Core::Vec2& world_pos, float world_radius) {
     // RC-0.09-Test P1: 1.5x snap radius for easier interaction
-    const float snap_radius = world_radius * 1.5f;
-    const float dx = world_pos.x - world_position.x;
-    const float dy = world_pos.y - world_position.y;
-    const float dist_sq = dx * dx + dy * dy;
+    const double snap_radius = static_cast<double>(world_radius) * 1.5;
+    const double dx = world_pos.x - world_position.x;
+    const double dy = world_pos.y - world_position.y;
+    const double dist_sq = dx * dx + dy * dy;
     is_hovered = dist_sq <= (snap_radius * snap_radius);
     return is_hovered;
 }

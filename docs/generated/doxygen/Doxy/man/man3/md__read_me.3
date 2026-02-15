@@ -1,0 +1,416 @@
+.TH "md__read_me" 3 "Version R.0.0.08A" "RogueCities" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+md__read_me \- Rogue City Designer 
+.PP
+
+.SS "An Urban Spatial City Generator"
+\fR\fP \fR\fP [](LICENSE) \fR\fP
+
+.PP
+.RS 4
+\fBProcedural city generation through tensor field-guided street networks, AESP-based district classification, and topological street analysis\fP 
+.RE
+.PP
+
+.PP
+.PP
+.SH "R0 Release: AI-Assisted Development Integration ✨"
+.PP
+.RS 4
+\fBNEW\fP: Integrated AI assistant for layout optimization, city design, and code refactoring 
+.RE
+.PP
+.SS "What's New in R0"
+\fB🤖 AI Bridge System\fP - One-click AI assistant startup with automatic PowerShell detection and health monitoring
+
+.PP
+\fB🎨 UI Agent\fP - Natural language UI layout optimization ("optimize layout for road editing") with real-time command generation
+
+.PP
+\fB🏙️ CitySpec Generator\fP - AI-driven city design from natural language descriptions ("a coastal tech city with dense downtown")
+
+.PP
+\fB🔧 Design Assistant\fP - Code-shape aware refactoring suggestions with pattern extraction and architecture analysis
+
+.PP
+\fB📊 Pattern Catalog\fP - Canonical UI patterns (InspectorPanel<T>, DataIndexPanel<T>) with AI-guided refactoring opportunities
+
+.PP
+\fBStatus\fP: All 4 phases complete • Build: Passing • Integration: Working-WIP not all tools are properly hooked in yet, but the AI bridge and clients are functional\&.
+
+.PP
+\fB→ Read Full AI Integration Documentation\fP
+
+.PP
+.PP
+.SH "Abstract"
+.PP
+Cities function as \fBcomplex adaptive systems\fP formed through the interplay of decentralized bottom-up self-organization and centralized top-down planning interventions\&. \fBRogue City Designer\fP is a procedural generation framework that models this duality through:
+
+.PP
+.IP "1." 4
+\fBTensor field axioms\fP encoding top-down planning intent (radial, grid, organic)
+.IP "2." 4
+\fBAESP-based district emergence\fP from road network topology (Access, Exposure, Serviceability, Privacy)
+.IP "3." 4
+\fBMulti-scale street analysis\fP using persistent homology and grid quality metrics
+.IP "4." 4
+\fBLayered graph support\fP for bridges, tunnels, and grade-separated infrastructure
+.PP
+
+.PP
+Unlike traditional square-grid generators, this system produces \fBcoherent, believable urban environments\fP ranging from rigid Manhattan-style grids to organic European networks, based on axiom configuration and urban complexity principles\&.
+
+.PP
+.PP
+.SH "Research Foundation"
+.PP
+.SS "Urban Complexity Framework"
+Cities exhibit **organized complexity**—a balance between chaos (overstimulation, incoherence) and order (sterility, monotony)\&. The framework evaluates this balance through:
+
+.PP
+.IP "\(bu" 2
+\fBNetwork Density\fP: Nodes, intersections, edges per unit area
+.IP "\(bu" 2
+\fBNetwork Resilience\fP: Functionality under disruption (blocked streets, damage)
+.IP "\(bu" 2
+\fBNetwork Connectedness\fP: Path diversity, permeability, routing options
+.PP
+.SS "Grid Quality Metrics"
+The generator evaluates street networks using a \fBcomposite grid index\fP balancing four components:
+.SS "1\&. Straightness (ς)"
+$$\\varsigma = \\frac{\\text{average great-circle distance}}{\\text{average segment length}}$$
+
+.PP
+Measures how closely streets approximate straight lines, affecting navigation efficiency and visual coherence\&.
+.SS "2\&. Orientation Order (Φ)"
+Analyzes internal consistency of street orientations through:
+.IP "1." 4
+Calculate bidirectional compass bearings of every street
+.IP "2." 4
+Compute street orientation entropy
+.IP "3." 4
+Normalize as orientation order indicator
+.PP
+
+.PP
+High order → consistent grid patterns (Manhattan) 
+.br
+ Low order → organic networks (medieval European)
+.SS "3\&. Terrain Adaptation"
+Evaluates variance and inconsistency as roads adapt to slopes, elevation changes, and natural obstacles\&.
+.SS "4\&. Four-Way Intersection Proportion (I)"
+$$I = \\frac{\\text{four-way intersections}}{\\text{total intersections}}$$
+
+.PP
+Tracks the share of nodes that are four-way junctions, influencing traffic flow and grid character\&.
+
+.PP
+\fBComposite Grid Index:\fP
+
+.PP
+$$\\text{GridIndex} = (\\varsigma \\times \\Phi \\times I)^{1/3}$$
+
+.PP
+The geometric mean ensures non-compensatory aggregation—poor performance in any component significantly impacts the final score\&.
+
+.PP
+.PP
+.SH "System Architecture"
+.PP
+.SS "Pipeline Overview"
+.PP
+.nf
+User Axioms → Tensor Field → Streamline Tracing → Road Network → 
+Block Extraction → District Classification (AESP) → Lot Subdivision → 
+Building Site Placement → Export (JSON/OBJ)
+.fi
+.PP
+.SS "Layer Structure"
+.PP
+.nf
+core/          Pure data structures (Vec2, Tensors, AESP types)
+               ├─ Zero UI dependencies
+               └─ Fast builds (~20 seconds)
+
+generators/    Generation algorithms (tensor fields, roads, districts)
+               ├─ Tensor field generation from axioms
+               ├─ Streamline integration (RK4)
+               ├─ AESP district classification
+               └─ OBB lot subdivision
+
+app/           ImGui\-based interactive editor
+               ├─ Axiom placement UI
+               ├─ Real\-time visualization
+               └─ Export workflows
+.fi
+.PP
+
+.PP
+.PP
+.SH "Axiom System"
+.PP
+.SS "Axiom Types"
+Users place \fBaxioms\fP as representations of geographical topology to guide road network generation:
+
+.PP
+Axiom Type  Effect  Use Case  \fBBlock\fP  Produces 4-way intersections, grid-style roads  Manhattan, Chicago, modern planned cities  \fBRadial (Star/Crescent)\fP  Produces rounded European-style roads  Paris, Moscow, baroque cities  \fBDelta (Triangle)\fP  Produces 3-way intersections, naturalistic style  Organic growth, hillside towns  \fBGrid Corrective\fP  Straightens/gridifies radial/delta roads  Hybrid planning (e\&.g\&., Washington DC)  
+.SS "Axiom Data Structure"
+.PP
+.nf
+struct AxiomInput {
+    int id;                                // Unique identifier
+    int type;                              // Axiom type index (Radial, Delta, Block, Grid)
+    CityModel::Vec2 pos;                   // World position
+    double radius;                         // Influence radius (falloff bound)
+    InfluencerType influencer;             // Optional district bias (Market, Harbor, etc\&.)
+};
+.fi
+.PP
+
+.PP
+Axioms generate a \fBtensor field\fP that guides \fBstreamline integration\fP for road tracing\&.
+
+.PP
+.PP
+.SH "AESP Frontage System"
+.PP
+.SS "Frontage Profile Components"
+Roads are scored on four dimensions that determine adjacent land use:
+
+.PP
+.IP "\(bu" 2
+\fBAccess (A)\fP: Ease of vehicular/pedestrian entry
+.IP "\(bu" 2
+\fBExposure (E)\fP: Visual prominence and visibility
+.IP "\(bu" 2
+\fBServiceability (S)\fP: Capacity for deliveries, utilities
+.IP "\(bu" 2
+\fBPrivacy (P)\fP: Seclusion from public thoroughfare
+.PP
+.SS "Road Type → AESP Mapping"
+.SS "Major Roads (M_Major)"
+Type  AESP Score  Characteristics  \fBHighway\fP  A:1\&.00, E:1\&.00, S:0\&.70, P:0\&.00  Maximum access/exposure, zero privacy  \fBArterial\fP  A:0\&.90, E:0\&.90, S:0\&.90, P:0\&.20  High accessibility, balanced service  \fBAvenue\fP  A:0\&.80, E:0\&.80, S:0\&.80, P:0\&.50  Balanced urban street  \fBBoulevard\fP  A:0\&.70, E:0\&.90, S:0\&.50, P:0\&.70  High exposure, privacy emphasis  \fBStreet\fP  A:0\&.80, E:0\&.50, S:0\&.80, P:0\&.80  Residential balance  
+.SS "Minor Roads (M_Minor)"
+Type  AESP Score  Characteristics  \fBLane\fP  A:0\&.50, E:0\&.20, S:0\&.50, P:1\&.00  Maximum privacy, limited exposure  \fBAlleyway\fP  A:0\&.30, E:0\&.10, S:1\&.00, P:0\&.70  Service-focused, minimal visibility  \fBCul-de-Sac\fP  A:0\&.30, E:0\&.20, S:0\&.50, P:1\&.00  Residential seclusion  \fBDrive\fP  A:0\&.50, E:0\&.30, S:0\&.60, P:0\&.90  Private access  \fBDriveway\fP  A:0\&.20, E:0\&.05, S:0\&.70, P:1\&.00  Minimal public interface  
+
+.PP
+.PP
+.SH "District Classification"
+.PP
+The generator converts \fBFrontage Profiles (AESP)\fP into \fBdistrict-type affinities\fP using weighted formulas reflecting urban planning principles:
+.SS "District Type Formulas"
+.SS "1\&. Mixed-Use: 0\&.25(A + E + S + P) — Balanced"
+.IP "\(bu" 2
+\fBCharacter\fP: Versatile neighborhoods combining residential, commercial, light industrial
+.IP "\(bu" 2
+\fBBuildings\fP: Mid-rise apartments with ground-floor retail, live-work lofts, mixed-use towers
+.IP "\(bu" 2
+\fBHeight\fP: 3-8 stories
+.IP "\(bu" 2
+\fBFeatures\fP: Active street frontage, pedestrian-friendly, diverse architecture
+.PP
+.SS "2\&. Residential: 0\&.60P + 0\&.20A + 0\&.10S + 0\&.10E — Privacy-dominant"
+.IP "\(bu" 2
+\fBCharacter\fP: Housing-focused areas prioritizing privacy and quality of life
+.IP "\(bu" 2
+\fBBuildings\fP: Single-family homes, townhouses, apartment complexes, condos
+.IP "\(bu" 2
+\fBHeight\fP: 1-6 stories
+.IP "\(bu" 2
+\fBFeatures\fP: Setbacks with landscaping, lower density, recreational spaces
+.PP
+.SS "3\&. Commercial: 0\&.60E + 0\&.20A + 0\&.10S + 0\&.10P — Exposure-dominant"
+.IP "\(bu" 2
+\fBCharacter\fP: Business and retail areas maximizing visibility and foot traffic
+.IP "\(bu" 2
+\fBBuildings\fP: Storefronts, shopping centers, office buildings, hotels
+.IP "\(bu" 2
+\fBHeight\fP: 2-20+ stories
+.IP "\(bu" 2
+\fBFeatures\fP: Large display windows, prominent signage, minimal setbacks
+.PP
+.SS "4\&. Civic: 0\&.50E + 0\&.20A + 0\&.10S + 0\&.20P — Exposure with privacy balance"
+.IP "\(bu" 2
+\fBCharacter\fP: Public/institutional areas serving community-wide functions
+.IP "\(bu" 2
+\fBBuildings\fP: Government buildings, libraries, museums, schools, hospitals
+.IP "\(bu" 2
+\fBHeight\fP: 2-12 stories
+.IP "\(bu" 2
+\fBFeatures\fP: Monumental architecture, plazas, symbolic design, accessibility
+.PP
+.SS "5\&. Industrial: 0\&.60S + 0\&.25A + 0\&.10E + 0\&.05P — Serviceability-dominant"
+.IP "\(bu" 2
+\fBCharacter\fP: Production, manufacturing, logistics areas requiring heavy service access
+.IP "\(bu" 2
+\fBBuildings\fP: Warehouses, factories, distribution centers, utilities
+.IP "\(bu" 2
+\fBHeight\fP: 1-4 stories
+.IP "\(bu" 2
+\fBFeatures\fP: Large footprints, truck access, rail sidings, utilitarian design
+.PP
+.SS "Practical Application"
+When processing a parcel, the lot generator:
+.IP "1." 4
+Queries nearest road type using distance-to-segment calculations
+.IP "2." 4
+Retrieves road's frontage profile (A, E, S, P values)
+.IP "3." 4
+Applies district formulas to generate affinity scores
+.IP "4." 4
+Combines with axiom biases and influencer landmarks
+.IP "5." 4
+Uses classification to inform building height, setback, density, ground-floor use
+.PP
+
+.PP
+\fBEmergent Result\fP: Buildings along highways exhibit industrial/commercial characteristics (high service, low privacy), while cul-de-sacs spawn residential structures (high privacy, low exposure)\&.
+
+.PP
+.PP
+.SH "Multi-Level City Support"
+.PP
+.SS "Layered Graph Representation"
+For cities with bridges, tunnels, and elevated structures, the system uses \fBlayered graphs\fP:
+
+.PP
+.IP "\(bu" 2
+\fBG = (V, E)\fP: Piecewise-linear graph embedded in ℝ²
+.IP "\(bu" 2
+\fBℓ : E → ℕ\fP: Layer assignment oracle
+.IP "\(bu" 2
+\fBLᵢ = ℓ⁻¹(i)\fP: Set of edges on layer i
+.PP
+.SS "Portals"
+A \fBportal\fP is a vertex shared by ≥2 layers (edges adjacent belong to different layers)\&. Conceptually, there are \fRm\fP copies of ℝ², one per layer, glued together at portals\&. This layered space is denoted \fBL\fP\&.
+
+.PP
+\fBKey Innovation\fP: All computational steps occur within the multi-layer space \fBL\fP, using portal-aware distance calculations\&. This ensures topological signatures and distance measurements account for bridges/tunnels rather than artificially flattening the network\&.
+
+.PP
+.PP
+.SH "Building & Usage"
+.PP
+.SS "Prerequisites"
+.IP "\(bu" 2
+\fBCMake 3\&.20+\fP
+.IP "\(bu" 2
+\fBC++20 compiler\fP (MSVC 2022, GCC 11+, Clang 14+)
+.IP "\(bu" 2
+\fBGit submodules\fP (all dependencies are vendored in \fR3rdparty/\fP)
+.IP "  \(bu" 4
+GLM, ImGui, GLFW, magic_enum, sol2, etc\&.
+.PP
+
+.PP
+.SS "Quick Start"
+.PP
+.nf
+# Clone repository with submodules
+git clone \-\-recursive https://github\&.com/TheRogueNPC/RogueCities_UrbanSpatialDesigner\&.git
+cd RogueCities_UrbanSpatialDesigner
+
+# Build core library
+cmake \-B build \-S \&.
+cmake \-\-build build \-\-target RogueCityCore \-\-config Release
+
+# Run tests (Phase 4)
+ctest \-\-test\-dir build \-\-output\-on\-failure
+
+# Build full application (Phase 3+)
+cmake \-\-build build \-\-target RogueCityDesigner \-\-config Release
+\&./build/bin/RogueCityDesigner
+.fi
+.PP
+.SS "Development Build (Core-Only)"
+.PP
+.nf
+# Fast iteration during development
+cmake \-B build_core \-S \&. \-DBUILD_CORE_ONLY=ON
+cmake \-\-build build_core \-\-target RogueCityCore \-\-config Release
+.fi
+.PP
+
+.PP
+.PP
+.SH "Project Status"
+.PP
+.SS "Current Phase: \fBR0 Complete\fP + \fBPhase 3 In Progress\fP (Feb 6, 2026)"
+Phase  Status  Description  Target Date  \fBPhase 1\fP  ✅ \fBComplete\fP  Core data layer (Vec2, Tensor2D, AESP types)  Feb 4  \fBPhase 2\fP  ✅ \fBComplete\fP  Generators library (tensor fields, roads, districts)  Feb 5-7  \fBPhase 3\fP  💭 \fBFunctional-WIP\fP  Minimal ImGui UI (axiom placement, visualization)  Feb 8-10  \fBPhase 4\fP  ⏳ In Progress  Export system (JSON, OBJ, GLTF)  Feb 11-12  \fBPhase 5\fP  🔜 Planned  MVP polish, presets, documentation  Feb 13-15  \fBR0\fP  ✅ \fBComplete\fP  AI-assisted development integration (4 sub-phases)  Feb 6  
+
+.PP
+\fBR0 Integration\fP: AI Bridge + UI Agent + CitySpec + Design Assistant 
+.br
+ \fBMVP Target\fP: February 15, 2026
+
+.PP
+.PP
+.SH "Research References"
+.PP
+.SS "Core Papers"
+.IP "\(bu" 2
+Chen et al\&. (2008) - \fIInteractive Procedural Street Modeling\fP
+.IP "\(bu" 2
+Parish & Müller (2001) - \fIProcedural Modeling of Cities\fP
+.IP "\(bu" 2
+Lechner et al\&. (2003) - \fITensor Fields for Interactive Procedural Content\fP
+.IP "\(bu" 2
+Boeing (2021) - \fIStreet Network Analysis in Urban Form Studies\fP
+.PP
+.SS "Urban Planning Theory"
+.IP "\(bu" 2
+Jacobs, J\&. (1961) - \fIThe Death and Life of Great American Cities\fP
+.IP "\(bu" 2
+Alexander, C\&. (1977) - \fIA Pattern Language: Towns, Buildings, Construction\fP
+.IP "\(bu" 2
+Lynch, K\&. (1960) - \fIThe Image of the City\fP
+.PP
+
+.PP
+.PP
+.SH "License"
+.PP
+MIT License
+
+.PP
+Copyright (c) 2026 Mariku (TheRogueNPC) / Nefarious Crows Int
+
+.PP
+.PP
+.SH "Citation"
+.PP
+If you use this research or implementation in academic work, please cite:
+
+.PP
+.PP
+.nf
+@software{roguecity2026,
+  author = {Mariku (TheRogueNPC)},
+  title = {Rogue City Designer: Tensor Field\-Guided Urban Spatial Generation},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github\&.com/TheRogueNPC/RogueCityMVP}
+}
+.fi
+.PP
+
+.PP
+.PP
+.SH "Contact"
+.PP
+.IP "\(bu" 2
+\fBAuthor\fP: Mariku (TheRogueNPC)
+.IP "\(bu" 2
+\fBOrganization\fP: Nefarious Crows Int
+.IP "\(bu" 2
+\fBEmail\fP: Team.Crow@yahoo.com
+.IP "\(bu" 2
+\fBGitHub\fP: \fR@TheRogueNPC\fP
+.PP
+
+.PP
+.PP
+ \fI"Cities are defined by their roads\&. From roads emerge parcels, lots, buildings, and ultimately districts\&. This structural view from urban morphology emphasizes how these elements create functional urban form\&."\fP``` 

@@ -103,15 +103,27 @@ public:
         // Header with count
         ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));
         
-        // Filter input
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0f);
-        ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
-        
-        // Sort button
-        ImGui::SameLine();
-        if (ImGui::SmallButton(m_sort_ascending ? "? Sort" : "? Sort")) {
-            m_sort_ascending = !m_sort_ascending;
+        const char* sort_label = m_sort_ascending ? "Sort: A-Z" : "Sort: Z-A";
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float controls_width = ImGui::GetContentRegionAvail().x;
+        const float sort_width = std::max(
+            100.0f,
+            ImGui::CalcTextSize(sort_label).x + style.FramePadding.x * 2.0f + 12.0f);
+
+        if (controls_width < 320.0f) {
+            ImGui::SetNextItemWidth(-1.0f);
+            ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
+            if (ImGui::Button(sort_label, ImVec2(-1.0f, 0.0f))) {
+                m_sort_ascending = !m_sort_ascending;
+            }
+        } else {
+            const float filter_width = std::max(140.0f, controls_width - sort_width - style.ItemSpacing.x);
+            ImGui::SetNextItemWidth(filter_width);
+            ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
+            ImGui::SameLine();
+            if (ImGui::Button(sort_label, ImVec2(sort_width, 0.0f))) {
+                m_sort_ascending = !m_sort_ascending;
+            }
         }
         
         ImGui::Separator();
@@ -218,18 +230,27 @@ public:
         // Header with count
         ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));
         
-        // Header with count
-        ImGui::Text("%s: %llu", Traits::GetDataName(), static_cast<unsigned long long>(data.size()));
-        
-        // Filter input
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0f);
-        ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
-        
-        // Sort button
-        ImGui::SameLine();
-        if (ImGui::SmallButton(m_sort_ascending ? "? Sort" : "? Sort")) {
-            m_sort_ascending = !m_sort_ascending;
+        const char* sort_label = m_sort_ascending ? "Sort: A-Z" : "Sort: Z-A";
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float controls_width = ImGui::GetContentRegionAvail().x;
+        const float sort_width = std::max(
+            100.0f,
+            ImGui::CalcTextSize(sort_label).x + style.FramePadding.x * 2.0f + 12.0f);
+
+        if (controls_width < 320.0f) {
+            ImGui::SetNextItemWidth(-1.0f);
+            ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
+            if (ImGui::Button(sort_label, ImVec2(-1.0f, 0.0f))) {
+                m_sort_ascending = !m_sort_ascending;
+            }
+        } else {
+            const float filter_width = std::max(140.0f, controls_width - sort_width - style.ItemSpacing.x);
+            ImGui::SetNextItemWidth(filter_width);
+            ImGui::InputTextWithHint("##filter", "Filter...", m_filter_text, sizeof(m_filter_text));
+            ImGui::SameLine();
+            if (ImGui::Button(sort_label, ImVec2(sort_width, 0.0f))) {
+                m_sort_ascending = !m_sort_ascending;
+            }
         }
         
         ImGui::Separator();

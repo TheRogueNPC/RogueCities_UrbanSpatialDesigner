@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
+#include "ui/rc_ui_input_gate.h"
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
@@ -268,6 +269,7 @@ static float s_flow_rate = 1.0f;
 static uint32_t s_seed = 42u;
 static std::string s_validation_error;
 static bool s_external_dirty = false;
+static bool s_library_modified = false;
 
 struct SelectionDragState {
     bool lasso_active{ false };
@@ -1550,10 +1552,66 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::PopStyleColor();
 }
 
+void DrawAxiomLibraryContent() {
+    if (s_axiom_tool == nullptr) {
+        return;
+    }
+
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+
+    ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 217u), "Axiom Library (Ctrl: apply to selection)");
+
+    const float icon_size = std::max(38.0f, ImGui::GetFrameHeight() * 1.9f);
+    const float spacing = std::max(8.0f, ImGui::GetStyle().ItemSpacing.x);
+    const int columns = std::max(1, static_cast<int>(
+        std::floor((ImGui::GetContentRegionAvail().x + spacing) / (icon_size + spacing))));
+    const auto infos = RogueCity::App::GetAxiomTypeInfos();
+
+    const auto default_type = s_axiom_tool->default_axiom_type();
+    const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
+
+    for (int i = 0; i < static_cast<int>(infos.size()); ++i) {
+        const auto& info = infos[static_cast<size_t>(i)];
+        if (i > 0 && (i % columns) != 0) {
+            ImGui::SameLine(0.0f, spacing);
+        }
+
+        ImGui::PushID(i);
+        if (ImGui::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
+            if (apply_to_selected) {
+                if (auto* selected = s_axiom_tool->get_selected_axiom()) {
+                    selected->set_type(info.type);
+                    s_library_modified = true;
+                }
+            } else {
+                s_axiom_tool->set_default_axiom_type(info.type);
+            }
+        }
+
+        const ImVec2 bmin = ImGui::GetItemRectMin();
+        const ImVec2 bmax = ImGui::GetItemRectMax();
+        const ImVec2 c((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const bool is_default = (default_type == info.type);
+        const ImU32 bg = TokenColor(UITokens::BackgroundDark, ImGui::IsItemHovered() ? 200u : 140u);
+        const ImU32 border = is_default ? TokenColor(UITokens::TextPrimary, 220u) : TokenColor(UITokens::TextSecondary, 160u);
+
+        dl->AddRectFilled(bmin, bmax, bg, 8.0f);
+        dl->AddRect(bmin, bmax, border, 8.0f, 0, is_default ? 2.5f : 1.5f);
+        RogueCity::App::DrawAxiomIcon(dl, c, icon_size * 0.32f, info.type, info.primary_color);
+
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", info.name);
+        }
+        ImGui::PopID();
+    }
+
+    uiint.RegisterWidget({"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
+}
+
 void DrawContent(float dt) {
     Initialize();
-    
-    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
 
     // Get editor state to determine if axiom tool should be active
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
@@ -1605,78 +1663,8 @@ void DrawContent(float dt) {
     }
     
     // Mouse interaction is handled after overlay windows are submitted so hover tests are correct.
-    bool ui_modified_axiom = false;
-
-    // Axiom Library (palette) - toggled by "Axiom Deck"
-    if (RC_UI::IsAxiomLibraryOpen()) {
-        const bool open = Components::BeginTokenPanel(
-            "Axiom Library",
-            UITokens::MagentaHighlight,
-            nullptr,
-            ImGuiWindowFlags_NoCollapse);
-
-        uiint.BeginPanel(
-            RogueCity::UIInt::PanelMeta{
-                "Axiom Library",
-                "Axiom Library",
-                "toolbox",
-                "Library",
-                "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
-                {"axiom", "library"}
-            },
-            open
-        );
-
-        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 217u), "Axiom Library (Ctrl: apply to selection)");
-
-        const float icon_size = 46.0f;
-        const int columns = 5;
-        const auto infos = RogueCity::App::GetAxiomTypeInfos();
-
-        const auto default_type = s_axiom_tool->default_axiom_type();
-        const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
-
-        for (int i = 0; i < static_cast<int>(infos.size()); ++i) {
-            const auto& info = infos[static_cast<size_t>(i)];
-            if (i > 0 && (i % columns) != 0) {
-                ImGui::SameLine();
-            }
-
-            ImGui::PushID(i);
-            if (ImGui::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
-                if (apply_to_selected) {
-                    if (auto* selected = s_axiom_tool->get_selected_axiom()) {
-                        selected->set_type(info.type);
-                        ui_modified_axiom = true;
-                    }
-                } else {
-                    s_axiom_tool->set_default_axiom_type(info.type);
-                }
-            }
-
-            const ImVec2 bmin = ImGui::GetItemRectMin();
-            const ImVec2 bmax = ImGui::GetItemRectMax();
-            const ImVec2 c((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
-
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            const bool is_default = (default_type == info.type);
-            const ImU32 bg = TokenColor(UITokens::BackgroundDark, ImGui::IsItemHovered() ? 200u : 140u);
-            const ImU32 border = is_default ? TokenColor(UITokens::TextPrimary, 220u) : TokenColor(UITokens::TextSecondary, 160u);
-
-            dl->AddRectFilled(bmin, bmax, bg, 8.0f);
-            dl->AddRect(bmin, bmax, border, 8.0f, 0, is_default ? 2.5f : 1.5f);
-            RogueCity::App::DrawAxiomIcon(dl, c, icon_size * 0.32f, info.type, info.primary_color);
-
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", info.name);
-            }
-            ImGui::PopID();
-        }
-
-        uiint.RegisterWidget({"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-    }
+    const bool ui_modified_axiom = s_library_modified;
+    s_library_modified = false;
 
     // ---------------------------------------------------------------------
     // Viewport mouse interaction (placement + manipulation)
@@ -1696,8 +1684,16 @@ void DrawContent(float dt) {
     const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
     const bool minimap_hovered = (mouse_pos.x >= minimap_pos_bounds.x && mouse_pos.x <= minimap_max_bounds.x &&
                                    mouse_pos.y >= minimap_pos_bounds.y && mouse_pos.y <= minimap_max_bounds.y);
+    const UiInputGateState input_gate = RC_UI::BuildUiInputGateState(
+        editor_hovered,
+        in_viewport,
+        ImGui::IsAnyItemActive(),
+        minimap_hovered);
+    RC_UI::PublishUiInputGateState(input_gate);
+    const bool allow_viewport_mouse_actions = RC_UI::AllowViewportMouseActions(input_gate);
+    const bool allow_viewport_key_actions = RC_UI::AllowViewportKeyActions(input_gate);
 
-    if (axiom_mode && editor_hovered && in_viewport && !ImGui::IsAnyItemActive() && !minimap_hovered) {
+    if (axiom_mode && allow_viewport_mouse_actions) {
         ImGuiIO& io = ImGui::GetIO();
         RogueCity::Core::Vec2 world_pos = s_primary_viewport->screen_to_world(mouse_pos);
 
@@ -1707,7 +1703,7 @@ void DrawContent(float dt) {
         const bool zoom_drag = io.KeyCtrl && io.MouseDown[ImGuiMouseButton_Right];
         const bool nav_active = orbit || pan || zoom_drag;
 
-        if (!io.WantTextInput) {
+        if (allow_viewport_key_actions) {
             if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
                 if (io.KeyShift) {
                     Redo();
@@ -1784,12 +1780,12 @@ void DrawContent(float dt) {
     // Alt+Drag: lasso select
     // Shift+Alt+Drag: box select through layers
     // ---------------------------------------------------------------------
-    if (!axiom_mode && editor_hovered && in_viewport && !ImGui::IsAnyItemActive() && !minimap_hovered) {
+    if (!axiom_mode && allow_viewport_mouse_actions) {
         ImGuiIO& io = ImGui::GetIO();
         const RogueCity::Core::Vec2 world_pos = s_primary_viewport->screen_to_world(mouse_pos);
         const float zoom = s_primary_viewport->world_to_screen_scale(1.0f);
 
-        if (!io.WantTextInput) {
+        if (allow_viewport_key_actions) {
             if (ImGui::IsKeyPressed(ImGuiKey_G)) {
                 gs.gizmo.enabled = true;
                 gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Translate;
@@ -2299,7 +2295,7 @@ void DrawContent(float dt) {
     // === MINIMAP INTERACTION (only if viewport window is hovered) ===
     const bool viewport_window_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
     
-    if (viewport_window_hovered && s_minimap_visible) {
+    if (viewport_window_hovered && s_minimap_visible && !input_gate.imgui_wants_mouse) {
         const ImVec2 minimap_interact_pos = ImVec2(
             viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
             viewport_pos.y + kMinimapPadding
@@ -2320,7 +2316,7 @@ void DrawContent(float dt) {
             }
 
             const ImGuiIO& io = ImGui::GetIO();
-            if (ImGui::IsKeyPressed(ImGuiKey_L) && !io.WantTextInput) {
+            if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_L)) {
                 if (io.KeyShift) {
                     // Release manual pin and return to auto LOD switching.
                     s_minimap_auto_lod = true;
@@ -2332,19 +2328,19 @@ void DrawContent(float dt) {
                     CycleManualMinimapLOD();
                 }
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_1) && !io.WantTextInput) {
+            if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_1)) {
                 s_minimap_auto_lod = false;
                 s_minimap_lod = MinimapLODFromLevel(0);
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_2) && !io.WantTextInput) {
+            if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_2)) {
                 s_minimap_auto_lod = false;
                 s_minimap_lod = MinimapLODFromLevel(1);
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_3) && !io.WantTextInput) {
+            if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_3)) {
                 s_minimap_auto_lod = false;
                 s_minimap_lod = MinimapLODFromLevel(2);
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_K) && !io.WantTextInput) {
+            if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_K)) {
                 s_minimap_adaptive_quality = !s_minimap_adaptive_quality;
             }
              
@@ -2369,7 +2365,7 @@ void DrawContent(float dt) {
     }
     
     // Minimap toggle hotkey (M key) - only when viewport has focus
-    if (viewport_window_hovered && ImGui::IsKeyPressed(ImGuiKey_M) && !ImGui::GetIO().WantTextInput) {
+    if (viewport_window_hovered && allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_M)) {
         s_minimap_visible = !s_minimap_visible;
     }
     

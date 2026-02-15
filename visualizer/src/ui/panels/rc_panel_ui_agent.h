@@ -1,7 +1,9 @@
 #pragma once
+#include "client/UiAgentClient.h"
 #include <string>
 #include <atomic>
 #include <mutex>
+#include <vector>
 
 namespace RogueCity::UI {
 
@@ -18,6 +20,8 @@ private:
     std::atomic<bool> m_processing{false};
     float m_busyTime = 0.0f;
     std::mutex m_resultMutex;
+    std::vector<RogueCity::AI::UiCommand> m_pendingCommands;
+    std::mutex m_pendingCommandsMutex;
     
     // Design/refactor mode
     char m_designGoalBuffer[512] = "Analyze UI for refactoring opportunities";

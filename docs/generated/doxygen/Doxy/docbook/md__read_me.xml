@@ -1,0 +1,724 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<section xmlns="http://docbook.org/ns/docbook" version="5.0" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="_md__read_me" xml:lang="en-US">
+<title>
+<para>Rogue City Designer </para>
+</title>
+<indexterm><primary>Rogue City Designer</primary></indexterm>
+
+<para><anchor xml:id="_md__read_me_1autotoc_md17"/></para>
+<section xml:id="_md__read_me_1autotoc_md18">
+<title>An Urban Spatial City Generator</title>
+<para><link xlink:href="https://github.com/TheRogueNPC/RogueCityMVP"></link> <link xlink:href="https://en.cppreference.com/w/cpp/20"></link> [](LICENSE) <link xlink:href="https://github.com/TheRogueNPC/RogueCityMVP/actions"></link></para>
+
+<para><blockquote>
+<para><emphasis role="bold">Procedural city generation through tensor field-guided street networks, AESP-based district classification, and topological street analysis</emphasis> </para>
+</blockquote></para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md20">
+<title>R0 Release: AI-Assisted Development Integration ✨</title>
+<para><blockquote>
+<para><emphasis role="bold">NEW</emphasis>: Integrated AI assistant for layout optimization, city design, and code refactoring </para>
+</blockquote></para>
+<section xml:id="_md__read_me_1autotoc_md21">
+<title>What&apos;s New in R0</title>
+<para><emphasis role="bold">🤖 AI Bridge System</emphasis> - One-click AI assistant startup with automatic PowerShell detection and health monitoring</para>
+
+<para><emphasis role="bold">🎨 UI Agent</emphasis> - Natural language UI layout optimization (&quot;optimize layout for road editing&quot;) with real-time command generation</para>
+
+<para><emphasis role="bold">🏙️ CitySpec Generator</emphasis> - AI-driven city design from natural language descriptions (&quot;a coastal tech city with dense downtown&quot;)</para>
+
+<para><emphasis role="bold">🔧 Design Assistant</emphasis> - Code-shape aware refactoring suggestions with pattern extraction and architecture analysis</para>
+
+<para><emphasis role="bold">📊 Pattern Catalog</emphasis> - Canonical UI patterns (InspectorPanel&lt;T&gt;, DataIndexPanel&lt;T&gt;) with AI-guided refactoring opportunities</para>
+
+<para><emphasis role="bold">Status</emphasis>: All 4 phases complete • Build: Passing • Integration: Working-WIP not all tools are properly hooked in yet, but the AI bridge and clients are functional.</para>
+
+<para>→ Read Full AI Integration Documentation</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md23">
+<title>Abstract</title>
+<para>Cities function as <emphasis role="bold">complex adaptive systems</emphasis> formed through the interplay of decentralized bottom-up self-organization and centralized top-down planning interventions. <emphasis role="bold">Rogue City Designer</emphasis> is a procedural generation framework that models this duality through:</para>
+
+<para><orderedlist>
+<listitem>
+<para><emphasis role="bold">Tensor field axioms</emphasis> encoding top-down planning intent (radial, grid, organic)</para>
+</listitem><listitem>
+<para><emphasis role="bold">AESP-based district emergence</emphasis> from road network topology (Access, Exposure, Serviceability, Privacy)</para>
+</listitem><listitem>
+<para><emphasis role="bold">Multi-scale street analysis</emphasis> using persistent homology and grid quality metrics</para>
+</listitem><listitem>
+<para><emphasis role="bold">Layered graph support</emphasis> for bridges, tunnels, and grade-separated infrastructure</para>
+</listitem></orderedlist>
+</para>
+
+<para>Unlike traditional square-grid generators, this system produces <emphasis role="bold">coherent, believable urban environments</emphasis> ranging from rigid Manhattan-style grids to organic European networks, based on axiom configuration and urban complexity principles.</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md25">
+<title>Research Foundation</title><section xml:id="_md__read_me_1autotoc_md26">
+<title>Urban Complexity Framework</title>
+<para>Cities exhibit **organized complexity**—a balance between chaos (overstimulation, incoherence) and order (sterility, monotony). The framework evaluates this balance through:</para>
+
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Network Density</emphasis>: Nodes, intersections, edges per unit area</para>
+</listitem><listitem>
+<para><emphasis role="bold">Network Resilience</emphasis>: Functionality under disruption (blocked streets, damage)</para>
+</listitem><listitem>
+<para><emphasis role="bold">Network Connectedness</emphasis>: Path diversity, permeability, routing options</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md27">
+<title>Grid Quality Metrics</title>
+<para>The generator evaluates street networks using a <emphasis role="bold">composite grid index</emphasis> balancing four components:</para>
+<section xml:id="_md__read_me_1autotoc_md28">
+<title>1. Straightness (ς)</title>
+<para>$$\varsigma = \frac{\text{average great-circle distance}}{\text{average segment length}}$$</para>
+
+<para>Measures how closely streets approximate straight lines, affecting navigation efficiency and visual coherence.</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md29">
+<title>2. Orientation Order (Φ)</title>
+<para>Analyzes internal consistency of street orientations through:<orderedlist>
+<listitem>
+<para>Calculate bidirectional compass bearings of every street</para>
+</listitem><listitem>
+<para>Compute street orientation entropy</para>
+</listitem><listitem>
+<para>Normalize as orientation order indicator</para>
+</listitem></orderedlist>
+</para>
+
+<para>High order → consistent grid patterns (Manhattan) <?linebreak?> Low order → organic networks (medieval European)</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md30">
+<title>3. Terrain Adaptation</title>
+<para>Evaluates variance and inconsistency as roads adapt to slopes, elevation changes, and natural obstacles.</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md31">
+<title>4. Four-Way Intersection Proportion (I)</title>
+<para>$$I = \frac{\text{four-way intersections}}{\text{total intersections}}$$</para>
+
+<para>Tracks the share of nodes that are four-way junctions, influencing traffic flow and grid character.</para>
+
+<para><emphasis role="bold">Composite Grid Index:</emphasis></para>
+
+<para>$$\text{GridIndex} = (\varsigma \times \Phi \times I)^{1/3}$$</para>
+
+<para>The geometric mean ensures non-compensatory aggregation—poor performance in any component significantly impacts the final score.</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md33">
+<title>System Architecture</title><section xml:id="_md__read_me_1autotoc_md34">
+<title>Pipeline Overview</title>
+<para><literallayout><computeroutput>User&#32;Axioms&#32;→&#32;Tensor&#32;Field&#32;→&#32;Streamline&#32;Tracing&#32;→&#32;Road&#32;Network&#32;→&#32;
+Block&#32;Extraction&#32;→&#32;District&#32;Classification&#32;(AESP)&#32;→&#32;Lot&#32;Subdivision&#32;→&#32;
+Building&#32;Site&#32;Placement&#32;→&#32;Export&#32;(JSON/OBJ)
+</computeroutput></literallayout></para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md35">
+<title>Layer Structure</title>
+<para><literallayout><computeroutput>core/&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Pure&#32;data&#32;structures&#32;(Vec2,&#32;Tensors,&#32;AESP&#32;types)
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;Zero&#32;UI&#32;dependencies
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;└─&#32;Fast&#32;builds&#32;(~20&#32;seconds)
+
+generators/&#32;&#32;&#32;&#32;Generation&#32;algorithms&#32;(tensor&#32;fields,&#32;roads,&#32;districts)
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;Tensor&#32;field&#32;generation&#32;from&#32;axioms
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;Streamline&#32;integration&#32;(RK4)
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;AESP&#32;district&#32;classification
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;└─&#32;OBB&#32;lot&#32;subdivision
+
+app/&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;ImGui-based&#32;interactive&#32;editor
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;Axiom&#32;placement&#32;UI
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;├─&#32;Real-time&#32;visualization
+&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;└─&#32;Export&#32;workflows
+</computeroutput></literallayout></para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md37">
+<title>Axiom System</title><section xml:id="_md__read_me_1autotoc_md38">
+<title>Axiom Types</title>
+<para>Users place <emphasis role="bold">axioms</emphasis> as representations of geographical topology to guide road network generation:</para>
+
+<para><informaltable frame="all">
+    <tgroup cols="3" align="left" colsep="1" rowsep="1">
+      <colspec colname='c1'/>
+      <colspec colname='c2'/>
+      <colspec colname='c3'/>
+<thead>
+      <row  class='markdownTableHead'>
+<entry>
+<para>Axiom Type  </para>
+</entry><entry>
+<para>Effect  </para>
+</entry><entry>
+<para>Use Case  </para>
+</entry></row>
+</thead><tbody>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Block</emphasis>  </para>
+</entry><entry>
+<para>Produces 4-way intersections, grid-style roads  </para>
+</entry><entry>
+<para>Manhattan, Chicago, modern planned cities  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Radial (Star/Crescent)</emphasis>  </para>
+</entry><entry>
+<para>Produces rounded European-style roads  </para>
+</entry><entry>
+<para>Paris, Moscow, baroque cities  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Delta (Triangle)</emphasis>  </para>
+</entry><entry>
+<para>Produces 3-way intersections, naturalistic style  </para>
+</entry><entry>
+<para>Organic growth, hillside towns  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Grid Corrective</emphasis>  </para>
+</entry><entry>
+<para>Straightens/gridifies radial/delta roads  </para>
+</entry><entry>
+<para>Hybrid planning (e.g., Washington DC)  </para>
+</entry></row>
+    </tbody>
+    </tgroup>
+</informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md39">
+<title>Axiom Data Structure</title>
+<para><literallayout><computeroutput>struct&#32;AxiomInput&#32;{
+&#32;&#32;&#32;&#32;int&#32;id;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;//&#32;Unique&#32;identifier
+&#32;&#32;&#32;&#32;int&#32;type;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;//&#32;Axiom&#32;type&#32;index&#32;(Radial,&#32;Delta,&#32;Block,&#32;Grid)
+&#32;&#32;&#32;&#32;CityModel::Vec2&#32;pos;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;//&#32;World&#32;position
+&#32;&#32;&#32;&#32;double&#32;radius;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;//&#32;Influence&#32;radius&#32;(falloff&#32;bound)
+&#32;&#32;&#32;&#32;InfluencerType&#32;influencer;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;//&#32;Optional&#32;district&#32;bias&#32;(Market,&#32;Harbor,&#32;etc.)
+};
+</computeroutput></literallayout></para>
+
+<para>Axioms generate a <emphasis role="bold">tensor field</emphasis> that guides <emphasis role="bold">streamline integration</emphasis> for road tracing.</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md41">
+<title>AESP Frontage System</title><section xml:id="_md__read_me_1autotoc_md42">
+<title>Frontage Profile Components</title>
+<para>Roads are scored on four dimensions that determine adjacent land use:</para>
+
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Access (A)</emphasis>: Ease of vehicular/pedestrian entry</para>
+</listitem><listitem>
+<para><emphasis role="bold">Exposure (E)</emphasis>: Visual prominence and visibility</para>
+</listitem><listitem>
+<para><emphasis role="bold">Serviceability (S)</emphasis>: Capacity for deliveries, utilities</para>
+</listitem><listitem>
+<para><emphasis role="bold">Privacy (P)</emphasis>: Seclusion from public thoroughfare</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md43">
+<title>Road Type → AESP Mapping</title><section xml:id="_md__read_me_1autotoc_md44">
+<title>Major Roads (M_Major)</title>
+<para><informaltable frame="all">
+    <tgroup cols="3" align="left" colsep="1" rowsep="1">
+      <colspec colname='c1'/>
+      <colspec colname='c2'/>
+      <colspec colname='c3'/>
+<thead>
+      <row  class='markdownTableHead'>
+<entry>
+<para>Type  </para>
+</entry><entry>
+<para>AESP Score  </para>
+</entry><entry>
+<para>Characteristics  </para>
+</entry></row>
+</thead><tbody>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Highway</emphasis>  </para>
+</entry><entry>
+<para>A:1.00, E:1.00, S:0.70, P:0.00  </para>
+</entry><entry>
+<para>Maximum access/exposure, zero privacy  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Arterial</emphasis>  </para>
+</entry><entry>
+<para>A:0.90, E:0.90, S:0.90, P:0.20  </para>
+</entry><entry>
+<para>High accessibility, balanced service  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Avenue</emphasis>  </para>
+</entry><entry>
+<para>A:0.80, E:0.80, S:0.80, P:0.50  </para>
+</entry><entry>
+<para>Balanced urban street  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Boulevard</emphasis>  </para>
+</entry><entry>
+<para>A:0.70, E:0.90, S:0.50, P:0.70  </para>
+</entry><entry>
+<para>High exposure, privacy emphasis  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Street</emphasis>  </para>
+</entry><entry>
+<para>A:0.80, E:0.50, S:0.80, P:0.80  </para>
+</entry><entry>
+<para>Residential balance  </para>
+</entry></row>
+    </tbody>
+    </tgroup>
+</informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md45">
+<title>Minor Roads (M_Minor)</title>
+<para><informaltable frame="all">
+    <tgroup cols="3" align="left" colsep="1" rowsep="1">
+      <colspec colname='c1'/>
+      <colspec colname='c2'/>
+      <colspec colname='c3'/>
+<thead>
+      <row  class='markdownTableHead'>
+<entry>
+<para>Type  </para>
+</entry><entry>
+<para>AESP Score  </para>
+</entry><entry>
+<para>Characteristics  </para>
+</entry></row>
+</thead><tbody>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Lane</emphasis>  </para>
+</entry><entry>
+<para>A:0.50, E:0.20, S:0.50, P:1.00  </para>
+</entry><entry>
+<para>Maximum privacy, limited exposure  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Alleyway</emphasis>  </para>
+</entry><entry>
+<para>A:0.30, E:0.10, S:1.00, P:0.70  </para>
+</entry><entry>
+<para>Service-focused, minimal visibility  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Cul-de-Sac</emphasis>  </para>
+</entry><entry>
+<para>A:0.30, E:0.20, S:0.50, P:1.00  </para>
+</entry><entry>
+<para>Residential seclusion  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Drive</emphasis>  </para>
+</entry><entry>
+<para>A:0.50, E:0.30, S:0.60, P:0.90  </para>
+</entry><entry>
+<para>Private access  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Driveway</emphasis>  </para>
+</entry><entry>
+<para>A:0.20, E:0.05, S:0.70, P:1.00  </para>
+</entry><entry>
+<para>Minimal public interface  </para>
+</entry></row>
+    </tbody>
+    </tgroup>
+</informaltable>
+</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md47">
+<title>District Classification</title>
+<para>The generator converts <emphasis role="bold">Frontage Profiles (AESP)</emphasis> into <emphasis role="bold">district-type affinities</emphasis> using weighted formulas reflecting urban planning principles:</para>
+<section xml:id="_md__read_me_1autotoc_md48">
+<title>District Type Formulas</title><section xml:id="_md__read_me_1autotoc_md49">
+<title>1. Mixed-Use: 0.25(A + E + S + P) — Balanced</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Character</emphasis>: Versatile neighborhoods combining residential, commercial, light industrial</para>
+</listitem><listitem>
+<para><emphasis role="bold">Buildings</emphasis>: Mid-rise apartments with ground-floor retail, live-work lofts, mixed-use towers</para>
+</listitem><listitem>
+<para><emphasis role="bold">Height</emphasis>: 3-8 stories</para>
+</listitem><listitem>
+<para><emphasis role="bold">Features</emphasis>: Active street frontage, pedestrian-friendly, diverse architecture</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md50">
+<title>2. Residential: 0.60P + 0.20A + 0.10S + 0.10E — Privacy-dominant</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Character</emphasis>: Housing-focused areas prioritizing privacy and quality of life</para>
+</listitem><listitem>
+<para><emphasis role="bold">Buildings</emphasis>: Single-family homes, townhouses, apartment complexes, condos</para>
+</listitem><listitem>
+<para><emphasis role="bold">Height</emphasis>: 1-6 stories</para>
+</listitem><listitem>
+<para><emphasis role="bold">Features</emphasis>: Setbacks with landscaping, lower density, recreational spaces</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md51">
+<title>3. Commercial: 0.60E + 0.20A + 0.10S + 0.10P — Exposure-dominant</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Character</emphasis>: Business and retail areas maximizing visibility and foot traffic</para>
+</listitem><listitem>
+<para><emphasis role="bold">Buildings</emphasis>: Storefronts, shopping centers, office buildings, hotels</para>
+</listitem><listitem>
+<para><emphasis role="bold">Height</emphasis>: 2-20+ stories</para>
+</listitem><listitem>
+<para><emphasis role="bold">Features</emphasis>: Large display windows, prominent signage, minimal setbacks</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md52">
+<title>4. Civic: 0.50E + 0.20A + 0.10S + 0.20P — Exposure with privacy balance</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Character</emphasis>: Public/institutional areas serving community-wide functions</para>
+</listitem><listitem>
+<para><emphasis role="bold">Buildings</emphasis>: Government buildings, libraries, museums, schools, hospitals</para>
+</listitem><listitem>
+<para><emphasis role="bold">Height</emphasis>: 2-12 stories</para>
+</listitem><listitem>
+<para><emphasis role="bold">Features</emphasis>: Monumental architecture, plazas, symbolic design, accessibility</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md53">
+<title>5. Industrial: 0.60S + 0.25A + 0.10E + 0.05P — Serviceability-dominant</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Character</emphasis>: Production, manufacturing, logistics areas requiring heavy service access</para>
+</listitem><listitem>
+<para><emphasis role="bold">Buildings</emphasis>: Warehouses, factories, distribution centers, utilities</para>
+</listitem><listitem>
+<para><emphasis role="bold">Height</emphasis>: 1-4 stories</para>
+</listitem><listitem>
+<para><emphasis role="bold">Features</emphasis>: Large footprints, truck access, rail sidings, utilitarian design</para>
+</listitem></itemizedlist>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md54">
+<title>Practical Application</title>
+<para>When processing a parcel, the lot generator:<orderedlist>
+<listitem>
+<para>Queries nearest road type using distance-to-segment calculations</para>
+</listitem><listitem>
+<para>Retrieves road&apos;s frontage profile (A, E, S, P values)</para>
+</listitem><listitem>
+<para>Applies district formulas to generate affinity scores</para>
+</listitem><listitem>
+<para>Combines with axiom biases and influencer landmarks</para>
+</listitem><listitem>
+<para>Uses classification to inform building height, setback, density, ground-floor use</para>
+</listitem></orderedlist>
+</para>
+
+<para><emphasis role="bold">Emergent Result</emphasis>: Buildings along highways exhibit industrial/commercial characteristics (high service, low privacy), while cul-de-sacs spawn residential structures (high privacy, low exposure).</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md56">
+<title>Multi-Level City Support</title><section xml:id="_md__read_me_1autotoc_md57">
+<title>Layered Graph Representation</title>
+<para>For cities with bridges, tunnels, and elevated structures, the system uses <emphasis role="bold">layered graphs</emphasis>:</para>
+
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">G = (V, E)</emphasis>: Piecewise-linear graph embedded in ℝ²</para>
+</listitem><listitem>
+<para><emphasis role="bold">ℓ : E → ℕ</emphasis>: Layer assignment oracle</para>
+</listitem><listitem>
+<para><emphasis role="bold">Lᵢ = ℓ⁻¹(i)</emphasis>: Set of edges on layer i</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md58">
+<title>Portals</title>
+<para>A <emphasis role="bold">portal</emphasis> is a vertex shared by ≥2 layers (edges adjacent belong to different layers). Conceptually, there are <computeroutput>m</computeroutput> copies of ℝ², one per layer, glued together at portals. This layered space is denoted <emphasis role="bold">L</emphasis>.</para>
+
+<para><emphasis role="bold">Key Innovation</emphasis>: All computational steps occur within the multi-layer space <emphasis role="bold">L</emphasis>, using portal-aware distance calculations. This ensures topological signatures and distance measurements account for bridges/tunnels rather than artificially flattening the network.</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md60">
+<title>Building &amp; Usage</title><section xml:id="_md__read_me_1autotoc_md61">
+<title>Prerequisites</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">CMake 3.20+</emphasis></para>
+</listitem><listitem>
+<para><emphasis role="bold">C++20 compiler</emphasis> (MSVC 2022, GCC 11+, Clang 14+)</para>
+</listitem><listitem>
+<para><emphasis role="bold">Git submodules</emphasis> (all dependencies are vendored in <computeroutput>3rdparty/</computeroutput>)<itemizedlist>
+<listitem>
+<para>GLM, ImGui, GLFW, magic_enum, sol2, etc.</para>
+</listitem></itemizedlist>
+</para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md62">
+<title>Quick Start</title>
+<para><literallayout><computeroutput>#&#32;Clone&#32;repository&#32;with&#32;submodules
+git&#32;clone&#32;--recursive&#32;https://github.com/TheRogueNPC/RogueCities_UrbanSpatialDesigner.git
+cd&#32;RogueCities_UrbanSpatialDesigner
+
+#&#32;Build&#32;core&#32;library
+cmake&#32;-B&#32;build&#32;-S&#32;.
+cmake&#32;--build&#32;build&#32;--target&#32;RogueCityCore&#32;--config&#32;Release
+
+#&#32;Run&#32;tests&#32;(Phase&#32;4)
+ctest&#32;--test-dir&#32;build&#32;--output-on-failure
+
+#&#32;Build&#32;full&#32;application&#32;(Phase&#32;3+)
+cmake&#32;--build&#32;build&#32;--target&#32;RogueCityDesigner&#32;--config&#32;Release
+./build/bin/RogueCityDesigner
+</computeroutput></literallayout></para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md63">
+<title>Development Build (Core-Only)</title>
+<para><literallayout><computeroutput>#&#32;Fast&#32;iteration&#32;during&#32;development
+cmake&#32;-B&#32;build_core&#32;-S&#32;.&#32;-DBUILD_CORE_ONLY=ON
+cmake&#32;--build&#32;build_core&#32;--target&#32;RogueCityCore&#32;--config&#32;Release
+</computeroutput></literallayout></para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md65">
+<title>Project Status</title><section xml:id="_md__read_me_1autotoc_md66">
+<title>Current Phase: <emphasis role="bold">R0 Complete</emphasis> + <emphasis role="bold">Phase 3 In Progress</emphasis> (Feb 6, 2026)</title>
+<para><informaltable frame="all">
+    <tgroup cols="4" align="left" colsep="1" rowsep="1">
+      <colspec colname='c1'/>
+      <colspec colname='c2'/>
+      <colspec colname='c3'/>
+      <colspec colname='c4'/>
+<thead>
+      <row  class='markdownTableHead'>
+<entry>
+<para>Phase  </para>
+</entry><entry>
+<para>Status  </para>
+</entry><entry>
+<para>Description  </para>
+</entry><entry>
+<para>Target Date  </para>
+</entry></row>
+</thead><tbody>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Phase 1</emphasis>  </para>
+</entry><entry>
+<para>✅ <emphasis role="bold">Complete</emphasis>  </para>
+</entry><entry>
+<para>Core data layer (Vec2, Tensor2D, AESP types)  </para>
+</entry><entry>
+<para>Feb 4  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Phase 2</emphasis>  </para>
+</entry><entry>
+<para>✅ <emphasis role="bold">Complete</emphasis>  </para>
+</entry><entry>
+<para>Generators library (tensor fields, roads, districts)  </para>
+</entry><entry>
+<para>Feb 5-7  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Phase 3</emphasis>  </para>
+</entry><entry>
+<para>💭 <emphasis role="bold">Functional-WIP</emphasis>  </para>
+</entry><entry>
+<para>Minimal ImGui UI (axiom placement, visualization)  </para>
+</entry><entry>
+<para>Feb 8-10  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">Phase 4</emphasis>  </para>
+</entry><entry>
+<para>⏳ In Progress  </para>
+</entry><entry>
+<para>Export system (JSON, OBJ, GLTF)  </para>
+</entry><entry>
+<para>Feb 11-12  </para>
+</entry></row>
+      <row  class='markdownTableRowOdd'>
+<entry>
+<para><emphasis role="bold">Phase 5</emphasis>  </para>
+</entry><entry>
+<para>🔜 Planned  </para>
+</entry><entry>
+<para>MVP polish, presets, documentation  </para>
+</entry><entry>
+<para>Feb 13-15  </para>
+</entry></row>
+      <row  class='markdownTableRowEven'>
+<entry>
+<para><emphasis role="bold">R0</emphasis>  </para>
+</entry><entry>
+<para>✅ <emphasis role="bold">Complete</emphasis>  </para>
+</entry><entry>
+<para>AI-assisted development integration (4 sub-phases)  </para>
+</entry><entry>
+<para>Feb 6  </para>
+</entry></row>
+    </tbody>
+    </tgroup>
+</informaltable>
+</para>
+
+<para><emphasis role="bold">R0 Integration</emphasis>: AI Bridge + UI Agent + CitySpec + Design Assistant <?linebreak?> <emphasis role="bold">MVP Target</emphasis>: February 15, 2026</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md68">
+<title>Research References</title><section xml:id="_md__read_me_1autotoc_md69">
+<title>Core Papers</title>
+<para><itemizedlist>
+<listitem>
+<para>Chen et al. (2008) - <emphasis>Interactive Procedural Street Modeling</emphasis></para>
+</listitem><listitem>
+<para>Parish &amp; Müller (2001) - <emphasis>Procedural Modeling of Cities</emphasis></para>
+</listitem><listitem>
+<para>Lechner et al. (2003) - <emphasis>Tensor Fields for Interactive Procedural Content</emphasis></para>
+</listitem><listitem>
+<para>Boeing (2021) - <emphasis>Street Network Analysis in Urban Form Studies</emphasis></para>
+</listitem></itemizedlist>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md70">
+<title>Urban Planning Theory</title>
+<para><itemizedlist>
+<listitem>
+<para>Jacobs, J. (1961) - <emphasis>The Death and Life of Great American Cities</emphasis></para>
+</listitem><listitem>
+<para>Alexander, C. (1977) - <emphasis>A Pattern Language: Towns, Buildings, Construction</emphasis></para>
+</listitem><listitem>
+<para>Lynch, K. (1960) - <emphasis>The Image of the City</emphasis></para>
+</listitem></itemizedlist>
+</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+</section>
+<section xml:id="_md__read_me_1autotoc_md72">
+<title>License</title>
+<para>MIT License</para>
+
+<para>Copyright (c) 2026 Mariku (TheRogueNPC) / Nefarious Crows Int</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md74">
+<title>Citation</title>
+<para>If you use this research or implementation in academic work, please cite:</para>
+
+<para><literallayout><computeroutput>@software{roguecity2026,
+&#32;&#32;author&#32;=&#32;{Mariku&#32;(TheRogueNPC)},
+&#32;&#32;title&#32;=&#32;{Rogue&#32;City&#32;Designer:&#32;Tensor&#32;Field-Guided&#32;Urban&#32;Spatial&#32;Generation},
+&#32;&#32;year&#32;=&#32;{2026},
+&#32;&#32;publisher&#32;=&#32;{GitHub},
+&#32;&#32;url&#32;=&#32;{https://github.com/TheRogueNPC/RogueCityMVP}
+}
+</computeroutput></literallayout></para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+</para>
+</section>
+<section xml:id="_md__read_me_1autotoc_md76">
+<title>Contact</title>
+<para><itemizedlist>
+<listitem>
+<para><emphasis role="bold">Author</emphasis>: Mariku (TheRogueNPC)</para>
+</listitem><listitem>
+<para><emphasis role="bold">Organization</emphasis>: Nefarious Crows Int</para>
+</listitem><listitem>
+<para><emphasis role="bold">Email</emphasis>: <link xlink:href="mailto:Team.Crow@yahoo.com">Team.Crow@yahoo.com</link></para>
+</listitem><listitem>
+<para><emphasis role="bold">GitHub</emphasis>: <link xlink:href="https://github.com/TheRogueNPC">@TheRogueNPC</link></para>
+</listitem></itemizedlist>
+</para>
+
+<para><informaltable frame='bottom'><tgroup cols='1'><colspec align='center'/><tbody><row><entry align='center'>
+</entry></row></tbody></tgroup></informaltable>
+ <emphasis>&quot;Cities are defined by their roads. From roads emerge parcels, lots, buildings, and ultimately districts. This structural view from urban morphology emphasizes how these elements create functional urban form.&quot;</emphasis>``` </para>
+</section>
+</section>

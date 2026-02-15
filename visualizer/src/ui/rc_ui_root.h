@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <imgui.h>
+#include "ui/rc_ui_input_gate.h"
 
 namespace RogueCity::App { class MinimapViewport; }
 
@@ -39,6 +40,9 @@ inline constexpr std::array<ToolLibrary, 6> kToolLibraryOrder = {
 
 [[nodiscard]] bool IsToolLibraryOpen(ToolLibrary tool);
 void ToggleToolLibrary(ToolLibrary tool);
+void ActivateToolLibrary(ToolLibrary tool);
+void PopoutToolLibrary(ToolLibrary tool);
+[[nodiscard]] bool IsToolLibraryPopoutOpen(ToolLibrary tool);
 
 void ApplyUnifiedWindowSchema(const ImVec2& baseSize = ImVec2(540.0f, 720.0f), float padding = 16.0f);
 void PopUnifiedWindowSchema();
@@ -46,6 +50,16 @@ void BeginUnifiedTextWrap(float padding = 16.0f);
 void EndUnifiedTextWrap();
 bool BeginWindowContainer(const char* id = "##window_container", ImGuiWindowFlags flags = 0);
 void EndWindowContainer();
+
+struct DockLayoutPreferences {
+    float left_panel_ratio = 0.32f;
+    float right_panel_ratio = 0.22f;
+    float tool_deck_ratio = 0.24f;
+};
+
+[[nodiscard]] DockLayoutPreferences GetDockLayoutPreferences();
+[[nodiscard]] DockLayoutPreferences GetDefaultDockLayoutPreferences();
+void SetDockLayoutPreferences(const DockLayoutPreferences& preferences);
 
 // Axiom Deck -> Axiom Library toggle.
 [[nodiscard]] bool IsAxiomLibraryOpen();
@@ -81,5 +95,9 @@ bool BeginDockableWindow(const char* windowName,
                          ImGuiWindowFlags flags = 0);
 
 void EndDockableWindow();
+
+// Publish/inspect per-frame UI input arbitration for viewport actions.
+void PublishUiInputGateState(const UiInputGateState& state);
+[[nodiscard]] const UiInputGateState& GetUiInputGateState();
 
 } // namespace RC_UI

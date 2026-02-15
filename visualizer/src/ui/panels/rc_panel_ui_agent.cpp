@@ -271,6 +271,30 @@ void UiAgentPanel::RenderContent() {
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
     auto& runtime = AI::AiBridgeRuntime::Instance();
+
+    std::vector<AI::UiCommand> pending_commands;
+    {
+        std::scoped_lock lock(m_pendingCommandsMutex);
+        if (!m_pendingCommands.empty()) {
+            pending_commands.swap(m_pendingCommands);
+        }
+    }
+    if (!pending_commands.empty()) {
+        int applied_count = 0;
+        std::string result = "Received " + std::to_string(pending_commands.size()) + " commands:\n";
+        for (const auto& cmd : pending_commands) {
+            std::string line;
+            if (ApplyUiCommand(cmd, line)) {
+                ++applied_count;
+            }
+            result += "- " + cmd.cmd + " => " + line + "\n";
+        }
+        result += "\nApplied " + std::to_string(applied_count) + " command(s).";
+        {
+            std::scoped_lock lock(m_resultMutex);
+            m_lastResult = std::move(result);
+        }
+    }
     
     // Check if bridge is online
     if (!runtime.IsOnline()) {
@@ -278,9 +302,6 @@ void UiAgentPanel::RenderContent() {
         ImGui::Text("AI Bridge offline - start it in AI Console");
         ImGui::PopStyleColor();
         uiint.RegisterWidget({"text", "AI Bridge offline", "ai.bridge.status", {"ai", "status"}});
-        uiint.EndPanel();
-        RC_UI::EndUnifiedTextWrap();
-        RC_UI::Components::EndTokenPanel();
         return;
     }
     
@@ -302,29 +323,23 @@ void UiAgentPanel::RenderContent() {
             }
 
             std::string goal = std::string(m_goalBuffer);
-            std::thread([this, goal]() {
-                auto snapshot = BuildEnhancedSnapshot();
-                auto commands = AI::UiAgentClient::QueryAgent(snapshot, goal);
-
-                std::string result;
-                if (commands.empty()) {
-                    result = "No commands returned (check console for errors)";
-                } else {
-                    int appliedCount = 0;
-                    result = "Received " + std::to_string(commands.size()) + " commands:\n";
-                    for (const auto& cmd : commands) {
-                        std::string line;
-                        if (ApplyUiCommand(cmd, line)) {
-                            ++appliedCount;
-                        }
-                        result += "- " + cmd.cmd + " => " + line + "\n";
+            const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
+            std::thread([this, goal, snapshot]() {
+                try {
+                    auto commands = AI::UiAgentClient::QueryAgent(snapshot, goal);
+                    if (commands.empty()) {
+                        std::scoped_lock lock(m_resultMutex);
+                        m_lastResult = "No commands returned (check console for errors)";
+                    } else {
+                        std::scoped_lock lock(m_pendingCommandsMutex);
+                        m_pendingCommands = std::move(commands);
                     }
-                    result += "\nApplied " + std::to_string(appliedCount) + " command(s).";
-                }
-
-                {
+                } catch (const std::exception& e) {
                     std::scoped_lock lock(m_resultMutex);
-                    m_lastResult = result;
+                    m_lastResult = std::string("UI Agent failed: ") + e.what();
+                } catch (...) {
+                    std::scoped_lock lock(m_resultMutex);
+                    m_lastResult = "UI Agent failed: unknown exception";
                 }
 
                 m_processing = false;
@@ -361,39 +376,47 @@ void UiAgentPanel::RenderContent() {
             }
 
             std::string goal = std::string(m_designGoalBuffer);
-            std::thread([this, goal]() {
-                auto snapshot = BuildEnhancedSnapshot();
-                auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, goal);
+            const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
+            std::thread([this, goal, snapshot]() {
+                try {
+                    auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, goal);
 
-                // Generate timestamped filename
-                auto now = std::chrono::system_clock::now();
-                auto t = std::chrono::system_clock::to_time_t(now);
-                std::tm tm{};
+                    // Generate timestamped filename
+                    auto now = std::chrono::system_clock::now();
+                    auto t = std::chrono::system_clock::to_time_t(now);
+                    std::tm tm{};
 #ifdef _WIN32
-                localtime_s(&tm, &t);
+                    localtime_s(&tm, &t);
 #else
-                tm = *std::localtime(&t);
+                    tm = *std::localtime(&t);
 #endif
-                std::stringstream ss;
-                ss << std::put_time(&tm, "%Y%m%d_%H%M%S");
-                std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
+                    std::stringstream ss;
+                    ss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+                    std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
 
-                std::string result;
-                if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
-                    result = "Saved plan to: " + filename + "\n\n";
-                    result += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
-                    result += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
+                    std::string result;
+                    if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
+                        result = "Saved plan to: " + filename + "\n\n";
+                        result += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
+                        result += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
 
-                    if (!plan.summary.empty()) {
-                        result += "Summary:\n" + plan.summary;
+                        if (!plan.summary.empty()) {
+                            result += "Summary:\n" + plan.summary;
+                        }
+                    } else {
+                        result = "Failed to save plan (check console)";
                     }
-                } else {
-                    result = "Failed to save plan (check console)";
-                }
 
-                {
+                    {
+                        std::scoped_lock lock(m_designResultMutex);
+                        m_lastDesignResult = result;
+                    }
+                } catch (const std::exception& e) {
                     std::scoped_lock lock(m_designResultMutex);
-                    m_lastDesignResult = result;
+                    m_lastDesignResult = std::string("Design assistant failed: ") + e.what();
+                } catch (...) {
+                    std::scoped_lock lock(m_designResultMutex);
+                    m_lastDesignResult = "Design assistant failed: unknown exception";
                 }
 
                 m_designProcessing = false;
@@ -450,3 +473,14 @@ void UiAgentPanel::Render() {
 }
 
 } // namespace RogueCity::UI
+
+// === NAMESPACE-LEVEL DRAW FUNCTION FOR DRAWER PATTERN ===
+namespace RC_UI::Panels::UiAgent {
+
+void DrawContent(float dt) {
+    // Reuse the class method for now
+    static RogueCity::UI::UiAgentPanel panel_instance;
+    panel_instance.RenderContent();
+}
+
+} // namespace RC_UI::Panels::UiAgent

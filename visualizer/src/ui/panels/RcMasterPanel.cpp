@@ -3,12 +3,15 @@
 // ARCHITECTURE: Single ImGui window, routes to drawers via PanelRegistry
 
 #include "RcMasterPanel.h"
+#include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
+#include "ui/rc_ui_animation.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include <imgui.h>
+#include <array>
 #include <algorithm>
 #include <cctype>
 
@@ -39,11 +42,12 @@ void RcMasterPanel::Draw(float dt) {
     // Main master panel window
     if (m_master_window_open) {
         ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-        
-        const bool open = Components::BeginTokenPanel(
+
+        static RC_UI::DockableWindowState s_master_window_state;
+        const bool open = RC_UI::BeginDockableWindow(
             "Master Panel",
-            UITokens::InfoBlue,
-            &m_master_window_open,
+            s_master_window_state,
+            "Left",
             ImGuiWindowFlags_NoCollapse);
         
         introspector.BeginPanel(
@@ -51,7 +55,7 @@ void RcMasterPanel::Draw(float dt) {
                 "Master Panel",
                 "Master Panel",
                 "container",
-                "Center",
+                "Left",
                 "visualizer/src/ui/panels/RcMasterPanel.cpp",
                 {"master", "router", "tabs"}
             },
@@ -61,15 +65,21 @@ void RcMasterPanel::Draw(float dt) {
         if (open) {
             // Tab bar for category navigation
             DrawTabBar(ctx);
-            
-            ImGui::Separator();
-            
+            ImGui::Spacing();
+
             // Active drawer content
             DrawActiveDrawer(ctx);
+            
+            // Y2K pulsing border when focused (Cockpit Doctrine: motion as instruction)
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow)) {
+                AnimationHelpers::DrawPulsingBorder(UITokens::CyanAccent, 0.7f);
+            }
         }
         
         introspector.EndPanel();
-        Components::EndTokenPanel();
+        if (open) {
+            RC_UI::EndDockableWindow();
+        }
     }
     
     // Search overlay (modal)
@@ -83,72 +93,138 @@ void RcMasterPanel::Draw(float dt) {
 
 void RcMasterPanel::DrawTabBar(DrawContext& ctx) {
     auto& registry = PanelRegistry::Instance();
-    
-    if (ImGui::BeginTabBar("##MasterPanelTabs", ImGuiTabBarFlags_None)) {
-        // Category tabs
-        const std::array<PanelCategory, 5> categories = {
-            PanelCategory::Indices,
-            PanelCategory::Controls,
-            PanelCategory::Tools,
-            PanelCategory::System,
-            PanelCategory::AI
-        };
-        
+
+    const std::array<PanelCategory, 5> categories = {
+        PanelCategory::Indices,
+        PanelCategory::Controls,
+        PanelCategory::Tools,
+        PanelCategory::System,
+        PanelCategory::AI
+    };
+
+    std::vector<PanelType> active_panels;
+
+    if (ImGui::BeginTabBar("##MasterPanelTabs", ImGuiTabBarFlags_FittingPolicyResizeDown)) {
         for (PanelCategory cat : categories) {
             auto panels = registry.GetPanelsInCategory(cat);
-            
-            // Skip empty categories
             if (panels.empty()) {
                 continue;
             }
-            
-            // Skip AI tab if no AI panels registered
             if (cat == PanelCategory::AI) {
 #if !defined(ROGUE_AI_DLC_ENABLED)
                 continue;
 #endif
+                if (!ctx.global_state.config.dev_mode_enabled) {
+                    continue;
+                }
             }
-            
-            const char* tab_name = PanelCategoryName(cat);
-            if (ImGui::BeginTabItem(tab_name)) {
+
+            if (ImGui::BeginTabItem(PanelCategoryName(cat))) {
                 m_active_category = cat;
-                DrawCategoryTab(cat, panels);
+                active_panels = panels;
                 ImGui::EndTabItem();
             }
         }
-        
         ImGui::EndTabBar();
     }
-    
-    // Search hint
-    ImGui::SameLine();
-    ImGui::TextDisabled("(Ctrl+P for search)");
+
+    if (active_panels.empty()) {
+        for (PanelCategory cat : categories) {
+            auto panels = registry.GetPanelsInCategory(cat);
+            if (panels.empty()) {
+                continue;
+            }
+            if (cat == PanelCategory::AI) {
+#if !defined(ROGUE_AI_DLC_ENABLED)
+                continue;
+#endif
+                if (!ctx.global_state.config.dev_mode_enabled) {
+                    continue;
+                }
+            }
+            m_active_category = cat;
+            active_panels = panels;
+            break;
+        }
+    }
+
+    DrawCategoryTab(m_active_category, active_panels);
+    ImGui::Spacing();
+
+    const char* search_hint = "(Ctrl+P for search)";
+    if (ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(search_hint).x) {
+        ImGui::TextDisabled("%s", search_hint);
+    }
+    ImGui::Separator();
 }
 
 void RcMasterPanel::DrawCategoryTab(PanelCategory cat, const std::vector<PanelType>& panels) {
+    if (panels.empty()) {
+        return;
+    }
+
+    if (std::find(panels.begin(), panels.end(), m_active_panel) == panels.end()) {
+        m_active_panel = panels.front();
+    }
+
     auto& registry = PanelRegistry::Instance();
-    
-    // Sub-tabs or list for panels within category
     if (panels.size() == 1) {
-        // Single panel - auto-select
         m_active_panel = panels[0];
-    } else {
-        // Multiple panels - show sub-navigation
-        if (ImGui::BeginTabBar("##CategorySubTabs", ImGuiTabBarFlags_None)) {
-            for (PanelType type : panels) {
-                IPanelDrawer* drawer = registry.GetDrawer(type);
-                if (!drawer) continue;
-                
-                bool is_active = (m_active_panel == type);
-                ImGuiTabItemFlags flags = is_active ? ImGuiTabItemFlags_SetSelected : 0;
-                
-                if (ImGui::BeginTabItem(drawer->display_name(), nullptr, flags)) {
-                    m_active_panel = type;
-                    ImGui::EndTabItem();
+        return;
+    }
+
+    const char* sub_tab_id = "##CategorySubTabs";
+    switch (cat) {
+        case PanelCategory::Indices:  sub_tab_id = "##CategorySubTabs_Indices"; break;
+        case PanelCategory::Controls: sub_tab_id = "##CategorySubTabs_Controls"; break;
+        case PanelCategory::Tools:    sub_tab_id = "##CategorySubTabs_Tools"; break;
+        case PanelCategory::System:   sub_tab_id = "##CategorySubTabs_System"; break;
+        case PanelCategory::AI:       sub_tab_id = "##CategorySubTabs_AI"; break;
+        default: break;
+    }
+
+    if (ImGui::BeginTabBar(sub_tab_id, ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+        for (PanelType type : panels) {
+            IPanelDrawer* drawer = registry.GetDrawer(type);
+            if (!drawer) {
+                continue;
+            }
+
+            if (ImGui::BeginTabItem(drawer->display_name())) {
+                m_active_panel = type;
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                ImGui::OpenPopup("##MasterPanelContextMenu");
+                m_context_menu_target = type;
+            }
+        }
+
+        if (ImGui::BeginPopup("##MasterPanelContextMenu")) {
+            IPanelDrawer* target_drawer = registry.GetDrawer(m_context_menu_target);
+            if (target_drawer) {
+                ImGui::TextDisabled("%s Actions", target_drawer->display_name());
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Pop Out (Float)")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::MenuItem("Duplicate View")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Pin to Edge")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::MenuItem("Minimize to Shelf")) {
+                    ImGui::CloseCurrentPopup();
                 }
             }
-            ImGui::EndTabBar();
+            ImGui::EndPopup();
         }
+
+        ImGui::EndTabBar();
     }
 }
 
@@ -177,8 +253,7 @@ void RcMasterPanel::DrawActiveDrawer(DrawContext& ctx) {
             if (ImGui::Button(is_popout ? "Dock" : "Popout")) {
                 SetPopout(m_active_panel, !is_popout);
             }
-            ImGui::SameLine();
-            ImGui::Separator();
+            ImGui::Spacing();
         }
         
         // Drawer content
@@ -188,7 +263,7 @@ void RcMasterPanel::DrawActiveDrawer(DrawContext& ctx) {
     } else {
         ImGui::TextDisabled("Panel not visible in current state");
     }
-    
+
     ImGui::EndChild();
 }
 
@@ -271,7 +346,7 @@ void RcMasterPanel::HandlePopouts(DrawContext& ctx) {
         if (!drawer || !drawer->is_visible(ctx)) continue;
         
         bool window_open = true;
-        if (ImGui::Begin(drawer->display_name(), &window_open, ImGuiWindowFlags_None)) {
+        if (Components::BeginTokenPanel(drawer->display_name(), UITokens::InfoBlue, &window_open, ImGuiWindowFlags_None)) {
             // Mark context as floating window
             DrawContext float_ctx = ctx;
             float_ctx.is_floating_window = true;
@@ -279,7 +354,7 @@ void RcMasterPanel::HandlePopouts(DrawContext& ctx) {
             drawer->draw(float_ctx);
             new_active_popouts.insert(type);
         }
-        ImGui::End();
+        Components::EndTokenPanel();
         
         // If window closed, dock it back
         if (!window_open) {
@@ -319,7 +394,7 @@ std::vector<PanelType> RcMasterPanel::FilterPanelsBySearch(const std::string& qu
     // Simple case-insensitive substring match
     std::string lower_query = query;
     std::transform(lower_query.begin(), lower_query.end(), lower_query.begin(),
-        [](unsigned char c) { return std::tolower(c); });
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     
     std::vector<PanelType> results;
     for (PanelType type : all_panels) {
@@ -328,7 +403,7 @@ std::vector<PanelType> RcMasterPanel::FilterPanelsBySearch(const std::string& qu
         
         std::string lower_name = drawer->display_name();
         std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
-            [](unsigned char c) { return std::tolower(c); });
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         
         if (lower_name.find(lower_query) != std::string::npos) {
             results.push_back(type);

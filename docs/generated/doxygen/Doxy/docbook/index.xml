@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<book xmlns="http://docbook.org/ns/docbook" version="5.0" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="_index" xml:lang="en-US">
+    <info>
+    <title>RogueCities</title>
+    </info>
+    <xi:include href="md__b_u_i_l_d___i_n_s_t_r_u_c_t_i_o_n_s.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
+    <xi:include href="md__read_me.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
+<index/>
+</book>

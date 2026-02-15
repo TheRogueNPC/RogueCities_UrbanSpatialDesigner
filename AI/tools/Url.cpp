@@ -5,10 +5,6 @@
 
 namespace RogueCity::AI {
 
-static bool StartsWith(const std::string& s, const std::string& prefix) {
-    return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
-}
-
 static std::string Trim(const std::string& s) {
     auto isSpace = [](unsigned char c) { return std::isspace(c) != 0; };
     size_t b = 0;
@@ -92,4 +88,3 @@ std::string JoinUrlPath(const std::string& baseUrl, const std::string& path) {
 }
 
 } // namespace RogueCity::AI
-

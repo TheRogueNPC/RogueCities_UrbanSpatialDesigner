@@ -280,9 +280,9 @@ void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
     }
     if (mode_ == Mode::DraggingSize) {
         // Update ghost radius based on drag distance
-        const float dx = world_pos.x - placement_start_pos_.x;
-        const float dy = world_pos.y - placement_start_pos_.y;
-        ghost_radius_ = sqrtf(dx * dx + dy * dy);
+        const double dx = world_pos.x - placement_start_pos_.x;
+        const double dy = world_pos.y - placement_start_pos_.y;
+        ghost_radius_ = static_cast<float>(std::sqrt(dx * dx + dy * dy));
         ghost_radius_ = std::max(50.0f, std::min(ghost_radius_, 1000.0f));
     } else if (mode_ == Mode::DraggingAxiom) {
         auto* axiom = get_selected_axiom();
@@ -293,9 +293,9 @@ void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
         // Update ring radius via knob drag
         auto* axiom = get_selected_axiom();
         if (axiom) {
-            const float dx = world_pos.x - axiom->position().x;
-            const float dy = world_pos.y - axiom->position().y;
-            const float new_radius = sqrtf(dx * dx + dy * dy);
+            const double dx = world_pos.x - axiom->position().x;
+            const double dy = world_pos.y - axiom->position().y;
+            const float new_radius = static_cast<float>(std::sqrt(dx * dx + dy * dy));
             
             // Update ring radius (clamped)
             const float clamped_radius = std::max(50.0f, std::min(new_radius, 1000.0f));

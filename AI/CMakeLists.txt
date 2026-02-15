@@ -20,6 +20,7 @@ set(AI_SOURCES
     integration/AiAssist.cpp
     config/AiConfig.cpp
     runtime/AiBridgeRuntime.cpp
+    runtime/AiAvailability.cpp
     client/UiAgentClient.cpp
     client/CitySpecClient.cpp
     client/UiDesignAssistant.cpp
@@ -32,6 +33,7 @@ set(AI_HEADERS
     integration/AiAssist.h
     config/AiConfig.h
     runtime/AiBridgeRuntime.h
+    runtime/AiAvailability.h
     client/UiAgentClient.h
     client/CitySpecClient.h
     client/UiDesignAssistant.h

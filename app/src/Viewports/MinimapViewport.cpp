@@ -117,7 +117,8 @@ void MinimapViewport::render() {
     // Camera position indicator (pulsing reticle)
     const float center_x = minimap_pos.x + minimap_size.x * 0.5f;
     const float center_y = minimap_pos.y + minimap_size.y * 0.5f;
-    const float pulse = 1.0f + 0.2f * std::sin(ImGui::GetTime() * 2.0f);
+    const float t = static_cast<float>(ImGui::GetTime());
+    const float pulse = 1.0f + 0.2f * std::sin(t * 2.0f);
     const float reticle_size = 5.0f * pulse;
     
     draw_list->AddCircle(

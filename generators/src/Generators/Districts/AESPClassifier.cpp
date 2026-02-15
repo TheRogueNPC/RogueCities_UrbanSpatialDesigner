@@ -1,3 +1,10 @@
+//File: AESPClassifier.cpp
+// PURPOSE: Implementation of AESP-based district classification for lot zoning
+// AI_INTEGRATION_TAG: V1_PASS1_TASK3_AESP_CLASSIFIER
+// AGENT: Coder_Agent
+//todo this implementation currently uses hardcoded lookup tables and formulas based on the research paper, but in future iterations we could consider training a machine learning model on real-world data to predict district types from AESP scores more accurately, especially as we gather more data from user-generated cities and can fine-tune the model to better reflect tune preferences and design patterns observed in successful city layouts. This would allow for more nuanced classifications that go beyond the simple formulas currently used, and could adapt over time as we collect more data on how players are using the generator and what kinds of districts they prefer in different contexts.
+
+//todo we need to extend this classifier to become a universal scoring profiller that can also be applied dynamically to allow for more diverse/ personalized districts beyond the 5 hard coded archtypes. extending to a type of customizable tokenized system.
 #include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include <algorithm>
 
