@@ -7,23 +7,29 @@
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
+#include "ui/commands/rc_context_command_registry.h"
+#include "ui/commands/rc_context_menu_smart.h"
+#include "ui/commands/rc_context_menu_pie.h"
+#include "ui/commands/rc_command_palette.h"
 #include "ui/tools/rc_tool_contract.h"
 #include "ui/tools/rc_tool_dispatcher.h"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
+#include "RogueCity/App/Integration/CityOutputApplier.hpp"
+#include "RogueCity/App/Integration/GenerationCoordinator.hpp"
 #include "RogueCity/App/Integration/GeneratorBridge.hpp"
 #include "RogueCity/App/Integration/RealTimePreview.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
-#include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
-#include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
+#include "ui/viewport/rc_scene_frame.h"
+#include "ui/viewport/rc_minimap_renderer.h"
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
@@ -144,145 +150,13 @@ namespace {
         ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 242u), "AXIOM MODE ACTIVE");
     }
 
-    void SyncGlobalStateFromPreview(const RogueCity::Generators::CityGenerator::CityOutput& output) {
-        auto& gs = RogueCity::Core::Editor::GetGlobalState();
-        auto point_in_polygon = [](const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
-            if (polygon.size() < 3) {
-                return false;
-            }
-
-            bool inside = false;
-            for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-                const auto& a = polygon[i];
-                const auto& b = polygon[j];
-                const bool intersects = ((a.y > point.y) != (b.y > point.y)) &&
-                    (point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) + 1e-12) + a.x);
-                if (intersects) {
-                    inside = !inside;
-                }
-            }
-            return inside;
-        };
-
-        gs.roads.clear();
-        for (const auto& road : output.roads) {
-            gs.roads.add(road);
-        }
-
-        gs.districts.clear();
-        for (const auto& district : output.districts) {
-            gs.districts.add(district);
-        }
-
-        gs.blocks.clear();
-        for (const auto& block : output.blocks) {
-            gs.blocks.add(block);
-        }
-
-        gs.lots.clear();
-        for (const auto& lot : output.lots) {
-            gs.lots.add(lot);
-        }
-
-        gs.buildings.clear();
-        for (size_t i = 0; i < output.buildings.size(); ++i) {
-            gs.buildings.push_back(output.buildings[i]);
-        }
-
-        gs.generation_stats.roads_generated = static_cast<uint32_t>(gs.roads.size());
-        gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
-        gs.generation_stats.lots_generated = static_cast<uint32_t>(gs.lots.size());
-        gs.generation_stats.buildings_generated = static_cast<uint32_t>(gs.buildings.size());
-        gs.world_constraints = output.world_constraints;
-        gs.site_profile = output.site_profile;
-        gs.plan_violations = output.plan_violations;
-        gs.plan_approved = output.plan_approved;
-        RogueCity::Core::Bounds world_bounds{};
-        world_bounds.min = RogueCity::Core::Vec2(0.0, 0.0);
-        if (output.world_constraints.isValid()) {
-            world_bounds.max = RogueCity::Core::Vec2(
-                static_cast<double>(output.world_constraints.width) * output.world_constraints.cell_size,
-                static_cast<double>(output.world_constraints.height) * output.world_constraints.cell_size);
-        } else {
-            world_bounds.max = RogueCity::Core::Vec2(
-                static_cast<double>(output.tensor_field.getWidth()) * output.tensor_field.getCellSize(),
-                static_cast<double>(output.tensor_field.getHeight()) * output.tensor_field.getCellSize());
-        }
-        const int resolution = output.world_constraints.isValid()
-            ? std::max(output.world_constraints.width, output.world_constraints.height)
-            : std::max(output.tensor_field.getWidth(), output.tensor_field.getHeight());
-        gs.InitializeTextureSpace(world_bounds, std::max(1, resolution));
-        if (gs.HasTextureSpace()) {
-            auto& texture_space = gs.TextureSpaceRef();
-            if (output.world_constraints.isValid()) {
-                auto& height_layer = texture_space.heightLayer();
-                auto& material_layer = texture_space.materialLayer();
-                auto& distance_layer = texture_space.distanceLayer();
-                const auto& coords = texture_space.coordinateSystem();
-                for (int y = 0; y < height_layer.height(); ++y) {
-                    for (int x = 0; x < height_layer.width(); ++x) {
-                        const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
-                        height_layer.at(x, y) = output.world_constraints.sampleHeightMeters(world);
-                        material_layer.at(x, y) = RogueCity::Core::Data::EncodeMaterialSample(
-                            output.world_constraints.sampleFloodMask(world),
-                            output.world_constraints.sampleNoBuild(world));
-                        distance_layer.at(x, y) = output.world_constraints.sampleSlopeDegrees(world);
-                    }
-                }
-                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Height);
-                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Material);
-                gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Distance);
-            }
-            output.tensor_field.writeToTextureSpace(texture_space);
-            gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Tensor);
-            auto& zone_layer = texture_space.zoneLayer();
-            zone_layer.fill(0u);
-            const auto& coords = texture_space.coordinateSystem();
-            for (const auto& district : output.districts) {
-                if (district.border.size() < 3) {
-                    continue;
-                }
-
-                RogueCity::Core::Bounds district_bounds{};
-                district_bounds.min = district.border.front();
-                district_bounds.max = district.border.front();
-                for (const auto& p : district.border) {
-                    district_bounds.min.x = std::min(district_bounds.min.x, p.x);
-                    district_bounds.min.y = std::min(district_bounds.min.y, p.y);
-                    district_bounds.max.x = std::max(district_bounds.max.x, p.x);
-                    district_bounds.max.y = std::max(district_bounds.max.y, p.y);
-                }
-
-                const auto pmin = coords.worldToPixel(district_bounds.min);
-                const auto pmax = coords.worldToPixel(district_bounds.max);
-                const int x0 = std::clamp(std::min(pmin.x, pmax.x), 0, zone_layer.width() - 1);
-                const int x1 = std::clamp(std::max(pmin.x, pmax.x), 0, zone_layer.width() - 1);
-                const int y0 = std::clamp(std::min(pmin.y, pmax.y), 0, zone_layer.height() - 1);
-                const int y1 = std::clamp(std::max(pmin.y, pmax.y), 0, zone_layer.height() - 1);
-                const uint8_t zone_value = static_cast<uint8_t>(static_cast<uint8_t>(district.type) + 1u);
-
-                for (int y = y0; y <= y1; ++y) {
-                    for (int x = x0; x <= x1; ++x) {
-                        const RogueCity::Core::Vec2 world = coords.pixelToWorld({ x, y });
-                        if (point_in_polygon(world, district.border)) {
-                            zone_layer.at(x, y) = zone_value;
-                        }
-                    }
-                }
-            }
-            gs.ClearTextureLayerDirty(RogueCity::Core::Data::TextureLayer::Zone);
-        }
-        gs.entity_layers.clear();
-        RogueCity::App::ViewportIndexBuilder::Build(gs);
-        gs.dirty_layers.MarkAllClean();
-    }
 }
 
 // Singleton instances (owned by this panel)
 static std::unique_ptr<RogueCity::App::PrimaryViewport> s_primary_viewport;
 static std::unique_ptr<RogueCity::App::ViewportSyncManager> s_sync_manager;
 static std::unique_ptr<RogueCity::App::AxiomPlacementTool> s_axiom_tool;
-static std::unique_ptr<RogueCity::App::RealTimePreview> s_preview;
+static std::unique_ptr<RogueCity::App::GenerationCoordinator> s_generation_coordinator;
 static bool s_initialized = false;
 static bool s_live_preview = true;
 static float s_debounce_seconds = 0.30f;
@@ -291,6 +165,10 @@ static uint32_t s_seed = 42u;
 static std::string s_validation_error;
 static bool s_external_dirty = false;
 static bool s_library_modified = false;
+static RC_UI::Viewport::SceneFrame s_scene_frame{};
+static RC_UI::Commands::SmartMenuState s_smart_command_menu{};
+static RC_UI::Commands::PieMenuState s_pie_command_menu{};
+static RC_UI::Commands::CommandPaletteState s_command_palette{};
 
 struct SelectionDragState {
     bool lasso_active{ false };
@@ -642,8 +520,8 @@ void Initialize() {
     
     s_primary_viewport = std::make_unique<RogueCity::App::PrimaryViewport>();
     s_axiom_tool = std::make_unique<RogueCity::App::AxiomPlacementTool>();
-    s_preview = std::make_unique<RogueCity::App::RealTimePreview>();
-    s_preview->set_debounce_delay(s_debounce_seconds);
+    s_generation_coordinator = std::make_unique<RogueCity::App::GenerationCoordinator>();
+    s_generation_coordinator->SetDebounceDelay(s_debounce_seconds);
     
     // Use shared minimap from RC_UI root
     auto* minimap = RC_UI::GetMinimapViewport();
@@ -660,8 +538,9 @@ void Initialize() {
     s_sync_manager->set_sync_enabled(true);
     s_sync_manager->set_smooth_factor(0.2f);
 
-    s_preview->set_on_complete([minimap](const RogueCity::Generators::CityGenerator::CityOutput& output) {
-        SyncGlobalStateFromPreview(output);
+    s_generation_coordinator->SetOnComplete([minimap](const RogueCity::Generators::CityGenerator::CityOutput& output) {
+        auto& gs = RogueCity::Core::Editor::GetGlobalState();
+        RogueCity::App::ApplyCityOutputToGlobalState(output, gs);
         if (s_primary_viewport) {
             s_primary_viewport->set_city_output(&output);
         }
@@ -674,7 +553,7 @@ void Initialize() {
 }
 
 void Shutdown() {
-    s_preview.reset();
+    s_generation_coordinator.reset();
     s_axiom_tool.reset();
     s_sync_manager.reset();
     s_primary_viewport.reset();
@@ -682,7 +561,9 @@ void Shutdown() {
 }
 
 RogueCity::App::AxiomPlacementTool* GetAxiomTool() { return s_axiom_tool.get(); }
-RogueCity::App::RealTimePreview* GetPreview() { return s_preview.get(); }
+RogueCity::App::RealTimePreview* GetPreview() {
+    return s_generation_coordinator ? s_generation_coordinator->Preview() : nullptr;
+}
 RogueCity::App::AxiomVisual* GetSelectedAxiom() { return s_axiom_tool ? s_axiom_tool->get_selected_axiom() : nullptr; }
 
 bool IsLivePreviewEnabled() { return s_live_preview; }
@@ -691,8 +572,8 @@ void SetLivePreviewEnabled(bool enabled) { s_live_preview = enabled; }
 float GetDebounceSeconds() { return s_debounce_seconds; }
 void SetDebounceSeconds(float seconds) {
     s_debounce_seconds = std::max(0.0f, seconds);
-    if (s_preview) {
-        s_preview->set_debounce_delay(s_debounce_seconds);
+    if (s_generation_coordinator) {
+        s_generation_coordinator->SetDebounceDelay(s_debounce_seconds);
     }
 }
 
@@ -766,19 +647,22 @@ static bool BuildInputs(
 }
 
 bool CanGenerate() {
-    if (!s_preview || !s_axiom_tool) return false;
-    if (s_preview->is_generating()) return false;
+    if (!s_generation_coordinator || !s_axiom_tool) return false;
+    if (s_generation_coordinator->IsGenerating()) return false;
     return !s_axiom_tool->axioms().empty();
 }
 
 void ForceGenerate() {
-    if (!s_preview) return;
+    if (!s_generation_coordinator) return;
 
     std::vector<RogueCity::Generators::CityGenerator::AxiomInput> inputs;
     RogueCity::Generators::CityGenerator::Config cfg;
     if (!BuildInputs(inputs, cfg)) return;
 
-    s_preview->force_regeneration(inputs, cfg);
+    s_generation_coordinator->ForceRegeneration(
+        inputs,
+        cfg,
+        RogueCity::App::GenerationRequestReason::ForceGenerate);
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     gs.dirty_layers.MarkAllClean();
 }
@@ -897,7 +781,7 @@ bool ApplyGeneratorRequest(
     const RogueCity::Generators::CityGenerator::Config& config,
     std::string* outError) {
     Initialize();
-    if (!s_preview) {
+    if (!s_generation_coordinator) {
         if (outError) {
             *outError = "Realtime preview system is not initialized.";
         }
@@ -921,7 +805,10 @@ bool ApplyGeneratorRequest(
     s_seed = config.seed;
     RogueCity::Core::Editor::GetGlobalState().params.seed = config.seed;
     s_validation_error.clear();
-    s_preview->force_regeneration(axioms, config);
+    s_generation_coordinator->ForceRegeneration(
+        axioms,
+        config,
+        RogueCity::App::GenerationRequestReason::ExternalRequest);
     s_external_dirty = false;
     RogueCity::Core::Editor::GetGlobalState().dirty_layers.MarkAllClean();
 
@@ -1358,9 +1245,9 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     ImGui::Text("%s", alert_text);
     ImGui::PopStyleColor();
     
-    // Get camera position for world-to-minimap conversion
-    const auto camera_pos = s_primary_viewport ? s_primary_viewport->get_camera_xy() : RogueCity::Core::Vec2(1000.0f, 1000.0f);
-    const auto* output = (s_preview && s_preview->get_output()) ? s_preview->get_output() : nullptr;
+    // Shared scene frame (main viewport + minimap) is the authoritative render payload.
+    const auto camera_pos = s_scene_frame.camera_xy;
+    const auto* output = s_scene_frame.output;
     
     // === PHASE 2: RENDER AXIOMS AS COLORED DOTS ===
     if (s_axiom_tool) {
@@ -1656,6 +1543,7 @@ void DrawContent(float dt) {
     // Get editor state to determine if axiom tool should be active
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     auto current_state = hfsm.state();
 
     const bool axiom_mode =
@@ -1664,8 +1552,19 @@ void DrawContent(float dt) {
     
     // Update viewport sync + preview scheduler
     s_sync_manager->update(dt);
-    if (s_preview) {
-        s_preview->update(dt);
+    if (s_generation_coordinator) {
+        s_generation_coordinator->Update(dt);
+    }
+    if (s_primary_viewport) {
+        const auto* latest_output = s_generation_coordinator ? s_generation_coordinator->GetOutput() : nullptr;
+        const uint64_t generation_serial = s_generation_coordinator ? s_generation_coordinator->LastCompletedSerial() : 0u;
+        s_scene_frame = RC_UI::Viewport::BuildSceneFrame(
+            latest_output,
+            s_primary_viewport->get_camera_xy(),
+            s_primary_viewport->get_camera_z(),
+            s_primary_viewport->get_camera_yaw(),
+            generation_serial);
+        RC_UI::Viewport::SyncMinimapFromSceneFrame(RC_UI::GetMinimapViewport(), s_scene_frame);
     }
     
     // Render primary viewport with axiom tool integration
@@ -1732,6 +1631,59 @@ void DrawContent(float dt) {
     RC_UI::PublishUiInputGateState(input_gate);
     const bool allow_viewport_mouse_actions = RC_UI::AllowViewportMouseActions(input_gate);
     const bool allow_viewport_key_actions = RC_UI::AllowViewportKeyActions(input_gate);
+    RC_UI::Tools::DispatchContext command_dispatch{
+        &hfsm,
+        &gs,
+        &uiint,
+        "Viewport Commands"
+    };
+
+    auto request_default_context_menu = [&](const ImVec2& screen_pos) {
+        using RogueCity::Core::Editor::ViewportCommandMode;
+        switch (gs.config.viewport_context_default_mode) {
+            case ViewportCommandMode::SmartList:
+                RC_UI::Commands::RequestOpenSmartMenu(s_smart_command_menu, screen_pos);
+                break;
+            case ViewportCommandMode::Pie:
+                RC_UI::Commands::RequestOpenPieMenu(s_pie_command_menu, screen_pos);
+                break;
+            case ViewportCommandMode::Palette:
+            default:
+                RC_UI::Commands::RequestOpenCommandPalette(s_command_palette);
+                break;
+        }
+    };
+
+    const bool allow_command_hotkeys =
+        allow_viewport_key_actions &&
+        in_viewport &&
+        !minimap_hovered &&
+        !ImGui::GetIO().WantTextInput &&
+        !ImGui::IsAnyItemActive();
+
+    if (allow_viewport_mouse_actions &&
+        in_viewport &&
+        !minimap_hovered &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
+        !ImGui::GetIO().KeyAlt &&
+        !ImGui::GetIO().KeyShift &&
+        !ImGui::GetIO().KeyCtrl) {
+        request_default_context_menu(mouse_pos);
+    }
+
+    if (allow_command_hotkeys) {
+        const ImGuiIO& io = ImGui::GetIO();
+        if (gs.config.viewport_hotkey_space_enabled && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+            RC_UI::Commands::RequestOpenSmartMenu(s_smart_command_menu, mouse_pos);
+        }
+        if ((gs.config.viewport_hotkey_slash_enabled && ImGui::IsKeyPressed(ImGuiKey_Slash, false)) ||
+            (gs.config.viewport_hotkey_grave_enabled && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))) {
+            RC_UI::Commands::RequestOpenPieMenu(s_pie_command_menu, mouse_pos);
+        }
+        if (gs.config.viewport_hotkey_p_enabled && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+            RC_UI::Commands::RequestOpenCommandPalette(s_command_palette);
+        }
+    }
 
     if (axiom_mode && allow_viewport_mouse_actions) {
         ImGuiIO& io = ImGui::GetIO();
@@ -1809,7 +1761,7 @@ void DrawContent(float dt) {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                 s_axiom_tool->on_mouse_move(world_pos);
             }
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && io.KeyCtrl) {
                 s_axiom_tool->on_right_click(world_pos);
             }
         }
@@ -2139,9 +2091,12 @@ void DrawContent(float dt) {
     const bool inputs_ok = BuildInputs(axiom_inputs, config);
     if (inputs_ok) {
         // Debounced live preview: keep updating the request while the user manipulates axioms.
-        if (s_preview && s_live_preview &&
+        if (s_generation_coordinator && s_live_preview &&
             (ui_modified_axiom || s_external_dirty || s_axiom_tool->is_interacting() || s_axiom_tool->consume_dirty())) {
-            s_preview->request_regeneration(axiom_inputs, config);
+            s_generation_coordinator->RequestRegeneration(
+                axiom_inputs,
+                config,
+                RogueCity::App::GenerationRequestReason::LivePreview);
             s_external_dirty = false;
             gs.dirty_layers.MarkFromAxiomEdit();
         }
@@ -2154,8 +2109,8 @@ void DrawContent(float dt) {
     }
     
     // Status text overlay (cockpit style) - moved down to avoid overlap with debug
-    if (axiom_mode && s_preview) {
-        DrawAxiomModeStatus(*s_preview, ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
+    if (axiom_mode && s_generation_coordinator) {
+        DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
         ImGui::TextColored(TokenColorF(UITokens::TextSecondary),
             "Click-drag to set radius | Edit type via palette");
@@ -2173,8 +2128,8 @@ void DrawContent(float dt) {
         "Axioms: %zu", axioms.size());
     
     // Render generated city output (roads)
-    if (s_preview && s_preview->get_output()) {
-        const auto& roads = s_preview->get_output()->roads;
+    if (s_generation_coordinator && s_generation_coordinator->GetOutput()) {
+        const auto& roads = s_generation_coordinator->GetOutput()->roads;
         
         // Iterate using const iterators
         for (auto it = roads.begin(); it != roads.end(); ++it) {
@@ -2411,6 +2366,11 @@ void DrawContent(float dt) {
     
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).
     draw_list->PopClipRect();
+
+    const ToolLibrary preferred_library = RC_UI::Commands::CommandLibraryForDomain(gs.tool_runtime.active_domain);
+    RC_UI::Commands::DrawSmartMenu(s_smart_command_menu, command_dispatch);
+    RC_UI::Commands::DrawPieMenu(s_pie_command_menu, preferred_library, command_dispatch);
+    RC_UI::Commands::DrawCommandPalette(s_command_palette, command_dispatch);
 
 }
 

@@ -49,10 +49,18 @@ def main() -> int:
             print(f"  - {entry}")
         return 1
 
-    tool_contract_script = ROOT / "tools" / "check_tool_wiring_contract.py"
-    if tool_contract_script.exists():
+    contract_scripts = [
+        ROOT / "tools" / "check_tool_wiring_contract.py",
+        ROOT / "tools" / "check_context_command_contract.py",
+        ROOT / "tools" / "check_generator_viewport_contract.py",
+        ROOT / "tools" / "check_imgui_contracts.py",
+    ]
+
+    for script in contract_scripts:
+        if not script.exists():
+            continue
         result = subprocess.run(
-            [sys.executable, str(tool_contract_script)],
+            [sys.executable, str(script)],
             cwd=str(ROOT),
             capture_output=True,
             text=True,

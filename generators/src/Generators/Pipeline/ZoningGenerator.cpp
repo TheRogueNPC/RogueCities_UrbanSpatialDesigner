@@ -1,5 +1,5 @@
 #include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
 #include <chrono>
 #include <algorithm>
 #include <cmath>
@@ -152,8 +152,8 @@ namespace RogueCity::Generators {
             }
             
             // Classify using AESP scores
-            AESPClassifier::AESPScores scores{ lot.access, lot.exposure, lot.serviceability, lot.privacy };
-            DistrictType districtType = AESPClassifier::classifyDistrict(scores);
+            RogueProfiler::Scores scores{ lot.access, lot.exposure, lot.serviceability, lot.privacy };
+            DistrictType districtType = RogueProfiler::classifyDistrict(scores);
             
             // Map DistrictType to LotType
             switch (districtType) {

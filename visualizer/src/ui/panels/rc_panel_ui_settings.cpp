@@ -11,6 +11,8 @@
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
 #include <imgui.h>
+#include <algorithm>
+#include <array>
 #include <vector>
 #include <string>
 
@@ -171,6 +173,27 @@ void DrawContent(float /*dt*/)
 
         ImGui::Checkbox("Scale Viewports With DPI", &gs.config.ui_dpi_scale_viewports_enabled);
         uiint.RegisterWidget({"checkbox", "Scale Viewports With DPI", "ui.dpi_scale_viewports_enabled", {"ui", "settings", "dpi"}});
+
+        static constexpr std::array<const char*, 3> kCommandModeLabels{
+            "Smart List",
+            "Pie",
+            "Global Palette"
+        };
+        int context_mode = static_cast<int>(gs.config.viewport_context_default_mode);
+        if (ImGui::Combo("Viewport Right-Click Mode", &context_mode, kCommandModeLabels.data(), static_cast<int>(kCommandModeLabels.size()))) {
+            context_mode = std::clamp(context_mode, 0, static_cast<int>(kCommandModeLabels.size()) - 1);
+            gs.config.viewport_context_default_mode = static_cast<RogueCity::Core::Editor::ViewportCommandMode>(context_mode);
+        }
+        uiint.RegisterWidget({"combo", "Viewport Right-Click Mode", "ui.viewport_context_mode", {"ui", "settings", "commands"}});
+
+        ImGui::Checkbox("Hotkey: Space -> Smart List", &gs.config.viewport_hotkey_space_enabled);
+        ImGui::Checkbox("Hotkey: / -> Pie Menu", &gs.config.viewport_hotkey_slash_enabled);
+        ImGui::Checkbox("Hotkey: `~ -> Pie Menu", &gs.config.viewport_hotkey_grave_enabled);
+        ImGui::Checkbox("Hotkey: P -> Global Palette", &gs.config.viewport_hotkey_p_enabled);
+        uiint.RegisterWidget({"checkbox", "Hotkey Space", "ui.hotkeys.space", {"ui", "settings", "commands"}});
+        uiint.RegisterWidget({"checkbox", "Hotkey Slash", "ui.hotkeys.slash", {"ui", "settings", "commands"}});
+        uiint.RegisterWidget({"checkbox", "Hotkey Grave", "ui.hotkeys.grave", {"ui", "settings", "commands"}});
+        uiint.RegisterWidget({"checkbox", "Hotkey P", "ui.hotkeys.p", {"ui", "settings", "commands"}});
         
         ImGui::Spacing();
         

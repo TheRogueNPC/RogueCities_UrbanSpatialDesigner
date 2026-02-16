@@ -1,7 +1,7 @@
 #include "RogueCity/Generators/Roads/RoadClassifier.hpp"
 
 #include "RogueCity/Generators/Urban/GraphAlgorithms.hpp"
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
 
 #include <algorithm>
 #include <array>
@@ -52,8 +52,8 @@ namespace RogueCity::Generators {
             Core::RoadType best = Core::RoadType::Street;
             float best_score = std::numeric_limits<float>::max();
             for (const auto type : kTypes) {
-                const float access = AESPClassifier::roadTypeToAccess(type);
-                const float exposure = AESPClassifier::roadTypeToExposure(type);
+                const float access = RogueProfiler::roadTypeToAccess(type);
+                const float exposure = RogueProfiler::roadTypeToExposure(type);
                 const float diff = std::abs(access - access_target) + std::abs(exposure - exposure_target);
                 if (diff < best_score) {
                     best_score = diff;
@@ -116,10 +116,10 @@ namespace RogueCity::Generators {
             const float exposure_target = std::clamp(0.60f * cent + 0.40f * length_norm, 0.0f, 1.0f);
             const auto aesp_type = bestAespType(access_target, exposure_target);
 
-            const float base_access = AESPClassifier::roadTypeToAccess(base_type);
-            const float base_exposure = AESPClassifier::roadTypeToExposure(base_type);
-            const float aesp_access = AESPClassifier::roadTypeToAccess(aesp_type);
-            const float aesp_exposure = AESPClassifier::roadTypeToExposure(aesp_type);
+            const float base_access = RogueProfiler::roadTypeToAccess(base_type);
+            const float base_exposure = RogueProfiler::roadTypeToExposure(base_type);
+            const float aesp_access = RogueProfiler::roadTypeToAccess(aesp_type);
+            const float aesp_exposure = RogueProfiler::roadTypeToExposure(aesp_type);
             const float base_diff = std::abs(base_access - access_target) + std::abs(base_exposure - exposure_target);
             const float aesp_diff = std::abs(aesp_access - access_target) + std::abs(aesp_exposure - exposure_target);
 

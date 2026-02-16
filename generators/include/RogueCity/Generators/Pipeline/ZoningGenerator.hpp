@@ -1,7 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include "RogueCity/Generators/Urban/BlockGenerator.hpp"
 #include "RogueCity/Generators/Urban/LotGenerator.hpp"
 #include "RogueCity/Generators/Urban/SiteGenerator.hpp"

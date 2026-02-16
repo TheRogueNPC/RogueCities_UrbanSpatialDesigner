@@ -101,6 +101,30 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
 - Runtime state sink:
   - `GlobalState::tool_runtime` records active domain, active subtool, and last dispatch metadata.
 
+### Layer 5.6: Viewport Command Registry and Surfaces
+- Sources:
+  - `visualizer/src/ui/commands/rc_context_command_registry.cpp`
+  - `visualizer/src/ui/commands/rc_context_menu_smart.cpp`
+  - `visualizer/src/ui/commands/rc_context_menu_pie.cpp`
+  - `visualizer/src/ui/commands/rc_command_palette.cpp`
+- Responsibilities:
+  - Expose one command registry sourced from `ToolActionCatalog`.
+  - Render three command UIs (Smart List, Pie, Global Palette) over the same command IDs.
+  - Route all command execution through `Commands::ExecuteCommand` -> `DispatchToolAction`.
+- Input rules:
+  - Respect `UiInputGateState` and `io.WantTextInput`.
+  - Preserve `Ctrl+P` Master Panel search while keeping `P` viewport palette when viewport-focused.
+
+### Layer 5.7: Generation Coordination and Output Application
+- Sources:
+  - `app/src/Integration/GenerationCoordinator.cpp`
+  - `app/src/Integration/CityOutputApplier.cpp`
+  - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
+- Responsibilities:
+  - Coordinate generation request serials and reason codes.
+  - Apply `CityOutput` into `GlobalState` via a single canonical applier.
+  - Keep panel rendering code free of direct output-application ownership.
+
 ### Layer 6: Drawer/Panel Content
 - Sources:
   - `visualizer/src/ui/panels/RcPanelDrawers.cpp`
@@ -193,9 +217,19 @@ When touching UI loop/docking/panel code, verify:
 - Drawer implementations: `visualizer/src/ui/panels/RcPanelDrawers.cpp`
 - Tool contract: `visualizer/src/ui/tools/rc_tool_contract.h`
 - Tool dispatcher: `visualizer/src/ui/tools/rc_tool_dispatcher.h`
+- Viewport command registry: `visualizer/src/ui/commands/rc_context_command_registry.h`
+- Viewport command smart menu: `visualizer/src/ui/commands/rc_context_menu_smart.h`
+- Viewport command pie menu: `visualizer/src/ui/commands/rc_context_menu_pie.h`
+- Viewport command palette: `visualizer/src/ui/commands/rc_command_palette.h`
+- Generation coordinator: `app/include/RogueCity/App/Integration/GenerationCoordinator.hpp`
+- City output applier: `app/include/RogueCity/App/Integration/CityOutputApplier.hpp`
+- RogueProfiler: `generators/include/RogueCity/Generators/Scoring/RogueProfiler.hpp`
 - Compliance matrix: `docs/20_specs/ui-faq-compliance-matrix.md`
 - Tool contract spec: `docs/20_specs/tool-wiring-contract.md`
 - Tool action matrix: `docs/20_specs/tool-action-matrix.md`
+- Generator/viewport spec: `docs/20_specs/generator-viewport-contract.md`
+- Context command spec: `docs/20_specs/context-command-system.md`
+- RogueProfiler spec: `docs/20_specs/rogue-profiler-spec.md`
 - Tool wiring runbook: `docs/30_runbooks/tool-wiring-regression-checklist.md`
 - AI panels:
   - `visualizer/src/ui/panels/rc_panel_ai_console.cpp`

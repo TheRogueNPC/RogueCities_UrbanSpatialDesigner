@@ -5,8 +5,11 @@ Use this checklist after any change to tool libraries, dispatcher, or panel rout
 ## 1. Static Gates
 
 1. Run `python3 tools/check_tool_wiring_contract.py`.
-2. Run `python3 tools/check_ui_compliance.py`.
-3. Verify both pass with no contract violations.
+2. Run `python3 tools/check_context_command_contract.py`.
+3. Run `python3 tools/check_generator_viewport_contract.py`.
+4. Run `python3 tools/check_imgui_contracts.py`.
+5. Run `python3 tools/check_ui_compliance.py`.
+6. Verify all checks pass with no contract violations.
 
 ## 2. Build
 
@@ -60,3 +63,19 @@ Use this checklist after any change to tool libraries, dispatcher, or panel rout
    - Furnature (Future)
 2. Confirm tooltips show dependency/reason text.
 3. Confirm clicking stubs does not crash.
+
+## 9. Context Command UX
+
+1. Right-click viewport opens configured default mode (Smart List / Pie / Global Palette).
+2. Hotkeys work when viewport-focused and no text input is active:
+   - `Space`
+   - `/`
+   - `` `~ ``
+   - `P`
+3. Verify `Ctrl+P` still opens Master Panel search, not viewport palette.
+
+## 10. Generator/Viewport Ownership
+
+1. Confirm preview output applies through `ApplyCityOutputToGlobalState`.
+2. Confirm panel routes generation through `GenerationCoordinator`.
+3. Confirm no panel-local output sync function reappears.

@@ -3,7 +3,6 @@
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include "RogueCity/Generators/Urban/RoadGenerator.hpp"
 #include "RogueCity/Generators/Urban/DistrictGenerator.hpp"
 #include "RogueCity/Generators/Urban/BlockGenerator.hpp"

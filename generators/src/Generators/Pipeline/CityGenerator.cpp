@@ -486,9 +486,9 @@ namespace RogueCity::Generators {
         if (constraints != nullptr && constraints->isValid()) {
             resolution = std::max(constraints->width, constraints->height);
 #if !defined(NDEBUG)
-            const double constraints_world_width = static_cast<double>(constraints->width) * constraints->cell_size;
-            const double constraints_world_height = static_cast<double>(constraints->height) * constraints->cell_size;
-            const double tolerance = std::max(1.0, constraints->cell_size);
+            [[maybe_unused]] const double constraints_world_width = static_cast<double>(constraints->width) * constraints->cell_size;
+            [[maybe_unused]] const double constraints_world_height = static_cast<double>(constraints->height) * constraints->cell_size;
+            [[maybe_unused]] const double tolerance = std::max(1.0, constraints->cell_size);
             assert(std::abs(constraints_world_width - static_cast<double>(config_.width)) <= tolerance);
             assert(std::abs(constraints_world_height - static_cast<double>(config_.height)) <= tolerance);
 #endif

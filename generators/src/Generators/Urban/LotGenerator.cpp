@@ -1,6 +1,6 @@
 #include "RogueCity/Generators/Urban/LotGenerator.hpp"
 
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
 #include "RogueCity/Generators/Urban/FrontageProfiles.hpp"
 #include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 
@@ -63,14 +63,14 @@ namespace RogueCity::Generators::Urban {
 
         Core::LotType classifyLot(
             const Core::DistrictType district_type,
-            const Generators::AESPClassifier::AESPScores& aesp) {
-            if (aesp.S > 0.80f && aesp.A > 0.65f) {
+            const Generators::RogueProfiler::Scores& aesp) {
+            if (aesp.serviceability > 0.80f && aesp.access > 0.65f) {
                 return Core::LotType::LogisticsIndustrial;
             }
-            if (aesp.E > 0.82f && aesp.A > 0.60f) {
+            if (aesp.exposure > 0.82f && aesp.access > 0.60f) {
                 return Core::LotType::RetailStrip;
             }
-            if (aesp.P > 0.82f) {
+            if (aesp.privacy > 0.82f) {
                 return Core::LotType::LuxuryScenic;
             }
 
@@ -78,11 +78,11 @@ namespace RogueCity::Generators::Urban {
                 case Core::DistrictType::Industrial:
                     return Core::LotType::LogisticsIndustrial;
                 case Core::DistrictType::Commercial:
-                    return (aesp.P > 0.45f) ? Core::LotType::MixedUse : Core::LotType::RetailStrip;
+                    return (aesp.privacy > 0.45f) ? Core::LotType::MixedUse : Core::LotType::RetailStrip;
                 case Core::DistrictType::Civic:
                     return Core::LotType::CivicCultural;
                 case Core::DistrictType::Residential:
-                    return (aesp.A > 0.70f && aesp.P > 0.50f)
+                    return (aesp.access > 0.70f && aesp.privacy > 0.50f)
                         ? Core::LotType::RowhomeCompact
                         : Core::LotType::Residential;
                 case Core::DistrictType::Mixed:
@@ -138,7 +138,7 @@ namespace RogueCity::Generators::Urban {
                     }
 
                     const NearestRoads near_roads = nearestRoadTypes(roads, c);
-                    const auto aesp = Generators::AESPClassifier::computeScores(
+                    const auto aesp = Generators::RogueProfiler::computeScores(
                         near_roads.primary,
                         near_roads.has_secondary ? near_roads.secondary : near_roads.primary);
 
@@ -148,10 +148,10 @@ namespace RogueCity::Generators::Urban {
                     lot.centroid = c;
                     lot.primary_road = near_roads.primary;
                     lot.secondary_road = near_roads.has_secondary ? near_roads.secondary : near_roads.primary;
-                    lot.access = aesp.A;
-                    lot.exposure = aesp.E;
-                    lot.serviceability = aesp.S;
-                    lot.privacy = aesp.P;
+                    lot.access = aesp.access;
+                    lot.exposure = aesp.exposure;
+                    lot.serviceability = aesp.serviceability;
+                    lot.privacy = aesp.privacy;
                     lot.area = static_cast<float>(lot_w * lot_d);
                     lot.boundary = {
                         { c.x - lot_w * 0.5, c.y - lot_d * 0.5 },
@@ -173,4 +173,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

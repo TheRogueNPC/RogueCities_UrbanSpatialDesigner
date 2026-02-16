@@ -55,13 +55,13 @@
   - Mimics aviation/spacecraft HUD typography
   
 - **Camera Reticle**: Pulsing white circle at center
-  - Pulse frequency: 2 Hz sine wave (1.0 ± 0.2 scale)
+  - Pulse frequency: 2 Hz sine wave (1.0 ï¿½ 0.2 scale)
   - Shows current camera focus point
 
 #### Size Configurations ?
-- **Small**: 256×256px (compact, corner placement)
-- **Medium**: 512×512px (default, balanced visibility)
-- **Large**: 768×768px (full navigation mode)
+- **Small**: 256ï¿½256px (compact, corner placement)
+- **Medium**: 512ï¿½512px (default, balanced visibility)
+- **Large**: 768ï¿½768px (full navigation mode)
 
 #### Coordinate Display ?
 - **Bottom-right readout**: `"X: %.0f Y: %.0f"`

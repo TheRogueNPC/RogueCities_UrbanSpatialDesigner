@@ -2,7 +2,6 @@
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
 #include <vector>
 
 namespace RogueCity::Generators {

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "40_implementation_completed/phase2-viewports-complete.md",
+                "file": "40_implementation_completed/design-system-complete.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "phase2-viewports-complete"
+              "title": "design-system-complete"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "40_implementation_completed/phase2-viewports-complete.md",
+                "file": "40_implementation_completed/design-system-complete.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for phase2-viewports-complete"
+              "title": "Backlinks for design-system-complete"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "40_implementation_completed/phase2-viewports-complete.md",
+                "file": "40_implementation_completed/design-system-complete.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from phase2-viewports-complete"
+              "title": "Outgoing links from design-system-complete"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "40_implementation_completed/phase2-viewports-complete.md",
+                "file": "40_implementation_completed/design-system-complete.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of phase2-viewports-complete"
+              "title": "Outline of design-system-complete"
             }
           }
         ]
@@ -185,6 +185,10 @@
   },
   "active": "ee0399504a558c3d",
   "lastOpenFiles": [
+    "20_specs/rogue-profiler-spec.md",
+    "20_specs/context-command-system.md",
+    "20_specs/generator-viewport-contract.md",
+    "40_implementation_completed/phase2-viewports-complete.md",
     "30_runbooks/tool-wiring-regression-checklist.md",
     "20_specs/tool-action-matrix.md",
     "20_specs/tool-wiring-contract.md",
@@ -218,10 +222,6 @@
     "20_specs/masterpanel-build-verification.md",
     "20_specs/docking-guide.md",
     "10_book/book-outline-template.md",
-    "00_index/README.md",
-    "00_index/plans-and-todos-index.md",
-    "00_index/migration-log.md",
-    "20_specs/design-and-research/the-rogue-city-designer-soft.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }

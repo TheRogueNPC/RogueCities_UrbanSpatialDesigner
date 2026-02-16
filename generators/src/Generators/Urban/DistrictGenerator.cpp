@@ -1,6 +1,6 @@
 #include "RogueCity/Generators/Urban/DistrictGenerator.hpp"
 
-#include "RogueCity/Generators/Districts/AESPClassifier.hpp"
+#include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -126,8 +126,8 @@ namespace RogueCity::Generators::Urban {
                     continue;
                 }
 
-                const auto scores = AESPClassifier::computeScores(nearest.type, nearest.type);
-                const Core::DistrictType type = AESPClassifier::classifyDistrict(scores);
+                const auto scores = RogueProfiler::computeScores(nearest.type, nearest.type);
+                const Core::DistrictType type = RogueProfiler::classifyDistrict(scores);
 
                 Core::District district;
                 district.id = id++;
@@ -148,4 +148,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

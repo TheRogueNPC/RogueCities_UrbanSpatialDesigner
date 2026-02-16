@@ -21,6 +21,12 @@
 
 namespace RogueCity::Core::Editor {
 
+    enum class ViewportCommandMode : uint8_t {
+        SmartList = 0,
+        Pie,
+        Palette
+    };
+
     /// Editor configuration (persisted across sessions)
     struct EditorConfig {
         bool dev_mode_enabled{ false };  ///< Unlocks feature-gated panels (AI, experimental)
@@ -30,6 +36,11 @@ namespace RogueCity::Core::Editor {
         bool ui_multi_viewport_enabled{ false };  ///< Dear ImGui platform windows (opt-in stability policy)
         bool ui_dpi_scale_fonts_enabled{ true };  ///< Dear ImGui font DPI scaling
         bool ui_dpi_scale_viewports_enabled{ false };  ///< Dear ImGui viewport DPI scaling (opt-in)
+        ViewportCommandMode viewport_context_default_mode{ ViewportCommandMode::SmartList };  ///< Default right-click command UI mode.
+        bool viewport_hotkey_space_enabled{ true };  ///< Space opens Smart List while viewport has focus.
+        bool viewport_hotkey_slash_enabled{ true };  ///< Slash opens Pie while viewport has focus.
+        bool viewport_hotkey_grave_enabled{ true };  ///< Grave/Tilde opens Pie while viewport has focus.
+        bool viewport_hotkey_p_enabled{ true };  ///< P opens global command palette while viewport has focus.
     };
 
     struct EditorParameters {

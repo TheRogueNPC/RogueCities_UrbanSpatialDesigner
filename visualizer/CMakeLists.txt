@@ -92,6 +92,10 @@ endif()
         src/ui/rc_ui_theme.cpp
         src/ui/tools/rc_tool_contract.cpp
         src/ui/tools/rc_tool_dispatcher.cpp
+        src/ui/commands/rc_context_command_registry.cpp
+        src/ui/commands/rc_context_menu_smart.cpp
+        src/ui/commands/rc_context_menu_pie.cpp
+        src/ui/commands/rc_command_palette.cpp
         src/ui/introspection/UiIntrospection.cpp
         # Panels
         src/ui/panels/rc_panel_axiom_bar.cpp
@@ -114,6 +118,8 @@ endif()
         # RC-0.10: Zoning control and viewport overlays
         src/ui/panels/rc_panel_zoning_control.cpp
         src/ui/viewport/rc_viewport_overlays.cpp
+        src/ui/viewport/rc_scene_frame.cpp
+        src/ui/viewport/rc_minimap_renderer.cpp
         # Master Panel Architecture (RC-0.10)
         src/ui/panels/IPanelDrawer.cpp
         src/ui/panels/PanelRegistry.cpp
@@ -176,6 +182,10 @@ endif()
                 src/ui/rc_ui_theme.cpp
                 src/ui/tools/rc_tool_contract.cpp
                 src/ui/tools/rc_tool_dispatcher.cpp
+                src/ui/commands/rc_context_command_registry.cpp
+                src/ui/commands/rc_context_menu_smart.cpp
+                src/ui/commands/rc_context_menu_pie.cpp
+                src/ui/commands/rc_command_palette.cpp
                 src/ui/introspection/UiIntrospection.cpp
                 # Panel sources
                 src/ui/panels/rc_panel_axiom_bar.cpp
@@ -204,6 +214,8 @@ endif()
                 src/ui/panels/RcPanelDrawers.cpp
                 # Viewport overlays (RC-0.10)
                 src/ui/viewport/rc_viewport_overlays.cpp
+                src/ui/viewport/rc_scene_frame.cpp
+                src/ui/viewport/rc_minimap_renderer.cpp
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"

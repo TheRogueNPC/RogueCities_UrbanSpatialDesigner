@@ -35,6 +35,8 @@ set(APP_SOURCES
     src/Docking/DockLayoutManager.cpp
     
     # Integration (Generator bridge)
+    src/Integration/CityOutputApplier.cpp
+    src/Integration/GenerationCoordinator.cpp
     src/Integration/GeneratorBridge.cpp
     src/Integration/RealTimePreview.cpp
     src/Integration/ZoningBridge.cpp
@@ -68,6 +70,8 @@ set(APP_HEADERS
     include/RogueCity/App/Docking/PanelRegistry.hpp
     
     # Integration
+    include/RogueCity/App/Integration/CityOutputApplier.hpp
+    include/RogueCity/App/Integration/GenerationCoordinator.hpp
     include/RogueCity/App/Integration/GeneratorBridge.hpp
     include/RogueCity/App/Integration/RealTimePreview.hpp
     include/RogueCity/App/Integration/ZoningBridge.hpp

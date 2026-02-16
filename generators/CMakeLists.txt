@@ -20,6 +20,7 @@ set(GENERATOR_SOURCES
     src/Generators/Roads/FlowAndControl.cpp
     src/Generators/Roads/Verticality.cpp
     src/Generators/Roads/IntersectionTemplates.cpp
+    src/Generators/Scoring/RogueProfiler.cpp
     src/Generators/Districts/AESPClassifier.cpp
     src/Generators/Urban/FrontageProfiles.cpp
     src/Generators/Urban/Integrator.cpp
@@ -54,6 +55,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Roads/FlowAndControl.hpp
     include/RogueCity/Generators/Roads/Verticality.hpp
     include/RogueCity/Generators/Roads/IntersectionTemplates.hpp
+    include/RogueCity/Generators/Scoring/RogueProfiler.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
     include/RogueCity/Generators/Urban/FrontageProfiles.hpp
     include/RogueCity/Generators/Urban/Integrator.hpp
