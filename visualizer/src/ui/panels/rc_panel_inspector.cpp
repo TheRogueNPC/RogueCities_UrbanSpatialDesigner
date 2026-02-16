@@ -34,18 +34,6 @@ void DrawContent(float dt)
         kBaseBorderThickness + kBaseBorderThickness * focus.v);
     ImGui::Dummy(size);
 
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Inspector",
-            "Inspector",
-            "inspector",
-            "ToolDeck",
-            "visualizer/src/ui/panels/rc_panel_inspector.cpp",
-            {"detail", "selection"}
-        },
-        true
-    );
-
     static PropertyEditor editor;
     editor.Draw(gs);
     uiint.RegisterWidget({"property_editor", "Selection", "selection_manager", {"detail"}});

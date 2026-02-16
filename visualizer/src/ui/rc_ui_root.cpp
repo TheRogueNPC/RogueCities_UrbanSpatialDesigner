@@ -225,6 +225,7 @@ static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const I
 }
 
 using ToolLibraryContentRenderer = std::function<void()>;
+static const char* ToolLibraryWindowName(ToolLibrary tool);
 
 static void RenderToolLibraryWindow(ToolLibrary tool,
                                     const char* window_name,
@@ -275,6 +276,8 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
         UITokens::CyanAccent,
         window_open_state,
         ImGuiWindowFlags_NoCollapse);
+    const bool window_requested_open = (window_open_state == nullptr) ? true : *window_open_state;
+
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     uiint.BeginPanel(
         RogueCity::UIInt::PanelMeta{
@@ -288,13 +291,41 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
         open
     );
 
-    if (popout_instance && popout_open != nullptr) {
-        *popout_open = open;
-    } else if (!popout_instance && !s_library_frame_open) {
+    bool redock_popout = false;
+    if (popout_instance) {
+        if (!window_requested_open) {
+            redock_popout = true;
+        } else if (open && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            const ImVec2 mouse_pos = ImGui::GetMousePos();
+            const ImVec2 window_pos = ImGui::GetWindowPos();
+            const ImVec2 window_size = ImGui::GetWindowSize();
+            const float title_bar_height = ImGui::GetFrameHeight();
+            const bool over_title_bar =
+                mouse_pos.x >= window_pos.x &&
+                mouse_pos.x <= (window_pos.x + window_size.x) &&
+                mouse_pos.y >= window_pos.y &&
+                mouse_pos.y <= (window_pos.y + title_bar_height);
+            if (over_title_bar) {
+                if (popout_open != nullptr) {
+                    *popout_open = false;
+                }
+                redock_popout = true;
+            }
+        }
+    } else if (!window_requested_open) {
         s_tool_library_open.fill(false);
+        s_library_frame_open = false;
     }
 
-    if (open) {
+    if (redock_popout) {
+        if (popout_open != nullptr) {
+            *popout_open = false;
+        }
+        ActivateToolLibrary(tool);
+        QueueDockWindow(ToolLibraryWindowName(tool), "Library", false);
+    }
+
+    if (open && window_requested_open) {
 #if !defined(IMGUI_HAS_DOCK)
         if (!popout_instance) {
             s_library_frame_state.initialized = true;
@@ -385,10 +416,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
 static bool s_dock_built = false;
 static bool s_dock_layout_dirty = true;
-static bool s_deferred_layout_on_small_viewport = false;
 static bool s_legacy_window_settings_cleared = false;
-static int s_force_uncollapse_frames = 0;
-static int s_stable_valid_viewport_frames = 0;
 
 namespace {
 constexpr float kBaseMasterPanelWidth = 320.0f;
@@ -396,32 +424,36 @@ constexpr float kBaseToolColumnWidth = 220.0f;
 constexpr float kBaseCenterWidth = 420.0f;
 constexpr float kBaseToolDeckHeight = 90.0f;
 constexpr float kBaseLibraryHeight = 180.0f;
-constexpr float kLayoutBuildMinWidth = 900.0f;
-constexpr float kLayoutBuildMinHeight = 520.0f;
+constexpr float kLayoutBuildMinWidth = 320.0f;
+constexpr float kLayoutBuildMinHeight = 240.0f;
+constexpr float kMinViewportFraction = 0.25f;
 constexpr float kMinCenterRatio = 0.40f;
-constexpr int kDockRecoveryStableFrames = 6;
 
-[[nodiscard]] bool IsViewportTooSmallForDockLayout(const ImGuiViewport* viewport) {
-    return viewport == nullptr ||
-        viewport->Size.x < kLayoutBuildMinWidth ||
-        viewport->Size.y < kLayoutBuildMinHeight;
+[[nodiscard]] ImVec2 MinimumDockViewportSize() {
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+    ImVec2 display_size = main_viewport != nullptr ? main_viewport->WorkSize : ImVec2(1280.0f, 720.0f);
+
+#if defined(IMGUI_HAS_VIEWPORT)
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    if (platform_io.Monitors.Size > 0) {
+        const ImGuiPlatformMonitor& monitor = platform_io.Monitors[0];
+        if (monitor.WorkSize.x > 0.0f && monitor.WorkSize.y > 0.0f) {
+            display_size = monitor.WorkSize;
+        }
+    }
+#endif
+
+    return ImVec2(
+        std::max(kLayoutBuildMinWidth, display_size.x * kMinViewportFraction),
+        std::max(kLayoutBuildMinHeight, display_size.y * kMinViewportFraction));
 }
 
-void ExpandPrimaryDockWindows() {
-    const std::array<const char*, 9> windows = {
-        "Master Panel",
-        "RogueVisualizer",
-        "Tool Deck",
-        "Axiom Library",
-        "Water Library",
-        "Road Library",
-        "District Library",
-        "Lot Library",
-        "Building Library"
-    };
-    for (const char* window_name : windows) {
-        ImGui::SetWindowCollapsed(window_name, false, ImGuiCond_Always);
+[[nodiscard]] bool IsViewportTooSmallForDockLayout(const ImGuiViewport* viewport) {
+    if (viewport == nullptr) {
+        return true;
     }
+    const ImVec2 min_size = MinimumDockViewportSize();
+    return viewport->Size.x < min_size.x || viewport->Size.y < min_size.y;
 }
 
 void ClearLegacyPanelWindowSettingsOnce() {
@@ -791,8 +823,8 @@ static bool AreDockNodesHealthy(ImGuiID dockspace_id) {
     }
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const float width_scale = std::clamp((viewport ? viewport->Size.x : 1280.0f) / 1280.0f, 0.45f, 1.0f);
-    const float height_scale = std::clamp((viewport ? viewport->Size.y : 720.0f) / 720.0f, 0.50f, 1.0f);
+    const float width_scale = std::clamp((viewport ? viewport->Size.x : 1280.0f) / 1280.0f, 0.25f, 1.0f);
+    const float height_scale = std::clamp((viewport ? viewport->Size.y : 720.0f) / 720.0f, 0.25f, 1.0f);
 
     const float min_master_width = kBaseMasterPanelWidth * width_scale;
     const float min_tool_column_width = kBaseToolColumnWidth * width_scale;
@@ -916,26 +948,11 @@ static void ClearInvalidDockAssignments(ImGuiID dockspace_id) {
 static void UpdateDockLayout(ImGuiID dockspace_id) {
 #if defined(IMGUI_HAS_DOCK)
     bool layout_changed = false;
-    bool recovering_from_small_viewport = false;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
     if (IsViewportTooSmallForDockLayout(viewport)) {
-        s_deferred_layout_on_small_viewport = true;
-        s_stable_valid_viewport_frames = 0;
-        s_dock_built = false;
-        s_dock_layout_dirty = true;
+        // Keep current dock topology intact while the host is too small/iconified.
         return;
-    }
-
-    if (s_deferred_layout_on_small_viewport) {
-        ++s_stable_valid_viewport_frames;
-        if (s_stable_valid_viewport_frames < kDockRecoveryStableFrames) {
-            return;
-        }
-        recovering_from_small_viewport = true;
-        s_deferred_layout_on_small_viewport = false;
-        s_stable_valid_viewport_frames = 0;
-        s_dock_layout_dirty = true;
     }
 
     if (!IsDockspaceValid(dockspace_id)) {
@@ -962,18 +979,6 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
     if (layout_changed && IsDockspaceValid(dockspace_id)) {
         ClearInvalidDockAssignments(dockspace_id);
         ImGui::DockBuilderFinish(dockspace_id);
-
-        // Keep primary windows expanded for several frames after layout rebuild,
-        // especially when recovering from a minimized startup geometry.
-        if (recovering_from_small_viewport) {
-            s_force_uncollapse_frames = std::max(s_force_uncollapse_frames, 180);
-        } else {
-            s_force_uncollapse_frames = std::max(s_force_uncollapse_frames, 45);
-        }
-
-        if (recovering_from_small_viewport) {
-            ExpandPrimaryDockWindows();
-        }
     }
 #else
     (void)dockspace_id;
@@ -1208,12 +1213,6 @@ void DrawRoot(float dt)
         s_minimap->update(dt);
     }
 
-#if defined(IMGUI_HAS_DOCK)
-    if (s_force_uncollapse_frames > 0) {
-        ExpandPrimaryDockWindows();
-        --s_force_uncollapse_frames;
-    }
-#endif
 }
 
 RogueCity::App::MinimapViewport* GetMinimapViewport() {
@@ -1249,7 +1248,6 @@ bool QueueDockWindow(const char* windowName, const char* dockArea, bool ownDockN
 void ResetDockLayout() {
     s_dock_built = false;
     s_dock_layout_dirty = true;
-    s_stable_valid_viewport_frames = 0;
     s_pending_dock_requests.clear();
 }
 

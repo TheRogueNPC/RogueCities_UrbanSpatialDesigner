@@ -119,10 +119,12 @@ void InitializePanelRegistry() {
     registry.Register(std::unique_ptr<IPanelDrawer>(BuildingControl::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(WaterControl::CreateDrawer()));
     
+    // Register Tools
+    registry.Register(std::unique_ptr<IPanelDrawer>(Tools::CreateDrawer()));
+
     // Register System
     registry.Register(std::unique_ptr<IPanelDrawer>(Telemetry::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(Log::CreateDrawer()));
-    registry.Register(std::unique_ptr<IPanelDrawer>(Tools::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(Inspector::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(SystemMap::CreateDrawer()));
     registry.Register(std::unique_ptr<IPanelDrawer>(DevShell::CreateDrawer()));

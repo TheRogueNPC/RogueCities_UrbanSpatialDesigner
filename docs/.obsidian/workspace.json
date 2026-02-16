@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "rc-0-10-git-commit-message"
+              "title": "axiom-tool-complete"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for rc-0-10-git-commit-message"
+              "title": "Backlinks for axiom-tool-complete"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from rc-0-10-git-commit-message"
+              "title": "Outgoing links from axiom-tool-complete"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of rc-0-10-git-commit-message"
+              "title": "Outline of axiom-tool-complete"
             }
           }
         ]
@@ -183,8 +183,18 @@
       "bases:Create new base": false
     }
   },
-  "active": "31ee6c065130d6b6",
+  "active": "ee0399504a558c3d",
   "lastOpenFiles": [
+    "30_architecture/architecture-diagram.md",
+    "20_specs/ui-loop-state-model.md",
+    "20_specs/ui-faq-compliance-matrix.md",
+    "20_specs/axiom-tools/ui-architecture-axiom-system.md",
+    "40_implementation_completed/phase1-buildsystem-complete.md",
+    "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+    "41_plans_todos/XXOg9bVI",
+    "00_index/XXeFYLy2",
+    "20_specs/XXpVR2UT",
+    "41_plans_todos/ui-feature-wiring-mvp-plan.md",
     "Doxy/docbook/man",
     "Doxy/docbook/rtf",
     "Doxy/docbook/latex",
@@ -192,25 +202,17 @@
     "Doxy/docbook/docbook",
     "Doxy/docbook/html/doxygen_crawl.html",
     "Doxy/docbook/html",
-    "Doxy/html/navtree.js",
-    "Doxy/html/navtreeindex0.js",
-    "Doxy/html/navtreedata.js",
-    "Doxy/latex/refman.tex",
     "Doxy/html/doxygen.svg",
-    "20_specs/ui-faq-compliance-matrix.md",
     "LICENSES.md",
     "30_architecture/architecture-map.md",
-    "30_architecture/architecture-diagram.md",
     "20_specs/ui-patterns.md",
     "20_specs/ui-migration.md",
-    "20_specs/ui-loop-state-model.md",
     "20_specs/type-alias-migration-guide.md",
     "20_specs/tech-stack.md",
     "20_specs/quick-start.md",
     "20_specs/masterpanel-conversion-guide.md",
     "20_specs/masterpanel-build-verification.md",
     "20_specs/docking-guide.md",
-    "20_specs/axiom-tools/ui-architecture-axiom-system.md",
     "10_book/book-outline-template.md",
     "00_index/README.md",
     "00_index/plans-and-todos-index.md",
@@ -220,8 +222,6 @@
     "20_specs/design-and-research/fast-versatile-container-reference.md",
     "20_specs/design-and-research/constant-indexed-vector-reference.md",
     "90_archive/legacy_temp/temp_documentation/README.md",
-    "40_implementation_completed/releases/rc-0-10-zoninggenerator-implementation-status.md",
-    "40_implementation_completed/releases/rc-0-10-phase1-complete.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }

@@ -11,7 +11,8 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - `glfwGetWindowAttrib(window, GLFW_ICONIFIED)`
 - Rules:
   - If iconified, do **not** run frame update/render.
-  - On restore from iconified, trigger `RC_UI::ResetDockLayout()` exactly once.
+  - Enforce minimum window shrink via `glfwSetWindowSizeLimits()` at 25% of detected monitor work area (floor: `320x240`).
+  - Restore from iconified does not force a dock reset; existing dock topology is preserved.
 
 ### Layer 1: App Main Loop
 - Source: `visualizer/src/main_gui.cpp`
@@ -79,6 +80,13 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - `on_deactivated()` previous drawer
   - `on_activated()` new drawer
 
+#### Category Routing Snapshot (Current)
+- `Indices`: Road, District, Lot, River, Building index drawers.
+- `Controls`: Zoning, Lot, Building, Water control drawers.
+- `Tools`: Tool Deck content drawer (`AxiomBar`) and workflow/tools drawer (`Tools`).
+- `System`: Telemetry, Log, Inspector, System Map, Dev Shell, UI Settings.
+- `AI`: AI Console, UI Agent, City Spec (runtime hidden when `dev_mode_enabled == false`).
+
 ### Layer 6: Drawer/Panel Content
 - Sources:
   - `visualizer/src/ui/panels/RcPanelDrawers.cpp`
@@ -131,7 +139,7 @@ Violation of this rule causes stack mismatch and can crash.
 ## 4. Docking Invariants
 
 - Docking must remain enabled in ImGui config for GUI builds.
-- Dock layout rebuild must never occur from iconified/tiny viewport geometry.
+- Dock layout rebuild must never churn continuously from iconified/tiny viewport geometry.
 - Center workspace must retain a minimum width share.
 - Legacy standalone panel windows must not be resurrected from stale ini settings.
 

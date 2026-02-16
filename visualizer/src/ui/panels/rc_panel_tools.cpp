@@ -12,6 +12,8 @@
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <imgui.h>
 
@@ -23,8 +25,10 @@ static void RenderToolButton(
     const char* label, 
     RogueCity::Core::Editor::EditorEvent event,
     RogueCity::Core::Editor::EditorState active_state,
+    RC_UI::ToolLibrary library_tool,
     RogueCity::Core::Editor::EditorHFSM& hfsm,
-    RogueCity::Core::Editor::GlobalState& gs)
+    RogueCity::Core::Editor::GlobalState& gs,
+    const ImVec2& size)
 {
     using namespace RogueCity::Core::Editor;
     
@@ -37,8 +41,9 @@ static void RenderToolButton(
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(pulse_color));
     }
     
-    if (ImGui::Button(label, ImVec2(100, 40))) {
+    if (ImGui::Button(label, size)) {
         hfsm.handle_event(event, gs);
+        RC_UI::ActivateToolLibrary(library_tool);
     }
     
     if (is_active) {
@@ -59,22 +64,57 @@ void DrawContent(float dt)
     EditorHFSM& hfsm = GetEditorHFSM();
     GlobalState& gs = GetGlobalState();
     
-    RenderToolButton("Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms, hfsm, gs);
-    ImGui::SameLine();
+    struct ToolModeButton {
+        const char* label;
+        EditorEvent event;
+        EditorState state;
+        RC_UI::ToolLibrary library;
+    };
+    constexpr std::array<ToolModeButton, 6> kToolButtons = {{
+        {"Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms, RC_UI::ToolLibrary::Axiom},
+        {"Water", EditorEvent::Tool_Water, EditorState::Editing_Water, RC_UI::ToolLibrary::Water},
+        {"Road", EditorEvent::Tool_Roads, EditorState::Editing_Roads, RC_UI::ToolLibrary::Road},
+        {"District", EditorEvent::Tool_Districts, EditorState::Editing_Districts, RC_UI::ToolLibrary::District},
+        {"Lot", EditorEvent::Tool_Lots, EditorState::Editing_Lots, RC_UI::ToolLibrary::Lot},
+        {"Building", EditorEvent::Tool_Buildings, EditorState::Editing_Buildings, RC_UI::ToolLibrary::Building},
+    }};
 
-    RenderToolButton("Water", EditorEvent::Tool_Water, EditorState::Editing_Water, hfsm, gs);
-    ImGui::SameLine();
+    const float toolbar_width = ImGui::GetContentRegionAvail().x;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float button_height = std::max(34.0f, ImGui::GetFrameHeight() * 1.30f);
 
-    RenderToolButton("Road", EditorEvent::Tool_Roads, EditorState::Editing_Roads, hfsm, gs);
-    ImGui::SameLine();
-    
-    RenderToolButton("District", EditorEvent::Tool_Districts, EditorState::Editing_Districts, hfsm, gs);
-    ImGui::SameLine();
-    
-    RenderToolButton("Lot", EditorEvent::Tool_Lots, EditorState::Editing_Lots, hfsm, gs);
-    ImGui::SameLine();
-    
-    RenderToolButton("Building", EditorEvent::Tool_Buildings, EditorState::Editing_Buildings, hfsm, gs);
+    float min_button_width = 84.0f;
+    for (const ToolModeButton& tool_button : kToolButtons) {
+        const float text_width = ImGui::CalcTextSize(tool_button.label).x;
+        min_button_width = std::max(
+            min_button_width,
+            text_width + ImGui::GetStyle().FramePadding.x * 2.0f + 14.0f);
+    }
+
+    const int tool_count = static_cast<int>(kToolButtons.size());
+    const int columns = std::clamp(
+        static_cast<int>((toolbar_width + spacing) / (min_button_width + spacing)),
+        1,
+        tool_count);
+    const float button_width = std::max(
+        min_button_width,
+        (toolbar_width - spacing * static_cast<float>(columns - 1)) / static_cast<float>(columns));
+    const ImVec2 button_size(button_width, button_height);
+
+    for (int i = 0; i < tool_count; ++i) {
+        if ((i % columns) != 0) {
+            ImGui::SameLine();
+        }
+        const ToolModeButton& tool_button = kToolButtons[static_cast<size_t>(i)];
+        RenderToolButton(
+            tool_button.label,
+            tool_button.event,
+            tool_button.state,
+            tool_button.library,
+            hfsm,
+            gs,
+            button_size);
+    }
     
     ImGui::Spacing();
     ImGui::Separator();
@@ -175,7 +215,9 @@ void DrawContent(float dt)
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
     ImGui::SameLine();
     ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
+    ImGui::PushTextWrapPos();
     ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=pin/cycle, Shift+L=release auto, 1/2/3=set LOD, K=adaptive.");
+    ImGui::PopTextWrapPos();
 
     ImGui::SeparatorText("Minimap LOD");
     bool manual_lod = AxiomEditor::IsMinimapManualLODOverride();

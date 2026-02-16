@@ -27,8 +27,11 @@
 #include <stdio.h>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#include <algorithm>
 #include <thread>
 #include <chrono>
+#include <utility>
 
 using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
@@ -92,6 +95,36 @@ namespace {
 #endif
 }
 
+[[nodiscard]] std::pair<int, int> ComputeMinimumWindowSize(GLFWwindow* window) {
+    GLFWmonitor* monitor = glfwGetWindowMonitor(window);
+    if (monitor == nullptr) {
+        monitor = glfwGetPrimaryMonitor();
+    }
+
+    int display_width = 1280;
+    int display_height = 720;
+    if (monitor != nullptr) {
+        int work_x = 0;
+        int work_y = 0;
+        int work_width = 0;
+        int work_height = 0;
+        glfwGetMonitorWorkarea(monitor, &work_x, &work_y, &work_width, &work_height);
+        (void)work_x;
+        (void)work_y;
+        if (work_width > 0 && work_height > 0) {
+            display_width = work_width;
+            display_height = work_height;
+        } else if (const GLFWvidmode* mode = glfwGetVideoMode(monitor); mode != nullptr) {
+            display_width = mode->width;
+            display_height = mode->height;
+        }
+    }
+
+    const int min_width = std::max(320, static_cast<int>(std::lround(static_cast<double>(display_width) * 0.25)));
+    const int min_height = std::max(240, static_cast<int>(std::lround(static_cast<double>(display_height) * 0.25)));
+    return {min_width, min_height};
+}
+
 } // namespace
 
 static void glfw_error_callback(int error, const char* description)
@@ -126,6 +159,8 @@ int main(int, char**)
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
+    const auto [min_window_width, min_window_height] = ComputeMinimumWindowSize(window);
+    glfwSetWindowSizeLimits(window, min_window_width, min_window_height, GLFW_DONT_CARE, GLFW_DONT_CARE);
     glfwSwapInterval(1);
 
     // Initialize OpenGL loader (gl3w)
@@ -198,22 +233,14 @@ int main(int, char**)
     static bool g_disable_linput_injection = true;
     #endif
 
-    bool was_iconified = false;
-
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
-        const bool is_iconified = glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE;
-        if (is_iconified) {
-            was_iconified = true;
+        if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE) {
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
             continue;
-        }
-        if (was_iconified) {
-            RC_UI::ResetDockLayout();
-            was_iconified = false;
         }
 
         #if defined(ROGUECITY_HAS_LINPUT)

@@ -289,9 +289,9 @@ namespace Tools {
     public:
         PanelType type() const override { return PanelType::Tools; }
         const char* display_name() const override { return "Tools"; }
-        PanelCategory category() const override { return PanelCategory::System; }
+        PanelCategory category() const override { return PanelCategory::Tools; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_tools.cpp"; }
-        std::vector<std::string> tags() const override { return {"system", "tools"}; }
+        std::vector<std::string> tags() const override { return {"tools", "workflow", "generator"}; }
         
         void draw(DrawContext& ctx) override {
             RC_UI::Panels::Tools::DrawContent(ctx.dt);

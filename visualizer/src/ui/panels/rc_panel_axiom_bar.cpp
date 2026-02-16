@@ -7,14 +7,30 @@
 #include "ui/rc_ui_theme.h"
 #include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "RogueCity/Core/Editor/EditorState.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 
 #include <imgui.h>
 
 #include <algorithm>
+#include <optional>
 
 namespace RC_UI::Panels::AxiomBar {
 
 namespace {
+    std::optional<RogueCity::Core::Editor::EditorEvent> ToolEvent(RC_UI::ToolLibrary tool) {
+        using RogueCity::Core::Editor::EditorEvent;
+        switch (tool) {
+            case RC_UI::ToolLibrary::Axiom: return EditorEvent::Tool_Axioms;
+            case RC_UI::ToolLibrary::Water: return EditorEvent::Tool_Water;
+            case RC_UI::ToolLibrary::Road: return EditorEvent::Tool_Roads;
+            case RC_UI::ToolLibrary::District: return EditorEvent::Tool_Districts;
+            case RC_UI::ToolLibrary::Lot: return EditorEvent::Tool_Lots;
+            case RC_UI::ToolLibrary::Building: return EditorEvent::Tool_Buildings;
+        }
+        return std::nullopt;
+    }
+
     const char* ToolLabel(RC_UI::ToolLibrary tool) {
         switch (tool) {
             case RC_UI::ToolLibrary::Axiom: return "Axiom Deck";
@@ -122,6 +138,8 @@ void DrawContent(float dt)
 {
     (void)dt;
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
     
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     if (avail.x < 180.0f || avail.y < 40.0f) {
@@ -161,6 +179,11 @@ void DrawContent(float dt)
             RC_UI::PopoutToolLibrary(tool);
         } else if (clicked) {
             RC_UI::ActivateToolLibrary(tool);
+        }
+        if (clicked || double_clicked) {
+            if (const auto event = ToolEvent(tool); event.has_value()) {
+                hfsm.handle_event(*event, gs);
+            }
         }
 
         const char* label = ToolLabel(tool);

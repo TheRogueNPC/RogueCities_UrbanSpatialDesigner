@@ -53,6 +53,36 @@ if(NOT TARGET RogueCityImGui)
     target_compile_features(RogueCityImGui PUBLIC cxx_std_20)
 endif()
 
+    add_library(RogueCityVisualizerFeaturePanels STATIC
+        src/ui/panels/rc_panel_tools.cpp
+        src/ui/panels/rc_panel_ai_console.cpp
+        src/ui/panels/rc_panel_ui_agent.cpp
+        src/ui/panels/rc_panel_city_spec.cpp
+    )
+
+    target_include_directories(RogueCityVisualizerFeaturePanels PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
+        "${IMGUI_DIR}"
+    )
+    target_link_libraries(RogueCityVisualizerFeaturePanels PRIVATE
+        RogueCityCore
+        RogueCityGenerators
+        RogueCityApp
+        RogueCityAI
+        RogueCityImGui
+    )
+    target_compile_features(RogueCityVisualizerFeaturePanels PRIVATE cxx_std_20)
+
+    # Define AI DLC flag for conditional compilation of feature panels.
+    if(ROGUE_SHIP_DEMO_MODE)
+        target_compile_definitions(RogueCityVisualizerFeaturePanels PUBLIC ROGUE_AI_DLC_ENABLED=0)
+    elseif(ROGUE_AI_DLC_ENABLED)
+        target_compile_definitions(RogueCityVisualizerFeaturePanels PUBLIC ROGUE_AI_DLC_ENABLED=1)
+    endif()
+
+    rc_configure_msvc_pdb(RogueCityVisualizerFeaturePanels "RogueCityVisualizerFeaturePanels")
+
     add_executable(RogueCityVisualizerHeadless
         # Hyper-reactive UI module sources.
         src/main.cpp
@@ -70,14 +100,10 @@ endif()
         src/ui/panels/rc_panel_inspector.cpp
         src/ui/panels/rc_panel_ui_settings.cpp
         src/ui/panels/rc_property_editor.cpp
-        src/ui/panels/rc_panel_tools.cpp
         src/ui/panels/rc_panel_district_index.cpp
         src/ui/panels/rc_panel_road_index.cpp
         src/ui/panels/rc_panel_lot_index.cpp
         src/ui/panels/rc_panel_river_index.cpp
-        src/ui/panels/rc_panel_ai_console.cpp
-        src/ui/panels/rc_panel_ui_agent.cpp
-        src/ui/panels/rc_panel_city_spec.cpp
         src/ui/panels/rc_panel_dev_shell.cpp
         # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
         src/ui/panels/rc_panel_lot_control.cpp
@@ -99,6 +125,7 @@ endif()
         RogueCityApp
         RogueCityAI
         RogueCityImGui
+        RogueCityVisualizerFeaturePanels
     )
     # Expose UI module headers.
     target_include_directories(RogueCityVisualizerHeadless PRIVATE
@@ -155,14 +182,10 @@ endif()
                 src/ui/panels/rc_panel_inspector.cpp
                 src/ui/panels/rc_panel_ui_settings.cpp
                 src/ui/panels/rc_property_editor.cpp
-                src/ui/panels/rc_panel_tools.cpp
                 src/ui/panels/rc_panel_district_index.cpp
                 src/ui/panels/rc_panel_road_index.cpp
                 src/ui/panels/rc_panel_lot_index.cpp
                 src/ui/panels/rc_panel_river_index.cpp
-                src/ui/panels/rc_panel_ai_console.cpp  # NEW: AI bridge control
-                src/ui/panels/rc_panel_ui_agent.cpp    # NEW: UI Agent assistant (Phase 2)
-                src/ui/panels/rc_panel_city_spec.cpp   # NEW: CitySpec generator (Phase 3)
                 src/ui/panels/rc_panel_building_index.cpp  # NEW: Building index panel (RC-0.10)
                 src/ui/panels/rc_panel_zoning_control.cpp  # NEW: Zoning control panel (RC-0.10)
                 # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
@@ -202,6 +225,7 @@ endif()
                 RogueCityApp         # NEW: For viewport and axiom tools
                 RogueCityAI          # NEW: For AI assist controls
                 RogueCityImGui 
+                RogueCityVisualizerFeaturePanels
                 OpenGL::GL 
                 glfw
             )
