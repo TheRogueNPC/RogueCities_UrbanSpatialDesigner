@@ -151,6 +151,14 @@ bool ApplyTranslate(
                 }
             }
             break;
+        case VpEntityKind::Water:
+            ForEachById(gs.waterbodies, item.id, [&](RogueCity::Core::WaterBody& water) {
+                for (auto& p : water.boundary) {
+                    p += delta;
+                }
+                changed = !water.boundary.empty();
+            });
+            break;
         default:
             break;
         }
@@ -211,6 +219,14 @@ bool ApplyRotate(
                     break;
                 }
             }
+            break;
+        case VpEntityKind::Water:
+            ForEachById(gs.waterbodies, item.id, [&](RogueCity::Core::WaterBody& water) {
+                for (auto& p : water.boundary) {
+                    p = RotatePoint(p, pivot, radians);
+                }
+                changed = !water.boundary.empty();
+            });
             break;
         default:
             break;
@@ -274,6 +290,14 @@ bool ApplyScale(
                     break;
                 }
             }
+            break;
+        case VpEntityKind::Water:
+            ForEachById(gs.waterbodies, item.id, [&](RogueCity::Core::WaterBody& water) {
+                for (auto& p : water.boundary) {
+                    p = ScalePoint(p, pivot, clamped_factor);
+                }
+                changed = !water.boundary.empty();
+            });
             break;
         default:
             break;

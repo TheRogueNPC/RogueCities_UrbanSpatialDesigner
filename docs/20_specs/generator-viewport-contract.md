@@ -24,6 +24,8 @@ Purpose: define the single authoritative path from generation output into runtim
 3. Live preview and explicit generation must use coordinator APIs only.
 4. Viewport index rebuild and dirty-layer cleanup must be controlled by applier options, not ad-hoc panel logic.
 5. Scene-frame ownership/update path must stay in viewport scene controller utilities, not duplicated in panel code.
+6. Axiom camera/nav/tool mouse input path must stay in viewport interaction utilities, not duplicated in panel code.
+7. Non-axiom viewport interaction (selection, gizmo, road/district/water vertex editing, and domain placement clicks) must stay in `rc_viewport_interaction.cpp`.
 
 ## Enforcement
 

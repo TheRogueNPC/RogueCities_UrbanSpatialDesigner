@@ -172,66 +172,7 @@ static RC_UI::Commands::SmartMenuState s_smart_command_menu{};
 static RC_UI::Commands::PieMenuState s_pie_command_menu{};
 static RC_UI::Commands::CommandPaletteState s_command_palette{};
 
-struct SelectionDragState {
-    bool lasso_active{ false };
-    bool box_active{ false };
-    RogueCity::Core::Vec2 box_start{};
-    RogueCity::Core::Vec2 box_end{};
-    std::vector<RogueCity::Core::Vec2> lasso_points{};
-};
-
-static SelectionDragState s_selection_drag{};
-
-struct GizmoDragState {
-    bool active{ false };
-    RogueCity::Core::Vec2 pivot{};
-    RogueCity::Core::Vec2 previous_world{};
-};
-
-struct RoadVertexDragState {
-    bool active{ false };
-    uint32_t road_id{ 0 };
-    size_t vertex_index{ 0 };
-};
-
-struct DistrictBoundaryDragState {
-    bool active{ false };
-    uint32_t district_id{ 0 };
-    size_t vertex_index{ 0 };
-};
-
-static GizmoDragState s_gizmo_drag{};
-static RoadVertexDragState s_road_vertex_drag{};
-static DistrictBoundaryDragState s_district_boundary_drag{};
-
-double DistanceToSegment(const RogueCity::Core::Vec2& p, const RogueCity::Core::Vec2& a, const RogueCity::Core::Vec2& b) {
-    const RogueCity::Core::Vec2 ab = b - a;
-    const double ab_len_sq = ab.lengthSquared();
-    if (ab_len_sq <= 1e-9) {
-        return p.distanceTo(a);
-    }
-    const double t = std::clamp((p - a).dot(ab) / ab_len_sq, 0.0, 1.0);
-    const RogueCity::Core::Vec2 proj = a + ab * t;
-    return p.distanceTo(proj);
-}
-
-bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
-    if (polygon.size() < 3) {
-        return false;
-    }
-
-    bool inside = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto& pi = polygon[i];
-        const auto& pj = polygon[j];
-        const bool intersect = ((pi.y > point.y) != (pj.y > point.y)) &&
-            (point.x < (pj.x - pi.x) * (point.y - pi.y) / ((pj.y - pi.y) + 1e-12) + pi.x);
-        if (intersect) {
-            inside = !inside;
-        }
-    }
-    return inside;
-}
+static RC_UI::Viewport::NonAxiomInteractionState s_non_axiom_interaction{};
 
 RogueCity::Core::Vec2 PolygonCentroid(const std::vector<RogueCity::Core::Vec2>& points) {
     RogueCity::Core::Vec2 centroid{};
@@ -290,215 +231,6 @@ bool ResolveSelectionAnchor(
     }
 }
 
-bool IsSelectableKind(RogueCity::Core::Editor::VpEntityKind kind) {
-    using RogueCity::Core::Editor::VpEntityKind;
-    return kind == VpEntityKind::Road ||
-        kind == VpEntityKind::District ||
-        kind == VpEntityKind::Lot ||
-        kind == VpEntityKind::Building;
-}
-
-bool ProbeContainsPoint(
-    const RogueCity::Core::Editor::GlobalState& gs,
-    RogueCity::Core::Editor::VpEntityKind kind,
-    uint32_t id,
-    const RogueCity::Core::Vec2& world_pos,
-    double world_radius,
-    int& out_priority,
-    double& out_distance) {
-    using RogueCity::Core::Editor::VpEntityKind;
-
-    out_priority = 0;
-    out_distance = std::numeric_limits<double>::max();
-
-    if (!IsSelectableKind(kind)) {
-        return false;
-    }
-
-    if (kind == VpEntityKind::Road) {
-        for (const auto& road : gs.roads) {
-            if (road.id != id || road.points.size() < 2) {
-                continue;
-            }
-            double min_distance = std::numeric_limits<double>::max();
-            for (size_t i = 1; i < road.points.size(); ++i) {
-                min_distance = std::min(min_distance, DistanceToSegment(world_pos, road.points[i - 1], road.points[i]));
-            }
-            if (min_distance <= world_radius * 1.25) {
-                out_priority = 3;
-                out_distance = min_distance;
-                return true;
-            }
-            return false;
-        }
-        return false;
-    }
-
-    if (kind == VpEntityKind::District) {
-        for (const auto& district : gs.districts) {
-            if (district.id != id || district.border.empty()) {
-                continue;
-            }
-            const bool inside = PointInPolygon(world_pos, district.border);
-            if (!inside) {
-                return false;
-            }
-            out_priority = 2;
-            out_distance = world_pos.distanceTo(PolygonCentroid(district.border));
-            return true;
-        }
-        return false;
-    }
-
-    if (kind == VpEntityKind::Lot) {
-        for (const auto& lot : gs.lots) {
-            if (lot.id != id) {
-                continue;
-            }
-            if (!lot.boundary.empty() && PointInPolygon(world_pos, lot.boundary)) {
-                out_priority = 4;
-                out_distance = world_pos.distanceTo(lot.centroid);
-                return true;
-            }
-            const double d = world_pos.distanceTo(lot.centroid);
-            if (d <= world_radius * 2.0) {
-                out_priority = 2;
-                out_distance = d;
-                return true;
-            }
-            return false;
-        }
-        return false;
-    }
-
-    for (const auto& building : gs.buildings) {
-        if (building.id != id) {
-            continue;
-        }
-        const double d = world_pos.distanceTo(building.position);
-        if (d <= world_radius * 1.75) {
-            out_priority = 5;
-            out_distance = d;
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
-
-std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
-    const RogueCity::Core::Editor::GlobalState& gs,
-    const RogueCity::Core::Vec2& world_pos,
-    float zoom) {
-    const double world_radius = std::max(4.0, 12.0 / std::max(0.1f, zoom));
-    int best_priority = -1;
-    double best_distance = std::numeric_limits<double>::max();
-    std::optional<RogueCity::Core::Editor::SelectionItem> best{};
-
-    for (const auto& probe : gs.viewport_index) {
-        if (!IsSelectableKind(probe.kind)) {
-            continue;
-        }
-        if (!gs.IsEntityVisible(probe.kind, probe.id)) {
-            continue;
-        }
-        int priority = 0;
-        double distance = 0.0;
-        if (!ProbeContainsPoint(gs, probe.kind, probe.id, world_pos, world_radius, priority, distance)) {
-            continue;
-        }
-        if (priority > best_priority || (priority == best_priority && distance < best_distance)) {
-            best_priority = priority;
-            best_distance = distance;
-            best = RogueCity::Core::Editor::SelectionItem{ probe.kind, probe.id };
-        }
-    }
-
-    return best;
-}
-
-std::vector<RogueCity::Core::Editor::SelectionItem> QueryRegionFromViewportIndex(
-    const RogueCity::Core::Editor::GlobalState& gs,
-    const std::function<bool(const RogueCity::Core::Vec2&)>& include_point,
-    bool include_hidden = false) {
-    std::vector<RogueCity::Core::Editor::SelectionItem> results;
-    std::unordered_set<uint64_t> dedupe;
-    results.reserve(gs.viewport_index.size());
-
-    for (const auto& probe : gs.viewport_index) {
-        if (!IsSelectableKind(probe.kind)) {
-            continue;
-        }
-        if (!include_hidden && !gs.IsEntityVisible(probe.kind, probe.id)) {
-            continue;
-        }
-
-        RogueCity::Core::Vec2 anchor{};
-        if (!ResolveSelectionAnchor(gs, probe.kind, probe.id, anchor)) {
-            continue;
-        }
-        if (!include_point(anchor)) {
-            continue;
-        }
-
-        const uint64_t key = (static_cast<uint64_t>(static_cast<uint8_t>(probe.kind)) << 32) | probe.id;
-        if (!dedupe.insert(key).second) {
-            continue;
-        }
-        results.push_back({ probe.kind, probe.id });
-    }
-
-    return results;
-}
-
-RogueCity::Core::Vec2 ComputeSelectionPivot(const RogueCity::Core::Editor::GlobalState& gs) {
-    RogueCity::Core::Vec2 pivot{};
-    size_t count = 0;
-    for (const auto& item : gs.selection_manager.Items()) {
-        RogueCity::Core::Vec2 anchor{};
-        if (!ResolveSelectionAnchor(gs, item.kind, item.id, anchor)) {
-            continue;
-        }
-        pivot += anchor;
-        ++count;
-    }
-    if (count == 0) {
-        return pivot;
-    }
-    pivot /= static_cast<double>(count);
-    return pivot;
-}
-
-void MarkDirtyForSelectionKind(
-    RogueCity::Core::Editor::GlobalState& gs,
-    RogueCity::Core::Editor::VpEntityKind kind) {
-    using RogueCity::Core::Editor::DirtyLayer;
-    using RogueCity::Core::Editor::VpEntityKind;
-    switch (kind) {
-    case VpEntityKind::Road:
-        gs.dirty_layers.MarkDirty(DirtyLayer::Roads);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Districts);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Lots);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Buildings);
-        break;
-    case VpEntityKind::District:
-        gs.dirty_layers.MarkDirty(DirtyLayer::Districts);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Lots);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Buildings);
-        break;
-    case VpEntityKind::Lot:
-        gs.dirty_layers.MarkDirty(DirtyLayer::Lots);
-        gs.dirty_layers.MarkDirty(DirtyLayer::Buildings);
-        break;
-    case VpEntityKind::Building:
-        gs.dirty_layers.MarkDirty(DirtyLayer::Buildings);
-        break;
-    default:
-        break;
-    }
-    gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-}
-
 RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
     for (auto& road : gs.roads) {
         if (road.id == id) {
@@ -512,6 +244,15 @@ RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalSt
     for (auto& district : gs.districts) {
         if (district.id == id) {
             return &district;
+        }
+    }
+    return nullptr;
+}
+
+RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (auto& water : gs.waterbodies) {
+        if (water.id == id) {
+            return &water;
         }
     }
     return nullptr;
@@ -1659,400 +1400,42 @@ void DrawContent(float dt) {
             &s_command_palette,
         });
 
-    if (axiom_mode && allow_viewport_mouse_actions) {
-        ImGuiIO& io = ImGui::GetIO();
-        RogueCity::Core::Vec2 world_pos = s_primary_viewport->screen_to_world(mouse_pos);
-
-        // CAD-grade viewport controls (2D/2.5D)
-        const bool orbit = io.KeyAlt && io.MouseDown[ImGuiMouseButton_Left];
-        const bool pan = io.MouseDown[ImGuiMouseButton_Middle] || (io.KeyShift && io.MouseDown[ImGuiMouseButton_Right]);
-        const bool zoom_drag = io.KeyCtrl && io.MouseDown[ImGuiMouseButton_Right];
-        const bool nav_active = orbit || pan || zoom_drag;
-
-        if (allow_viewport_key_actions) {
-            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-                if (io.KeyShift) {
-                    Redo();
-                } else {
-                    Undo();
-                }
-            } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
-                Redo();
-            }
-        }
-
-        // Mouse wheel zoom (only when not captured by UI)
-        if (io.MouseWheel != 0.0f) {
-            const float z = s_primary_viewport->get_camera_z();
-            const float factor = std::pow(1.12f, -io.MouseWheel);
-            const float new_z = std::clamp(z * factor, 80.0f, 4000.0f);
-            s_primary_viewport->set_camera_position(s_primary_viewport->get_camera_xy(), new_z);
-        }
-
-        if (orbit) {
-            const float yaw = s_primary_viewport->get_camera_yaw();
-            s_primary_viewport->set_camera_yaw(yaw + io.MouseDelta.x * 0.0075f);
-        }
-
-        if (pan) {
-            const float z = s_primary_viewport->get_camera_z();
-            const float zoom = 500.0f / std::max(100.0f, z);
-            const float yaw = s_primary_viewport->get_camera_yaw();
-
-            const float dx = io.MouseDelta.x / zoom;
-            const float dy = io.MouseDelta.y / zoom;
-
-            const float c = std::cos(yaw);
-            const float s = std::sin(yaw);
-            RogueCity::Core::Vec2 delta_world(dx * c - dy * s, dx * s + dy * c);
-
-            auto cam = s_primary_viewport->get_camera_xy();
-            cam.x -= delta_world.x;
-            cam.y -= delta_world.y;
-            s_primary_viewport->set_camera_position(cam, z);
-        }
-
-        if (zoom_drag) {
-            const float z = s_primary_viewport->get_camera_z();
-            const float factor = std::exp(io.MouseDelta.y * 0.01f);
-            const float new_z = std::clamp(z * factor, 80.0f, 4000.0f);
-            s_primary_viewport->set_camera_position(s_primary_viewport->get_camera_xy(), new_z);
-        }
-
-        // Debug: Show mouse world position
+    const RC_UI::Viewport::AxiomInteractionResult axiom_interaction =
+        RC_UI::Viewport::ProcessAxiomViewportInteraction(
+            RC_UI::Viewport::AxiomInteractionParams{
+                axiom_mode,
+                allow_viewport_mouse_actions,
+                allow_viewport_key_actions,
+                mouse_pos,
+                s_primary_viewport.get(),
+                s_axiom_tool.get(),
+                &gs,
+            });
+    if (axiom_interaction.active && axiom_interaction.has_world_pos) {
         ImGui::SetCursorScreenPos(ImVec2(10, 30));
-        ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 178u),
-            "Mouse World: (%.1f, %.1f)%s", world_pos.x, world_pos.y, nav_active ? " [NAV]" : "");
-
-        // Tool interaction (disabled while navigating)
-        if (!nav_active) {
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                s_axiom_tool->on_mouse_down(world_pos);
-            }
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                s_axiom_tool->on_mouse_up(world_pos);
-            }
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                s_axiom_tool->on_mouse_move(world_pos);
-            }
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && io.KeyCtrl) {
-                s_axiom_tool->on_right_click(world_pos);
-            }
-        }
+        ImGui::TextColored(
+            TokenColorF(UITokens::CyanAccent, 178u),
+            "Mouse World: (%.1f, %.1f)%s",
+            axiom_interaction.world_pos.x,
+            axiom_interaction.world_pos.y,
+            axiom_interaction.nav_active ? " [NAV]" : "");
     }
 
-    // ---------------------------------------------------------------------
-    // Viewport selection interaction (index-backed picking + region selects)
-    // Alt+Drag: lasso select
-    // Shift+Alt+Drag: box select through layers
-    // ---------------------------------------------------------------------
-    if (!axiom_mode && allow_viewport_mouse_actions) {
-        ImGuiIO& io = ImGui::GetIO();
-        const RogueCity::Core::Vec2 world_pos = s_primary_viewport->screen_to_world(mouse_pos);
-        const float zoom = s_primary_viewport->world_to_screen_scale(1.0f);
+    (void)RC_UI::Viewport::ProcessNonAxiomViewportInteraction(
+        RC_UI::Viewport::NonAxiomInteractionParams{
+            axiom_mode,
+            in_viewport,
+            minimap_hovered,
+            allow_viewport_mouse_actions,
+            allow_viewport_key_actions,
+            mouse_pos,
+            s_primary_viewport.get(),
+            current_state,
+            &gs,
+        },
+        &s_non_axiom_interaction);
 
-        if (allow_viewport_key_actions) {
-            if (ImGui::IsKeyPressed(ImGuiKey_G)) {
-                gs.gizmo.enabled = true;
-                gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Translate;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
-                gs.gizmo.enabled = true;
-                gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Rotate;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_S)) {
-                gs.gizmo.enabled = true;
-                gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Scale;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_X)) {
-                gs.gizmo.snapping = !gs.gizmo.snapping;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_1)) {
-                gs.layer_manager.active_layer = 0u;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_2)) {
-                gs.layer_manager.active_layer = 1u;
-            } else if (ImGui::IsKeyPressed(ImGuiKey_3)) {
-                gs.layer_manager.active_layer = 2u;
-            }
-        }
-
-        bool consumed_interaction = false;
-
-        // Gizmo interaction for selected entities.
-        const auto& selected_items = gs.selection_manager.Items();
-        if (gs.gizmo.enabled && !selected_items.empty()) {
-            const RogueCity::Core::Vec2 pivot = ComputeSelectionPivot(gs);
-            const double pick_radius = std::max(8.0, 14.0 / std::max(0.1f, zoom));
-            const double dist_to_pivot = world_pos.distanceTo(pivot);
-
-            auto can_start_drag = [&]() {
-                using RogueCity::Core::Editor::GizmoOperation;
-                switch (gs.gizmo.operation) {
-                case GizmoOperation::Translate:
-                    return dist_to_pivot <= pick_radius * 1.5;
-                case GizmoOperation::Rotate:
-                    return dist_to_pivot >= pick_radius * 1.2 && dist_to_pivot <= pick_radius * 3.0;
-                case GizmoOperation::Scale:
-                    return dist_to_pivot >= pick_radius * 1.0 && dist_to_pivot <= pick_radius * 2.2;
-                default:
-                    return false;
-                }
-            };
-
-            if (!s_gizmo_drag.active &&
-                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-                !io.KeyAlt && !io.KeyShift && !io.KeyCtrl &&
-                can_start_drag()) {
-                s_gizmo_drag.active = true;
-                s_gizmo_drag.pivot = pivot;
-                s_gizmo_drag.previous_world = world_pos;
-                consumed_interaction = true;
-            }
-
-            if (s_gizmo_drag.active) {
-                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    using RogueCity::App::EditorManipulation::ApplyRotate;
-                    using RogueCity::App::EditorManipulation::ApplyScale;
-                    using RogueCity::App::EditorManipulation::ApplyTranslate;
-                    using RogueCity::Core::Editor::GizmoOperation;
-
-                    bool changed = false;
-                    if (gs.gizmo.operation == GizmoOperation::Translate) {
-                        RogueCity::Core::Vec2 delta = world_pos - s_gizmo_drag.previous_world;
-                        if (gs.gizmo.snapping && gs.gizmo.translate_snap > 0.0f) {
-                            delta.x = std::round(delta.x / gs.gizmo.translate_snap) * gs.gizmo.translate_snap;
-                            delta.y = std::round(delta.y / gs.gizmo.translate_snap) * gs.gizmo.translate_snap;
-                        }
-                        changed = ApplyTranslate(gs, selected_items, delta);
-                    } else if (gs.gizmo.operation == GizmoOperation::Rotate) {
-                        const RogueCity::Core::Vec2 prev = s_gizmo_drag.previous_world - s_gizmo_drag.pivot;
-                        const RogueCity::Core::Vec2 curr = world_pos - s_gizmo_drag.pivot;
-                        const double prev_angle = std::atan2(prev.y, prev.x);
-                        const double curr_angle = std::atan2(curr.y, curr.x);
-                        double delta_angle = curr_angle - prev_angle;
-                        if (gs.gizmo.snapping && gs.gizmo.rotate_snap_degrees > 0.0f) {
-                            const double step = gs.gizmo.rotate_snap_degrees * std::numbers::pi / 180.0;
-                            delta_angle = std::round(delta_angle / step) * step;
-                        }
-                        changed = ApplyRotate(gs, selected_items, s_gizmo_drag.pivot, delta_angle);
-                    } else if (gs.gizmo.operation == GizmoOperation::Scale) {
-                        const double prev_dist = std::max(1e-5, s_gizmo_drag.previous_world.distanceTo(s_gizmo_drag.pivot));
-                        const double curr_dist = std::max(1e-5, world_pos.distanceTo(s_gizmo_drag.pivot));
-                        double factor = curr_dist / prev_dist;
-                        if (gs.gizmo.snapping && gs.gizmo.scale_snap > 0.0f) {
-                            factor = 1.0 + std::round((factor - 1.0) / gs.gizmo.scale_snap) * gs.gizmo.scale_snap;
-                        }
-                        changed = ApplyScale(gs, selected_items, s_gizmo_drag.pivot, factor);
-                    }
-
-                    if (changed) {
-                        for (const auto& item : selected_items) {
-                            MarkDirtyForSelectionKind(gs, item.kind);
-                        }
-                    }
-                    s_gizmo_drag.previous_world = world_pos;
-                    consumed_interaction = true;
-                }
-                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                    s_gizmo_drag.active = false;
-                    consumed_interaction = true;
-                }
-            }
-        }
-
-        // Road vertex editing while in road mode.
-        if (!consumed_interaction &&
-            current_state == RogueCity::Core::Editor::EditorState::Editing_Roads &&
-            gs.selection.selected_road) {
-            const uint32_t road_id = gs.selection.selected_road->id;
-            RogueCity::Core::Road* road = FindRoadMutable(gs, road_id);
-            if (road && road->points.size() >= 2) {
-                const double pick_radius = std::max(5.0, 9.0 / std::max(0.1f, zoom));
-                if (!s_road_vertex_drag.active && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
-                    double best = std::numeric_limits<double>::max();
-                    size_t best_idx = 0;
-                    for (size_t i = 0; i < road->points.size(); ++i) {
-                        const double d = road->points[i].distanceTo(world_pos);
-                        if (d < best) {
-                            best = d;
-                            best_idx = i;
-                        }
-                    }
-                    if (best <= pick_radius) {
-                        s_road_vertex_drag.active = true;
-                        s_road_vertex_drag.road_id = road_id;
-                        s_road_vertex_drag.vertex_index = best_idx;
-                        consumed_interaction = true;
-                    }
-                }
-                if (s_road_vertex_drag.active) {
-                    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                        RogueCity::Core::Vec2 snapped = world_pos;
-                        if (gs.district_boundary_editor.snap_to_grid && gs.district_boundary_editor.snap_size > 0.0f) {
-                            const double snap = gs.district_boundary_editor.snap_size;
-                            snapped.x = std::round(snapped.x / snap) * snap;
-                            snapped.y = std::round(snapped.y / snap) * snap;
-                        }
-                        RogueCity::App::EditorManipulation::MoveRoadVertex(*road, s_road_vertex_drag.vertex_index, snapped);
-                        MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
-                        consumed_interaction = true;
-                    }
-                    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                        s_road_vertex_drag.active = false;
-                        consumed_interaction = true;
-                    }
-                }
-            }
-        }
-
-        // District boundary direct manipulation.
-        if (!consumed_interaction &&
-            current_state == RogueCity::Core::Editor::EditorState::Editing_Districts &&
-            gs.district_boundary_editor.enabled &&
-            gs.selection.selected_district) {
-            const uint32_t district_id = gs.selection.selected_district->id;
-            RogueCity::Core::District* district = FindDistrictMutable(gs, district_id);
-            if (district && district->border.size() >= 3) {
-                const double pick_radius = std::max(5.0, 9.0 / std::max(0.1f, zoom));
-                if (!s_district_boundary_drag.active && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
-                    double best = std::numeric_limits<double>::max();
-                    size_t best_idx = 0;
-                    for (size_t i = 0; i < district->border.size(); ++i) {
-                        const double d = district->border[i].distanceTo(world_pos);
-                        if (d < best) {
-                            best = d;
-                            best_idx = i;
-                        }
-                    }
-
-                    if (gs.district_boundary_editor.delete_mode && best <= pick_radius) {
-                        RogueCity::App::EditorManipulation::RemoveDistrictVertex(*district, best_idx);
-                        MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::District);
-                        consumed_interaction = true;
-                    } else if (gs.district_boundary_editor.insert_mode) {
-                        double best_edge = std::numeric_limits<double>::max();
-                        size_t edge_idx = 0;
-                        for (size_t i = 0; i < district->border.size(); ++i) {
-                            const auto& a = district->border[i];
-                            const auto& b = district->border[(i + 1) % district->border.size()];
-                            const double d = DistanceToSegment(world_pos, a, b);
-                            if (d < best_edge) {
-                                best_edge = d;
-                                edge_idx = i;
-                            }
-                        }
-                        if (best_edge <= pick_radius * 1.5) {
-                            RogueCity::App::EditorManipulation::InsertDistrictVertex(*district, edge_idx, world_pos);
-                            MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::District);
-                            consumed_interaction = true;
-                        }
-                    } else if (best <= pick_radius) {
-                        s_district_boundary_drag.active = true;
-                        s_district_boundary_drag.district_id = district_id;
-                        s_district_boundary_drag.vertex_index = best_idx;
-                        consumed_interaction = true;
-                    }
-                }
-
-                if (s_district_boundary_drag.active) {
-                    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                        RogueCity::Core::Vec2 snapped = world_pos;
-                        if (gs.district_boundary_editor.snap_to_grid && gs.district_boundary_editor.snap_size > 0.0f) {
-                            const double snap = gs.district_boundary_editor.snap_size;
-                            snapped.x = std::round(snapped.x / snap) * snap;
-                            snapped.y = std::round(snapped.y / snap) * snap;
-                        }
-                        if (s_district_boundary_drag.vertex_index < district->border.size()) {
-                            district->border[s_district_boundary_drag.vertex_index] = snapped;
-                            MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::District);
-                        }
-                        consumed_interaction = true;
-                    }
-                    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                        s_district_boundary_drag.active = false;
-                        consumed_interaction = true;
-                    }
-                }
-            }
-        }
-
-        const bool start_box = io.KeyAlt && io.KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-        const bool start_lasso = io.KeyAlt && !io.KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-
-        if (!consumed_interaction && start_box) {
-            s_selection_drag.box_active = true;
-            s_selection_drag.lasso_active = false;
-            s_selection_drag.box_start = world_pos;
-            s_selection_drag.box_end = world_pos;
-            gs.hovered_entity.reset();
-            consumed_interaction = true;
-        } else if (!consumed_interaction && start_lasso) {
-            s_selection_drag.lasso_active = true;
-            s_selection_drag.box_active = false;
-            s_selection_drag.lasso_points.clear();
-            s_selection_drag.lasso_points.push_back(world_pos);
-            gs.hovered_entity.reset();
-            consumed_interaction = true;
-        }
-
-        if (!consumed_interaction && s_selection_drag.box_active) {
-            s_selection_drag.box_end = world_pos;
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                const double min_x = std::min(s_selection_drag.box_start.x, s_selection_drag.box_end.x);
-                const double max_x = std::max(s_selection_drag.box_start.x, s_selection_drag.box_end.x);
-                const double min_y = std::min(s_selection_drag.box_start.y, s_selection_drag.box_end.y);
-                const double max_y = std::max(s_selection_drag.box_start.y, s_selection_drag.box_end.y);
-
-                auto region_items = QueryRegionFromViewportIndex(
-                    gs,
-                    [=](const RogueCity::Core::Vec2& p) {
-                        return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
-                    },
-                    true);
-                gs.selection_manager.SetItems(std::move(region_items));
-                RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
-                gs.hovered_entity.reset();
-                s_selection_drag.box_active = false;
-            }
-        } else if (!consumed_interaction && s_selection_drag.lasso_active) {
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                if (s_selection_drag.lasso_points.empty() ||
-                    s_selection_drag.lasso_points.back().distanceTo(world_pos) > 3.0) {
-                    s_selection_drag.lasso_points.push_back(world_pos);
-                }
-            }
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                auto region_items = QueryRegionFromViewportIndex(
-                    gs,
-                    [&](const RogueCity::Core::Vec2& p) {
-                        return PointInPolygon(p, s_selection_drag.lasso_points);
-                    });
-                gs.selection_manager.SetItems(std::move(region_items));
-                RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
-                gs.hovered_entity.reset();
-                s_selection_drag.lasso_active = false;
-                s_selection_drag.lasso_points.clear();
-            }
-        } else if (!consumed_interaction) {
-            const auto hovered = PickFromViewportIndex(gs, world_pos, zoom);
-            gs.hovered_entity = hovered;
-
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                if (hovered.has_value()) {
-                    if (io.KeyShift) {
-                        gs.selection_manager.Add(hovered->kind, hovered->id);
-                    } else if (io.KeyCtrl) {
-                        gs.selection_manager.Toggle(hovered->kind, hovered->id);
-                    } else {
-                        gs.selection_manager.Select(hovered->kind, hovered->id);
-                    }
-                    RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
-                } else if (!io.KeyShift && !io.KeyCtrl) {
-                    gs.selection_manager.Clear();
-                    RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
-                    gs.hovered_entity.reset();
-                }
-            }
-        }
-    }
-
-    if (!editor_hovered || !in_viewport || minimap_hovered) {
+    if (!editor_hovered || !in_viewport || minimap_hovered || !allow_viewport_mouse_actions) {
         gs.hovered_entity.reset();
     }
     
@@ -2144,7 +1527,8 @@ void DrawContent(float dt) {
         if (RogueCity::Core::Road* road = FindRoadMutable(gs, road_id); road != nullptr) {
             for (size_t i = 0; i < road->points.size(); ++i) {
                 const ImVec2 p = s_primary_viewport->world_to_screen(road->points[i]);
-                const ImU32 color = (s_road_vertex_drag.active && s_road_vertex_drag.vertex_index == i)
+                const ImU32 color = (s_non_axiom_interaction.road_vertex_drag.active &&
+                                     s_non_axiom_interaction.road_vertex_drag.vertex_index == i)
                     ? TokenColor(UITokens::YellowWarning)
                     : TokenColor(UITokens::CyanAccent, 225u);
                 draw_list->AddCircleFilled(p, 4.0f, color, 12);
@@ -2176,13 +1560,19 @@ void DrawContent(float dt) {
 
     // District boundary handles in district mode.
     if (current_state == RogueCity::Core::Editor::EditorState::Editing_Districts &&
-        gs.district_boundary_editor.enabled &&
-        gs.selection.selected_district) {
+        gs.selection.selected_district &&
+        (gs.district_boundary_editor.enabled ||
+         gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Select ||
+         gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Paint ||
+         gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Zone ||
+         gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Split ||
+         gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Merge)) {
         const uint32_t district_id = gs.selection.selected_district->id;
         if (RogueCity::Core::District* district = FindDistrictMutable(gs, district_id); district != nullptr) {
             for (size_t i = 0; i < district->border.size(); ++i) {
                 const ImVec2 p = s_primary_viewport->world_to_screen(district->border[i]);
-                const ImU32 color = (s_district_boundary_drag.active && s_district_boundary_drag.vertex_index == i)
+                const ImU32 color = (s_non_axiom_interaction.district_boundary_drag.active &&
+                                     s_non_axiom_interaction.district_boundary_drag.vertex_index == i)
                     ? TokenColor(UITokens::ErrorRed)
                     : TokenColor(UITokens::GreenHUD, 235u);
                 draw_list->AddRectFilled(ImVec2(p.x - 4.0f, p.y - 4.0f), ImVec2(p.x + 4.0f, p.y + 4.0f), color);
@@ -2191,6 +1581,27 @@ void DrawContent(float dt) {
                     ImVec2(p.x + 6.0f, p.y + 6.0f),
                     TokenColor(UITokens::BackgroundDark, 190u),
                     0.0f, 0, 1.0f);
+            }
+        }
+    }
+
+    // Water vertex handles in water mode.
+    if (current_state == RogueCity::Core::Editor::EditorState::Editing_Water) {
+        const auto* primary = gs.selection_manager.Primary();
+        const bool has_selected_water =
+            primary != nullptr && primary->kind == RogueCity::Core::Editor::VpEntityKind::Water;
+        if (has_selected_water) {
+            if (RogueCity::Core::WaterBody* water = FindWaterMutable(gs, primary->id);
+                water != nullptr && !water->boundary.empty()) {
+                for (size_t i = 0; i < water->boundary.size(); ++i) {
+                    const ImVec2 p = s_primary_viewport->world_to_screen(water->boundary[i]);
+                    const ImU32 color = (s_non_axiom_interaction.water_vertex_drag.active &&
+                                         s_non_axiom_interaction.water_vertex_drag.vertex_index == i)
+                        ? TokenColor(UITokens::YellowWarning)
+                        : TokenColor(UITokens::InfoBlue, 220u);
+                    draw_list->AddCircleFilled(p, 4.0f, color, 12);
+                    draw_list->AddCircle(p, 6.0f, TokenColor(UITokens::BackgroundDark, 180u), 12, 1.0f);
+                }
             }
         }
     }
@@ -2231,9 +1642,9 @@ void DrawContent(float dt) {
     overlay_config.show_gizmos = gs.gizmo.visible && gs.selection_manager.Count() > 0;
     overlays.Render(gs, overlay_config);
 
-    if (s_selection_drag.box_active) {
-        const ImVec2 a = s_primary_viewport->world_to_screen(s_selection_drag.box_start);
-        const ImVec2 b = s_primary_viewport->world_to_screen(s_selection_drag.box_end);
+    if (s_non_axiom_interaction.selection_drag.box_active) {
+        const ImVec2 a = s_primary_viewport->world_to_screen(s_non_axiom_interaction.selection_drag.box_start);
+        const ImVec2 b = s_primary_viewport->world_to_screen(s_non_axiom_interaction.selection_drag.box_end);
         draw_list->AddRect(
             ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)),
             ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)),
@@ -2243,10 +1654,11 @@ void DrawContent(float dt) {
             2.0f);
     }
 
-    if (s_selection_drag.lasso_active && s_selection_drag.lasso_points.size() >= 2) {
+    if (s_non_axiom_interaction.selection_drag.lasso_active &&
+        s_non_axiom_interaction.selection_drag.lasso_points.size() >= 2) {
         std::vector<ImVec2> lasso_screen;
-        lasso_screen.reserve(s_selection_drag.lasso_points.size());
-        for (const auto& p : s_selection_drag.lasso_points) {
+        lasso_screen.reserve(s_non_axiom_interaction.selection_drag.lasso_points.size());
+        for (const auto& p : s_non_axiom_interaction.selection_drag.lasso_points) {
             lasso_screen.push_back(s_primary_viewport->world_to_screen(p));
         }
         draw_list->AddPolyline(

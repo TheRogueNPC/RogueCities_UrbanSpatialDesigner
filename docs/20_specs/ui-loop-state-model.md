@@ -113,6 +113,8 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - Expose global viewport commands (minimap toggle, force generate, dock reset).
   - Render three command UIs (Smart List, Pie, Global Palette) over the same command IDs.
   - Route all command execution through `Commands::ExecuteCommand` -> `DispatchToolAction`.
+  - Own viewport command trigger routing, axiom-mode viewport input handling, and non-axiom viewport interaction handling.
+  - Non-axiom path includes selection, gizmo manipulation, road/district/water vertex editing, and domain placement clicks (lot/building/water/road/district).
 - Input rules:
   - Respect `UiInputGateState` and `io.WantTextInput`.
   - Preserve `Ctrl+P` Master Panel search while keeping `P` viewport palette when viewport-focused.

@@ -15,6 +15,7 @@ COORD_H = ROOT / "app" / "include" / "RogueCity" / "App" / "Integration" / "Gene
 COORD_CPP = ROOT / "app" / "src" / "Integration" / "GenerationCoordinator.cpp"
 VIEWPORT_PANEL = ROOT / "visualizer" / "src" / "ui" / "panels" / "rc_panel_axiom_editor.cpp"
 APP_CMAKE = ROOT / "app" / "CMakeLists.txt"
+VIEWPORT_INTERACTION_CPP = ROOT / "visualizer" / "src" / "ui" / "viewport" / "rc_viewport_interaction.cpp"
 
 
 def read(path: Path) -> str:
@@ -28,7 +29,7 @@ def rel(path: Path) -> str:
 def main() -> int:
     violations: list[str] = []
 
-    for required in (APPLIER_H, APPLIER_CPP, COORD_H, COORD_CPP, VIEWPORT_PANEL, APP_CMAKE):
+    for required in (APPLIER_H, APPLIER_CPP, COORD_H, COORD_CPP, VIEWPORT_PANEL, VIEWPORT_INTERACTION_CPP, APP_CMAKE):
         if not required.exists():
             violations.append(f"Missing required file: {rel(required)}")
 
@@ -39,6 +40,7 @@ def main() -> int:
         return 1
 
     panel_text = read(VIEWPORT_PANEL)
+    interaction_text = read(VIEWPORT_INTERACTION_CPP)
     cmake_text = read(APP_CMAKE)
 
     if "SyncGlobalStateFromPreview" in panel_text:
@@ -51,6 +53,15 @@ def main() -> int:
         violations.append("rc_panel_axiom_editor.cpp still stores direct RealTimePreview ownership.")
     if "ForceRegeneration(" not in panel_text or "RequestRegeneration(" not in panel_text:
         violations.append("rc_panel_axiom_editor.cpp must route generation requests through coordinator API.")
+    if "ProcessNonAxiomViewportInteraction(" not in panel_text:
+        violations.append("rc_panel_axiom_editor.cpp must route non-axiom viewport interaction through viewport utilities.")
+    if "if (!axiom_mode && allow_viewport_mouse_actions)" in panel_text:
+        violations.append("Legacy panel-local non-axiom interaction block detected; must use ProcessNonAxiomViewportInteraction().")
+
+    if "ProcessNonAxiomViewportInteraction(" not in interaction_text:
+        violations.append("rc_viewport_interaction.cpp missing ProcessNonAxiomViewportInteraction() implementation.")
+    if "HandleDomainPlacementActions(" not in interaction_text:
+        violations.append("rc_viewport_interaction.cpp must include domain placement routing.")
 
     if "src/Integration/CityOutputApplier.cpp" not in cmake_text:
         violations.append("app/CMakeLists.txt missing CityOutputApplier.cpp.")
