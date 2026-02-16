@@ -112,8 +112,8 @@ Successfully implemented a complete **state-reactive axiom placement system** th
 ```
 Input Size:           1-10 axioms
 Generation Time:      10-80 ms (typical)
-Target City Size:     2km × 2km
-Tensor Resolution:    200×200 cells (10m)
+Target City Size:     2km ï¿½ 2km
+Tensor Resolution:    200ï¿½200 cells (10m)
 Road Count:           3-50 roads (depends on axioms)
 ```
 
@@ -134,7 +134,7 @@ RESULT:               ? COMFORTABLE HEADROOM
 ```
 PrimaryViewport:      48 bytes
 MinimapViewport:      56 bytes (shared)
-AxiomPlacementTool:   128 bytes + N × 256 bytes
+AxiomPlacementTool:   128 bytes + N ï¿½ 256 bytes
 CityGenerator:        128 bytes
 CityOutput:           ~350 KB (roads + tensor field)
 ----------------------------------------------------
@@ -449,5 +449,5 @@ visualizer/
 ---
 
 *"The best interface is the one that teaches through use, not through documentation."*  
-— Axiom Tool Integration, Phase Complete ??
+ï¿½ Axiom Tool Integration, Phase Complete ??
 

@@ -6,6 +6,8 @@
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_input_gate.h"
+#include "ui/tools/rc_tool_contract.h"
+#include "ui/tools/rc_tool_dispatcher.h"
 #include "ui/panels/rc_panel_axiom_bar.h"
 #include "ui/panels/rc_panel_axiom_editor.h"  // NEW: Integrated axiom editor
 #include "ui/panels/rc_panel_system_map.h"
@@ -30,6 +32,7 @@
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"  // NEW: Minimap integration
 #include "ui/rc_ui_theme.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 
 // MASTER PANEL ARCHITECTURE (RC-0.10)
 #include "ui/panels/RcMasterPanel.h"
@@ -231,8 +234,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
                                     const char* window_name,
                                     const char* owner_module,
                                     const char* dock_area,
-                                    std::span<const char* const> entries,
-                                    std::span<const char* const> spline_entries,
+                                    std::span<const Tools::ToolActionSpec> actions,
                                     bool popout_instance = false,
                                     bool* popout_open = nullptr,
                                     const ToolLibraryContentRenderer& content_renderer = {}) {
@@ -348,61 +350,102 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
         if (content_renderer) {
             content_renderer();
         } else {
-            const float base_icon_size = std::max(38.0f, ImGui::GetFrameHeight() * 1.9f);
-            const float base_spacing = std::max(8.0f, ImGui::GetStyle().ItemSpacing.x);
-            const int total_entries = static_cast<int>(entries.size());
-            const auto layout = ResponsiveButtonLayout::Calculate(
-                total_entries,
-                library_avail.x,
-                library_avail.y,
-                base_icon_size,
-                base_icon_size,
-                base_spacing);
-
-            if (layout.visible_count <= 0) {
-                EndWindowContainer();
-                uiint.EndPanel();
-                Components::EndTokenPanel();
-                return;
-            }
-
-            const float icon_size = layout.button_width;
-            const float spacing = layout.spacing;
+            auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+            auto& gs = RogueCity::Core::Editor::GetGlobalState();
+            const float icon_size = std::max(38.0f, ImGui::GetFrameHeight() * 1.9f);
+            const float spacing = std::max(8.0f, ImGui::GetStyle().ItemSpacing.x);
             const int columns = static_cast<int>(std::max(1.0f,
                 std::floor((library_avail.x + spacing) / (icon_size + spacing))));
 
-            const int visible_entries = std::min(total_entries, layout.visible_count);
-            for (int i = 0; i < visible_entries; ++i) {
-                if (i > 0 && (i % columns) != 0) {
-                    ImGui::SameLine(0.0f, spacing);
+            auto draw_action_section = [&](Tools::ToolActionGroup group, const char* header, const std::string& widget_binding) {
+                std::vector<size_t> group_indices;
+                group_indices.reserve(actions.size());
+                for (size_t i = 0; i < actions.size(); ++i) {
+                    if (actions[i].group == group) {
+                        group_indices.push_back(i);
+                    }
                 }
-                ImGui::PushID(i);
-                ImGui::InvisibleButton("ToolEntry", ImVec2(icon_size, icon_size));
-                const ImVec2 bmin = ImGui::GetItemRectMin();
-                const ImVec2 bmax = ImGui::GetItemRectMax();
-                const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
-                ImDrawList* draw_list = ImGui::GetWindowDrawList();
-                draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::PanelBackground, 220u), 8.0f);
-                draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::TextSecondary, 180u), 8.0f, 0, 1.5f);
-                DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("%s", entries[static_cast<size_t>(i)]);
-                }
-                ImGui::PopID();
-            }
-            uiint.RegisterWidget({"table", window_name, std::string(window_name) + ".tools[]", {"tool", "library"}});
 
-            if (visible_entries < total_entries) {
-                ImGui::SeparatorText("More tools available...");
-            }
-
-            if (!spline_entries.empty()) {
-                ImGui::SeparatorText("Spline Tools");
-                for (size_t i = 0; i < spline_entries.size(); ++i) {
-                    ImGui::BulletText("%s", spline_entries[i]);
+                if (group_indices.empty()) {
+                    return;
                 }
-                uiint.RegisterWidget({"table", "Spline Tools", std::string(window_name) + ".splines[]", {"tool", "spline"}});
-            }
+
+                if (header != nullptr && header[0] != '\0') {
+                    ImGui::SeparatorText(header);
+                }
+
+                for (size_t local_idx = 0; local_idx < group_indices.size(); ++local_idx) {
+                    if (local_idx > 0 && (static_cast<int>(local_idx) % columns) != 0) {
+                        ImGui::SameLine(0.0f, spacing);
+                    }
+
+                    const size_t action_index = group_indices[local_idx];
+                    const auto& action = actions[action_index];
+                    const bool action_enabled = Tools::IsToolActionEnabled(action);
+
+                    ImGui::PushID(static_cast<int>(action_index));
+                    if (!action_enabled) {
+                        ImGui::BeginDisabled();
+                    }
+                    const bool clicked = ImGui::InvisibleButton("ToolEntry", ImVec2(icon_size, icon_size));
+                    if (!action_enabled) {
+                        ImGui::EndDisabled();
+                    }
+
+                    const ImVec2 bmin = ImGui::GetItemRectMin();
+                    const ImVec2 bmax = ImGui::GetItemRectMax();
+                    const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+                    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+                    const ImU32 fill = action_enabled
+                        ? WithAlpha(UITokens::PanelBackground, 220u)
+                        : WithAlpha(UITokens::PanelBackground, 150u);
+                    const ImU32 border = action_enabled
+                        ? WithAlpha(UITokens::TextSecondary, 180u)
+                        : WithAlpha(UITokens::TextSecondary, 100u);
+                    draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
+                    draw_list->AddRect(bmin, bmax, border, 8.0f, 0, 1.5f);
+                    DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
+
+                    if (clicked) {
+                        std::string dispatch_status;
+                        Tools::DispatchContext context{
+                            &hfsm,
+                            &gs,
+                            &uiint,
+                            window_name
+                        };
+                        const auto result = Tools::DispatchToolAction(action.id, context, &dispatch_status);
+                        (void)result;
+                    }
+
+                    if (ImGui::IsItemHovered()) {
+                        if (!action_enabled) {
+                            ImGui::SetTooltip("%s\n%s", action.label, action.disabled_reason);
+                        } else if (action.tooltip != nullptr && action.tooltip[0] != '\0') {
+                            ImGui::SetTooltip("%s\n%s", action.label, action.tooltip);
+                        } else {
+                            ImGui::SetTooltip("%s", action.label);
+                        }
+                    }
+
+                    uiint.RegisterWidget({"button", action.label, std::string("action:") + Tools::ToolActionName(action.id), {"tool", "library"}});
+                    uiint.RegisterAction({
+                        Tools::ToolActionName(action.id),
+                        action.label,
+                        window_name,
+                        {"tool", "library"},
+                        "RC_UI::Tools::DispatchToolAction"
+                    });
+                    ImGui::PopID();
+                }
+
+                uiint.RegisterWidget({"table", header != nullptr ? header : window_name, widget_binding, {"tool", "library"}});
+            };
+
+            draw_action_section(Tools::ToolActionGroup::Primary, nullptr, std::string(window_name) + ".primary[]");
+            draw_action_section(Tools::ToolActionGroup::Spline, "Spline Tools", std::string(window_name) + ".spline[]");
+            draw_action_section(Tools::ToolActionGroup::FutureStub, "Future Stubs", std::string(window_name) + ".future[]");
         }
         EndWindowContainer();
     }
@@ -1043,26 +1086,6 @@ void DrawRoot(float dt)
     UpdateDockLayout(0);
 #endif
 
-    static const std::array<const char*, 6> water_tools = {
-        "Flow", "Contour", "Erode", "Select", "Mask", "Inspect"
-    };
-    static const std::array<const char*, 9> road_tools = {
-        "Spline", "Grid", "Bridge", "Select", "Disconnect", "Stub", "Curve", "Strengthen", "Inspect"
-    };
-    static const std::array<const char*, 6> district_tools = {
-        "Zone", "Paint", "Split", "Select", "Merge", "Inspect"
-    };
-    static const std::array<const char*, 6> lot_tools = {
-        "Plot", "Slice", "Align", "Select", "Merge", "Inspect"
-    };
-    static const std::array<const char*, 6> building_tools = {
-        "Place", "Scale", "Rotate", "Select", "Assign", "Inspect"
-    };
-    static const std::array<const char*, 9> spline_tools = {
-        "Selection", "Direct Select", "Pen", "Convert Anchor", "Add/Remove Anchor",
-        "Handle Tangents", "Snap/Align", "Join/Split", "Simplify"
-    };
-
     // Tool deck is always visible and drives which library is active.
     Panels::AxiomBar::Draw(dt);
 
@@ -1071,8 +1094,7 @@ void DrawRoot(float dt)
         "Axiom Library",
         "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
         "Library",
-        std::span<const char* const>{},
-        std::span<const char* const>{},
+        std::span<const Tools::ToolActionSpec>{},
         false,
         nullptr,
         []() { Panels::AxiomEditor::DrawAxiomLibraryContent(); });
@@ -1080,40 +1102,34 @@ void DrawRoot(float dt)
         "Water Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        water_tools,
-        spline_tools);
+        Tools::GetToolActionsForLibrary(ToolLibrary::Water));
     RenderToolLibraryWindow(ToolLibrary::Road,
         "Road Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        road_tools,
-        spline_tools);
+        Tools::GetToolActionsForLibrary(ToolLibrary::Road));
     RenderToolLibraryWindow(ToolLibrary::District,
         "District Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        district_tools,
-        std::span<const char* const>{});
+        Tools::GetToolActionsForLibrary(ToolLibrary::District));
     RenderToolLibraryWindow(ToolLibrary::Lot,
         "Lot Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        lot_tools,
-        std::span<const char* const>{});
+        Tools::GetToolActionsForLibrary(ToolLibrary::Lot));
     RenderToolLibraryWindow(ToolLibrary::Building,
         "Building Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        building_tools,
-        std::span<const char* const>{});
+        Tools::GetToolActionsForLibrary(ToolLibrary::Building));
 
     bool& axiom_popout = s_tool_library_popout[ToolLibraryIndex(ToolLibrary::Axiom)];
     RenderToolLibraryWindow(ToolLibrary::Axiom,
         ToolLibraryPopoutWindowName(ToolLibrary::Axiom),
         "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
         "Floating",
-        std::span<const char* const>{},
-        std::span<const char* const>{},
+        std::span<const Tools::ToolActionSpec>{},
         true,
         &axiom_popout,
         []() { Panels::AxiomEditor::DrawAxiomLibraryContent(); });
@@ -1123,8 +1139,7 @@ void DrawRoot(float dt)
         ToolLibraryPopoutWindowName(ToolLibrary::Water),
         "visualizer/src/ui/rc_ui_root.cpp",
         "Floating",
-        water_tools,
-        spline_tools,
+        Tools::GetToolActionsForLibrary(ToolLibrary::Water),
         true,
         &water_popout);
 
@@ -1133,8 +1148,7 @@ void DrawRoot(float dt)
         ToolLibraryPopoutWindowName(ToolLibrary::Road),
         "visualizer/src/ui/rc_ui_root.cpp",
         "Floating",
-        road_tools,
-        spline_tools,
+        Tools::GetToolActionsForLibrary(ToolLibrary::Road),
         true,
         &road_popout);
 
@@ -1143,8 +1157,7 @@ void DrawRoot(float dt)
         ToolLibraryPopoutWindowName(ToolLibrary::District),
         "visualizer/src/ui/rc_ui_root.cpp",
         "Floating",
-        district_tools,
-        std::span<const char* const>{},
+        Tools::GetToolActionsForLibrary(ToolLibrary::District),
         true,
         &district_popout);
 
@@ -1153,8 +1166,7 @@ void DrawRoot(float dt)
         ToolLibraryPopoutWindowName(ToolLibrary::Lot),
         "visualizer/src/ui/rc_ui_root.cpp",
         "Floating",
-        lot_tools,
-        std::span<const char* const>{},
+        Tools::GetToolActionsForLibrary(ToolLibrary::Lot),
         true,
         &lot_popout);
 
@@ -1163,8 +1175,7 @@ void DrawRoot(float dt)
         ToolLibraryPopoutWindowName(ToolLibrary::Building),
         "visualizer/src/ui/rc_ui_root.cpp",
         "Floating",
-        building_tools,
-        std::span<const char* const>{},
+        Tools::GetToolActionsForLibrary(ToolLibrary::Building),
         true,
         &building_popout);
 

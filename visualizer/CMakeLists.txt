@@ -90,6 +90,8 @@ endif()
         src/ui/rc_ui_input_gate.cpp
         src/ui/rc_ui_root.cpp
         src/ui/rc_ui_theme.cpp
+        src/ui/tools/rc_tool_contract.cpp
+        src/ui/tools/rc_tool_dispatcher.cpp
         src/ui/introspection/UiIntrospection.cpp
         # Panels
         src/ui/panels/rc_panel_axiom_bar.cpp
@@ -172,6 +174,8 @@ endif()
                 src/ui/rc_ui_input_gate.cpp
                 src/ui/rc_ui_root.cpp
                 src/ui/rc_ui_theme.cpp
+                src/ui/tools/rc_tool_contract.cpp
+                src/ui/tools/rc_tool_dispatcher.cpp
                 src/ui/introspection/UiIntrospection.cpp
                 # Panel sources
                 src/ui/panels/rc_panel_axiom_bar.cpp

@@ -7,6 +7,7 @@ Fails the build when panel files bypass the token/wrapper architecture.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,6 +48,22 @@ def main() -> int:
         for entry in violations:
             print(f"  - {entry}")
         return 1
+
+    tool_contract_script = ROOT / "tools" / "check_tool_wiring_contract.py"
+    if tool_contract_script.exists():
+        result = subprocess.run(
+            [sys.executable, str(tool_contract_script)],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.stdout.strip():
+            print(result.stdout.strip())
+        if result.stderr.strip():
+            print(result.stderr.strip())
+        if result.returncode != 0:
+            return result.returncode
 
     print("UI compliance check passed.")
     return 0

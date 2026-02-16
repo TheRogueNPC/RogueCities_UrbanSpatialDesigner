@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_property_editor.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/tools/rc_tool_contract.h"
 
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
@@ -173,6 +174,147 @@ RogueCity::Core::BuildingSite* FindBuilding(GlobalState& gs, uint32_t id) {
         }
     }
     return nullptr;
+}
+
+const char* WaterSubtoolName(RogueCity::Core::Editor::WaterSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::WaterSubtool::Flow: return "Flow";
+    case RogueCity::Core::Editor::WaterSubtool::Contour: return "Contour";
+    case RogueCity::Core::Editor::WaterSubtool::Erode: return "Erode";
+    case RogueCity::Core::Editor::WaterSubtool::Select: return "Select";
+    case RogueCity::Core::Editor::WaterSubtool::Mask: return "Mask";
+    case RogueCity::Core::Editor::WaterSubtool::Inspect: return "Inspect";
+    }
+    return "Unknown";
+}
+
+const char* WaterSplineSubtoolName(RogueCity::Core::Editor::WaterSplineSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::WaterSplineSubtool::Selection: return "Selection";
+    case RogueCity::Core::Editor::WaterSplineSubtool::DirectSelect: return "Direct Select";
+    case RogueCity::Core::Editor::WaterSplineSubtool::Pen: return "Pen";
+    case RogueCity::Core::Editor::WaterSplineSubtool::ConvertAnchor: return "Convert Anchor";
+    case RogueCity::Core::Editor::WaterSplineSubtool::AddRemoveAnchor: return "Add/Remove Anchor";
+    case RogueCity::Core::Editor::WaterSplineSubtool::HandleTangents: return "Handle Tangents";
+    case RogueCity::Core::Editor::WaterSplineSubtool::SnapAlign: return "Snap/Align";
+    case RogueCity::Core::Editor::WaterSplineSubtool::JoinSplit: return "Join/Split";
+    case RogueCity::Core::Editor::WaterSplineSubtool::Simplify: return "Simplify";
+    }
+    return "Unknown";
+}
+
+const char* RoadSubtoolName(RogueCity::Core::Editor::RoadSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::RoadSubtool::Spline: return "Spline";
+    case RogueCity::Core::Editor::RoadSubtool::Grid: return "Grid";
+    case RogueCity::Core::Editor::RoadSubtool::Bridge: return "Bridge";
+    case RogueCity::Core::Editor::RoadSubtool::Select: return "Select";
+    case RogueCity::Core::Editor::RoadSubtool::Disconnect: return "Disconnect";
+    case RogueCity::Core::Editor::RoadSubtool::Stub: return "Stub";
+    case RogueCity::Core::Editor::RoadSubtool::Curve: return "Curve";
+    case RogueCity::Core::Editor::RoadSubtool::Strengthen: return "Strengthen";
+    case RogueCity::Core::Editor::RoadSubtool::Inspect: return "Inspect";
+    }
+    return "Unknown";
+}
+
+const char* RoadSplineSubtoolName(RogueCity::Core::Editor::RoadSplineSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::RoadSplineSubtool::Selection: return "Selection";
+    case RogueCity::Core::Editor::RoadSplineSubtool::DirectSelect: return "Direct Select";
+    case RogueCity::Core::Editor::RoadSplineSubtool::Pen: return "Pen";
+    case RogueCity::Core::Editor::RoadSplineSubtool::ConvertAnchor: return "Convert Anchor";
+    case RogueCity::Core::Editor::RoadSplineSubtool::AddRemoveAnchor: return "Add/Remove Anchor";
+    case RogueCity::Core::Editor::RoadSplineSubtool::HandleTangents: return "Handle Tangents";
+    case RogueCity::Core::Editor::RoadSplineSubtool::SnapAlign: return "Snap/Align";
+    case RogueCity::Core::Editor::RoadSplineSubtool::JoinSplit: return "Join/Split";
+    case RogueCity::Core::Editor::RoadSplineSubtool::Simplify: return "Simplify";
+    }
+    return "Unknown";
+}
+
+const char* DistrictSubtoolName(RogueCity::Core::Editor::DistrictSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::DistrictSubtool::Zone: return "Zone";
+    case RogueCity::Core::Editor::DistrictSubtool::Paint: return "Paint";
+    case RogueCity::Core::Editor::DistrictSubtool::Split: return "Split";
+    case RogueCity::Core::Editor::DistrictSubtool::Select: return "Select";
+    case RogueCity::Core::Editor::DistrictSubtool::Merge: return "Merge";
+    case RogueCity::Core::Editor::DistrictSubtool::Inspect: return "Inspect";
+    }
+    return "Unknown";
+}
+
+const char* LotSubtoolName(RogueCity::Core::Editor::LotSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::LotSubtool::Plot: return "Plot";
+    case RogueCity::Core::Editor::LotSubtool::Slice: return "Slice";
+    case RogueCity::Core::Editor::LotSubtool::Align: return "Align";
+    case RogueCity::Core::Editor::LotSubtool::Select: return "Select";
+    case RogueCity::Core::Editor::LotSubtool::Merge: return "Merge";
+    case RogueCity::Core::Editor::LotSubtool::Inspect: return "Inspect";
+    }
+    return "Unknown";
+}
+
+const char* BuildingSubtoolName(RogueCity::Core::Editor::BuildingSubtool value) {
+    switch (value) {
+    case RogueCity::Core::Editor::BuildingSubtool::Place: return "Place";
+    case RogueCity::Core::Editor::BuildingSubtool::Scale: return "Scale";
+    case RogueCity::Core::Editor::BuildingSubtool::Rotate: return "Rotate";
+    case RogueCity::Core::Editor::BuildingSubtool::Select: return "Select";
+    case RogueCity::Core::Editor::BuildingSubtool::Assign: return "Assign";
+    case RogueCity::Core::Editor::BuildingSubtool::Inspect: return "Inspect";
+    }
+    return "Unknown";
+}
+
+void DrawToolRuntime(GlobalState& gs) {
+    ImGui::SeparatorText("Active Tool Runtime");
+    ImGui::Text("Domain: %s", RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain));
+    ImGui::Text("Last Action: %s (%s)",
+        gs.tool_runtime.last_action_label.empty() ? "none" : gs.tool_runtime.last_action_label.c_str(),
+        gs.tool_runtime.last_action_status.empty() ? "idle" : gs.tool_runtime.last_action_status.c_str());
+    ImGui::Text("Dispatch Serial: %llu", static_cast<unsigned long long>(gs.tool_runtime.action_serial));
+
+    switch (gs.tool_runtime.active_domain) {
+    case RogueCity::Core::Editor::ToolDomain::Water:
+    case RogueCity::Core::Editor::ToolDomain::Flow:
+        ImGui::BulletText("Water Tool: %s", WaterSubtoolName(gs.tool_runtime.water_subtool));
+        ImGui::BulletText("Water Spline: %s", WaterSplineSubtoolName(gs.tool_runtime.water_spline_subtool));
+        ImGui::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
+        break;
+    case RogueCity::Core::Editor::ToolDomain::Road:
+    case RogueCity::Core::Editor::ToolDomain::Paths:
+        ImGui::BulletText("Road Tool: %s", RoadSubtoolName(gs.tool_runtime.road_subtool));
+        ImGui::BulletText("Road Spline: %s", RoadSplineSubtoolName(gs.tool_runtime.road_spline_subtool));
+        ImGui::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
+        break;
+    case RogueCity::Core::Editor::ToolDomain::District:
+    case RogueCity::Core::Editor::ToolDomain::Zone:
+        ImGui::BulletText("District Tool: %s", DistrictSubtoolName(gs.tool_runtime.district_subtool));
+        ImGui::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
+        ImGui::Checkbox("Boundary Snap", &gs.district_boundary_editor.snap_to_grid);
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::DragFloat("Boundary Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
+        break;
+    case RogueCity::Core::Editor::ToolDomain::Lot:
+        ImGui::BulletText("Lot Tool: %s", LotSubtoolName(gs.tool_runtime.lot_subtool));
+        break;
+    case RogueCity::Core::Editor::ToolDomain::Building:
+    case RogueCity::Core::Editor::ToolDomain::FloorPlan:
+    case RogueCity::Core::Editor::ToolDomain::Furnature:
+        ImGui::BulletText("Building Tool: %s", BuildingSubtoolName(gs.tool_runtime.building_subtool));
+        ImGui::TextDisabled("FloorPlan/Furnature are feature stubs until backend modules are wired.");
+        break;
+    case RogueCity::Core::Editor::ToolDomain::Axiom:
+        ImGui::TextDisabled("Axiom subtype is driven by the Axiom Library icons.");
+        break;
+    }
 }
 
 void DrawLayerManager(GlobalState& gs) {
@@ -984,6 +1126,8 @@ void PropertyEditor::Draw(GlobalState& gs) {
             gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
         }
     }
+
+    DrawToolRuntime(gs);
 
     const auto selection_count = gs.selection_manager.Count();
     if (selection_count > 1) {

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
+                "file": "40_implementation_completed/phase2-viewports-complete.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "axiom-tool-complete"
+              "title": "phase2-viewports-complete"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
+                "file": "40_implementation_completed/phase2-viewports-complete.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for axiom-tool-complete"
+              "title": "Backlinks for phase2-viewports-complete"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
+                "file": "40_implementation_completed/phase2-viewports-complete.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from axiom-tool-complete"
+              "title": "Outgoing links from phase2-viewports-complete"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
+                "file": "40_implementation_completed/phase2-viewports-complete.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of axiom-tool-complete"
+              "title": "Outline of phase2-viewports-complete"
             }
           }
         ]
@@ -185,7 +185,12 @@
   },
   "active": "ee0399504a558c3d",
   "lastOpenFiles": [
+    "30_runbooks/tool-wiring-regression-checklist.md",
+    "20_specs/tool-action-matrix.md",
+    "20_specs/tool-wiring-contract.md",
+    "30_runbooks",
     "30_architecture/architecture-diagram.md",
+    "40_implementation_completed/axiom-tools/axiom-tool-complete.md",
     "20_specs/ui-loop-state-model.md",
     "20_specs/ui-faq-compliance-matrix.md",
     "20_specs/axiom-tools/ui-architecture-axiom-system.md",
@@ -201,7 +206,6 @@
     "Doxy/docbook/xml",
     "Doxy/docbook/docbook",
     "Doxy/docbook/html/doxygen_crawl.html",
-    "Doxy/docbook/html",
     "Doxy/html/doxygen.svg",
     "LICENSES.md",
     "30_architecture/architecture-map.md",
@@ -218,10 +222,6 @@
     "00_index/plans-and-todos-index.md",
     "00_index/migration-log.md",
     "20_specs/design-and-research/the-rogue-city-designer-soft.md",
-    "20_specs/design-and-research/rogueworkers-and-you.md",
-    "20_specs/design-and-research/fast-versatile-container-reference.md",
-    "20_specs/design-and-research/constant-indexed-vector-reference.md",
-    "90_archive/legacy_temp/temp_documentation/README.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }

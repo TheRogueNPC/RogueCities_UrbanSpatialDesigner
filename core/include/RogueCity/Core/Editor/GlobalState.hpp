@@ -170,6 +170,108 @@ namespace RogueCity::Core::Editor {
         float tension{ 0.5f };
     };
 
+    enum class ToolDomain : uint8_t {
+        Axiom = 0,
+        Water,
+        Road,
+        District,
+        Zone,
+        Lot,
+        Building,
+        FloorPlan,
+        Paths,
+        Flow,
+        Furnature
+    };
+
+    enum class WaterSubtool : uint8_t {
+        Flow = 0,
+        Contour,
+        Erode,
+        Select,
+        Mask,
+        Inspect
+    };
+
+    enum class WaterSplineSubtool : uint8_t {
+        Selection = 0,
+        DirectSelect,
+        Pen,
+        ConvertAnchor,
+        AddRemoveAnchor,
+        HandleTangents,
+        SnapAlign,
+        JoinSplit,
+        Simplify
+    };
+
+    enum class RoadSubtool : uint8_t {
+        Spline = 0,
+        Grid,
+        Bridge,
+        Select,
+        Disconnect,
+        Stub,
+        Curve,
+        Strengthen,
+        Inspect
+    };
+
+    enum class RoadSplineSubtool : uint8_t {
+        Selection = 0,
+        DirectSelect,
+        Pen,
+        ConvertAnchor,
+        AddRemoveAnchor,
+        HandleTangents,
+        SnapAlign,
+        JoinSplit,
+        Simplify
+    };
+
+    enum class DistrictSubtool : uint8_t {
+        Zone = 0,
+        Paint,
+        Split,
+        Select,
+        Merge,
+        Inspect
+    };
+
+    enum class LotSubtool : uint8_t {
+        Plot = 0,
+        Slice,
+        Align,
+        Select,
+        Merge,
+        Inspect
+    };
+
+    enum class BuildingSubtool : uint8_t {
+        Place = 0,
+        Scale,
+        Rotate,
+        Select,
+        Assign,
+        Inspect
+    };
+
+    struct ToolRuntimeState {
+        ToolDomain active_domain{ ToolDomain::Road };
+        WaterSubtool water_subtool{ WaterSubtool::Flow };
+        WaterSplineSubtool water_spline_subtool{ WaterSplineSubtool::Selection };
+        RoadSubtool road_subtool{ RoadSubtool::Spline };
+        RoadSplineSubtool road_spline_subtool{ RoadSplineSubtool::Selection };
+        DistrictSubtool district_subtool{ DistrictSubtool::Zone };
+        LotSubtool lot_subtool{ LotSubtool::Plot };
+        BuildingSubtool building_subtool{ BuildingSubtool::Place };
+        std::string last_action_id{};
+        std::string last_action_label{};
+        std::string last_action_status{};
+        uint64_t action_serial{ 0 };
+        uint64_t last_action_frame{ 0 };
+    };
+
     struct EditorAxiom {
         enum class Type : uint8_t {
             Organic = 0,
@@ -229,6 +331,7 @@ namespace RogueCity::Core::Editor {
         std::unordered_map<uint64_t, uint8_t> entity_layers{};
         DistrictBoundaryEditorState district_boundary_editor{};
         SplineEditorState spline_editor{};
+        ToolRuntimeState tool_runtime{};
         std::optional<CitySpec> active_city_spec{};
         WorldConstraintField world_constraints{};
         SiteProfile site_profile{};

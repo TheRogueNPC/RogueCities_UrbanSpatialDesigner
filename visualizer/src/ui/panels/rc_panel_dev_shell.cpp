@@ -4,6 +4,7 @@
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/tools/rc_tool_contract.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -232,6 +233,19 @@ void DrawContent(float /*dt*/)
     ImGui::Text("Input Gate: mouse=%d key=%d",
         input_gate.allow_viewport_mouse_actions ? 1 : 0,
         input_gate.allow_viewport_key_actions ? 1 : 0);
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Tool Runtime");
+    ImGui::Text("Domain: %s", RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain));
+    ImGui::Text("Last Action ID: %s",
+        gs.tool_runtime.last_action_id.empty() ? "<none>" : gs.tool_runtime.last_action_id.c_str());
+    ImGui::Text("Last Action Label: %s",
+        gs.tool_runtime.last_action_label.empty() ? "<none>" : gs.tool_runtime.last_action_label.c_str());
+    ImGui::Text("Last Action Status: %s",
+        gs.tool_runtime.last_action_status.empty() ? "<none>" : gs.tool_runtime.last_action_status.c_str());
+    ImGui::Text("Dispatch Serial: %llu  Frame: %llu",
+        static_cast<unsigned long long>(gs.tool_runtime.action_serial),
+        static_cast<unsigned long long>(gs.tool_runtime.last_action_frame));
 
     ImGui::Separator();
     ImGui::TextUnformatted("ImGui Diagnostics");

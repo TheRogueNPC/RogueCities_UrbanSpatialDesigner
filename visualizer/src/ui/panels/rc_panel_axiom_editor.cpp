@@ -7,6 +7,8 @@
 #include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
+#include "ui/tools/rc_tool_contract.h"
+#include "ui/tools/rc_tool_dispatcher.h"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
@@ -90,6 +92,25 @@ namespace {
     static int s_minimap_high_fps_streak = 0;
     static int s_minimap_fps_degrade_steps = 0;
     static std::string s_minimap_lod_status_text = "LOD: Auto (1)";
+
+    [[nodiscard]] bool TryAxiomTypeFromActionId(RC_UI::Tools::ToolActionId action_id,
+                                                RogueCity::App::AxiomType& out_type) {
+        using RC_UI::Tools::ToolActionId;
+        switch (action_id) {
+            case ToolActionId::Axiom_Organic: out_type = RogueCity::App::AxiomType::Organic; return true;
+            case ToolActionId::Axiom_Grid: out_type = RogueCity::App::AxiomType::Grid; return true;
+            case ToolActionId::Axiom_Radial: out_type = RogueCity::App::AxiomType::Radial; return true;
+            case ToolActionId::Axiom_Hexagonal: out_type = RogueCity::App::AxiomType::Hexagonal; return true;
+            case ToolActionId::Axiom_Stem: out_type = RogueCity::App::AxiomType::Stem; return true;
+            case ToolActionId::Axiom_LooseGrid: out_type = RogueCity::App::AxiomType::LooseGrid; return true;
+            case ToolActionId::Axiom_Suburban: out_type = RogueCity::App::AxiomType::Suburban; return true;
+            case ToolActionId::Axiom_Superblock: out_type = RogueCity::App::AxiomType::Superblock; return true;
+            case ToolActionId::Axiom_Linear: out_type = RogueCity::App::AxiomType::Linear; return true;
+            case ToolActionId::Axiom_GridCorrective: out_type = RogueCity::App::AxiomType::GridCorrective; return true;
+            default: break;
+        }
+        return false;
+    }
 
     void DrawAxiomModeStatus(const Preview& preview, ImVec2 pos) {
         ImGui::SetCursorScreenPos(pos);
@@ -1558,6 +1579,8 @@ void DrawAxiomLibraryContent() {
     }
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+    auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
     ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 217u), "Axiom Library (Ctrl: apply to selection)");
 
@@ -1565,13 +1588,19 @@ void DrawAxiomLibraryContent() {
     const float spacing = std::max(8.0f, ImGui::GetStyle().ItemSpacing.x);
     const int columns = std::max(1, static_cast<int>(
         std::floor((ImGui::GetContentRegionAvail().x + spacing) / (icon_size + spacing))));
-    const auto infos = RogueCity::App::GetAxiomTypeInfos();
+    const auto actions = RC_UI::Tools::GetToolActionsForLibrary(ToolLibrary::Axiom);
 
     const auto default_type = s_axiom_tool->default_axiom_type();
     const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
 
-    for (int i = 0; i < static_cast<int>(infos.size()); ++i) {
-        const auto& info = infos[static_cast<size_t>(i)];
+    for (int i = 0; i < static_cast<int>(actions.size()); ++i) {
+        const auto& action = actions[static_cast<size_t>(i)];
+        RogueCity::App::AxiomType axiom_type = RogueCity::App::AxiomType::Grid;
+        if (!TryAxiomTypeFromActionId(action.id, axiom_type)) {
+            continue;
+        }
+        const auto& info = RogueCity::App::GetAxiomTypeInfo(axiom_type);
+
         if (i > 0 && (i % columns) != 0) {
             ImGui::SameLine(0.0f, spacing);
         }
@@ -1580,12 +1609,22 @@ void DrawAxiomLibraryContent() {
         if (ImGui::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
             if (apply_to_selected) {
                 if (auto* selected = s_axiom_tool->get_selected_axiom()) {
-                    selected->set_type(info.type);
+                    selected->set_type(axiom_type);
                     s_library_modified = true;
                 }
             } else {
-                s_axiom_tool->set_default_axiom_type(info.type);
+                s_axiom_tool->set_default_axiom_type(axiom_type);
             }
+
+            std::string dispatch_status;
+            RC_UI::Tools::DispatchContext dispatch_context{
+                &hfsm,
+                &gs,
+                &uiint,
+                "Axiom Library"
+            };
+            const auto dispatch_result = RC_UI::Tools::DispatchToolAction(action.id, dispatch_context, &dispatch_status);
+            (void)dispatch_result;
         }
 
         const ImVec2 bmin = ImGui::GetItemRectMin();
@@ -1593,17 +1632,18 @@ void DrawAxiomLibraryContent() {
         const ImVec2 c((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        const bool is_default = (default_type == info.type);
+        const bool is_default = (default_type == axiom_type);
         const ImU32 bg = TokenColor(UITokens::BackgroundDark, ImGui::IsItemHovered() ? 200u : 140u);
         const ImU32 border = is_default ? TokenColor(UITokens::TextPrimary, 220u) : TokenColor(UITokens::TextSecondary, 160u);
 
         dl->AddRectFilled(bmin, bmax, bg, 8.0f);
         dl->AddRect(bmin, bmax, border, 8.0f, 0, is_default ? 2.5f : 1.5f);
-        RogueCity::App::DrawAxiomIcon(dl, c, icon_size * 0.32f, info.type, info.primary_color);
+        RogueCity::App::DrawAxiomIcon(dl, c, icon_size * 0.32f, axiom_type, info.primary_color);
 
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", info.name);
+            ImGui::SetTooltip("%s\n%s", info.name, action.tooltip);
         }
+        uiint.RegisterWidget({"button", action.label, std::string("action:") + RC_UI::Tools::ToolActionName(action.id), {"tool", "library", "axiom"}});
         ImGui::PopID();
     }
 

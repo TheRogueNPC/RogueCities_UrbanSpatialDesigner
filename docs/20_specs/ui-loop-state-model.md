@@ -87,6 +87,20 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
 - `System`: Telemetry, Log, Inspector, System Map, Dev Shell, UI Settings.
 - `AI`: AI Console, UI Agent, City Spec (runtime hidden when `dev_mode_enabled == false`).
 
+### Layer 5.5: Tool Action Contract and Dispatcher
+- Sources:
+  - `visualizer/src/ui/tools/rc_tool_contract.cpp`
+  - `visualizer/src/ui/tools/rc_tool_dispatcher.cpp`
+  - `visualizer/src/ui/rc_ui_root.cpp`
+- Responsibilities:
+  - Catalog all non-axiom library actions (`ToolActionId`, policy, availability, disabled reason).
+  - Enforce safe-hybrid click behavior:
+    - Immediate mode/subtool activation
+    - No destructive generation on library click
+  - Route all library clicks through a single dispatcher path.
+- Runtime state sink:
+  - `GlobalState::tool_runtime` records active domain, active subtool, and last dispatch metadata.
+
 ### Layer 6: Drawer/Panel Content
 - Sources:
   - `visualizer/src/ui/panels/RcPanelDrawers.cpp`
@@ -119,6 +133,8 @@ Violation of this rule causes stack mismatch and can crash.
 - Top-level tool-library windows are root-managed in `visualizer/src/ui/rc_ui_root.cpp`.
 - Axiom library content is rendered through `Panels::AxiomEditor::DrawAxiomLibraryContent()` (content-only, no window begin/end).
 - Cross-layer creation (viewport content creating top-level tool windows) is disallowed.
+- Non-axiom library actions must be catalog-driven (`rc_tool_contract`) and dispatched via `DispatchToolAction`.
+- No library click handler may directly mutate generation data unless policy is explicitly `ActivateAndExecute`.
 
 ## 3. AI Feature Gating Model
 
@@ -164,6 +180,8 @@ When touching UI loop/docking/panel code, verify:
    - hidden/blocked when dev mode off
    - no crash when AI bridge offline
 6. No unmatched Begin/End calls in content-only paths.
+7. No dead tool-library clicks; each action must dispatch or show explicit disabled reason.
+8. `GlobalState::tool_runtime` updates on each dispatched action.
 
 ## 7. File Map
 
@@ -173,7 +191,12 @@ When touching UI loop/docking/panel code, verify:
 - Master router: `visualizer/src/ui/panels/RcMasterPanel.cpp`
 - Drawer registry: `visualizer/src/ui/panels/PanelRegistry.cpp`
 - Drawer implementations: `visualizer/src/ui/panels/RcPanelDrawers.cpp`
+- Tool contract: `visualizer/src/ui/tools/rc_tool_contract.h`
+- Tool dispatcher: `visualizer/src/ui/tools/rc_tool_dispatcher.h`
 - Compliance matrix: `docs/20_specs/ui-faq-compliance-matrix.md`
+- Tool contract spec: `docs/20_specs/tool-wiring-contract.md`
+- Tool action matrix: `docs/20_specs/tool-action-matrix.md`
+- Tool wiring runbook: `docs/30_runbooks/tool-wiring-regression-checklist.md`
 - AI panels:
   - `visualizer/src/ui/panels/rc_panel_ai_console.cpp`
   - `visualizer/src/ui/panels/rc_panel_ui_agent.cpp`
