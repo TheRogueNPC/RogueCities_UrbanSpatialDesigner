@@ -11,11 +11,12 @@ Purpose: define the single authoritative path from generation output into runtim
 ## Authoritative Flow
 
 1. UI interaction updates axioms/config.
-2. `UpdateSceneController(...)` performs per-frame sync update, generation update, scene-frame build, and minimap sync.
-3. Panel requests generation through `GenerationCoordinator::RequestRegeneration()` or `ForceRegeneration()`.
-4. `RealTimePreview` completes and invokes coordinator callback on main thread.
-5. Callback applies output through `ApplyCityOutputToGlobalState(...)`.
-6. Viewport/minimap consume `SceneFrame` for render overlays.
+2. Viewport interaction eligibility is derived from the canonical viewport canvas item (`##ViewportCanvas`) + `UiInputGateState`.
+3. `UpdateSceneController(...)` performs per-frame sync update, generation update, scene-frame build, and minimap sync.
+4. Panel requests generation through `GenerationCoordinator::RequestRegeneration()` or `ForceRegeneration()`.
+5. `RealTimePreview` completes and invokes coordinator callback on main thread.
+6. Callback applies output through `ApplyCityOutputToGlobalState(...)`.
+7. Viewport/minimap consume `SceneFrame` for render overlays.
 
 ## Invariants
 
@@ -26,6 +27,11 @@ Purpose: define the single authoritative path from generation output into runtim
 5. Scene-frame ownership/update path must stay in viewport scene controller utilities, not duplicated in panel code.
 6. Axiom camera/nav/tool mouse input path must stay in viewport interaction utilities, not duplicated in panel code.
 7. Non-axiom viewport interaction (selection, gizmo, road/district/water vertex editing, and domain placement clicks) must stay in `rc_viewport_interaction.cpp`.
+8. Viewport interaction radii/falloff/merge defaults must route through `rc_tool_interaction_metrics` and `rc_tool_geometry_policy`, not ad-hoc panel literals.
+9. Domain generation policy is explicit and centralized:
+   - `Axiom` uses `LiveDebounced`.
+   - `Water/Road/District/Zone/Lot/Building` use `ExplicitOnly`.
+10. Non-axiom mutations in explicit domains set runtime pending-generation status; they must not auto-trigger generation.
 
 ## Enforcement
 

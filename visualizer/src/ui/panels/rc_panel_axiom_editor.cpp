@@ -284,6 +284,9 @@ void Initialize() {
     s_generation_coordinator->SetOnComplete([minimap](const RogueCity::Generators::CityGenerator::CityOutput& output) {
         auto& gs = RogueCity::Core::Editor::GetGlobalState();
         RogueCity::App::ApplyCityOutputToGlobalState(output, gs);
+        gs.tool_runtime.explicit_generation_pending = false;
+        gs.tool_runtime.last_viewport_status = "generation-applied";
+        gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
         if (s_primary_viewport) {
             s_primary_viewport->set_city_output(&output);
         }
@@ -408,6 +411,9 @@ void ForceGenerate() {
         RogueCity::App::GenerationRequestReason::ForceGenerate);
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     gs.dirty_layers.MarkAllClean();
+    gs.tool_runtime.explicit_generation_pending = false;
+    gs.tool_runtime.last_viewport_status = "explicit-generation-triggered";
+    gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
 }
 
 const char* GetRogueNavModeName() {
@@ -565,7 +571,11 @@ bool ApplyGeneratorRequest(
         config,
         RogueCity::App::GenerationRequestReason::ExternalRequest);
     s_external_dirty = false;
-    RogueCity::Core::Editor::GetGlobalState().dirty_layers.MarkAllClean();
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    gs.dirty_layers.MarkAllClean();
+    gs.tool_runtime.explicit_generation_pending = false;
+    gs.tool_runtime.last_viewport_status = "external-generation-triggered";
+    gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
 
     return true;
 }
@@ -1320,8 +1330,15 @@ void DrawContent(float dt) {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImVec2 viewport_pos = ImGui::GetCursorScreenPos();
     const ImVec2 viewport_size = ImGui::GetContentRegionAvail();
-    const ImVec2 viewport_max(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y);
-    draw_list->PushClipRect(viewport_pos, viewport_max, true);
+    if (viewport_size.x <= 0.0f || viewport_size.y <= 0.0f) {
+        return;
+    }
+    ImGui::InvisibleButton("##ViewportCanvas", viewport_size);
+    const bool viewport_canvas_hovered = ImGui::IsItemHovered();
+    const bool viewport_canvas_active = ImGui::IsItemActive();
+    const ImVec2 viewport_min = ImGui::GetItemRectMin();
+    const ImVec2 viewport_max = ImGui::GetItemRectMax();
+    draw_list->PushClipRect(viewport_min, viewport_max, true);
     
     // Background (Y2K grid pattern)
     draw_list->AddRectFilled(
@@ -1360,22 +1377,24 @@ void DrawContent(float dt) {
     // TODO(hfsm-context): Route right-click context actions through HFSM command maps,
     // then expose user-customizable context->ribbon transforms for workspace tailoring.
     const ImVec2 mouse_pos = ImGui::GetMousePos();
-    const ImVec2 vp_min = viewport_pos;
-    const ImVec2 vp_max(viewport_pos.x + viewport_size.x, viewport_pos.y + viewport_size.y);
-    const bool in_viewport = ImGui::IsMouseHoveringRect(vp_min, vp_max);
-    const bool editor_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+    const bool in_viewport = viewport_canvas_hovered;
+    const bool editor_hovered =
+        viewport_canvas_hovered || ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+    const bool any_item_active = ImGui::IsAnyItemActive();
 
     const ImVec2 minimap_pos_bounds = ImVec2(
         viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
         viewport_pos.y + kMinimapPadding
     );
     const ImVec2 minimap_max_bounds = ImVec2(minimap_pos_bounds.x + kMinimapSize, minimap_pos_bounds.y + kMinimapSize);
-    const bool minimap_hovered = (mouse_pos.x >= minimap_pos_bounds.x && mouse_pos.x <= minimap_max_bounds.x &&
-                                   mouse_pos.y >= minimap_pos_bounds.y && mouse_pos.y <= minimap_max_bounds.y);
+    const bool minimap_hovered = s_minimap_visible &&
+        (mouse_pos.x >= minimap_pos_bounds.x && mouse_pos.x <= minimap_max_bounds.x &&
+         mouse_pos.y >= minimap_pos_bounds.y && mouse_pos.y <= minimap_max_bounds.y);
     const UiInputGateState input_gate = RC_UI::BuildUiInputGateState(
         editor_hovered,
-        in_viewport,
-        ImGui::IsAnyItemActive(),
+        viewport_canvas_hovered,
+        viewport_canvas_active,
+        any_item_active,
         minimap_hovered);
     RC_UI::PublishUiInputGateState(input_gate);
     const bool allow_viewport_mouse_actions = RC_UI::AllowViewportMouseActions(input_gate);
@@ -1421,7 +1440,8 @@ void DrawContent(float dt) {
             axiom_interaction.nav_active ? " [NAV]" : "");
     }
 
-    (void)RC_UI::Viewport::ProcessNonAxiomViewportInteraction(
+    const RC_UI::Viewport::NonAxiomInteractionResult non_axiom_interaction =
+        RC_UI::Viewport::ProcessNonAxiomViewportInteraction(
         RC_UI::Viewport::NonAxiomInteractionParams{
             axiom_mode,
             in_viewport,
@@ -1434,6 +1454,9 @@ void DrawContent(float dt) {
             &gs,
         },
         &s_non_axiom_interaction);
+    if (non_axiom_interaction.requires_explicit_generation) {
+        gs.tool_runtime.explicit_generation_pending = true;
+    }
 
     if (!editor_hovered || !in_viewport || minimap_hovered || !allow_viewport_mouse_actions) {
         gs.hovered_entity.reset();
@@ -1448,13 +1471,15 @@ void DrawContent(float dt) {
     const bool inputs_ok = BuildInputs(axiom_inputs, config);
     if (inputs_ok) {
         // Debounced live preview: keep updating the request while the user manipulates axioms.
-        if (s_generation_coordinator && s_live_preview &&
+        const bool domain_live_preview_enabled = gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
+        if (s_generation_coordinator && s_live_preview && domain_live_preview_enabled &&
             (ui_modified_axiom || s_external_dirty || s_axiom_tool->is_interacting() || s_axiom_tool->consume_dirty())) {
             s_generation_coordinator->RequestRegeneration(
                 axiom_inputs,
                 config,
                 RogueCity::App::GenerationRequestReason::LivePreview);
             s_external_dirty = false;
+            gs.tool_runtime.explicit_generation_pending = false;
             gs.dirty_layers.MarkFromAxiomEdit();
         }
     }
@@ -1465,6 +1490,11 @@ void DrawContent(float dt) {
         axiom->render(draw_list, *s_primary_viewport);
     }
     
+    const char* viewport_status = gs.tool_runtime.last_viewport_status.empty()
+        ? "idle"
+        : gs.tool_runtime.last_viewport_status.c_str();
+    const char* active_domain = RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain);
+
     // Status text overlay (cockpit style) - moved down to avoid overlap with debug
     if (axiom_mode && s_generation_coordinator) {
         DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
@@ -1473,7 +1503,15 @@ void DrawContent(float dt) {
             "Click-drag to set radius | Edit type via palette");
     } else {
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
-        ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "Viewport Ready");
+        ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "Mode: %s", active_domain);
+        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 78));
+        ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 230u), "Viewport: %s", viewport_status);
+    }
+    if (!axiom_mode && gs.tool_runtime.explicit_generation_pending) {
+        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 96));
+        ImGui::TextColored(
+            TokenColorF(UITokens::YellowWarning, 240u),
+            "Generation pending (explicit trigger required)");
     }
     
     // Axiom count display
@@ -1761,7 +1799,6 @@ void DrawContent(float dt) {
 }
 
 void Draw(float dt) {
-    RC_UI::ScopedViewportPadding viewport_padding;
     static RC_UI::DockableWindowState s_viewport_window;
     if (!RC_UI::BeginDockableWindow("RogueVisualizer", s_viewport_window, "Center",
         ImGuiWindowFlags_NoCollapse |

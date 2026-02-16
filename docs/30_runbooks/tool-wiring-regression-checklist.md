@@ -79,3 +79,11 @@ Use this checklist after any change to tool libraries, dispatcher, or panel rout
 1. Confirm preview output applies through `ApplyCityOutputToGlobalState`.
 2. Confirm panel routes generation through `GenerationCoordinator`.
 3. Confirm no panel-local output sync function reappears.
+
+## 11. Interaction Metrics and Policy
+
+1. Confirm viewport interaction uses `BuildToolInteractionMetrics(...)`.
+2. Confirm viewport interaction uses `ResolveToolGeometryPolicy(...)`.
+3. Verify zoom changes update hit-testing feel (pick/vertex/gizmo radii scale consistently).
+4. In Water mode, verify erode/contour drag applies neighborhood falloff and remains stable.
+5. In District/Lot merge mode, verify merge only triggers when targets are within merge policy radius.

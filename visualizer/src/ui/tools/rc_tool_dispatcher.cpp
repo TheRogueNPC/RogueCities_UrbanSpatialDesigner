@@ -108,12 +108,30 @@ void ApplySubtoolSelection(const ToolActionSpec& action,
             gs.tool_runtime.active_domain = ToolDomain::Axiom;
             break;
 
-        case ToolActionId::Water_Flow: gs.tool_runtime.water_subtool = WaterSubtool::Flow; break;
-        case ToolActionId::Water_Contour: gs.tool_runtime.water_subtool = WaterSubtool::Contour; break;
-        case ToolActionId::Water_Erode: gs.tool_runtime.water_subtool = WaterSubtool::Erode; break;
-        case ToolActionId::Water_Select: gs.tool_runtime.water_subtool = WaterSubtool::Select; break;
-        case ToolActionId::Water_Mask: gs.tool_runtime.water_subtool = WaterSubtool::Mask; break;
-        case ToolActionId::Water_Inspect: gs.tool_runtime.water_subtool = WaterSubtool::Inspect; break;
+        case ToolActionId::Water_Flow:
+            gs.tool_runtime.water_subtool = WaterSubtool::Flow;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            break;
+        case ToolActionId::Water_Contour:
+            gs.tool_runtime.water_subtool = WaterSubtool::Contour;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            break;
+        case ToolActionId::Water_Erode:
+            gs.tool_runtime.water_subtool = WaterSubtool::Erode;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            break;
+        case ToolActionId::Water_Select:
+            gs.tool_runtime.water_subtool = WaterSubtool::Select;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Selection;
+            break;
+        case ToolActionId::Water_Mask:
+            gs.tool_runtime.water_subtool = WaterSubtool::Mask;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            break;
+        case ToolActionId::Water_Inspect:
+            gs.tool_runtime.water_subtool = WaterSubtool::Inspect;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Selection;
+            break;
 
         case ToolActionId::WaterSpline_Selection: gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Selection; break;
         case ToolActionId::WaterSpline_DirectSelect: gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::DirectSelect; break;
@@ -125,15 +143,42 @@ void ApplySubtoolSelection(const ToolActionSpec& action,
         case ToolActionId::WaterSpline_JoinSplit: gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::JoinSplit; break;
         case ToolActionId::WaterSpline_Simplify: gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Simplify; break;
 
-        case ToolActionId::Road_Spline: gs.tool_runtime.road_subtool = RoadSubtool::Spline; break;
-        case ToolActionId::Road_Grid: gs.tool_runtime.road_subtool = RoadSubtool::Grid; break;
-        case ToolActionId::Road_Bridge: gs.tool_runtime.road_subtool = RoadSubtool::Bridge; break;
-        case ToolActionId::Road_Select: gs.tool_runtime.road_subtool = RoadSubtool::Select; break;
-        case ToolActionId::Road_Disconnect: gs.tool_runtime.road_subtool = RoadSubtool::Disconnect; break;
-        case ToolActionId::Road_Stub: gs.tool_runtime.road_subtool = RoadSubtool::Stub; break;
-        case ToolActionId::Road_Curve: gs.tool_runtime.road_subtool = RoadSubtool::Curve; break;
-        case ToolActionId::Road_Strengthen: gs.tool_runtime.road_subtool = RoadSubtool::Strengthen; break;
-        case ToolActionId::Road_Inspect: gs.tool_runtime.road_subtool = RoadSubtool::Inspect; break;
+        case ToolActionId::Road_Spline:
+            gs.tool_runtime.road_subtool = RoadSubtool::Spline;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Grid:
+            gs.tool_runtime.road_subtool = RoadSubtool::Grid;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Bridge:
+            gs.tool_runtime.road_subtool = RoadSubtool::Bridge;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Select:
+            gs.tool_runtime.road_subtool = RoadSubtool::Select;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Selection;
+            break;
+        case ToolActionId::Road_Disconnect:
+            gs.tool_runtime.road_subtool = RoadSubtool::Disconnect;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Selection;
+            break;
+        case ToolActionId::Road_Stub:
+            gs.tool_runtime.road_subtool = RoadSubtool::Stub;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Curve:
+            gs.tool_runtime.road_subtool = RoadSubtool::Curve;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Strengthen:
+            gs.tool_runtime.road_subtool = RoadSubtool::Strengthen;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Pen;
+            break;
+        case ToolActionId::Road_Inspect:
+            gs.tool_runtime.road_subtool = RoadSubtool::Inspect;
+            gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Selection;
+            break;
 
         case ToolActionId::RoadSpline_Selection: gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::Selection; break;
         case ToolActionId::RoadSpline_DirectSelect: gs.tool_runtime.road_spline_subtool = RoadSplineSubtool::DirectSelect; break;

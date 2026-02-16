@@ -243,6 +243,14 @@ void DrawContent(float /*dt*/)
         gs.tool_runtime.last_action_label.empty() ? "<none>" : gs.tool_runtime.last_action_label.c_str());
     ImGui::Text("Last Action Status: %s",
         gs.tool_runtime.last_action_status.empty() ? "<none>" : gs.tool_runtime.last_action_status.c_str());
+    ImGui::Text("Viewport Status: %s",
+        gs.tool_runtime.last_viewport_status.empty() ? "<none>" : gs.tool_runtime.last_viewport_status.c_str());
+    const auto policy_for_active_domain = gs.generation_policy.ForDomain(gs.tool_runtime.active_domain);
+    ImGui::Text("Generation Policy: %s",
+        policy_for_active_domain == RogueCity::Core::Editor::GenerationMutationPolicy::LiveDebounced
+            ? "LiveDebounced"
+            : "ExplicitOnly");
+    ImGui::Text("Explicit Generate Pending: %s", gs.tool_runtime.explicit_generation_pending ? "yes" : "no");
     ImGui::Text("Dispatch Serial: %llu  Frame: %llu",
         static_cast<unsigned long long>(gs.tool_runtime.action_serial),
         static_cast<unsigned long long>(gs.tool_runtime.last_action_frame));

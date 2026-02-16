@@ -8,6 +8,7 @@ namespace RogueCity::App {
 struct CityOutputApplyOptions {
     bool rebuild_viewport_index{ true };
     bool mark_dirty_layers_clean{ true };
+    bool preserve_locked_user_entities{ true };
 };
 
 void ApplyCityOutputToGlobalState(

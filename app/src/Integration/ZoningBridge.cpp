@@ -2,6 +2,7 @@
 // PURPOSE: Implementation of ZoningBridge (UI ? Generator translation)
 
 #include "RogueCity/App/Integration/ZoningBridge.hpp"
+#include "RogueCity/App/Integration/CityOutputApplier.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/CitySpecAdapter.hpp"
 #include "RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp"
@@ -9,6 +10,7 @@
 #include <limits>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace RogueCity::App::Integration {
 
@@ -75,28 +77,11 @@ bool ZoningBridge::GenerateFromCitySpec(
     gs.generation.height = request.config.height;
     gs.generation.cell_size = request.config.cell_size;
 
-    gs.roads.clear();
-    for (const auto& road : city_output.roads) {
-        gs.roads.add(road);
-    }
-
-    gs.districts.clear();
-    for (const auto& district : city_output.districts) {
-        gs.districts.add(district);
-    }
-
-    gs.blocks.clear();
-    for (const auto& block : city_output.blocks) {
-        gs.blocks.add(block);
-    }
-
-    gs.world_constraints = city_output.world_constraints;
-    gs.site_profile = city_output.site_profile;
-    gs.plan_violations = city_output.plan_violations;
-    gs.plan_approved = city_output.plan_approved;
-
-    gs.generation_stats.roads_generated = static_cast<uint32_t>(gs.roads.size());
-    gs.generation_stats.districts_generated = static_cast<uint32_t>(gs.districts.size());
+    RogueCity::App::CityOutputApplyOptions apply_options{};
+    apply_options.rebuild_viewport_index = false;
+    apply_options.mark_dirty_layers_clean = false;
+    apply_options.preserve_locked_user_entities = true;
+    RogueCity::App::ApplyCityOutputToGlobalState(city_output, gs, apply_options);
 
     Generate(ui_cfg, gs);
     return true;
@@ -173,18 +158,105 @@ Generators::ZoningGenerator::ZoningInput ZoningBridge::PrepareInput(const Core::
 }
 
 void ZoningBridge::PopulateGlobalState(const Generators::ZoningGenerator::ZoningOutput& output, Core::Editor::GlobalState& gs) {
-    // Clear existing lots/buildings
+    std::vector<Core::LotToken> locked_user_lots;
+    locked_user_lots.reserve(gs.lots.size());
+    for (auto& lot : gs.lots) {
+        if (lot.is_user_placed && lot.generation_tag != Core::GenerationTag::M_user) {
+            lot.generation_tag = Core::GenerationTag::M_user;
+            lot.generation_locked = true;
+        }
+        if (lot.generation_tag == Core::GenerationTag::M_user && lot.generation_locked) {
+            locked_user_lots.push_back(lot);
+        }
+    }
+
+    std::vector<Core::BuildingSite> locked_user_buildings;
+    locked_user_buildings.reserve(gs.buildings.size());
+    for (auto& building : gs.buildings) {
+        if (building.is_user_placed && building.generation_tag != Core::GenerationTag::M_user) {
+            building.generation_tag = Core::GenerationTag::M_user;
+            building.generation_locked = true;
+        }
+        if (building.generation_tag == Core::GenerationTag::M_user && building.generation_locked) {
+            locked_user_buildings.push_back(building);
+        }
+    }
+
+    std::vector<Core::LotToken> generated_lots;
+    generated_lots.reserve(output.lots.size());
+    for (auto lot : output.lots) {
+        lot.is_user_placed = false;
+        lot.generation_tag = Core::GenerationTag::Generated;
+        lot.generation_locked = false;
+        generated_lots.push_back(std::move(lot));
+    }
+
+    std::unordered_set<uint32_t> used_lot_ids;
+    uint32_t next_lot_id = 1u;
+    for (const auto& lot : locked_user_lots) {
+        if (lot.id > 0u) {
+            used_lot_ids.insert(lot.id);
+            next_lot_id = std::max(next_lot_id, lot.id + 1u);
+        }
+    }
+    std::unordered_map<uint32_t, uint32_t> lot_id_remap;
+    for (auto& lot : generated_lots) {
+        const uint32_t original_id = lot.id;
+        uint32_t assigned_id = lot.id == 0u ? next_lot_id : lot.id;
+        while (used_lot_ids.find(assigned_id) != used_lot_ids.end()) {
+            assigned_id += 1u;
+        }
+        lot.id = assigned_id;
+        used_lot_ids.insert(assigned_id);
+        next_lot_id = std::max(next_lot_id, assigned_id + 1u);
+        lot_id_remap[original_id] = assigned_id;
+    }
+
+    std::vector<Core::BuildingSite> generated_buildings;
+    generated_buildings.reserve(output.buildings.size());
+    for (auto building : output.buildings) {
+        building.is_user_placed = false;
+        building.generation_tag = Core::GenerationTag::Generated;
+        building.generation_locked = false;
+        auto lot_it = lot_id_remap.find(building.lot_id);
+        if (lot_it != lot_id_remap.end()) {
+            building.lot_id = lot_it->second;
+        }
+        generated_buildings.push_back(std::move(building));
+    }
+
+    std::unordered_set<uint32_t> used_building_ids;
+    uint32_t next_building_id = 1u;
+    for (const auto& building : locked_user_buildings) {
+        if (building.id > 0u) {
+            used_building_ids.insert(building.id);
+            next_building_id = std::max(next_building_id, building.id + 1u);
+        }
+    }
+    for (auto& building : generated_buildings) {
+        uint32_t assigned_id = building.id == 0u ? next_building_id : building.id;
+        while (used_building_ids.find(assigned_id) != used_building_ids.end()) {
+            assigned_id += 1u;
+        }
+        building.id = assigned_id;
+        used_building_ids.insert(assigned_id);
+        next_building_id = std::max(next_building_id, assigned_id + 1u);
+    }
+
     gs.lots.clear();
-    gs.buildings.clear();
-    
-    // Add new lots (use FVA for stable handles)
-    for (const auto& lot : output.lots) {
+    for (const auto& lot : generated_lots) {
+        gs.lots.add(lot);
+    }
+    for (const auto& lot : locked_user_lots) {
         gs.lots.add(lot);
     }
 
-    // Add new buildings (siv::Vector -> siv::Vector)
-    for (size_t i = 0; i < output.buildings.size(); ++i) {
-        gs.buildings.push_back(output.buildings[i]);
+    gs.buildings.clear();
+    for (const auto& building : generated_buildings) {
+        gs.buildings.push_back(building);
+    }
+    for (const auto& building : locked_user_buildings) {
+        gs.buildings.push_back(building);
     }
 
     std::unordered_map<uint32_t, float> district_budgets;

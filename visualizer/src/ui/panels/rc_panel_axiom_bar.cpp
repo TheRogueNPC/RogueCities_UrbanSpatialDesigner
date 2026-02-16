@@ -7,6 +7,7 @@
 #include "ui/rc_ui_theme.h"
 #include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/tools/rc_tool_dispatcher.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
@@ -14,10 +15,24 @@
 
 #include <algorithm>
 #include <optional>
+#include <string>
 
 namespace RC_UI::Panels::AxiomBar {
 
 namespace {
+    std::optional<RC_UI::Tools::ToolActionId> DefaultLibraryAction(RC_UI::ToolLibrary tool) {
+        using RC_UI::Tools::ToolActionId;
+        switch (tool) {
+            case RC_UI::ToolLibrary::Axiom: return ToolActionId::Axiom_Organic;
+            case RC_UI::ToolLibrary::Water: return ToolActionId::Water_Flow;
+            case RC_UI::ToolLibrary::Road: return ToolActionId::Road_Spline;
+            case RC_UI::ToolLibrary::District: return ToolActionId::District_Zone;
+            case RC_UI::ToolLibrary::Lot: return ToolActionId::Lot_Plot;
+            case RC_UI::ToolLibrary::Building: return ToolActionId::Building_Place;
+        }
+        return std::nullopt;
+    }
+
     std::optional<RogueCity::Core::Editor::EditorEvent> ToolEvent(RC_UI::ToolLibrary tool) {
         using RogueCity::Core::Editor::EditorEvent;
         switch (tool) {
@@ -142,32 +157,27 @@ void DrawContent(float dt)
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     
     const ImVec2 avail = ImGui::GetContentRegionAvail();
-    if (avail.x < 180.0f || avail.y < 40.0f) {
-        ImGui::TextDisabled("Expand Tool Deck to access library controls.");
-        if (avail.x > 110.0f && ImGui::Button("Reset Dock Layout")) {
-            RC_UI::ResetDockLayout();
-        }
-        return;
-    }
 
     const int tool_count = static_cast<int>(RC_UI::kToolLibraryOrder.size());
-    const float min_icon_size = 34.0f;
+    const float min_icon_size = 26.0f;
     const float base_icon_size = 46.0f;
-    const float min_spacing = 6.0f;
+    const float min_spacing = 4.0f;
 
-    float icon_size = base_icon_size;
-    float spacing = 10.0f;
-    const float preferred_width = tool_count * icon_size + (tool_count - 1) * spacing;
-    if (preferred_width > avail.x) {
-        icon_size = std::max(min_icon_size, (avail.x - (tool_count - 1) * min_spacing) / tool_count);
-        spacing = std::max(min_spacing, (avail.x - icon_size * tool_count) / std::max(1, tool_count - 1));
-    } else {
-        spacing = std::max(8.0f, (avail.x - icon_size * tool_count) / std::max(1, tool_count - 1));
-    }
+    const int columns = std::clamp(
+        static_cast<int>((avail.x + min_spacing) / (min_icon_size + min_spacing)),
+        1,
+        tool_count);
+    const float icon_size = std::clamp(
+        (avail.x - min_spacing * static_cast<float>(columns - 1)) / static_cast<float>(columns),
+        min_icon_size,
+        base_icon_size);
+    const float spacing = columns > 1
+        ? std::max(min_spacing, (avail.x - icon_size * static_cast<float>(columns)) / static_cast<float>(columns - 1))
+        : 0.0f;
 
     for (size_t i = 0; i < RC_UI::kToolLibraryOrder.size(); ++i) {
         const auto tool = RC_UI::kToolLibraryOrder[i];
-        if (i > 0) {
+        if (i > 0 && (static_cast<int>(i) % columns) != 0) {
             ImGui::SameLine(0.0f, spacing);
         }
         ImGui::PushID(static_cast<int>(i));
@@ -181,8 +191,24 @@ void DrawContent(float dt)
             RC_UI::ActivateToolLibrary(tool);
         }
         if (clicked || double_clicked) {
-            if (const auto event = ToolEvent(tool); event.has_value()) {
-                hfsm.handle_event(*event, gs);
+            bool dispatched = false;
+            if (const auto default_action = DefaultLibraryAction(tool); default_action.has_value()) {
+                std::string dispatch_status;
+                const auto result = RC_UI::Tools::DispatchToolAction(
+                    *default_action,
+                    RC_UI::Tools::DispatchContext{
+                        &hfsm,
+                        &gs,
+                        &uiint,
+                        "Tool Deck"
+                    },
+                    &dispatch_status);
+                dispatched = result == RC_UI::Tools::DispatchResult::Handled;
+            }
+            if (!dispatched) {
+                if (const auto event = ToolEvent(tool); event.has_value()) {
+                    hfsm.handle_event(*event, gs);
+                }
             }
         }
 
@@ -219,7 +245,12 @@ void DrawContent(float dt)
         ImGui::PopID();
     }
     ImGui::Spacing();
+    ImGui::PushTextWrapPos(0.0f);
     ImGui::TextDisabled("Click opens in library frame. Double-click pops out a duplicate.");
+    ImGui::PopTextWrapPos();
+    if (ImGui::Button("Reset Dock Layout")) {
+        RC_UI::ResetDockLayout();
+    }
 }
 
 void Draw(float dt)

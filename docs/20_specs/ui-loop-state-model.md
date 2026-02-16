@@ -62,6 +62,7 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - `allow_viewport_key_actions`
 - Rule:
   - Viewport actions must consume `UiInputGateState`, not manual hover-only checks.
+  - The gate is viewport-canvas local: mouse actions are keyed off the canonical viewport canvas item, not global `WantCaptureMouse` hard-block checks.
   - Gate state is published each frame and visible in Dev Shell diagnostics.
 
 ### Layer 5: Master Panel Router
@@ -91,6 +92,8 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
 - Sources:
   - `visualizer/src/ui/tools/rc_tool_contract.cpp`
   - `visualizer/src/ui/tools/rc_tool_dispatcher.cpp`
+  - `visualizer/src/ui/tools/rc_tool_interaction_metrics.cpp`
+  - `visualizer/src/ui/tools/rc_tool_geometry_policy.cpp`
   - `visualizer/src/ui/rc_ui_root.cpp`
 - Responsibilities:
   - Catalog all non-axiom library actions (`ToolActionId`, policy, availability, disabled reason).
@@ -98,6 +101,7 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
     - Immediate mode/subtool activation
     - No destructive generation on library click
   - Route all library clicks through a single dispatcher path.
+  - Provide shared interaction metrics and geometry policy values for viewport hit radius, insert/merge behavior, and falloff tuning.
 - Runtime state sink:
   - `GlobalState::tool_runtime` records active domain, active subtool, and last dispatch metadata.
 
@@ -130,6 +134,9 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - Apply `CityOutput` into `GlobalState` via a single canonical applier.
   - Maintain shared `SceneFrame` updates + minimap synchronization from one controller path.
   - Keep panel rendering code free of direct output-application ownership.
+  - Enforce domain generation policy:
+    - `Axiom` => live/debounced generation requests.
+    - `Water/Road/District/Zone/Lot/Building` => explicit generation only.
 
 ### Layer 6: Drawer/Panel Content
 - Sources:
@@ -188,6 +195,7 @@ Violation of this rule causes stack mismatch and can crash.
 - Dock layout rebuild must never churn continuously from iconified/tiny viewport geometry.
 - Center workspace must retain a minimum width share.
 - Legacy standalone panel windows must not be resurrected from stale ini settings.
+- Resize redraw path must not spawn helper popup windows that can steal focus/capture.
 
 ## 5. Recovery and Reset Controls
 

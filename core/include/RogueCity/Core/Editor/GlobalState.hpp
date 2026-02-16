@@ -195,6 +195,11 @@ namespace RogueCity::Core::Editor {
         Furnature
     };
 
+    enum class GenerationMutationPolicy : uint8_t {
+        LiveDebounced = 0,
+        ExplicitOnly
+    };
+
     enum class WaterSubtool : uint8_t {
         Flow = 0,
         Contour,
@@ -281,6 +286,47 @@ namespace RogueCity::Core::Editor {
         std::string last_action_status{};
         uint64_t action_serial{ 0 };
         uint64_t last_action_frame{ 0 };
+        std::string last_viewport_status{};
+        uint64_t last_viewport_status_frame{ 0 };
+        bool explicit_generation_pending{ false };
+    };
+
+    struct GenerationPolicyState {
+        GenerationMutationPolicy axiom{ GenerationMutationPolicy::LiveDebounced };
+        GenerationMutationPolicy water{ GenerationMutationPolicy::ExplicitOnly };
+        GenerationMutationPolicy road{ GenerationMutationPolicy::ExplicitOnly };
+        GenerationMutationPolicy district{ GenerationMutationPolicy::ExplicitOnly };
+        GenerationMutationPolicy zone{ GenerationMutationPolicy::ExplicitOnly };
+        GenerationMutationPolicy lot{ GenerationMutationPolicy::ExplicitOnly };
+        GenerationMutationPolicy building{ GenerationMutationPolicy::ExplicitOnly };
+
+        [[nodiscard]] GenerationMutationPolicy ForDomain(ToolDomain domain) const {
+            switch (domain) {
+            case ToolDomain::Axiom:
+                return axiom;
+            case ToolDomain::Water:
+            case ToolDomain::Flow:
+                return water;
+            case ToolDomain::Road:
+            case ToolDomain::Paths:
+                return road;
+            case ToolDomain::District:
+                return district;
+            case ToolDomain::Zone:
+                return zone;
+            case ToolDomain::Lot:
+                return lot;
+            case ToolDomain::Building:
+            case ToolDomain::FloorPlan:
+            case ToolDomain::Furnature:
+                return building;
+            }
+            return GenerationMutationPolicy::ExplicitOnly;
+        }
+
+        [[nodiscard]] bool IsLive(ToolDomain domain) const {
+            return ForDomain(domain) == GenerationMutationPolicy::LiveDebounced;
+        }
     };
 
     struct EditorAxiom {
@@ -343,6 +389,7 @@ namespace RogueCity::Core::Editor {
         DistrictBoundaryEditorState district_boundary_editor{};
         SplineEditorState spline_editor{};
         ToolRuntimeState tool_runtime{};
+        GenerationPolicyState generation_policy{};
         std::optional<CitySpec> active_city_spec{};
         WorldConstraintField world_constraints{};
         SiteProfile site_profile{};

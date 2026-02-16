@@ -32,6 +32,7 @@
 #include <thread>
 #include <chrono>
 #include <utility>
+#include <string>
 
 using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
@@ -120,9 +121,50 @@ namespace {
         }
     }
 
-    const int min_width = std::max(320, static_cast<int>(std::lround(static_cast<double>(display_width) * 0.25)));
-    const int min_height = std::max(240, static_cast<int>(std::lround(static_cast<double>(display_height) * 0.25)));
+    // UI contract: keep windows above the legible docking baseline, no panel hiding/squishing.
+    constexpr int kUiContractMinWidth = 1100;
+    constexpr int kUiContractMinHeight = 700;
+    const int contract_width = std::min(kUiContractMinWidth, std::max(320, display_width));
+    const int contract_height = std::min(kUiContractMinHeight, std::max(240, display_height));
+
+    const int min_width = std::max(contract_width, static_cast<int>(std::lround(static_cast<double>(display_width) * 0.25)));
+    const int min_height = std::max(contract_height, static_cast<int>(std::lround(static_cast<double>(display_height) * 0.25)));
     return {min_width, min_height};
+}
+
+[[nodiscard]] int ReadPositiveIntEnv(const char* key, int fallback) {
+    std::string value;
+#if defined(_WIN32)
+    char* raw_value = nullptr;
+    size_t raw_len = 0;
+    if (_dupenv_s(&raw_value, &raw_len, key) != 0 || raw_value == nullptr) {
+        return fallback;
+    }
+    value.assign(raw_value);
+    std::free(raw_value);
+#else
+    const char* raw_value = std::getenv(key);
+    if (raw_value != nullptr) {
+        value.assign(raw_value);
+    }
+#endif
+    if (value.empty()) {
+        return fallback;
+    }
+    char* end = nullptr;
+    const long parsed = std::strtol(value.c_str(), &end, 10);
+    if (end == value.c_str() || parsed <= 0L) {
+        return fallback;
+    }
+    return static_cast<int>(std::clamp<long>(parsed, 320L, 16384L));
+}
+
+[[nodiscard]] std::pair<int, int> ComputeStartupWindowSize() {
+    const int default_width = 1280;
+    const int default_height = 1024;
+    const int width = ReadPositiveIntEnv("ROGUE_WINDOW_WIDTH", default_width);
+    const int height = ReadPositiveIntEnv("ROGUE_WINDOW_HEIGHT", default_height);
+    return {width, height};
 }
 
 } // namespace
@@ -155,7 +197,8 @@ int main(int, char**)
     // Keep OS decorations for now (custom chrome is complex)
     // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);  // Disabled for easier window management
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "RC-USD", NULL, NULL);
+    const auto [startup_width, startup_height] = ComputeStartupWindowSize();
+    GLFWwindow* window = glfwCreateWindow(startup_width, startup_height, "RC-USD", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -239,6 +282,14 @@ int main(int, char**)
         glfwPollEvents();
 
         if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+            continue;
+        }
+
+        int framebuffer_width = 0;
+        int framebuffer_height = 0;
+        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+        if (framebuffer_width <= 1 || framebuffer_height <= 1) {
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
             continue;
         }

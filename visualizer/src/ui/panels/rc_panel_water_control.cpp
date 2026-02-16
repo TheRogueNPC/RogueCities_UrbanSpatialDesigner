@@ -42,6 +42,8 @@ void DrawContent(float dt)
         body.depth = depth_m;
         body.generate_shore = generate_shore;
         body.is_user_placed = true;
+        body.generation_tag = RogueCity::Core::GenerationTag::M_user;
+        body.generation_locked = true;
 
         const RogueCity::Core::Bounds bounds = gs.world_constraints.isValid()
             ? RogueCity::Core::Bounds{

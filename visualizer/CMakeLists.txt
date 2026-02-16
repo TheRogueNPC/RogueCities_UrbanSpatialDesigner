@@ -92,6 +92,8 @@ endif()
         src/ui/rc_ui_theme.cpp
         src/ui/tools/rc_tool_contract.cpp
         src/ui/tools/rc_tool_dispatcher.cpp
+        src/ui/tools/rc_tool_interaction_metrics.cpp
+        src/ui/tools/rc_tool_geometry_policy.cpp
         src/ui/commands/rc_context_command_registry.cpp
         src/ui/commands/rc_context_menu_smart.cpp
         src/ui/commands/rc_context_menu_pie.cpp
@@ -184,6 +186,8 @@ endif()
                 src/ui/rc_ui_theme.cpp
                 src/ui/tools/rc_tool_contract.cpp
                 src/ui/tools/rc_tool_dispatcher.cpp
+                src/ui/tools/rc_tool_interaction_metrics.cpp
+                src/ui/tools/rc_tool_geometry_policy.cpp
                 src/ui/commands/rc_context_command_registry.cpp
                 src/ui/commands/rc_context_menu_smart.cpp
                 src/ui/commands/rc_context_menu_pie.cpp

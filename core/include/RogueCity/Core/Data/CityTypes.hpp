@@ -65,6 +65,12 @@ namespace RogueCity::Core {
         Utility
     };
 
+    /// Authoritative ownership tag used by generation merge policy.
+    enum class GenerationTag : uint8_t {
+        Generated = 0,
+        M_user
+    };
+
     // ===== GEOMETRIC PRIMITIVES =====
 
     /// Ordered list of points forming a path or polyline
@@ -100,6 +106,8 @@ namespace RogueCity::Core {
         RoadType type{ RoadType::Street };
         uint32_t id{ 0 };
         bool is_user_created{ false };  // True for M_Major/M_Minor
+        GenerationTag generation_tag{ GenerationTag::Generated };
+        bool generation_locked{ false };
 
         [[nodiscard]] double length() const;
         [[nodiscard]] Vec2 startPoint() const { return points.empty() ? Vec2() : points.front(); }
@@ -119,6 +127,9 @@ namespace RogueCity::Core {
         float budget_allocated{ 0.0f };
         uint32_t projected_population{ 0 };
         float desirability{ 0.0f };
+        bool is_user_placed{ false };
+        GenerationTag generation_tag{ GenerationTag::Generated };
+        bool generation_locked{ false };
 
         [[nodiscard]] bool hasAxiom() const { return primary_axiom_id >= 0; }
     };
@@ -143,6 +154,8 @@ namespace RogueCity::Core {
         LotType lot_type{ LotType::None };
         bool is_user_placed{ false };
         bool locked_type{ false };  // If true, generator won't override lot_type
+        GenerationTag generation_tag{ GenerationTag::Generated };
+        bool generation_locked{ false };
 
         [[nodiscard]] float aespScore() const {
             return 0.25f * (access + exposure + serviceability + privacy);
@@ -160,6 +173,8 @@ namespace RogueCity::Core {
         BuildingType type{ BuildingType::None };
         bool is_user_placed{ false };
         bool locked_type{ false };
+        GenerationTag generation_tag{ GenerationTag::Generated };
+        bool generation_locked{ false };
         float estimated_cost{ 0.0f };
     };
 
@@ -180,6 +195,8 @@ namespace RogueCity::Core {
         float depth{ 5.0f };          // Meters
         bool generate_shore{ true };  // Generate coastal detail
         bool is_user_placed{ false };
+        GenerationTag generation_tag{ GenerationTag::Generated };
+        bool generation_locked{ false };
         
         [[nodiscard]] bool empty() const { return boundary.empty(); }
         [[nodiscard]] size_t size() const { return boundary.size(); }

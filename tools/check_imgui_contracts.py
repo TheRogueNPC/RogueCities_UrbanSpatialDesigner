@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PANELS_DIR = ROOT / "visualizer" / "src" / "ui" / "panels"
 MAIN_GUI = ROOT / "visualizer" / "src" / "main_gui.cpp"
+INPUT_GATE_CPP = ROOT / "visualizer" / "src" / "ui" / "rc_ui_input_gate.cpp"
 
 FORBIDDEN_IN_DRAW_CONTENT = [
     (re.compile(r"\bImGui::Begin\s*\("), "DrawContent() must not call ImGui::Begin()."),
@@ -130,6 +131,21 @@ def check_legacy_io_writes() -> list[str]:
     return violations
 
 
+def check_input_gate_contract() -> list[str]:
+    if not INPUT_GATE_CPP.exists():
+        return [f"Missing required file: {rel(INPUT_GATE_CPP)}"]
+
+    text = INPUT_GATE_CPP.read_text(encoding="utf-8", errors="replace")
+    violations: list[str] = []
+
+    if "!state.imgui_wants_mouse" in text or "!io.WantCaptureMouse" in text:
+        violations.append(
+            f"{rel(INPUT_GATE_CPP)}: viewport-local gate must not hard-block on WantCaptureMouse."
+        )
+
+    return violations
+
+
 def main() -> int:
     violations: list[str] = []
 
@@ -139,6 +155,7 @@ def main() -> int:
         violations.extend(check_loop_id_safety(path, text))
 
     violations.extend(check_legacy_io_writes())
+    violations.extend(check_input_gate_contract())
 
     if violations:
         print("ImGui contract violations detected:")

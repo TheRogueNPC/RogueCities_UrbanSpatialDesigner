@@ -111,6 +111,9 @@ struct NonAxiomInteractionResult {
     bool active{ false };
     bool has_world_pos{ false };
     RogueCity::Core::Vec2 world_pos{};
+    bool handled{ false };
+    bool requires_explicit_generation{ false };
+    const char* status_code{ "idle" };
 };
 
 [[nodiscard]] NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(

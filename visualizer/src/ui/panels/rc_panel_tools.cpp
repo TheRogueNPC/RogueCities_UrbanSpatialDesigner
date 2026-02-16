@@ -100,10 +100,15 @@ void DrawContent(float dt)
         min_button_width,
         (toolbar_width - spacing * static_cast<float>(columns - 1)) / static_cast<float>(columns));
     const ImVec2 button_size(button_width, button_height);
+    const auto same_line_if_room = [](float min_remaining_width = 96.0f) {
+        if (ImGui::GetContentRegionAvail().x > min_remaining_width) {
+            ImGui::SameLine();
+        }
+    };
 
     for (int i = 0; i < tool_count; ++i) {
         if ((i % columns) != 0) {
-            ImGui::SameLine();
+            same_line_if_room();
         }
         const ToolModeButton& tool_button = kToolButtons[static_cast<size_t>(i)];
         RenderToolButton(
@@ -137,7 +142,7 @@ void DrawContent(float dt)
         ImGui::SetTooltip("%s", AxiomEditor::GetUndoLabel());
     }
 
-    ImGui::SameLine();
+    same_line_if_room();
     if (!can_redo) {
         ImGui::BeginDisabled();
     }
@@ -169,7 +174,7 @@ void DrawContent(float dt)
 
     // Dirty-layer propagation status (edit -> dirty downstream layers -> regenerate).
     const bool dirty_any = gs.dirty_layers.AnyDirty();
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::TextColored(
         ImGui::ColorConvertU32ToFloat4(dirty_any ? UITokens::YellowWarning : UITokens::SuccessGreen),
         dirty_any ? "Dirty Layers: pending" : "Dirty Layers: clean");
@@ -181,7 +186,7 @@ void DrawContent(float dt)
         }
     }
     const float dirty_ratio = static_cast<float>(dirty_count) / static_cast<float>(static_cast<int>(DirtyLayer::Count));
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::SetNextItemWidth(120.0f);
     ImGui::ProgressBar(
         dirty_ratio,
@@ -201,19 +206,33 @@ void DrawContent(float dt)
     };
 
     ImGui::SeparatorText("Dirty Layers");
-    draw_chip("Axioms", gs.dirty_layers.IsDirty(DirtyLayer::Axioms)); ImGui::SameLine();
-    draw_chip("Tensor", gs.dirty_layers.IsDirty(DirtyLayer::Tensor)); ImGui::SameLine();
-    draw_chip("Roads", gs.dirty_layers.IsDirty(DirtyLayer::Roads)); ImGui::SameLine();
-    draw_chip("Districts", gs.dirty_layers.IsDirty(DirtyLayer::Districts)); ImGui::SameLine();
-    draw_chip("Lots", gs.dirty_layers.IsDirty(DirtyLayer::Lots)); ImGui::SameLine();
-    draw_chip("Buildings", gs.dirty_layers.IsDirty(DirtyLayer::Buildings)); ImGui::SameLine();
-    draw_chip("Viewport", gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex));
+    struct DirtyChip {
+        const char* label;
+        DirtyLayer layer;
+    };
+    constexpr std::array<DirtyChip, 7> kDirtyChips = {{
+        {"Axioms", DirtyLayer::Axioms},
+        {"Tensor", DirtyLayer::Tensor},
+        {"Roads", DirtyLayer::Roads},
+        {"Districts", DirtyLayer::Districts},
+        {"Lots", DirtyLayer::Lots},
+        {"Buildings", DirtyLayer::Buildings},
+        {"Viewport", DirtyLayer::ViewportIndex},
+    }};
+    for (size_t chip_index = 0; chip_index < kDirtyChips.size(); ++chip_index) {
+        const DirtyChip& chip = kDirtyChips[chip_index];
+        draw_chip(chip.label, gs.dirty_layers.IsDirty(chip.layer));
+        if (chip_index + 1 < kDirtyChips.size()) {
+            const float next_chip_width = ImGui::CalcTextSize(kDirtyChips[chip_index + 1].label).x + 30.0f;
+            same_line_if_room(next_chip_width);
+        }
+    }
 
     ImGui::SeparatorText("Debug Overlays");
     ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
     ImGui::PushTextWrapPos();
     ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=pin/cycle, Shift+L=release auto, 1/2/3=set LOD, K=adaptive.");
@@ -242,7 +261,7 @@ void DrawContent(float dt)
     if (ImGui::Checkbox("Adaptive Degradation", &adaptive_quality)) {
         AxiomEditor::SetMinimapAdaptiveQualityEnabled(adaptive_quality);
     }
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::TextDisabled("%s", AxiomEditor::GetMinimapLODStatusText());
 
     ImGui::SeparatorText("Texture Editing (Phase 6)");
@@ -254,7 +273,7 @@ void DrawContent(float dt)
 
         ImGui::SetNextItemWidth(120.0f);
         ImGui::DragFloat("Brush Radius (m)", &brush_radius_m, 1.0f, 1.0f, 250.0f, "%.1f");
-        ImGui::SameLine();
+        same_line_if_room();
         ImGui::SetNextItemWidth(120.0f);
         ImGui::DragFloat("Brush Strength", &brush_strength, 0.05f, 0.05f, 10.0f, "%.2f");
 
@@ -268,7 +287,7 @@ void DrawContent(float dt)
             const bool applied = gs.ApplyTerrainBrush(stroke);
             (void)applied;
         }
-        ImGui::SameLine();
+        same_line_if_room();
         if (ImGui::Button("Lower Height @ Center")) {
             TerrainBrush::Stroke stroke{};
             stroke.world_center = brush_center;
@@ -278,7 +297,7 @@ void DrawContent(float dt)
             const bool applied = gs.ApplyTerrainBrush(stroke);
             (void)applied;
         }
-        ImGui::SameLine();
+        same_line_if_room();
         if (ImGui::Button("Smooth Height @ Center")) {
             TerrainBrush::Stroke stroke{};
             stroke.world_center = brush_center;
@@ -291,7 +310,7 @@ void DrawContent(float dt)
 
         ImGui::SetNextItemWidth(100.0f);
         ImGui::DragInt("Zone Value", &zone_value, 1.0f, 0, 255);
-        ImGui::SameLine();
+        same_line_if_room();
         ImGui::SetNextItemWidth(110.0f);
         ImGui::DragInt("Material Value", &material_value, 1.0f, 0, 255);
         if (ImGui::Button("Paint Zone @ Center")) {
@@ -304,7 +323,7 @@ void DrawContent(float dt)
             const bool applied = gs.ApplyTexturePaint(stroke);
             (void)applied;
         }
-        ImGui::SameLine();
+        same_line_if_room();
         if (ImGui::Button("Paint Material @ Center")) {
             TexturePainting::Stroke stroke{};
             stroke.layer = TexturePainting::Layer::Material;
@@ -323,18 +342,18 @@ void DrawContent(float dt)
         if (ImGui::Button("Clear Dirty Flags")) {
             gs.dirty_layers.MarkAllClean();
         }
-        ImGui::SameLine();
+        same_line_if_room();
         ImGui::TextDisabled("Tip: Generate/Regenerate also clears successful rebuild layers.");
     }
 
-    ImGui::SameLine();
+    same_line_if_room();
     bool live_preview = AxiomEditor::IsLivePreviewEnabled();
     if (ImGui::Checkbox("Live Preview", &live_preview)) {
         AxiomEditor::SetLivePreviewEnabled(live_preview);
     }
     uiint.RegisterWidget({"checkbox", "Live Preview", "preview.live", {"preview"}});
 
-    ImGui::SameLine();
+    same_line_if_room();
     float debounce = AxiomEditor::GetDebounceSeconds();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::DragFloat("Debounce", &debounce, 0.01f, 0.0f, 1.5f, "%.2fs")) {
@@ -342,7 +361,7 @@ void DrawContent(float dt)
     }
     uiint.RegisterWidget({"slider", "Debounce", "preview.debounce_sec", {"preview", "timing"}});
 
-    ImGui::SameLine();
+    same_line_if_room();
     if (ImGui::Button("Random Seed")) {
         AxiomEditor::RandomizeSeed();
         if (AxiomEditor::IsLivePreviewEnabled()) {
@@ -352,7 +371,7 @@ void DrawContent(float dt)
     uiint.RegisterWidget({"button", "Random Seed", "action:seed.randomize", {"action", "seed"}});
     uiint.RegisterAction({"seed.randomize", "Random Seed", "Tools", {}, "AxiomEditor::RandomizeSeed"});
 
-    ImGui::SameLine();
+    same_line_if_room();
     ImGui::Text("Seed: %u", AxiomEditor::GetSeed());
     
     // === AI ASSIST CONTROLS ===

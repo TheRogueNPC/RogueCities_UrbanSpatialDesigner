@@ -4,6 +4,8 @@
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
+#include "ui/tools/rc_tool_geometry_policy.h"
+#include "ui/tools/rc_tool_interaction_metrics.h"
 
 #include <algorithm>
 #include <cmath>
@@ -263,8 +265,8 @@ bool ProbeContainsPoint(
 std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState& gs,
     const RogueCity::Core::Vec2& world_pos,
-    float zoom) {
-    const double world_radius = std::max(4.0, 12.0 / std::max(0.1f, zoom));
+    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics) {
+    const double world_radius = interaction_metrics.world_pick_radius;
     int best_priority = -1;
     double best_distance = std::numeric_limits<double>::max();
     std::optional<RogueCity::Core::Editor::SelectionItem> best{};
@@ -402,6 +404,24 @@ RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalStat
     return nullptr;
 }
 
+RogueCity::Core::LotToken* FindLotMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (auto& lot : gs.lots) {
+        if (lot.id == id) {
+            return &lot;
+        }
+    }
+    return nullptr;
+}
+
+RogueCity::Core::BuildingSite* FindBuildingMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    for (auto& building : gs.buildings) {
+        if (building.id == id) {
+            return &building;
+        }
+    }
+    return nullptr;
+}
+
 uint32_t NextRoadId(const RogueCity::Core::Editor::GlobalState& gs) {
     uint32_t max_id = 0;
     for (const auto& road : gs.roads) {
@@ -451,6 +471,64 @@ std::vector<RogueCity::Core::Vec2> MakeSquareBoundary(const RogueCity::Core::Vec
     };
 }
 
+void SnapToGrid(RogueCity::Core::Vec2& point, bool enabled, float snap_size) {
+    if (!enabled || snap_size <= 0.0f) {
+        return;
+    }
+    const double snap = snap_size;
+    point.x = std::round(point.x / snap) * snap;
+    point.y = std::round(point.y / snap) * snap;
+}
+
+void ApplyAxisAlign(RogueCity::Core::Vec2& point, const RogueCity::Core::Vec2& reference) {
+    const double dx = std::abs(point.x - reference.x);
+    const double dy = std::abs(point.y - reference.y);
+    if (dx < dy) {
+        point.x = reference.x;
+    } else {
+        point.y = reference.y;
+    }
+}
+
+bool SimplifyPolyline(std::vector<RogueCity::Core::Vec2>& points, bool closed) {
+    if (points.size() < 5) {
+        return false;
+    }
+
+    std::vector<RogueCity::Core::Vec2> simplified;
+    simplified.reserve(points.size());
+    if (!closed) {
+        simplified.push_back(points.front());
+    }
+    for (size_t i = closed ? 0u : 1u; i + 1 < points.size(); i += 2u) {
+        simplified.push_back(points[i]);
+    }
+    if (!closed) {
+        simplified.push_back(points.back());
+    }
+
+    if (simplified.size() < 2) {
+        return false;
+    }
+    points = std::move(simplified);
+    return true;
+}
+
+void CycleBuildingType(RogueCity::Core::BuildingType& type) {
+    using RogueCity::Core::BuildingType;
+    switch (type) {
+    case BuildingType::None: type = BuildingType::Residential; break;
+    case BuildingType::Residential: type = BuildingType::Rowhome; break;
+    case BuildingType::Rowhome: type = BuildingType::Retail; break;
+    case BuildingType::Retail: type = BuildingType::MixedUse; break;
+    case BuildingType::MixedUse: type = BuildingType::Industrial; break;
+    case BuildingType::Industrial: type = BuildingType::Civic; break;
+    case BuildingType::Civic: type = BuildingType::Luxury; break;
+    case BuildingType::Luxury: type = BuildingType::Utility; break;
+    case BuildingType::Utility: type = BuildingType::Residential; break;
+    }
+}
+
 void SetPrimarySelection(
     RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Editor::VpEntityKind kind,
@@ -488,6 +566,8 @@ bool HandleDomainPlacementActions(
     RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Editor::EditorState editor_state,
     const RogueCity::Core::Vec2& world_pos,
+    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics,
+    const RC_UI::Tools::ToolGeometryPolicy& geometry_policy,
     NonAxiomInteractionState& interaction_state) {
     using RogueCity::Core::BuildingSite;
     using RogueCity::Core::BuildingType;
@@ -500,6 +580,7 @@ bool HandleDomainPlacementActions(
     using RogueCity::Core::Editor::RoadSplineSubtool;
     using RogueCity::Core::Editor::RoadSubtool;
     using RogueCity::Core::Editor::VpEntityKind;
+    using RogueCity::Core::Editor::WaterSubtool;
     using RogueCity::Core::Editor::WaterSplineSubtool;
     using RogueCity::Core::LotToken;
     using RogueCity::Core::Road;
@@ -514,16 +595,18 @@ bool HandleDomainPlacementActions(
         const auto* primary = gs.selection_manager.Primary();
         uint32_t selected_water_id = (primary != nullptr && primary->kind == VpEntityKind::Water) ? primary->id : 0u;
         WaterBody* selected_water = selected_water_id != 0u ? FindWaterMutable(gs, selected_water_id) : nullptr;
-        const double pick_radius = std::max(4.0, 10.0 / std::max(0.1f, gs.params.viewport_pan_speed));
+        const double pick_radius = interaction_metrics.world_vertex_pick_radius;
 
         if (add_click && gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Pen) {
             if (selected_water == nullptr) {
                 WaterBody water{};
                 water.id = NextWaterId(gs);
                 water.type = WaterType::River;
-                water.depth = 6.0f;
+                water.depth = static_cast<float>(geometry_policy.water_default_depth);
                 water.generate_shore = true;
                 water.is_user_placed = true;
+                water.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                water.generation_locked = true;
                 water.boundary.push_back(world_pos);
                 gs.waterbodies.add(std::move(water));
                 SetPrimarySelection(gs, VpEntityKind::Water, NextWaterId(gs) - 1u);
@@ -536,6 +619,29 @@ bool HandleDomainPlacementActions(
         }
 
         if (selected_water != nullptr && !selected_water->boundary.empty()) {
+            if (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::ConvertAnchor &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift &&
+                selected_water->boundary.size() >= 3) {
+                double best = std::numeric_limits<double>::max();
+                size_t best_idx = 0;
+                for (size_t i = 0; i < selected_water->boundary.size(); ++i) {
+                    const double d = selected_water->boundary[i].distanceTo(world_pos);
+                    if (d < best) {
+                        best = d;
+                        best_idx = i;
+                    }
+                }
+                if (best <= pick_radius) {
+                    const size_t prev_idx = (best_idx == 0) ? selected_water->boundary.size() - 1 : best_idx - 1;
+                    const size_t next_idx = (best_idx + 1) % selected_water->boundary.size();
+                    selected_water->boundary[best_idx] =
+                        (selected_water->boundary[prev_idx] + selected_water->boundary[next_idx]) * 0.5;
+                    MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
+                    return true;
+                }
+            }
+
             if (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::AddRemoveAnchor &&
                 ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 !io.KeyAlt && !io.KeyShift) {
@@ -568,7 +674,7 @@ bool HandleDomainPlacementActions(
                             edge_idx = i;
                         }
                     }
-                    if (best_edge <= pick_radius * 1.5) {
+                    if (best_edge <= pick_radius * geometry_policy.edge_insert_multiplier) {
                         selected_water->boundary.insert(
                             selected_water->boundary.begin() + static_cast<std::ptrdiff_t>(edge_idx + 1),
                             world_pos);
@@ -578,10 +684,83 @@ bool HandleDomainPlacementActions(
                 }
             }
 
-            if (!interaction_state.water_vertex_drag.active &&
+            if (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::JoinSplit &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift) {
+                if (io.KeyCtrl) {
+                    double best_edge = std::numeric_limits<double>::max();
+                    size_t edge_idx = 0;
+                    for (size_t i = 0; i + 1 < selected_water->boundary.size(); ++i) {
+                        const double d = DistanceToSegment(
+                            world_pos,
+                            selected_water->boundary[i],
+                            selected_water->boundary[i + 1]);
+                        if (d < best_edge) {
+                            best_edge = d;
+                            edge_idx = i;
+                        }
+                    }
+                    if (best_edge <= pick_radius * geometry_policy.edge_insert_multiplier) {
+                        const RogueCity::Core::Vec2 midpoint =
+                            (selected_water->boundary[edge_idx] + selected_water->boundary[edge_idx + 1]) * 0.5;
+                        selected_water->boundary.insert(
+                            selected_water->boundary.begin() + static_cast<std::ptrdiff_t>(edge_idx + 1),
+                            midpoint);
+                        MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
+                        return true;
+                    }
+                } else if (selected_water->boundary.size() >= 5) {
+                    double best = std::numeric_limits<double>::max();
+                    size_t best_idx = 1;
+                    for (size_t i = 1; i + 1 < selected_water->boundary.size(); ++i) {
+                        const double d = selected_water->boundary[i].distanceTo(world_pos);
+                        if (d < best) {
+                            best = d;
+                            best_idx = i;
+                        }
+                    }
+                    if (best <= pick_radius) {
+                        WaterBody split_water{};
+                        split_water.id = NextWaterId(gs);
+                        split_water.type = selected_water->type;
+                        split_water.depth = selected_water->depth;
+                        split_water.generate_shore = selected_water->generate_shore;
+                        split_water.is_user_placed = true;
+                        split_water.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                        split_water.generation_locked = true;
+                        split_water.boundary.assign(
+                            selected_water->boundary.begin() + static_cast<std::ptrdiff_t>(best_idx),
+                            selected_water->boundary.end());
+                        selected_water->boundary.erase(
+                            selected_water->boundary.begin() + static_cast<std::ptrdiff_t>(best_idx),
+                            selected_water->boundary.end());
+                        gs.waterbodies.add(std::move(split_water));
+                        MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
+                        return true;
+                    }
+                }
+            }
+
+            if (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Simplify &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift) {
+                const bool closed_shape = selected_water->type != WaterType::River;
+                if (SimplifyPolyline(selected_water->boundary, closed_shape)) {
+                    MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
+                    return true;
+                }
+            }
+
+            const bool allow_water_vertex_drag =
                 (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Selection ||
                  gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::DirectSelect ||
-                 gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::HandleTangents) &&
+                 gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::HandleTangents ||
+                 gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::SnapAlign ||
+                 gs.tool_runtime.water_subtool == WaterSubtool::Erode ||
+                 gs.tool_runtime.water_subtool == WaterSubtool::Contour ||
+                 gs.tool_runtime.water_subtool == WaterSubtool::Flow);
+            if (!interaction_state.water_vertex_drag.active &&
+                allow_water_vertex_drag &&
                 ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 !io.KeyAlt) {
                 double best = std::numeric_limits<double>::max();
@@ -600,6 +779,53 @@ bool HandleDomainPlacementActions(
                     return true;
                 }
             }
+
+            if (interaction_state.water_vertex_drag.active &&
+                interaction_state.water_vertex_drag.water_id == selected_water->id) {
+                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                    if (interaction_state.water_vertex_drag.vertex_index < selected_water->boundary.size()) {
+                        RogueCity::Core::Vec2 snapped = world_pos;
+                        SnapToGrid(snapped, gs.district_boundary_editor.snap_to_grid, gs.district_boundary_editor.snap_size);
+
+                        const size_t anchor_index = interaction_state.water_vertex_drag.vertex_index;
+                        const RogueCity::Core::Vec2 anchor_before = selected_water->boundary[anchor_index];
+                        if (gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::SnapAlign) {
+                            ApplyAxisAlign(snapped, anchor_before);
+                        }
+                        const RogueCity::Core::Vec2 delta = snapped - anchor_before;
+                        const bool use_falloff =
+                            (gs.tool_runtime.water_subtool == WaterSubtool::Erode ||
+                             gs.tool_runtime.water_subtool == WaterSubtool::Contour ||
+                             gs.tool_runtime.water_subtool == WaterSubtool::Flow);
+
+                        if (use_falloff && geometry_policy.water_falloff_radius_world > 0.0) {
+                            for (size_t i = 0; i < selected_water->boundary.size(); ++i) {
+                                const double distance = selected_water->boundary[i].distanceTo(anchor_before);
+                                if (distance > geometry_policy.water_falloff_radius_world) {
+                                    continue;
+                                }
+                                double weight = RC_UI::Tools::ComputeFalloffWeight(
+                                    distance,
+                                    geometry_policy.water_falloff_radius_world);
+                                if (gs.tool_runtime.water_subtool == WaterSubtool::Erode) {
+                                    weight *= 0.72;
+                                } else if (gs.tool_runtime.water_subtool == WaterSubtool::Flow) {
+                                    weight *= 0.9;
+                                }
+                                selected_water->boundary[i] += delta * weight;
+                            }
+                        } else {
+                            selected_water->boundary[anchor_index] = snapped;
+                        }
+                        MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
+                    }
+                    return true;
+                }
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    interaction_state.water_vertex_drag.active = false;
+                    return true;
+                }
+            }
         }
     }
 
@@ -610,6 +836,8 @@ bool HandleDomainPlacementActions(
             new_road.id = NextRoadId(gs);
             new_road.type = (gs.tool_runtime.road_subtool == RoadSubtool::Bridge) ? RoadType::M_Major : RoadType::M_Minor;
             new_road.is_user_created = true;
+            new_road.generation_tag = RogueCity::Core::GenerationTag::M_user;
+            new_road.generation_locked = true;
             new_road.points.push_back(world_pos);
             gs.roads.add(std::move(new_road));
             const uint32_t new_id = NextRoadId(gs) - 1u;
@@ -624,13 +852,53 @@ bool HandleDomainPlacementActions(
 
     if (editor_state == EditorState::Editing_Districts &&
         add_click &&
+        gs.tool_runtime.district_subtool == DistrictSubtool::Merge &&
+        gs.selection.selected_district) {
+        const uint32_t primary_id = gs.selection.selected_district->id;
+        const auto target = PickFromViewportIndex(gs, world_pos, interaction_metrics);
+        if (target.has_value() &&
+            target->kind == VpEntityKind::District &&
+            target->id != primary_id) {
+            RogueCity::Core::Vec2 primary_anchor{};
+            RogueCity::Core::Vec2 target_anchor{};
+            const bool anchors_ok =
+                ResolveSelectionAnchor(gs, VpEntityKind::District, primary_id, primary_anchor) &&
+                ResolveSelectionAnchor(gs, VpEntityKind::District, target->id, target_anchor);
+            if (anchors_ok && primary_anchor.distanceTo(target_anchor) <= geometry_policy.merge_radius_world) {
+                if (RogueCity::Core::District* primary = FindDistrictMutable(gs, primary_id);
+                    primary != nullptr) {
+                    const uint32_t target_id = target->id;
+                    if (RogueCity::Core::District* other = FindDistrictMutable(gs, target_id);
+                        other != nullptr && !other->border.empty()) {
+                        primary->border.insert(primary->border.end(), other->border.begin(), other->border.end());
+                        for (size_t i = 0; i < gs.districts.size(); ++i) {
+                            auto handle = gs.districts.createHandleFromData(i);
+                            if (handle && handle->id == target_id) {
+                                gs.districts.remove(handle);
+                                break;
+                            }
+                        }
+                        SetPrimarySelection(gs, VpEntityKind::District, primary_id);
+                        MarkDirtyForSelectionKind(gs, VpEntityKind::District);
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (editor_state == EditorState::Editing_Districts &&
+        add_click &&
         (gs.tool_runtime.district_subtool == DistrictSubtool::Paint ||
          gs.tool_runtime.district_subtool == DistrictSubtool::Zone)) {
         District district{};
         district.id = NextDistrictId(gs);
         district.type = DistrictType::Mixed;
-        district.border = MakeSquareBoundary(world_pos, 45.0);
+        district.border = MakeSquareBoundary(world_pos, geometry_policy.district_placement_half_extent);
         district.orientation = {1.0, 0.0};
+        district.is_user_placed = true;
+        district.generation_tag = RogueCity::Core::GenerationTag::M_user;
+        district.generation_locked = true;
         gs.districts.add(std::move(district));
         const uint32_t new_id = NextDistrictId(gs) - 1u;
         SetPrimarySelection(gs, VpEntityKind::District, new_id);
@@ -643,14 +911,146 @@ bool HandleDomainPlacementActions(
         lot.id = NextLotId(gs);
         lot.district_id = gs.selection.selected_district ? gs.selection.selected_district->id : 0u;
         lot.centroid = world_pos;
-        lot.boundary = MakeSquareBoundary(world_pos, 16.0);
-        lot.area = 32.0f * 32.0f;
+        lot.boundary = MakeSquareBoundary(world_pos, geometry_policy.lot_placement_half_extent);
+        lot.area = static_cast<float>(
+            (geometry_policy.lot_placement_half_extent * 2.0) *
+            (geometry_policy.lot_placement_half_extent * 2.0));
         lot.is_user_placed = true;
+        lot.generation_tag = RogueCity::Core::GenerationTag::M_user;
+        lot.generation_locked = true;
         gs.lots.add(std::move(lot));
         const uint32_t new_id = NextLotId(gs) - 1u;
         SetPrimarySelection(gs, VpEntityKind::Lot, new_id);
         MarkDirtyForSelectionKind(gs, VpEntityKind::Lot);
         return true;
+    }
+
+    if (editor_state == EditorState::Editing_Lots &&
+        add_click &&
+        gs.tool_runtime.lot_subtool == LotSubtool::Merge &&
+        gs.selection.selected_lot) {
+        const uint32_t primary_id = gs.selection.selected_lot->id;
+        const auto target = PickFromViewportIndex(gs, world_pos, interaction_metrics);
+        if (target.has_value() &&
+            target->kind == VpEntityKind::Lot &&
+            target->id != primary_id) {
+            RogueCity::Core::Vec2 primary_anchor{};
+            RogueCity::Core::Vec2 target_anchor{};
+            const bool anchors_ok =
+                ResolveSelectionAnchor(gs, VpEntityKind::Lot, primary_id, primary_anchor) &&
+                ResolveSelectionAnchor(gs, VpEntityKind::Lot, target->id, target_anchor);
+            if (anchors_ok && primary_anchor.distanceTo(target_anchor) <= geometry_policy.merge_radius_world) {
+                const uint32_t target_id = target->id;
+                for (size_t i = 0; i < gs.lots.size(); ++i) {
+                    auto h_primary = gs.lots.createHandleFromData(i);
+                    if (!h_primary || h_primary->id != primary_id) {
+                        continue;
+                    }
+                    for (size_t j = 0; j < gs.lots.size(); ++j) {
+                        auto h_other = gs.lots.createHandleFromData(j);
+                        if (!h_other || h_other->id != target_id) {
+                            continue;
+                        }
+                        h_primary->boundary.insert(h_primary->boundary.end(), h_other->boundary.begin(), h_other->boundary.end());
+                        h_primary->area += h_other->area;
+                        h_primary->centroid = (h_primary->centroid + h_other->centroid) * 0.5;
+                        gs.lots.remove(h_other);
+                        SetPrimarySelection(gs, VpEntityKind::Lot, primary_id);
+                        MarkDirtyForSelectionKind(gs, VpEntityKind::Lot);
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (editor_state == EditorState::Editing_Lots &&
+        add_click &&
+        gs.tool_runtime.lot_subtool == LotSubtool::Slice &&
+        gs.selection.selected_lot) {
+        LotToken* lot = FindLotMutable(gs, gs.selection.selected_lot->id);
+        if (lot != nullptr) {
+            RogueCity::Core::Vec2 center = lot->centroid;
+            if (!lot->boundary.empty()) {
+                center = PolygonCentroid(lot->boundary);
+            }
+
+            double min_x = center.x - geometry_policy.lot_placement_half_extent;
+            double max_x = center.x + geometry_policy.lot_placement_half_extent;
+            double min_y = center.y - geometry_policy.lot_placement_half_extent;
+            double max_y = center.y + geometry_policy.lot_placement_half_extent;
+            if (!lot->boundary.empty()) {
+                min_x = max_x = lot->boundary.front().x;
+                min_y = max_y = lot->boundary.front().y;
+                for (const auto& p : lot->boundary) {
+                    min_x = std::min(min_x, p.x);
+                    max_x = std::max(max_x, p.x);
+                    min_y = std::min(min_y, p.y);
+                    max_y = std::max(max_y, p.y);
+                }
+            }
+
+            const bool vertical_split = std::abs(world_pos.x - center.x) >= std::abs(world_pos.y - center.y);
+            LotToken new_lot = *lot;
+            new_lot.id = NextLotId(gs);
+            new_lot.is_user_placed = true;
+            new_lot.generation_tag = RogueCity::Core::GenerationTag::M_user;
+            new_lot.generation_locked = true;
+
+            if (vertical_split) {
+                const double split_x = std::clamp(world_pos.x, min_x + 1.0, max_x - 1.0);
+                lot->boundary = {
+                    {min_x, min_y}, {split_x, min_y}, {split_x, max_y}, {min_x, max_y}
+                };
+                new_lot.boundary = {
+                    {split_x, min_y}, {max_x, min_y}, {max_x, max_y}, {split_x, max_y}
+                };
+            } else {
+                const double split_y = std::clamp(world_pos.y, min_y + 1.0, max_y - 1.0);
+                lot->boundary = {
+                    {min_x, min_y}, {max_x, min_y}, {max_x, split_y}, {min_x, split_y}
+                };
+                new_lot.boundary = {
+                    {min_x, split_y}, {max_x, split_y}, {max_x, max_y}, {min_x, max_y}
+                };
+            }
+
+            lot->centroid = PolygonCentroid(lot->boundary);
+            new_lot.centroid = PolygonCentroid(new_lot.boundary);
+            auto rect_area = [](const std::vector<RogueCity::Core::Vec2>& b) {
+                if (b.size() < 4) return 0.0f;
+                const double w = std::abs(b[1].x - b[0].x);
+                const double h = std::abs(b[3].y - b[0].y);
+                return static_cast<float>(w * h);
+            };
+            lot->area = rect_area(lot->boundary);
+            new_lot.area = rect_area(new_lot.boundary);
+            gs.lots.add(std::move(new_lot));
+            MarkDirtyForSelectionKind(gs, VpEntityKind::Lot);
+            return true;
+        }
+    }
+
+    if (editor_state == EditorState::Editing_Lots &&
+        add_click &&
+        gs.tool_runtime.lot_subtool == LotSubtool::Align &&
+        gs.selection.selected_lot) {
+        LotToken* lot = FindLotMutable(gs, gs.selection.selected_lot->id);
+        if (lot != nullptr) {
+            RogueCity::Core::Vec2 center = lot->boundary.empty() ? lot->centroid : PolygonCentroid(lot->boundary);
+            SnapToGrid(center, gs.district_boundary_editor.snap_to_grid, gs.district_boundary_editor.snap_size);
+
+            double half_extent = geometry_policy.lot_placement_half_extent;
+            if (lot->area > 1.0f) {
+                half_extent = std::max(6.0, std::sqrt(static_cast<double>(lot->area)) * 0.5);
+            }
+            lot->boundary = MakeSquareBoundary(center, half_extent);
+            lot->centroid = center;
+            lot->area = static_cast<float>((half_extent * 2.0) * (half_extent * 2.0));
+            MarkDirtyForSelectionKind(gs, VpEntityKind::Lot);
+            return true;
+        }
     }
 
     if (editor_state == EditorState::Editing_Buildings &&
@@ -661,13 +1061,38 @@ bool HandleDomainPlacementActions(
         building.lot_id = gs.selection.selected_lot ? gs.selection.selected_lot->id : 0u;
         building.district_id = gs.selection.selected_district ? gs.selection.selected_district->id : 0u;
         building.position = world_pos;
-        building.uniform_scale = 1.0f;
+        building.uniform_scale = static_cast<float>(geometry_policy.building_default_scale);
         building.type = BuildingType::Residential;
         building.is_user_placed = true;
+        building.generation_tag = RogueCity::Core::GenerationTag::M_user;
+        building.generation_locked = true;
         gs.buildings.push_back(building);
         SetPrimarySelection(gs, VpEntityKind::Building, building.id);
         MarkDirtyForSelectionKind(gs, VpEntityKind::Building);
         return true;
+    }
+
+    if (editor_state == EditorState::Editing_Buildings &&
+        add_click &&
+        gs.tool_runtime.building_subtool == BuildingSubtool::Assign) {
+        RogueCity::Core::BuildingSite* building = nullptr;
+        if (gs.selection.selected_building) {
+            building = FindBuildingMutable(gs, gs.selection.selected_building->id);
+        }
+        if (building == nullptr) {
+            const auto picked = PickFromViewportIndex(gs, world_pos, interaction_metrics);
+            if (picked.has_value() && picked->kind == VpEntityKind::Building) {
+                building = FindBuildingMutable(gs, picked->id);
+                if (building != nullptr) {
+                    SetPrimarySelection(gs, VpEntityKind::Building, building->id);
+                }
+            }
+        }
+        if (building != nullptr) {
+            CycleBuildingType(building->type);
+            MarkDirtyForSelectionKind(gs, VpEntityKind::Building);
+            return true;
+        }
     }
 
     return false;
@@ -828,17 +1253,41 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
     }
 
     auto& gs = *params.global_state;
+    ImGuiIO& io = ImGui::GetIO();
+    const bool left_click_attempt = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     result.active = true;
     result.has_world_pos = true;
     result.world_pos = params.primary_viewport->screen_to_world(params.mouse_pos);
+    result.status_code = "ready";
+
+    if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Water) {
+        interaction_state->water_vertex_drag.active = false;
+    }
+    if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Roads) {
+        interaction_state->road_vertex_drag.active = false;
+    }
+    if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Districts) {
+        interaction_state->district_boundary_drag.active = false;
+    }
 
     if (!params.allow_viewport_mouse_actions || !params.in_viewport || params.minimap_hovered) {
         gs.hovered_entity.reset();
+        if (left_click_attempt) {
+            result.status_code = "blocked-input-gate";
+            gs.tool_runtime.last_viewport_status = result.status_code;
+            gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+        }
         return result;
     }
 
-    ImGuiIO& io = ImGui::GetIO();
+    const bool domain_requires_explicit_generation =
+        !gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
+    const auto dirty_before = gs.dirty_layers.flags;
+    bool selection_click_applied = false;
+
     const float zoom = params.primary_viewport->world_to_screen_scale(1.0f);
+    const auto interaction_metrics = RC_UI::Tools::BuildToolInteractionMetrics(zoom, gs.config.ui_scale);
+    const auto geometry_policy = RC_UI::Tools::ResolveToolGeometryPolicy(gs, params.editor_state);
 
     if (params.allow_viewport_key_actions) {
         if (ImGui::IsKeyPressed(ImGuiKey_G)) {
@@ -867,12 +1316,14 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
         gs,
         params.editor_state,
         result.world_pos,
+        interaction_metrics,
+        geometry_policy,
         *interaction_state);
 
     const auto& selected_items = gs.selection_manager.Items();
     if (!consumed_interaction && gs.gizmo.enabled && !selected_items.empty()) {
         const RogueCity::Core::Vec2 pivot = ComputeSelectionPivot(gs);
-        const double pick_radius = std::max(8.0, 14.0 / std::max(0.1f, zoom));
+        const double pick_radius = interaction_metrics.world_gizmo_pick_radius;
         const double dist_to_pivot = result.world_pos.distanceTo(pivot);
 
         auto can_start_drag = [&]() {
@@ -961,13 +1412,95 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
         const uint32_t road_id = gs.selection.selected_road->id;
         RogueCity::Core::Road* road = FindRoadMutable(gs, road_id);
         if (road != nullptr && road->points.size() >= 2) {
-            const double pick_radius = std::max(5.0, 9.0 / std::max(0.1f, zoom));
+            const double pick_radius = interaction_metrics.world_vertex_pick_radius;
+            if (!consumed_interaction &&
+                gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::ConvertAnchor &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift &&
+                road->points.size() >= 3) {
+                double best = std::numeric_limits<double>::max();
+                size_t best_idx = 1;
+                for (size_t i = 1; i + 1 < road->points.size(); ++i) {
+                    const double d = road->points[i].distanceTo(result.world_pos);
+                    if (d < best) {
+                        best = d;
+                        best_idx = i;
+                    }
+                }
+                if (best <= pick_radius) {
+                    road->points[best_idx] = (road->points[best_idx - 1] + road->points[best_idx + 1]) * 0.5;
+                    MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
+                    consumed_interaction = true;
+                }
+            }
+
+            if (!consumed_interaction &&
+                gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::JoinSplit &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift) {
+                if (io.KeyCtrl) {
+                    double best_edge = std::numeric_limits<double>::max();
+                    size_t edge_idx = 0;
+                    for (size_t i = 0; i + 1 < road->points.size(); ++i) {
+                        const double d = DistanceToSegment(result.world_pos, road->points[i], road->points[i + 1]);
+                        if (d < best_edge) {
+                            best_edge = d;
+                            edge_idx = i;
+                        }
+                    }
+                    if (best_edge <= pick_radius * interaction_metrics.edge_insert_radius_multiplier) {
+                        const RogueCity::Core::Vec2 midpoint = (road->points[edge_idx] + road->points[edge_idx + 1]) * 0.5;
+                        road->points.insert(road->points.begin() + static_cast<std::ptrdiff_t>(edge_idx + 1), midpoint);
+                        MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
+                        consumed_interaction = true;
+                    }
+                } else if (road->points.size() >= 4) {
+                    double best = std::numeric_limits<double>::max();
+                    size_t best_idx = 1;
+                    for (size_t i = 1; i + 1 < road->points.size(); ++i) {
+                        const double d = road->points[i].distanceTo(result.world_pos);
+                        if (d < best) {
+                            best = d;
+                            best_idx = i;
+                        }
+                    }
+                    if (best <= pick_radius) {
+                        RogueCity::Core::Road split_road{};
+                        split_road.id = NextRoadId(gs);
+                        split_road.type = road->type;
+                        split_road.is_user_created = road->is_user_created;
+                        split_road.generation_tag = road->generation_tag;
+                        split_road.generation_locked = road->generation_locked;
+                        split_road.points.assign(
+                            road->points.begin() + static_cast<std::ptrdiff_t>(best_idx),
+                            road->points.end());
+                        road->points.erase(
+                            road->points.begin() + static_cast<std::ptrdiff_t>(best_idx),
+                            road->points.end());
+                        gs.roads.add(std::move(split_road));
+                        MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
+                        consumed_interaction = true;
+                    }
+                }
+            }
+
+            if (!consumed_interaction &&
+                gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::Simplify &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !io.KeyAlt && !io.KeyShift) {
+                if (SimplifyPolyline(road->points, false)) {
+                    MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
+                    consumed_interaction = true;
+                }
+            }
+
             if (!interaction_state->road_vertex_drag.active &&
                 ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 !io.KeyAlt &&
                 (gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::Selection ||
                  gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::DirectSelect ||
-                 gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::HandleTangents)) {
+                 gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::HandleTangents ||
+                 gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::SnapAlign)) {
                 double best = std::numeric_limits<double>::max();
                 size_t best_idx = 0;
                 for (size_t i = 0; i < road->points.size(); ++i) {
@@ -1014,7 +1547,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
                             edge_idx = i;
                         }
                     }
-                    if (best_edge <= pick_radius * 1.5) {
+                    if (best_edge <= pick_radius * interaction_metrics.edge_insert_radius_multiplier) {
                         road->points.insert(road->points.begin() + static_cast<std::ptrdiff_t>(edge_idx + 1), result.world_pos);
                         MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
                         consumed_interaction = true;
@@ -1025,10 +1558,11 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
             if (interaction_state->road_vertex_drag.active) {
                 if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                     RogueCity::Core::Vec2 snapped = result.world_pos;
-                    if (gs.district_boundary_editor.snap_to_grid && gs.district_boundary_editor.snap_size > 0.0f) {
-                        const double snap = gs.district_boundary_editor.snap_size;
-                        snapped.x = std::round(snapped.x / snap) * snap;
-                        snapped.y = std::round(snapped.y / snap) * snap;
+                    SnapToGrid(snapped, gs.district_boundary_editor.snap_to_grid, gs.district_boundary_editor.snap_size);
+                    if (gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::SnapAlign &&
+                        interaction_state->road_vertex_drag.vertex_index > 0 &&
+                        interaction_state->road_vertex_drag.vertex_index < road->points.size()) {
+                        ApplyAxisAlign(snapped, road->points[interaction_state->road_vertex_drag.vertex_index - 1]);
                     }
                     RogueCity::App::EditorManipulation::MoveRoadVertex(*road, interaction_state->road_vertex_drag.vertex_index, snapped);
                     MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::Road);
@@ -1048,7 +1582,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
         const uint32_t district_id = gs.selection.selected_district->id;
         RogueCity::Core::District* district = FindDistrictMutable(gs, district_id);
         if (district != nullptr && district->border.size() >= 3) {
-            const double pick_radius = std::max(5.0, 9.0 / std::max(0.1f, zoom));
+            const double pick_radius = interaction_metrics.world_vertex_pick_radius;
 
             if (!interaction_state->district_boundary_drag.active &&
                 ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
@@ -1064,7 +1598,6 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
                 }
 
                 const bool remove_vertex =
-                    gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Merge ||
                     gs.district_boundary_editor.delete_mode;
                 const bool insert_vertex =
                     gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Split ||
@@ -1086,7 +1619,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
                             edge_idx = i;
                         }
                     }
-                    if (best_edge <= pick_radius * 1.5) {
+                    if (best_edge <= pick_radius * interaction_metrics.edge_insert_radius_multiplier) {
                         RogueCity::App::EditorManipulation::InsertDistrictVertex(*district, edge_idx, result.world_pos);
                         MarkDirtyForSelectionKind(gs, RogueCity::Core::Editor::VpEntityKind::District);
                         consumed_interaction = true;
@@ -1162,7 +1695,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
     } else if (!consumed_interaction && interaction_state->selection_drag.lasso_active) {
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
             if (interaction_state->selection_drag.lasso_points.empty() ||
-                interaction_state->selection_drag.lasso_points.back().distanceTo(result.world_pos) > 3.0) {
+                interaction_state->selection_drag.lasso_points.back().distanceTo(result.world_pos) > interaction_metrics.world_lasso_step) {
                 interaction_state->selection_drag.lasso_points.push_back(result.world_pos);
             }
         }
@@ -1179,7 +1712,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
             interaction_state->selection_drag.lasso_points.clear();
         }
     } else if (!consumed_interaction) {
-        const auto hovered = PickFromViewportIndex(gs, result.world_pos, zoom);
+        const auto hovered = PickFromViewportIndex(gs, result.world_pos, interaction_metrics);
         gs.hovered_entity = hovered;
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -1192,12 +1725,48 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
                     gs.selection_manager.Select(hovered->kind, hovered->id);
                 }
                 RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
+                selection_click_applied = true;
             } else if (!io.KeyShift && !io.KeyCtrl) {
                 gs.selection_manager.Clear();
                 RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
                 gs.hovered_entity.reset();
+                selection_click_applied = true;
             }
         }
+    }
+
+    bool dirty_changed = false;
+    for (size_t i = 0; i < dirty_before.size(); ++i) {
+        if (dirty_before[i] != gs.dirty_layers.flags[i]) {
+            dirty_changed = true;
+            break;
+        }
+    }
+
+    const bool left_click_unmodified =
+        left_click_attempt && !io.KeyAlt && !io.KeyShift && !io.KeyCtrl;
+
+    if (dirty_changed) {
+        result.handled = true;
+        result.requires_explicit_generation = domain_requires_explicit_generation;
+        result.status_code = domain_requires_explicit_generation
+            ? "mutated-explicit-generate-required"
+            : "mutated-live-preview";
+    } else if (selection_click_applied) {
+        result.handled = true;
+        result.status_code = "selection-updated";
+    } else if (consumed_interaction) {
+        result.handled = true;
+        result.status_code = "viewport-interaction-handled";
+    } else if (left_click_unmodified) {
+        result.status_code = "activate-only-no-viewport-mutation";
+    } else {
+        result.status_code = "hover";
+    }
+
+    if (result.handled || left_click_attempt) {
+        gs.tool_runtime.last_viewport_status = result.status_code;
+        gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
     }
 
     return result;

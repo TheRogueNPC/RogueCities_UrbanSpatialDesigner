@@ -104,7 +104,7 @@ void RcMasterPanel::DrawTabBar(DrawContext& ctx) {
 
     std::vector<PanelType> active_panels;
 
-    if (ImGui::BeginTabBar("##MasterPanelTabs", ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+    if (ImGui::BeginTabBar("##MasterPanelTabs", ImGuiTabBarFlags_FittingPolicyScroll)) {
         for (PanelCategory cat : categories) {
             auto panels = registry.GetPanelsInCategory(cat);
             if (panels.empty()) {
@@ -151,10 +151,9 @@ void RcMasterPanel::DrawTabBar(DrawContext& ctx) {
     DrawCategoryTab(m_active_category, active_panels);
     ImGui::Spacing();
 
-    const char* search_hint = "(Ctrl+P for search)";
-    if (ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(search_hint).x) {
-        ImGui::TextDisabled("%s", search_hint);
-    }
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", "(Ctrl+P for search)");
+    ImGui::PopTextWrapPos();
     ImGui::Separator();
 }
 
@@ -183,7 +182,7 @@ void RcMasterPanel::DrawCategoryTab(PanelCategory cat, const std::vector<PanelTy
         default: break;
     }
 
-    if (ImGui::BeginTabBar(sub_tab_id, ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+    if (ImGui::BeginTabBar(sub_tab_id, ImGuiTabBarFlags_FittingPolicyScroll)) {
         for (PanelType type : panels) {
             IPanelDrawer* drawer = registry.GetDrawer(type);
             if (!drawer) {

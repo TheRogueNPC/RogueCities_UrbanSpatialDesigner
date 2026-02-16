@@ -42,6 +42,10 @@ struct UITokens {
     static constexpr ImU32 ErrorRed         = IM_COL32(255, 50, 50, 255);
     static constexpr ImU32 SuccessGreen     = IM_COL32(0, 255, 100, 255);
     static constexpr ImU32 InfoBlue         = IM_COL32(100, 150, 255, 255);
+    static constexpr ImU32 ToolActiveFill   = IM_COL32(0, 255, 255, 72);
+    static constexpr ImU32 ToolActiveBorder = IM_COL32(0, 255, 255, 255);
+    static constexpr ImU32 ToolDisabledFill = IM_COL32(30, 35, 45, 170);
+    static constexpr ImU32 MUserTag         = IM_COL32(0, 255, 128, 255);
     
     // ========================================================================
     // SPACING SYSTEM (8px base unit)

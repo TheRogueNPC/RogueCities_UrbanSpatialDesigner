@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "40_implementation_completed/design-system-complete.md",
+                "file": "Writing/Untitled.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "design-system-complete"
+              "title": "Untitled"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "40_implementation_completed/design-system-complete.md",
+                "file": "Writing/Untitled.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for design-system-complete"
+              "title": "Backlinks for Untitled"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "40_implementation_completed/design-system-complete.md",
+                "file": "Writing/Untitled.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from design-system-complete"
+              "title": "Outgoing links from Untitled"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "40_implementation_completed/design-system-complete.md",
+                "file": "Writing/Untitled.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of design-system-complete"
+              "title": "Outline of Untitled"
             }
           }
         ]
@@ -185,6 +185,14 @@
   },
   "active": "ee0399504a558c3d",
   "lastOpenFiles": [
+    "30_runbooks/resize-regression-checklist.md",
+    "20_specs/tool-viewport-generation-contract.md",
+    "LICENSES.md",
+    "Writing/Untitled.md",
+    "Writing",
+    "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
+    "90_archive/legacy_temp/temp_documentation/README.md",
+    "40_implementation_completed/design-system-complete.md",
     "20_specs/rogue-profiler-spec.md",
     "20_specs/context-command-system.md",
     "20_specs/generator-viewport-contract.md",
@@ -199,7 +207,6 @@
     "20_specs/ui-faq-compliance-matrix.md",
     "20_specs/axiom-tools/ui-architecture-axiom-system.md",
     "40_implementation_completed/phase1-buildsystem-complete.md",
-    "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
     "41_plans_todos/XXOg9bVI",
     "00_index/XXeFYLy2",
     "20_specs/XXpVR2UT",
@@ -209,19 +216,12 @@
     "Doxy/docbook/latex",
     "Doxy/docbook/xml",
     "Doxy/docbook/docbook",
-    "Doxy/docbook/html/doxygen_crawl.html",
     "Doxy/html/doxygen.svg",
-    "LICENSES.md",
     "30_architecture/architecture-map.md",
     "20_specs/ui-patterns.md",
     "20_specs/ui-migration.md",
     "20_specs/type-alias-migration-guide.md",
     "20_specs/tech-stack.md",
-    "20_specs/quick-start.md",
-    "20_specs/masterpanel-conversion-guide.md",
-    "20_specs/masterpanel-build-verification.md",
-    "20_specs/docking-guide.md",
-    "10_book/book-outline-template.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }

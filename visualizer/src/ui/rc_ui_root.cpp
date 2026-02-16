@@ -227,6 +227,98 @@ static void DrawToolLibraryIcon(ImDrawList* draw_list, ToolLibrary tool, const I
     }
 }
 
+[[nodiscard]] static bool IsToolActionActive(const Tools::ToolActionSpec& action,
+                                             const RogueCity::Core::Editor::GlobalState& gs) {
+    using RogueCity::Core::Editor::BuildingSubtool;
+    using RogueCity::Core::Editor::DistrictSubtool;
+    using RogueCity::Core::Editor::LotSubtool;
+    using RogueCity::Core::Editor::RoadSplineSubtool;
+    using RogueCity::Core::Editor::RoadSubtool;
+    using RogueCity::Core::Editor::WaterSplineSubtool;
+    using RogueCity::Core::Editor::WaterSubtool;
+    using Tools::ToolActionId;
+
+    switch (action.id) {
+        case ToolActionId::Axiom_Organic:
+        case ToolActionId::Axiom_Grid:
+        case ToolActionId::Axiom_Radial:
+        case ToolActionId::Axiom_Hexagonal:
+        case ToolActionId::Axiom_Stem:
+        case ToolActionId::Axiom_LooseGrid:
+        case ToolActionId::Axiom_Suburban:
+        case ToolActionId::Axiom_Superblock:
+        case ToolActionId::Axiom_Linear:
+        case ToolActionId::Axiom_GridCorrective:
+            return gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Axiom &&
+                gs.tool_runtime.last_action_id == Tools::ToolActionName(action.id);
+
+        case ToolActionId::Water_Flow: return gs.tool_runtime.water_subtool == WaterSubtool::Flow;
+        case ToolActionId::Water_Contour: return gs.tool_runtime.water_subtool == WaterSubtool::Contour;
+        case ToolActionId::Water_Erode: return gs.tool_runtime.water_subtool == WaterSubtool::Erode;
+        case ToolActionId::Water_Select: return gs.tool_runtime.water_subtool == WaterSubtool::Select;
+        case ToolActionId::Water_Mask: return gs.tool_runtime.water_subtool == WaterSubtool::Mask;
+        case ToolActionId::Water_Inspect: return gs.tool_runtime.water_subtool == WaterSubtool::Inspect;
+        case ToolActionId::WaterSpline_Selection: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Selection;
+        case ToolActionId::WaterSpline_DirectSelect: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::DirectSelect;
+        case ToolActionId::WaterSpline_Pen: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Pen;
+        case ToolActionId::WaterSpline_ConvertAnchor: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::ConvertAnchor;
+        case ToolActionId::WaterSpline_AddRemoveAnchor: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::AddRemoveAnchor;
+        case ToolActionId::WaterSpline_HandleTangents: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::HandleTangents;
+        case ToolActionId::WaterSpline_SnapAlign: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::SnapAlign;
+        case ToolActionId::WaterSpline_JoinSplit: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::JoinSplit;
+        case ToolActionId::WaterSpline_Simplify: return gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Simplify;
+
+        case ToolActionId::Road_Spline: return gs.tool_runtime.road_subtool == RoadSubtool::Spline;
+        case ToolActionId::Road_Grid: return gs.tool_runtime.road_subtool == RoadSubtool::Grid;
+        case ToolActionId::Road_Bridge: return gs.tool_runtime.road_subtool == RoadSubtool::Bridge;
+        case ToolActionId::Road_Select: return gs.tool_runtime.road_subtool == RoadSubtool::Select;
+        case ToolActionId::Road_Disconnect: return gs.tool_runtime.road_subtool == RoadSubtool::Disconnect;
+        case ToolActionId::Road_Stub: return gs.tool_runtime.road_subtool == RoadSubtool::Stub;
+        case ToolActionId::Road_Curve: return gs.tool_runtime.road_subtool == RoadSubtool::Curve;
+        case ToolActionId::Road_Strengthen: return gs.tool_runtime.road_subtool == RoadSubtool::Strengthen;
+        case ToolActionId::Road_Inspect: return gs.tool_runtime.road_subtool == RoadSubtool::Inspect;
+        case ToolActionId::RoadSpline_Selection: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::Selection;
+        case ToolActionId::RoadSpline_DirectSelect: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::DirectSelect;
+        case ToolActionId::RoadSpline_Pen: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::Pen;
+        case ToolActionId::RoadSpline_ConvertAnchor: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::ConvertAnchor;
+        case ToolActionId::RoadSpline_AddRemoveAnchor: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::AddRemoveAnchor;
+        case ToolActionId::RoadSpline_HandleTangents: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::HandleTangents;
+        case ToolActionId::RoadSpline_SnapAlign: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::SnapAlign;
+        case ToolActionId::RoadSpline_JoinSplit: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::JoinSplit;
+        case ToolActionId::RoadSpline_Simplify: return gs.tool_runtime.road_spline_subtool == RoadSplineSubtool::Simplify;
+
+        case ToolActionId::District_Zone: return gs.tool_runtime.district_subtool == DistrictSubtool::Zone;
+        case ToolActionId::District_Paint: return gs.tool_runtime.district_subtool == DistrictSubtool::Paint;
+        case ToolActionId::District_Split: return gs.tool_runtime.district_subtool == DistrictSubtool::Split;
+        case ToolActionId::District_Select: return gs.tool_runtime.district_subtool == DistrictSubtool::Select;
+        case ToolActionId::District_Merge: return gs.tool_runtime.district_subtool == DistrictSubtool::Merge;
+        case ToolActionId::District_Inspect: return gs.tool_runtime.district_subtool == DistrictSubtool::Inspect;
+
+        case ToolActionId::Lot_Plot: return gs.tool_runtime.lot_subtool == LotSubtool::Plot;
+        case ToolActionId::Lot_Slice: return gs.tool_runtime.lot_subtool == LotSubtool::Slice;
+        case ToolActionId::Lot_Align: return gs.tool_runtime.lot_subtool == LotSubtool::Align;
+        case ToolActionId::Lot_Select: return gs.tool_runtime.lot_subtool == LotSubtool::Select;
+        case ToolActionId::Lot_Merge: return gs.tool_runtime.lot_subtool == LotSubtool::Merge;
+        case ToolActionId::Lot_Inspect: return gs.tool_runtime.lot_subtool == LotSubtool::Inspect;
+
+        case ToolActionId::Building_Place: return gs.tool_runtime.building_subtool == BuildingSubtool::Place;
+        case ToolActionId::Building_Scale: return gs.tool_runtime.building_subtool == BuildingSubtool::Scale;
+        case ToolActionId::Building_Rotate: return gs.tool_runtime.building_subtool == BuildingSubtool::Rotate;
+        case ToolActionId::Building_Select: return gs.tool_runtime.building_subtool == BuildingSubtool::Select;
+        case ToolActionId::Building_Assign: return gs.tool_runtime.building_subtool == BuildingSubtool::Assign;
+        case ToolActionId::Building_Inspect: return gs.tool_runtime.building_subtool == BuildingSubtool::Inspect;
+
+        case ToolActionId::Future_FloorPlan:
+        case ToolActionId::Future_Paths:
+        case ToolActionId::Future_Flow:
+        case ToolActionId::Future_Furnature:
+        case ToolActionId::Count:
+            return false;
+    }
+
+    return false;
+}
+
 using ToolLibraryContentRenderer = std::function<void()>;
 static const char* ToolLibraryWindowName(ToolLibrary tool);
 
@@ -335,25 +427,35 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             s_library_frame_state.size = ImGui::GetWindowSize();
         }
 #endif
-        BeginWindowContainer("##tool_library_container");
+        const bool container_open = BeginWindowContainer("##tool_library_container");
         const ImVec2 library_avail = ImGui::GetContentRegionAvail();
         const LayoutMode layout_mode = ResponsiveLayout::GetLayoutMode(library_avail.x);
-        if (layout_mode == LayoutMode::Collapsed ||
-            library_avail.x < ResponsiveConstants::MIN_PANEL_WIDTH ||
-            library_avail.y < ResponsiveConstants::MIN_PANEL_HEIGHT) {
+        if (!container_open) {
             EndWindowContainer();
             uiint.EndPanel();
             Components::EndTokenPanel();
             return;
         }
+        const bool compact_layout =
+            layout_mode == LayoutMode::Collapsed ||
+            library_avail.x < ResponsiveConstants::MIN_PANEL_WIDTH ||
+            library_avail.y < ResponsiveConstants::MIN_PANEL_HEIGHT;
 
         if (content_renderer) {
             content_renderer();
         } else {
             auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
             auto& gs = RogueCity::Core::Editor::GetGlobalState();
-            const float icon_size = std::max(38.0f, ImGui::GetFrameHeight() * 1.9f);
-            const float spacing = std::max(8.0f, ImGui::GetStyle().ItemSpacing.x);
+            if (compact_layout) {
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled("Compact layout active. Use scroll to access all tool actions.");
+                ImGui::PopTextWrapPos();
+                ImGui::Separator();
+            }
+
+            const float max_icon_size = std::max(26.0f, std::min(46.0f, library_avail.x - 12.0f));
+            const float icon_size = std::clamp(ImGui::GetFrameHeight() * 1.6f, 26.0f, max_icon_size);
+            const float spacing = std::max(4.0f, ImGui::GetStyle().ItemSpacing.x * (compact_layout ? 0.75f : 1.0f));
             const int columns = static_cast<int>(std::max(1.0f,
                 std::floor((library_avail.x + spacing) / (icon_size + spacing))));
 
@@ -382,6 +484,13 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
                     const size_t action_index = group_indices[local_idx];
                     const auto& action = actions[action_index];
                     const bool action_enabled = Tools::IsToolActionEnabled(action);
+                    const bool same_domain =
+                        gs.tool_runtime.active_domain == action.domain ||
+                        (action.domain == RogueCity::Core::Editor::ToolDomain::District &&
+                         gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Zone) ||
+                        (action.domain == RogueCity::Core::Editor::ToolDomain::Zone &&
+                         gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::District);
+                    const bool action_active = same_domain && IsToolActionActive(action, gs);
 
                     ImGui::PushID(static_cast<int>(action_index));
                     if (!action_enabled) {
@@ -397,15 +506,30 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
                     const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-                    const ImU32 fill = action_enabled
-                        ? WithAlpha(UITokens::PanelBackground, 220u)
-                        : WithAlpha(UITokens::PanelBackground, 150u);
-                    const ImU32 border = action_enabled
-                        ? WithAlpha(UITokens::TextSecondary, 180u)
-                        : WithAlpha(UITokens::TextSecondary, 100u);
+                    const ImU32 fill = !action_enabled
+                        ? UITokens::ToolDisabledFill
+                        : (action_active ? UITokens::ToolActiveFill : WithAlpha(UITokens::PanelBackground, 220u));
+                    const ImU32 border = !action_enabled
+                        ? WithAlpha(UITokens::TextSecondary, 100u)
+                        : (action_active ? UITokens::ToolActiveBorder : WithAlpha(UITokens::TextSecondary, 180u));
                     draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
-                    draw_list->AddRect(bmin, bmax, border, 8.0f, 0, 1.5f);
-                    DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.5f);
+                    draw_list->AddRect(bmin, bmax, border, 8.0f, 0, action_active ? 2.0f : 1.5f);
+                    if (action_active) {
+                        draw_list->AddRectFilled(
+                            ImVec2(bmin.x + 3.0f, bmin.y + 3.0f),
+                            ImVec2(bmax.x - 3.0f, bmin.y + 6.0f),
+                            WithAlpha(UITokens::ToolActiveBorder, 220u),
+                            2.0f);
+                    }
+                    DrawToolLibraryIcon(draw_list, tool, ImVec2(center.x, center.y - icon_size * 0.08f), icon_size * 0.42f);
+                    const ImVec2 label_size = ImGui::CalcTextSize(action.label);
+                    const ImVec2 label_pos(
+                        bmin.x + std::max(2.0f, (icon_size - label_size.x) * 0.5f),
+                        bmax.y - label_size.y - 2.0f);
+                    draw_list->AddText(
+                        label_pos,
+                        action_enabled ? WithAlpha(UITokens::TextPrimary, action_active ? 255u : 215u) : UITokens::TextDisabled,
+                        action.label);
 
                     if (clicked) {
                         std::string dispatch_status;
@@ -460,43 +584,81 @@ static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
 static bool s_dock_built = false;
 static bool s_dock_layout_dirty = true;
 static bool s_legacy_window_settings_cleared = false;
+static ImVec2 s_last_layout_viewport_size{0.0f, 0.0f};
 
 namespace {
-constexpr float kBaseMasterPanelWidth = 320.0f;
-constexpr float kBaseToolColumnWidth = 220.0f;
-constexpr float kBaseCenterWidth = 420.0f;
-constexpr float kBaseToolDeckHeight = 90.0f;
-constexpr float kBaseLibraryHeight = 180.0f;
-constexpr float kLayoutBuildMinWidth = 320.0f;
-constexpr float kLayoutBuildMinHeight = 240.0f;
-constexpr float kMinViewportFraction = 0.25f;
 constexpr float kMinCenterRatio = 0.40f;
+constexpr int kDockBuildStableFrameCount = 3;
+constexpr float kDockSizeStabilityTolerancePx = 2.0f;
+constexpr float kDockBuildHardMinWidth = 64.0f;
+constexpr float kDockBuildHardMinHeight = 64.0f;
 
-[[nodiscard]] ImVec2 MinimumDockViewportSize() {
-    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    ImVec2 display_size = main_viewport != nullptr ? main_viewport->WorkSize : ImVec2(1280.0f, 720.0f);
+struct DockBuildStabilityState {
+    ImVec2 last_viewport_size{0.0f, 0.0f};
+    int stable_frame_count{0};
+};
 
-#if defined(IMGUI_HAS_VIEWPORT)
-    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-    if (platform_io.Monitors.Size > 0) {
-        const ImGuiPlatformMonitor& monitor = platform_io.Monitors[0];
-        if (monitor.WorkSize.x > 0.0f && monitor.WorkSize.y > 0.0f) {
-            display_size = monitor.WorkSize;
-        }
-    }
-#endif
+static DockBuildStabilityState s_dock_build_stability{};
 
-    return ImVec2(
-        std::max(kLayoutBuildMinWidth, display_size.x * kMinViewportFraction),
-        std::max(kLayoutBuildMinHeight, display_size.y * kMinViewportFraction));
+void ResetDockBuildStability() {
+    s_dock_build_stability.last_viewport_size = ImVec2(0.0f, 0.0f);
+    s_dock_build_stability.stable_frame_count = 0;
 }
 
-[[nodiscard]] bool IsViewportTooSmallForDockLayout(const ImGuiViewport* viewport) {
-    if (viewport == nullptr) {
-        return true;
+[[nodiscard]] bool IsViewportStableForDockBuild(const ImGuiViewport* viewport) {
+    if (viewport == nullptr || viewport->Size.x <= 0.0f || viewport->Size.y <= 0.0f) {
+        ResetDockBuildStability();
+        return false;
     }
-    const ImVec2 min_size = MinimumDockViewportSize();
-    return viewport->Size.x < min_size.x || viewport->Size.y < min_size.y;
+
+    if (viewport->Size.x < kDockBuildHardMinWidth || viewport->Size.y < kDockBuildHardMinHeight) {
+        ResetDockBuildStability();
+        return false;
+    }
+
+    const ImVec2 current_size = viewport->Size;
+    bool size_changed = true;
+    if (s_dock_build_stability.last_viewport_size.x > 0.0f &&
+        s_dock_build_stability.last_viewport_size.y > 0.0f) {
+        const float delta_x = std::fabs(current_size.x - s_dock_build_stability.last_viewport_size.x);
+        const float delta_y = std::fabs(current_size.y - s_dock_build_stability.last_viewport_size.y);
+        size_changed = delta_x > kDockSizeStabilityTolerancePx || delta_y > kDockSizeStabilityTolerancePx;
+    }
+
+    s_dock_build_stability.last_viewport_size = current_size;
+    if (size_changed) {
+        s_dock_build_stability.stable_frame_count = 1;
+    } else {
+        s_dock_build_stability.stable_frame_count =
+            std::min(s_dock_build_stability.stable_frame_count + 1, 1024);
+    }
+
+    if (s_dock_build_stability.stable_frame_count < kDockBuildStableFrameCount) {
+        return false;
+    }
+
+    return true;
+}
+
+[[nodiscard]] bool HasSignificantViewportResize(const ImGuiViewport* viewport) {
+    if (viewport == nullptr || viewport->Size.x <= 0.0f || viewport->Size.y <= 0.0f) {
+        return false;
+    }
+
+    if (s_last_layout_viewport_size.x <= 0.0f || s_last_layout_viewport_size.y <= 0.0f) {
+        s_last_layout_viewport_size = viewport->Size;
+        return false;
+    }
+
+    const float dx = std::fabs(viewport->Size.x - s_last_layout_viewport_size.x);
+    const float dy = std::fabs(viewport->Size.y - s_last_layout_viewport_size.y);
+    const float x_threshold = std::max(120.0f, s_last_layout_viewport_size.x * 0.18f);
+    const float y_threshold = std::max(120.0f, s_last_layout_viewport_size.y * 0.18f);
+    const bool changed = dx >= x_threshold || dy >= y_threshold;
+    if (changed) {
+        s_last_layout_viewport_size = viewport->Size;
+    }
+    return changed;
 }
 
 void ClearLegacyPanelWindowSettingsOnce() {
@@ -725,7 +887,7 @@ void EndUnifiedTextWrap() {
 }
 
 bool BeginWindowContainer(const char* id, ImGuiWindowFlags flags) {
-    const ImGuiWindowFlags child_flags = flags | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    const ImGuiWindowFlags child_flags = flags;
     return ImGui::BeginChild(id, ImVec2(0.0f, 0.0f), true, child_flags);
 }
 
@@ -738,48 +900,9 @@ void EndWindowContainer() {
 // ============================================================================
 #if defined(IMGUI_HAS_DOCK)
 static void UpdateDynamicPanelSizes(const ImVec2& viewport_size) {
-    using namespace RC_UI;
-    
-    // Check if viewport is below recommended size
-    if (viewport_size.x < ViewportConfig::RECOMMENDED_VIEWPORT_WIDTH ||
-        viewport_size.y < ViewportConfig::RECOMMENDED_VIEWPORT_HEIGHT) {
-        
-        // Show non-intrusive warning (only once per session)
-        static bool s_warning_shown = false;
-        if (!s_warning_shown) {
-            ImGui::SetNextWindowPos(ImVec2(
-                viewport_size.x * 0.5f - 200.0f,
-                viewport_size.y * 0.5f - 75.0f
-            ), ImGuiCond_Always);
-            
-            ImGui::Begin("Viewport Size Notice", nullptr,
-                ImGuiWindowFlags_NoCollapse |
-                ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_AlwaysAutoResize |
-                ImGuiWindowFlags_NoSavedSettings);
-            
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-            ImGui::TextWrapped("Window size is below recommended minimum (1280x720).");
-            ImGui::TextWrapped("Some panels may be cramped or hidden.");
-            ImGui::PopStyleColor();
-            
-            ImGui::Spacing();
-            ImGui::TextWrapped("Current: %.0fx%.0f | Recommended: 1280x720",
-                viewport_size.x, viewport_size.y);
-            
-            ImGui::Spacing();
-            if (ImGui::Button("OK, Got It##viewport_size_notice")) {
-                s_warning_shown = true;
-                ImGui::CloseCurrentPopup();
-            }
-            
-            ImGui::End();
-        }
-    }
-    
-    // Validate panel minimums (prevent negative sizes)
-    // This is primarily enforced by ImGui's dock system, but we can add
-    // defensive checks here if needed in the future.
+    (void)viewport_size;
+    // Keep this path side-effect free: dynamic redraw should not create helper windows
+    // while resizing because that can steal focus and destabilize docking/input.
 }
 
 static void BuildDockLayout(ImGuiID dockspace_id) {
@@ -844,48 +967,6 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
 #else
     (void)dockspace_id;
     s_dock_nodes = {};
-#endif
-}
-
-static bool AreDockNodesHealthy(ImGuiID dockspace_id) {
-#if defined(IMGUI_HAS_DOCK)
-    if (!IsDockspaceValid(dockspace_id)) {
-        return false;
-    }
-
-    ImGuiDockNode* left = GetDockNodeSafe(s_dock_nodes.left);
-    ImGuiDockNode* center = GetDockNodeSafe(s_dock_nodes.center);
-    ImGuiDockNode* tool_deck = GetDockNodeSafe(s_dock_nodes.tool_deck);
-    ImGuiDockNode* library = GetDockNodeSafe(s_dock_nodes.library);
-
-    if (!DockNodeValidator::IsNodeSizeValid(left) ||
-        !DockNodeValidator::IsNodeSizeValid(center) ||
-        !DockNodeValidator::IsNodeSizeValid(tool_deck) ||
-        !DockNodeValidator::IsNodeSizeValid(library)) {
-        return false;
-    }
-
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const float width_scale = std::clamp((viewport ? viewport->Size.x : 1280.0f) / 1280.0f, 0.25f, 1.0f);
-    const float height_scale = std::clamp((viewport ? viewport->Size.y : 720.0f) / 720.0f, 0.25f, 1.0f);
-
-    const float min_master_width = kBaseMasterPanelWidth * width_scale;
-    const float min_tool_column_width = kBaseToolColumnWidth * width_scale;
-    const float min_center_width = kBaseCenterWidth * width_scale;
-    const float min_tool_deck_height = kBaseToolDeckHeight * height_scale;
-    const float min_library_height = kBaseLibraryHeight * height_scale;
-
-    // Bottom panels are optional in the current layout, so they are not part of
-    // health validation. Requiring them keeps the layout permanently "dirty".
-    return left->Size.x >= min_master_width &&
-        center->Size.x >= min_center_width &&
-        tool_deck->Size.x >= min_tool_column_width &&
-        tool_deck->Size.y >= min_tool_deck_height &&
-        library->Size.x >= min_tool_column_width &&
-        library->Size.y >= min_library_height;
-#else
-    (void)dockspace_id;
-    return true;
 #endif
 }
 
@@ -993,9 +1074,8 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
     bool layout_changed = false;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
-    if (IsViewportTooSmallForDockLayout(viewport)) {
-        // Keep current dock topology intact while the host is too small/iconified.
-        return;
+    if (HasSignificantViewportResize(viewport)) {
+        s_dock_layout_dirty = true;
     }
 
     if (!IsDockspaceValid(dockspace_id)) {
@@ -1003,7 +1083,14 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
         s_dock_layout_dirty = true;
     }
 
-    if (!s_dock_built || s_dock_layout_dirty || !AreDockNodesHealthy(dockspace_id)) {
+    // Rebuild only on explicit reset/dirty transitions. Auto-rebuilding every frame based on
+    // heuristic "health" thresholds causes visible de-render states on small window sizes.
+    const bool needs_rebuild = !s_dock_built || s_dock_layout_dirty;
+    if (needs_rebuild) {
+        if (!IsViewportStableForDockBuild(viewport)) {
+            return;
+        }
+
         // Check viewport size and show warnings if needed
         if (viewport != nullptr) {
             UpdateDynamicPanelSizes(viewport->Size);
@@ -1260,6 +1347,8 @@ void ResetDockLayout() {
     s_dock_built = false;
     s_dock_layout_dirty = true;
     s_pending_dock_requests.clear();
+    ResetDockBuildStability();
+    s_last_layout_viewport_size = ImVec2(0.0f, 0.0f);
 }
 
 bool SaveWorkspacePreset(const char* presetName, std::string* error) {
@@ -1396,8 +1485,9 @@ bool BeginDockableWindow(const char* windowName,
                          ImGuiWindowFlags flags) {
     const bool show_close = !state.was_docked;
     bool* p_open = show_close ? &state.open : nullptr;
-
-    const bool open = ImGui::Begin(windowName, p_open, flags);
+    const ImGuiWindowFlags resolved_flags = flags | ImGuiWindowFlags_NoCollapse;
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
+    const bool open = ImGui::Begin(windowName, p_open, resolved_flags);
     bool is_docked = false;
 #if defined(IMGUI_HAS_DOCK)
     is_docked = ImGui::IsWindowDocked();

@@ -269,12 +269,28 @@ const char* BuildingSubtoolName(RogueCity::Core::Editor::BuildingSubtool value) 
     return "Unknown";
 }
 
+const char* GenerationTagName(RogueCity::Core::GenerationTag value) {
+    switch (value) {
+    case RogueCity::Core::GenerationTag::Generated: return "Generated";
+    case RogueCity::Core::GenerationTag::M_user: return "M_user";
+    }
+    return "Unknown";
+}
+
 void DrawToolRuntime(GlobalState& gs) {
     ImGui::SeparatorText("Active Tool Runtime");
     ImGui::Text("Domain: %s", RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain));
     ImGui::Text("Last Action: %s (%s)",
         gs.tool_runtime.last_action_label.empty() ? "none" : gs.tool_runtime.last_action_label.c_str(),
         gs.tool_runtime.last_action_status.empty() ? "idle" : gs.tool_runtime.last_action_status.c_str());
+    ImGui::Text("Viewport Status: %s",
+        gs.tool_runtime.last_viewport_status.empty() ? "idle" : gs.tool_runtime.last_viewport_status.c_str());
+    const auto policy_for_active_domain = gs.generation_policy.ForDomain(gs.tool_runtime.active_domain);
+    ImGui::Text("Generation Policy: %s",
+        policy_for_active_domain == RogueCity::Core::Editor::GenerationMutationPolicy::LiveDebounced
+            ? "LiveDebounced"
+            : "ExplicitOnly");
+    ImGui::Text("Explicit Generate Pending: %s", gs.tool_runtime.explicit_generation_pending ? "yes" : "no");
     ImGui::Text("Dispatch Serial: %llu", static_cast<unsigned long long>(gs.tool_runtime.action_serial));
 
     switch (gs.tool_runtime.active_domain) {
@@ -415,12 +431,33 @@ void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
         const bool before = road.is_user_created;
         if (ImGui::Checkbox("User Created", &road.is_user_created)) {
             const bool after = road.is_user_created;
+            if (after) {
+                road.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                road.generation_locked = true;
+            } else if (road.generation_tag == RogueCity::Core::GenerationTag::M_user) {
+                road.generation_tag = RogueCity::Core::GenerationTag::Generated;
+                road.generation_locked = false;
+            }
             CommitValueChange(
                 history,
                 "Road User Flag",
                 before,
                 after,
                 [&road](bool v) { road.is_user_created = v; });
+            MarkDirtyForKind(gs, VpEntityKind::Road);
+        }
+    }
+    ImGui::Text("Generation Tag: %s", GenerationTagName(road.generation_tag));
+    {
+        const bool before = road.generation_locked;
+        if (ImGui::Checkbox("Generation Locked", &road.generation_locked)) {
+            const bool after = road.generation_locked;
+            CommitValueChange(
+                history,
+                "Road Generation Lock",
+                before,
+                after,
+                [&road](bool v) { road.generation_locked = v; });
             MarkDirtyForKind(gs, VpEntityKind::Road);
         }
     }
@@ -481,6 +518,40 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
                 before,
                 after,
                 [&district](RogueCity::Core::DistrictType v) { district.type = v; });
+            MarkDirtyForKind(gs, VpEntityKind::District);
+        }
+    }
+    {
+        const bool before = district.is_user_placed;
+        if (ImGui::Checkbox("User Placed", &district.is_user_placed)) {
+            const bool after = district.is_user_placed;
+            if (after) {
+                district.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                district.generation_locked = true;
+            } else if (district.generation_tag == RogueCity::Core::GenerationTag::M_user) {
+                district.generation_tag = RogueCity::Core::GenerationTag::Generated;
+                district.generation_locked = false;
+            }
+            CommitValueChange(
+                history,
+                "District User Flag",
+                before,
+                after,
+                [&district](bool v) { district.is_user_placed = v; });
+            MarkDirtyForKind(gs, VpEntityKind::District);
+        }
+    }
+    ImGui::Text("Generation Tag: %s", GenerationTagName(district.generation_tag));
+    {
+        const bool before = district.generation_locked;
+        if (ImGui::Checkbox("Generation Locked", &district.generation_locked)) {
+            const bool after = district.generation_locked;
+            CommitValueChange(
+                history,
+                "District Generation Lock",
+                before,
+                after,
+                [&district](bool v) { district.generation_locked = v; });
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
     }
@@ -640,12 +711,33 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
         const bool before = lot.is_user_placed;
         if (ImGui::Checkbox("User Placed", &lot.is_user_placed)) {
             const bool after = lot.is_user_placed;
+            if (after) {
+                lot.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                lot.generation_locked = true;
+            } else if (lot.generation_tag == RogueCity::Core::GenerationTag::M_user) {
+                lot.generation_tag = RogueCity::Core::GenerationTag::Generated;
+                lot.generation_locked = false;
+            }
             CommitValueChange(
                 history,
                 "Lot User Flag",
                 before,
                 after,
                 [&lot](bool v) { lot.is_user_placed = v; });
+            MarkDirtyForKind(gs, VpEntityKind::Lot);
+        }
+    }
+    ImGui::Text("Generation Tag: %s", GenerationTagName(lot.generation_tag));
+    {
+        const bool before = lot.generation_locked;
+        if (ImGui::Checkbox("Generation Locked", &lot.generation_locked)) {
+            const bool after = lot.generation_locked;
+            CommitValueChange(
+                history,
+                "Lot Generation Lock",
+                before,
+                after,
+                [&lot](bool v) { lot.generation_locked = v; });
             MarkDirtyForKind(gs, VpEntityKind::Lot);
         }
     }
@@ -723,12 +815,33 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
         const bool before = building.is_user_placed;
         if (ImGui::Checkbox("User Placed", &building.is_user_placed)) {
             const bool after = building.is_user_placed;
+            if (after) {
+                building.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                building.generation_locked = true;
+            } else if (building.generation_tag == RogueCity::Core::GenerationTag::M_user) {
+                building.generation_tag = RogueCity::Core::GenerationTag::Generated;
+                building.generation_locked = false;
+            }
             CommitValueChange(
                 history,
                 "Building User Flag",
                 before,
                 after,
                 [&building](bool v) { building.is_user_placed = v; });
+            MarkDirtyForKind(gs, VpEntityKind::Building);
+        }
+    }
+    ImGui::Text("Generation Tag: %s", GenerationTagName(building.generation_tag));
+    {
+        const bool before = building.generation_locked;
+        if (ImGui::Checkbox("Generation Locked", &building.generation_locked)) {
+            const bool after = building.generation_locked;
+            CommitValueChange(
+                history,
+                "Building Generation Lock",
+                before,
+                after,
+                [&building](bool v) { building.generation_locked = v; });
             MarkDirtyForKind(gs, VpEntityKind::Building);
         }
     }
