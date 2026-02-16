@@ -107,8 +107,10 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
   - `visualizer/src/ui/commands/rc_context_menu_smart.cpp`
   - `visualizer/src/ui/commands/rc_context_menu_pie.cpp`
   - `visualizer/src/ui/commands/rc_command_palette.cpp`
+  - `visualizer/src/ui/viewport/rc_viewport_interaction.cpp`
 - Responsibilities:
   - Expose one command registry sourced from `ToolActionCatalog`.
+  - Expose global viewport commands (minimap toggle, force generate, dock reset).
   - Render three command UIs (Smart List, Pie, Global Palette) over the same command IDs.
   - Route all command execution through `Commands::ExecuteCommand` -> `DispatchToolAction`.
 - Input rules:
@@ -119,10 +121,12 @@ Purpose: define the exact runtime layers, state flags, and ownership rules for t
 - Sources:
   - `app/src/Integration/GenerationCoordinator.cpp`
   - `app/src/Integration/CityOutputApplier.cpp`
+  - `visualizer/src/ui/viewport/rc_viewport_scene_controller.cpp`
   - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
 - Responsibilities:
   - Coordinate generation request serials and reason codes.
   - Apply `CityOutput` into `GlobalState` via a single canonical applier.
+  - Maintain shared `SceneFrame` updates + minimap synchronization from one controller path.
   - Keep panel rendering code free of direct output-application ownership.
 
 ### Layer 6: Drawer/Panel Content
@@ -221,8 +225,10 @@ When touching UI loop/docking/panel code, verify:
 - Viewport command smart menu: `visualizer/src/ui/commands/rc_context_menu_smart.h`
 - Viewport command pie menu: `visualizer/src/ui/commands/rc_context_menu_pie.h`
 - Viewport command palette: `visualizer/src/ui/commands/rc_command_palette.h`
+- Viewport command trigger arbitration: `visualizer/src/ui/viewport/rc_viewport_interaction.h`
 - Generation coordinator: `app/include/RogueCity/App/Integration/GenerationCoordinator.hpp`
 - City output applier: `app/include/RogueCity/App/Integration/CityOutputApplier.hpp`
+- Viewport scene controller: `visualizer/src/ui/viewport/rc_viewport_scene_controller.h`
 - RogueProfiler: `generators/include/RogueCity/Generators/Scoring/RogueProfiler.hpp`
 - Compliance matrix: `docs/20_specs/ui-faq-compliance-matrix.md`
 - Tool contract spec: `docs/20_specs/tool-wiring-contract.md`

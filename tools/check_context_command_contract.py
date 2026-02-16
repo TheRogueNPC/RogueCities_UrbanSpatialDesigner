@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     ROOT / "visualizer" / "src" / "ui" / "commands" / "rc_context_menu_pie.cpp",
     ROOT / "visualizer" / "src" / "ui" / "commands" / "rc_command_palette.h",
     ROOT / "visualizer" / "src" / "ui" / "commands" / "rc_command_palette.cpp",
+    ROOT / "visualizer" / "src" / "ui" / "viewport" / "rc_viewport_interaction.cpp",
     ROOT / "visualizer" / "src" / "ui" / "panels" / "rc_panel_axiom_editor.cpp",
 ]
 
@@ -48,6 +49,8 @@ def main() -> int:
     pie_cpp = read(ROOT / "visualizer" / "src" / "ui" / "commands" / "rc_context_menu_pie.cpp")
     palette_cpp = read(ROOT / "visualizer" / "src" / "ui" / "commands" / "rc_command_palette.cpp")
     panel_cpp = read(ROOT / "visualizer" / "src" / "ui" / "panels" / "rc_panel_axiom_editor.cpp")
+    interaction_cpp_path = ROOT / "visualizer" / "src" / "ui" / "viewport" / "rc_viewport_interaction.cpp"
+    interaction_cpp = read(interaction_cpp_path) if interaction_cpp_path.exists() else ""
 
     if "GetToolActionCatalog" not in registry_cpp:
         violations.append("Command registry must source entries from tool action catalog (GetToolActionCatalog).")
@@ -62,22 +65,45 @@ def main() -> int:
         if "DispatchToolAction(" in text:
             violations.append(f"{name} bypasses registry by calling DispatchToolAction() directly.")
 
-    required_panel_tokens = [
+    if "GetGlobalViewportCommands" not in registry_cpp:
+        violations.append("Context registry must expose global viewport commands.")
+
+    global_tokens = [
+        "Toggle Minimap",
+        "Force Generate",
+        "Reset Dock Layout",
+        "ExecuteGlobalViewportCommand",
+    ]
+    for token in global_tokens:
+        if token not in registry_cpp:
+            violations.append(f"Global command token missing from context registry: {token}")
+
+    if "ProcessViewportCommandTriggers" not in panel_cpp:
+        violations.append("Viewport panel must call ProcessViewportCommandTriggers().")
+
+    required_flow_tokens = [
         "RequestOpenSmartMenu",
         "RequestOpenPieMenu",
         "RequestOpenCommandPalette",
-        "DrawSmartMenu",
-        "DrawPieMenu",
-        "DrawCommandPalette",
         "viewport_context_default_mode",
         "viewport_hotkey_space_enabled",
         "viewport_hotkey_slash_enabled",
         "viewport_hotkey_grave_enabled",
         "viewport_hotkey_p_enabled",
     ]
-    for token in required_panel_tokens:
+    combined_viewport_flow = panel_cpp + "\n" + interaction_cpp
+    for token in required_flow_tokens:
+        if token not in combined_viewport_flow:
+            violations.append(f"Viewport command flow missing token: {token}")
+
+    required_draw_tokens = [
+        "DrawSmartMenu",
+        "DrawPieMenu",
+        "DrawCommandPalette",
+    ]
+    for token in required_draw_tokens:
         if token not in panel_cpp:
-            violations.append(f"Viewport panel missing command integration token: {token}")
+            violations.append(f"Viewport panel missing command draw token: {token}")
 
     if violations:
         print("Context command contract violations detected:")

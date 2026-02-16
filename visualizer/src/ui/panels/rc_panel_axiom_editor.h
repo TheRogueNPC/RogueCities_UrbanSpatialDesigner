@@ -55,6 +55,9 @@ void SetMinimapManualLODLevel(int level);
 void SetMinimapAdaptiveQualityEnabled(bool enabled);
 [[nodiscard]] int GetMinimapEffectiveLODLevel();
 [[nodiscard]] const char* GetMinimapLODStatusText();
+[[nodiscard]] bool IsMinimapVisible();
+void SetMinimapVisible(bool visible);
+void ToggleMinimapVisible();
 
 [[nodiscard]] bool CanUndo();
 [[nodiscard]] bool CanRedo();

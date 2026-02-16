@@ -120,6 +120,8 @@ endif()
         src/ui/viewport/rc_viewport_overlays.cpp
         src/ui/viewport/rc_scene_frame.cpp
         src/ui/viewport/rc_minimap_renderer.cpp
+        src/ui/viewport/rc_viewport_scene_controller.cpp
+        src/ui/viewport/rc_viewport_interaction.cpp
         # Master Panel Architecture (RC-0.10)
         src/ui/panels/IPanelDrawer.cpp
         src/ui/panels/PanelRegistry.cpp
@@ -216,6 +218,8 @@ endif()
                 src/ui/viewport/rc_viewport_overlays.cpp
                 src/ui/viewport/rc_scene_frame.cpp
                 src/ui/viewport/rc_minimap_renderer.cpp
+                src/ui/viewport/rc_viewport_scene_controller.cpp
+                src/ui/viewport/rc_viewport_interaction.cpp
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"

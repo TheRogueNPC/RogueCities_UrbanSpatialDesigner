@@ -59,6 +59,22 @@ void DrawSmartMenu(
         ImGui::EndMenu();
     }
 
+    if (ImGui::BeginMenu("Global")) {
+        for (const auto& command : GetGlobalViewportCommands()) {
+            if (ImGui::Selectable(command.label, false)) {
+                std::string status;
+                const bool executed = ExecuteGlobalViewportCommand(command.id, dispatch_context, &status);
+                (void)executed;
+                ImGui::CloseCurrentPopup();
+                break;
+            }
+            if (ImGui::IsItemHovered() && command.tooltip != nullptr && command.tooltip[0] != '\0') {
+                ImGui::SetTooltip("%s", command.tooltip);
+            }
+        }
+        ImGui::EndMenu();
+    }
+
     ImGui::EndPopup();
 }
 

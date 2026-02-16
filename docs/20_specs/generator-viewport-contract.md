@@ -11,10 +11,11 @@ Purpose: define the single authoritative path from generation output into runtim
 ## Authoritative Flow
 
 1. UI interaction updates axioms/config.
-2. Panel requests generation through `GenerationCoordinator::RequestRegeneration()` or `ForceRegeneration()`.
-3. `RealTimePreview` completes and invokes coordinator callback on main thread.
-4. Callback applies output through `ApplyCityOutputToGlobalState(...)`.
-5. Viewport/minimap consume the current output pointer for render overlays.
+2. `UpdateSceneController(...)` performs per-frame sync update, generation update, scene-frame build, and minimap sync.
+3. Panel requests generation through `GenerationCoordinator::RequestRegeneration()` or `ForceRegeneration()`.
+4. `RealTimePreview` completes and invokes coordinator callback on main thread.
+5. Callback applies output through `ApplyCityOutputToGlobalState(...)`.
+6. Viewport/minimap consume `SceneFrame` for render overlays.
 
 ## Invariants
 
@@ -22,6 +23,7 @@ Purpose: define the single authoritative path from generation output into runtim
 2. Any new generator completion path must call `ApplyCityOutputToGlobalState`.
 3. Live preview and explicit generation must use coordinator APIs only.
 4. Viewport index rebuild and dirty-layer cleanup must be controlled by applier options, not ad-hoc panel logic.
+5. Scene-frame ownership/update path must stay in viewport scene controller utilities, not duplicated in panel code.
 
 ## Enforcement
 

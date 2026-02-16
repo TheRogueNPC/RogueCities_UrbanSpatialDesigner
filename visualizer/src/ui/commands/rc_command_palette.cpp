@@ -2,7 +2,32 @@
 
 #include <imgui.h>
 
+#include <cctype>
 #include <string>
+#include <string_view>
+
+namespace {
+
+bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle) {
+    if (needle.empty()) {
+        return true;
+    }
+
+    std::string lower_haystack;
+    lower_haystack.reserve(haystack.size());
+    for (char c : haystack) {
+        lower_haystack.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+
+    std::string lower_needle;
+    lower_needle.reserve(needle.size());
+    for (char c : needle) {
+        lower_needle.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return lower_haystack.find(lower_needle) != std::string::npos;
+}
+
+} // namespace
 
 namespace RC_UI::Commands {
 
@@ -66,6 +91,27 @@ void DrawCommandPalette(
         if (selected) {
             std::string status;
             const bool executed = ExecuteCommand(action->id, dispatch_context, &status);
+            (void)executed;
+            ImGui::CloseCurrentPopup();
+            break;
+        }
+    }
+
+    const std::string_view filter_text(state.filter);
+    for (const auto& command : GetGlobalViewportCommands()) {
+        const bool matches_filter = ContainsCaseInsensitive(command.label, filter_text) ||
+            ContainsCaseInsensitive(command.tooltip != nullptr ? command.tooltip : "", filter_text);
+        if (!matches_filter) {
+            continue;
+        }
+
+        const bool selected = ImGui::Selectable(command.label, false);
+        if (ImGui::IsItemHovered() && command.tooltip != nullptr && command.tooltip[0] != '\0') {
+            ImGui::SetTooltip("%s", command.tooltip);
+        }
+        if (selected) {
+            std::string status;
+            const bool executed = ExecuteGlobalViewportCommand(command.id, dispatch_context, &status);
             (void)executed;
             ImGui::CloseCurrentPopup();
             break;

@@ -30,6 +30,8 @@
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "ui/viewport/rc_scene_frame.h"
 #include "ui/viewport/rc_minimap_renderer.h"
+#include "ui/viewport/rc_viewport_scene_controller.h"
+#include "ui/viewport/rc_viewport_interaction.h"
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "ui/introspection/UiIntrospection.h"
 #include <imgui.h>
@@ -774,6 +776,18 @@ int GetMinimapEffectiveLODLevel() {
 
 const char* GetMinimapLODStatusText() {
     return MinimapLODStatusText();
+}
+
+bool IsMinimapVisible() {
+    return s_minimap_visible;
+}
+
+void SetMinimapVisible(bool visible) {
+    s_minimap_visible = visible;
+}
+
+void ToggleMinimapVisible() {
+    s_minimap_visible = !s_minimap_visible;
 }
 
 bool ApplyGeneratorRequest(
@@ -1550,22 +1564,16 @@ void DrawContent(float dt) {
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
         (current_state == RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
     
-    // Update viewport sync + preview scheduler
-    s_sync_manager->update(dt);
-    if (s_generation_coordinator) {
-        s_generation_coordinator->Update(dt);
-    }
-    if (s_primary_viewport) {
-        const auto* latest_output = s_generation_coordinator ? s_generation_coordinator->GetOutput() : nullptr;
-        const uint64_t generation_serial = s_generation_coordinator ? s_generation_coordinator->LastCompletedSerial() : 0u;
-        s_scene_frame = RC_UI::Viewport::BuildSceneFrame(
-            latest_output,
-            s_primary_viewport->get_camera_xy(),
-            s_primary_viewport->get_camera_z(),
-            s_primary_viewport->get_camera_yaw(),
-            generation_serial);
-        RC_UI::Viewport::SyncMinimapFromSceneFrame(RC_UI::GetMinimapViewport(), s_scene_frame);
-    }
+    // Update viewport sync + generation scheduler through a shared scene controller path.
+    RC_UI::Viewport::UpdateSceneController(
+        s_scene_frame,
+        RC_UI::Viewport::SceneControllerUpdateInput{
+            dt,
+            s_primary_viewport.get(),
+            s_sync_manager.get(),
+            s_generation_coordinator.get(),
+            RC_UI::GetMinimapViewport(),
+        });
     
     // Render primary viewport with axiom tool integration
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -1637,53 +1645,19 @@ void DrawContent(float dt) {
         &uiint,
         "Viewport Commands"
     };
-
-    auto request_default_context_menu = [&](const ImVec2& screen_pos) {
-        using RogueCity::Core::Editor::ViewportCommandMode;
-        switch (gs.config.viewport_context_default_mode) {
-            case ViewportCommandMode::SmartList:
-                RC_UI::Commands::RequestOpenSmartMenu(s_smart_command_menu, screen_pos);
-                break;
-            case ViewportCommandMode::Pie:
-                RC_UI::Commands::RequestOpenPieMenu(s_pie_command_menu, screen_pos);
-                break;
-            case ViewportCommandMode::Palette:
-            default:
-                RC_UI::Commands::RequestOpenCommandPalette(s_command_palette);
-                break;
-        }
-    };
-
-    const bool allow_command_hotkeys =
-        allow_viewport_key_actions &&
-        in_viewport &&
-        !minimap_hovered &&
-        !ImGui::GetIO().WantTextInput &&
-        !ImGui::IsAnyItemActive();
-
-    if (allow_viewport_mouse_actions &&
-        in_viewport &&
-        !minimap_hovered &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
-        !ImGui::GetIO().KeyAlt &&
-        !ImGui::GetIO().KeyShift &&
-        !ImGui::GetIO().KeyCtrl) {
-        request_default_context_menu(mouse_pos);
-    }
-
-    if (allow_command_hotkeys) {
-        const ImGuiIO& io = ImGui::GetIO();
-        if (gs.config.viewport_hotkey_space_enabled && ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
-            RC_UI::Commands::RequestOpenSmartMenu(s_smart_command_menu, mouse_pos);
-        }
-        if ((gs.config.viewport_hotkey_slash_enabled && ImGui::IsKeyPressed(ImGuiKey_Slash, false)) ||
-            (gs.config.viewport_hotkey_grave_enabled && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))) {
-            RC_UI::Commands::RequestOpenPieMenu(s_pie_command_menu, mouse_pos);
-        }
-        if (gs.config.viewport_hotkey_p_enabled && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
-            RC_UI::Commands::RequestOpenCommandPalette(s_command_palette);
-        }
-    }
+    RC_UI::Viewport::ProcessViewportCommandTriggers(
+        RC_UI::Viewport::CommandInteractionParams{
+            input_gate,
+            in_viewport,
+            minimap_hovered,
+            mouse_pos,
+            &gs.config,
+        },
+        RC_UI::Viewport::CommandMenuStateBundle{
+            &s_smart_command_menu,
+            &s_pie_command_menu,
+            &s_command_palette,
+        });
 
     if (axiom_mode && allow_viewport_mouse_actions) {
         ImGuiIO& io = ImGui::GetIO();
@@ -2361,7 +2335,7 @@ void DrawContent(float dt) {
     
     // Minimap toggle hotkey (M key) - only when viewport has focus
     if (viewport_window_hovered && allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_M)) {
-        s_minimap_visible = !s_minimap_visible;
+        ToggleMinimapVisible();
     }
     
     // Validation errors are shown in the Tools strip (and can still be overlayed here if desired).

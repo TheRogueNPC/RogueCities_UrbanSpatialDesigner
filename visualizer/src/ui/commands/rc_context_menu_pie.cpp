@@ -103,6 +103,22 @@ void DrawPieMenu(
         }
     }
 
+    ImGui::Separator();
+    ImGui::TextUnformatted("Global");
+    for (const auto& command : GetGlobalViewportCommands()) {
+        if (ImGui::Button(command.label, ImVec2(112.0f, 26.0f))) {
+            std::string status;
+            const bool executed = ExecuteGlobalViewportCommand(command.id, dispatch_context, &status);
+            (void)executed;
+            ImGui::CloseCurrentPopup();
+            break;
+        }
+        if (ImGui::IsItemHovered() && command.tooltip != nullptr && command.tooltip[0] != '\0') {
+            ImGui::SetTooltip("%s", command.tooltip);
+        }
+        ImGui::SameLine();
+    }
+
     ImGui::EndPopup();
 }
 

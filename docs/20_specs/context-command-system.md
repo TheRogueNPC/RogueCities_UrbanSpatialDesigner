@@ -13,8 +13,15 @@ All surfaces execute the same command IDs via `RC_UI::Commands::ExecuteCommand(.
 ## Registry and Dispatch
 
 1. Registry source: `RC_UI::Tools::GetToolActionCatalog()` via `rc_context_command_registry.cpp`.
-2. Execution path: `Commands::ExecuteCommand` -> `Tools::DispatchToolAction`.
-3. No menu surface is allowed to call `DispatchToolAction` directly.
+2. Tool execution path: `Commands::ExecuteCommand` -> `Tools::DispatchToolAction`.
+3. Global command execution path: `Commands::ExecuteGlobalViewportCommand`.
+4. No menu surface is allowed to call `DispatchToolAction` directly.
+
+## Built-in Global Viewport Commands
+
+1. `Toggle Minimap`
+2. `Force Generate`
+3. `Reset Dock Layout`
 
 ## Preferences and Defaults
 
@@ -42,6 +49,8 @@ Commands may open only when:
 2. Viewport is hovered/focused.
 3. Minimap interaction region is not active.
 4. `io.WantTextInput == false`.
+
+This trigger path is centralized through viewport interaction utilities (`rc_viewport_interaction.cpp`) instead of panel-local key/mouse blocks.
 
 ## Enforcement
 
