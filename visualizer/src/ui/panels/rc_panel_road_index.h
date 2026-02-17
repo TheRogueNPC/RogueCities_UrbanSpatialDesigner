@@ -16,9 +16,4 @@ inline RC_UI::Patterns::RcDataIndexPanel<RogueCity::Core::Road, RoadIndexTraits>
     return panel;
 }
 
-// Draw the road index panel. Shows count and each road ID/type.
-inline void Draw(float dt) {
-    GetPanel().Draw(dt);
-}
-
 } // namespace RC_UI::Panels::RoadIndex
