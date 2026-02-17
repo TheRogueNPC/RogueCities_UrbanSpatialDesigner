@@ -19,3 +19,4 @@ desktop.ini
 imgui.ini
 /mcp-server/
 /3rdparty/vcpkg/
+.vscode/mcp.json

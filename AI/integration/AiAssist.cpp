@@ -84,6 +84,7 @@ std::string ActiveModeFromHFSM() {
     switch (state) {
         case EditorState::Editing_Axioms:
         case EditorState::Viewport_PlaceAxiom: return "AXIOM";
+        case EditorState::Editing_Water: return "WATER";
         case EditorState::Editing_Roads:
         case EditorState::Viewport_DrawRoad: return "ROAD";
         case EditorState::Editing_Districts: return "DISTRICT";

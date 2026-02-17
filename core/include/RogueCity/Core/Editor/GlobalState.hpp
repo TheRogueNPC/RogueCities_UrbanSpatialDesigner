@@ -381,6 +381,15 @@ namespace RogueCity::Core::Editor {
         bool debug_show_tensor_overlay{ false };
         bool debug_show_height_overlay{ false };
         bool debug_show_zone_overlay{ false };
+        
+        // Layer visibility toggles (per data type)
+        bool show_layer_axioms{ true };
+        bool show_layer_water{ true };
+        bool show_layer_roads{ true };
+        bool show_layer_districts{ true };
+        bool show_layer_lots{ true };
+        bool show_layer_buildings{ true };
+        
         bool minimap_manual_lod{ false };   // Render-only state; must not affect generation output.
         uint8_t minimap_lod_level{ 1 };     // 0=full,1=medium,2=coarse.
         GizmoState gizmo{};

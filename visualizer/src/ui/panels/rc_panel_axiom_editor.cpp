@@ -154,6 +154,190 @@ namespace {
 
 }
 
+// === Clear Layer Command (Undoable) ===
+struct ClearLayerCommand : public RogueCity::App::ICommand {
+    enum LayerMask : uint32_t {
+        None = 0,
+        Axioms = 1 << 0,
+        Water = 1 << 1,
+        Roads = 1 << 2,
+        Districts = 1 << 3,
+        Lots = 1 << 4,
+        Buildings = 1 << 5,
+        Blocks = 1 << 6,
+        All = Axioms | Water | Roads | Districts | Lots | Buildings | Blocks
+    };
+
+    uint32_t layers{ None };
+    std::string description{};
+
+    // Snapshots (stored before clear)
+    std::vector<RogueCity::App::AxiomPlacementTool::AxiomSnapshot> axioms_snapshot{};
+    std::vector<RogueCity::Core::WaterBody> water_snapshot{};
+    std::vector<RogueCity::Core::Road> roads_snapshot{};
+    std::vector<RogueCity::Core::District> districts_snapshot{};
+    std::vector<RogueCity::Core::LotToken> lots_snapshot{};
+    std::vector<RogueCity::Core::BuildingSite> buildings_snapshot{};
+    std::vector<RogueCity::Core::BlockPolygon> blocks_snapshot{};
+
+    void Execute() override {
+        auto& gs = RogueCity::Core::Editor::GetGlobalState();
+
+        // Capture snapshots before clearing
+        if (layers & Axioms) {
+            axioms_snapshot.clear();
+            if (auto* axiom_tool = RC_UI::Panels::AxiomEditor::GetAxiomTool()) {
+                const auto& tool_axioms = axiom_tool->axioms();
+                axioms_snapshot.reserve(tool_axioms.size());
+                for (const auto& axiom : tool_axioms) {
+                    if (!axiom) {
+                        continue;
+                    }
+
+                    RogueCity::App::AxiomPlacementTool::AxiomSnapshot snapshot{};
+                    snapshot.id = axiom->id();
+                    snapshot.type = axiom->type();
+                    snapshot.position = axiom->position();
+                    snapshot.radius = axiom->radius();
+                    snapshot.rotation = axiom->rotation();
+                    snapshot.organic_curviness = axiom->organic_curviness();
+                    snapshot.radial_spokes = axiom->radial_spokes();
+                    snapshot.loose_grid_jitter = axiom->loose_grid_jitter();
+                    snapshot.suburban_loop_strength = axiom->suburban_loop_strength();
+                    snapshot.stem_branch_angle = axiom->stem_branch_angle();
+                    snapshot.superblock_block_size = axiom->superblock_block_size();
+                    axioms_snapshot.push_back(snapshot);
+                }
+            }
+        }
+        if (layers & Water) {
+            water_snapshot.clear();
+            for (const auto& wb : gs.waterbodies) {
+                water_snapshot.push_back(wb);
+            }
+        }
+        if (layers & Roads) {
+            roads_snapshot.clear();
+            for (const auto& rd : gs.roads) {
+                roads_snapshot.push_back(rd);
+            }
+        }
+        if (layers & Districts) {
+            districts_snapshot.clear();
+            for (const auto& dt : gs.districts) {
+                districts_snapshot.push_back(dt);
+            }
+        }
+        if (layers & Lots) {
+            lots_snapshot.clear();
+            for (const auto& lt : gs.lots) {
+                lots_snapshot.push_back(lt);
+            }
+        }
+        if (layers & Buildings) {
+            buildings_snapshot.clear();
+            for (const auto& bd : gs.buildings) {
+                buildings_snapshot.push_back(bd);
+            }
+        }
+        if (layers & Blocks) {
+            blocks_snapshot.clear();
+            for (const auto& bl : gs.blocks) {
+                blocks_snapshot.push_back(bl);
+            }
+        }
+
+        // Perform the clear
+        if (layers & Axioms) {
+            if (auto* axiom_tool = RC_UI::Panels::AxiomEditor::GetAxiomTool()) {
+                axiom_tool->clear_axioms();
+            }
+            gs.axioms.clear();
+        }
+        if (layers & Water) gs.waterbodies.clear();
+        if (layers & Roads) gs.roads.clear();
+        if (layers & Districts) gs.districts.clear();
+        if (layers & Lots) gs.lots.clear();
+        if (layers & Buildings) gs.buildings.clear();
+        if (layers & Blocks) gs.blocks.clear();
+
+        // Mark affected layers as dirty
+        if (layers & Axioms) gs.dirty_layers.MarkFromAxiomEdit();
+        if (layers & Water) gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Roads);
+        if (layers & (Roads | Districts | Lots | Buildings | Blocks)) {
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Roads);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Districts);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Lots);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Buildings);
+        }
+    }
+
+    void Undo() override {
+        auto& gs = RogueCity::Core::Editor::GetGlobalState();
+
+        // Restore from snapshots
+        if (layers & Axioms) {
+            if (auto* axiom_tool = RC_UI::Panels::AxiomEditor::GetAxiomTool()) {
+                axiom_tool->clear_axioms();
+                for (const auto& snapshot : axioms_snapshot) {
+                    axiom_tool->add_axiom_from_snapshot(snapshot);
+                }
+            }
+            gs.axioms.clear();
+        }
+        if (layers & Water) {
+            gs.waterbodies.clear();
+            for (const auto& wb : water_snapshot) {
+                gs.waterbodies.add(wb);
+            }
+        }
+        if (layers & Roads) {
+            gs.roads.clear();
+            for (const auto& rd : roads_snapshot) {
+                gs.roads.add(rd);
+            }
+        }
+        if (layers & Districts) {
+            gs.districts.clear();
+            for (const auto& dt : districts_snapshot) {
+                gs.districts.add(dt);
+            }
+        }
+        if (layers & Lots) {
+            gs.lots.clear();
+            for (const auto& lt : lots_snapshot) {
+                gs.lots.add(lt);
+            }
+        }
+        if (layers & Buildings) {
+            gs.buildings.clear();
+            for (const auto& bd : buildings_snapshot) {
+                    gs.buildings.push_back(bd);
+            }
+        }
+        if (layers & Blocks) {
+            gs.blocks.clear();
+            for (const auto& bl : blocks_snapshot) {
+                gs.blocks.add(bl);
+            }
+        }
+
+        // Mark affected layers as dirty
+        if (layers & Axioms) gs.dirty_layers.MarkFromAxiomEdit();
+        if (layers & Water) gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Roads);
+        if (layers & (Roads | Districts | Lots | Buildings | Blocks)) {
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Roads);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Districts);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Lots);
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Buildings);
+        }
+    }
+
+    const char* GetDescription() const override {
+        return description.c_str();
+    }
+};
+
 // Singleton instances (owned by this panel)
 static std::unique_ptr<RogueCity::App::PrimaryViewport> s_primary_viewport;
 static std::unique_ptr<RogueCity::App::ViewportSyncManager> s_sync_manager;
@@ -173,6 +357,52 @@ static RC_UI::Commands::PieMenuState s_pie_command_menu{};
 static RC_UI::Commands::CommandPaletteState s_command_palette{};
 
 static RC_UI::Viewport::NonAxiomInteractionState s_non_axiom_interaction{};
+
+RogueCity::Core::Editor::EditorAxiom::Type ToEditorAxiomType(RogueCity::App::AxiomVisual::AxiomType type) {
+    using RogueCity::App::AxiomVisual;
+    using RogueCity::Core::Editor::EditorAxiom;
+
+    switch (type) {
+    case AxiomVisual::AxiomType::Organic: return EditorAxiom::Type::Organic;
+    case AxiomVisual::AxiomType::Grid: return EditorAxiom::Type::Grid;
+    case AxiomVisual::AxiomType::Radial: return EditorAxiom::Type::Radial;
+    case AxiomVisual::AxiomType::Hexagonal: return EditorAxiom::Type::Hexagonal;
+    case AxiomVisual::AxiomType::Stem: return EditorAxiom::Type::Stem;
+    case AxiomVisual::AxiomType::LooseGrid: return EditorAxiom::Type::LooseGrid;
+    case AxiomVisual::AxiomType::Suburban: return EditorAxiom::Type::Suburban;
+    case AxiomVisual::AxiomType::Superblock: return EditorAxiom::Type::Superblock;
+    case AxiomVisual::AxiomType::Linear: return EditorAxiom::Type::Linear;
+    case AxiomVisual::AxiomType::GridCorrective: return EditorAxiom::Type::GridCorrective;
+    }
+
+    return EditorAxiom::Type::Grid;
+}
+
+void SyncToolAxiomsToGlobalState() {
+    if (!s_axiom_tool) {
+        return;
+    }
+
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    gs.axioms.clear();
+
+    const auto& tool_axioms = s_axiom_tool->axioms();
+    for (const auto& axiom : tool_axioms) {
+        if (!axiom) {
+            continue;
+        }
+
+        RogueCity::Core::Editor::EditorAxiom editor_axiom{};
+        editor_axiom.id = static_cast<uint32_t>(std::max(0, axiom->id()));
+        editor_axiom.type = ToEditorAxiomType(axiom->type());
+        editor_axiom.position = axiom->position();
+        editor_axiom.radius = static_cast<double>(axiom->radius());
+        editor_axiom.theta = static_cast<double>(axiom->rotation());
+        editor_axiom.decay = 2.0;
+        editor_axiom.is_user_placed = true;
+        gs.axioms.add(editor_axiom);
+    }
+}
 
 RogueCity::Core::Vec2 PolygonCentroid(const std::vector<RogueCity::Core::Vec2>& points) {
     RogueCity::Core::Vec2 centroid{};
@@ -368,6 +598,45 @@ void MarkAxiomChanged() {
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     gs.dirty_layers.MarkFromAxiomEdit();
 }
+
+// Clear layer operations (undoable)
+void ClearLayer(uint32_t layer_mask, const char* description) {
+    if (!s_axiom_tool) return;
+    
+    auto cmd = std::make_unique<ClearLayerCommand>();
+    cmd->layers = layer_mask;
+    cmd->description = description;
+    s_axiom_tool->push_command(std::move(cmd));
+}
+
+void ClearAxioms() {
+    ClearLayer(ClearLayerCommand::Axioms, "Clear Axioms");
+}
+
+void ClearWater() {
+    ClearLayer(ClearLayerCommand::Water, "Clear Water");
+}
+
+void ClearRoads() {
+    ClearLayer(ClearLayerCommand::Roads, "Clear Roads");
+}
+
+void ClearDistricts() {
+    ClearLayer(ClearLayerCommand::Districts, "Clear Districts");
+}
+
+void ClearLots() {
+    ClearLayer(ClearLayerCommand::Lots, "Clear Lots");
+}
+
+void ClearBuildings() {
+    ClearLayer(ClearLayerCommand::Buildings, "Clear Buildings");
+}
+
+void ClearAllData() {
+    ClearLayer(ClearLayerCommand::All, "Clear All Data");
+}
+
 //this function is called by the AxiomPlacementTool when axioms are modified, to trigger validation and preview updates
 static bool BuildInputs(
     std::vector<RogueCity::Generators::CityGenerator::AxiomInput>& out_inputs,
@@ -1464,6 +1733,7 @@ void DrawContent(float dt) {
     
     // Always update axiom tool (for animations)
     s_axiom_tool->update(dt, *s_primary_viewport);
+    SyncToolAxiomsToGlobalState();
 
     // Build generation inputs/config for preview
     std::vector<RogueCity::Generators::CityGenerator::AxiomInput> axiom_inputs;
@@ -1485,9 +1755,11 @@ void DrawContent(float dt) {
     }
     
     // Render axioms
-    const auto& axioms = s_axiom_tool->axioms();
-    for (const auto& axiom : axioms) {
-        axiom->render(draw_list, *s_primary_viewport);
+    if (gs.show_layer_axioms) {
+        const auto& axioms = s_axiom_tool->axioms();
+        for (const auto& axiom : axioms) {
+            axiom->render(draw_list, *s_primary_viewport);
+        }
     }
     
     const char* viewport_status = gs.tool_runtime.last_viewport_status.empty()
@@ -1497,6 +1769,8 @@ void DrawContent(float dt) {
 
     // Status text overlay (cockpit style) - moved down to avoid overlap with debug
     if (axiom_mode && s_generation_coordinator) {
+        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 22));
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 235u), "MODE: AXIOM-EDIT");
         DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
         ImGui::TextColored(TokenColorF(UITokens::TextSecondary),
@@ -1520,10 +1794,10 @@ void DrawContent(float dt) {
         viewport_pos.y + 20
     ));
     ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 178u), 
-        "Axioms: %zu", axioms.size());
+        "Axioms: %zu", s_axiom_tool ? s_axiom_tool->axioms().size() : size_t{0});
     
     // Render generated city output (roads)
-    if (s_generation_coordinator && s_generation_coordinator->GetOutput()) {
+    if (gs.show_layer_roads && s_generation_coordinator && s_generation_coordinator->GetOutput()) {
         const auto& roads = s_generation_coordinator->GetOutput()->roads;
         
         // Iterate using const iterators
@@ -1654,9 +1928,9 @@ void DrawContent(float dt) {
     overlays.SetViewTransform(transform);
 
     RC_UI::Viewport::OverlayConfig overlay_config{};
-    overlay_config.show_zone_colors = gs.districts.size() != 0;
-    overlay_config.show_road_labels = gs.roads.size() != 0;
-    overlay_config.show_lot_boundaries = gs.lots.size() != 0;  // Enable lot boundaries
+    overlay_config.show_zone_colors = gs.districts.size() != 0 && gs.show_layer_districts;
+    overlay_config.show_road_labels = gs.roads.size() != 0 && gs.show_layer_roads;
+    overlay_config.show_lot_boundaries = gs.lots.size() != 0 && gs.show_layer_lots;  // Enable lot boundaries
     overlay_config.show_no_build_mask = gs.world_constraints.isValid();
     overlay_config.show_slope_heatmap =
         gs.world_constraints.isValid() &&
@@ -1669,6 +1943,15 @@ void DrawContent(float dt) {
     overlay_config.show_height_field = gs.debug_show_height_overlay;
     overlay_config.show_tensor_field = gs.debug_show_tensor_overlay;
     overlay_config.show_zone_field = gs.debug_show_zone_overlay;
+    
+    // Layer visibility from GlobalState
+    overlay_config.show_axioms = gs.show_layer_axioms;
+    overlay_config.show_water_bodies = gs.show_layer_water;
+    overlay_config.show_roads = gs.show_layer_roads;
+    overlay_config.show_districts = gs.show_layer_districts;
+    overlay_config.show_lots = gs.show_layer_lots;
+    overlay_config.show_building_sites = gs.show_layer_buildings;
+    
     overlay_config.show_aesp_heatmap =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
          current_state == RogueCity::Core::Editor::EditorState::Editing_Buildings) &&

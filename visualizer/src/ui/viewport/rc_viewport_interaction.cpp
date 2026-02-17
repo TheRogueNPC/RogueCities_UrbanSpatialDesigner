@@ -18,6 +18,20 @@
 #include <vector>
 
 namespace RC_UI::Viewport {
+
+const char* InteractionOutcomeString(InteractionOutcome outcome) {
+    switch (outcome) {
+        case InteractionOutcome::None: return "None";
+        case InteractionOutcome::Mutation: return "Mutation";
+        case InteractionOutcome::Selection: return "Selection";
+        case InteractionOutcome::GizmoInteraction: return "GizmoInteraction";
+        case InteractionOutcome::ActivateOnly: return "ActivateOnly";
+        case InteractionOutcome::BlockedByInputGate: return "BlockedByInputGate";
+        case InteractionOutcome::NoEligibleTarget: return "NoEligibleTarget";
+        default: return "Unknown";
+    }
+}
+
 namespace {
 
 void RequestDefaultContextCommandMenu(
@@ -1233,7 +1247,7 @@ AxiomInteractionResult ProcessAxiomViewportInteraction(const AxiomInteractionPar
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
             params.axiom_tool->on_mouse_move(result.world_pos);
         }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && io.KeyCtrl) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             params.axiom_tool->on_right_click(result.world_pos);
         }
     }
@@ -1274,6 +1288,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
         gs.hovered_entity.reset();
         if (left_click_attempt) {
             result.status_code = "blocked-input-gate";
+            result.outcome = InteractionOutcome::BlockedByInputGate;
             gs.tool_runtime.last_viewport_status = result.status_code;
             gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
         }
@@ -1748,23 +1763,25 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
 
     if (dirty_changed) {
         result.handled = true;
+        result.outcome = InteractionOutcome::Mutation;
         result.requires_explicit_generation = domain_requires_explicit_generation;
         result.status_code = domain_requires_explicit_generation
             ? "mutated-explicit-generate-required"
             : "mutated-live-preview";
     } else if (selection_click_applied) {
         result.handled = true;
+        result.outcome = InteractionOutcome::Selection;
         result.status_code = "selection-updated";
     } else if (consumed_interaction) {
         result.handled = true;
+        result.outcome = InteractionOutcome::GizmoInteraction;
         result.status_code = "viewport-interaction-handled";
     } else if (left_click_unmodified) {
-        result.status_code = "activate-only-no-viewport-mutation";
-    } else {
-        result.status_code = "hover";
+        result.outcome = InteractionOutcome::NoEligibleTarget;
+        result.status_code = "click-no-target";
     }
 
-    if (result.handled || left_click_attempt) {
+    if (result.handled || result.outcome != InteractionOutcome::None) {
         gs.tool_runtime.last_viewport_status = result.status_code;
         gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
     }

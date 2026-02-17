@@ -73,6 +73,7 @@ public:
     void redo();
     [[nodiscard]] const char* undo_label() const;
     [[nodiscard]] const char* redo_label() const;
+    void push_command(std::unique_ptr<ICommand> cmd);
 
     struct AxiomSnapshot {
         int id{ 0 };

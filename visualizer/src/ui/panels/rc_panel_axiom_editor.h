@@ -66,6 +66,15 @@ void Redo();
 [[nodiscard]] const char* GetUndoLabel();
 [[nodiscard]] const char* GetRedoLabel();
 
+// Clear layer operations (undoable)
+void ClearAxioms();
+void ClearWater();
+void ClearRoads();
+void ClearDistricts();
+void ClearLots();
+void ClearBuildings();
+void ClearAllData();
+
 [[nodiscard]] bool CanGenerate();
 void ForceGenerate();
 bool ApplyGeneratorRequest(

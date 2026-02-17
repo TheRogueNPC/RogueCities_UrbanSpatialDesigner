@@ -107,6 +107,16 @@ struct NonAxiomInteractionParams {
     RogueCity::Core::Editor::GlobalState* global_state{ nullptr };
 };
 
+enum class InteractionOutcome : uint8_t {
+    None,                    // No interaction occurred
+    Mutation,               // State was mutated (add/edit/delete)
+    Selection,              // Selection changed
+    GizmoInteraction,       // Gizmo manipulation active
+    ActivateOnly,           // Tool activated but has no mutation path
+    BlockedByInputGate,     // Input gate prevented interaction
+    NoEligibleTarget        // Click occurred but no valid target
+};
+
 struct NonAxiomInteractionResult {
     bool active{ false };
     bool has_world_pos{ false };
@@ -114,10 +124,13 @@ struct NonAxiomInteractionResult {
     bool handled{ false };
     bool requires_explicit_generation{ false };
     const char* status_code{ "idle" };
+    InteractionOutcome outcome{ InteractionOutcome::None };
 };
 
 [[nodiscard]] NonAxiomInteractionResult ProcessNonAxiomViewportInteraction(
     const NonAxiomInteractionParams& params,
     NonAxiomInteractionState* interaction_state);
+
+[[nodiscard]] const char* InteractionOutcomeString(InteractionOutcome outcome);
 
 } // namespace RC_UI::Viewport

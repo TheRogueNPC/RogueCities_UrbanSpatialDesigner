@@ -62,9 +62,21 @@ public:
     /// Get built-in theme by name (for UI preview)
     const ThemeProfile* GetTheme(const std::string& name) const;
     
+    /// Check if a theme is built-in (non-editable)
+    bool IsBuiltInTheme(const std::string& name) const;
+    
+    /// Create a custom theme from the currently active theme
+    /// Returns the new theme name, or empty string on failure
+    std::string CreateCustomFromActive(const std::string& basename = "Custom");
+    
+    /// Get non-const reference to active theme (for UI editing)
+    ThemeProfile& GetActiveThemeMutable() { return m_activeTheme; }
+    
 private:
     ThemeManager();
     void RegisterBuiltInThemes();
+    
+    std::vector<std::string> m_builtInThemeNames;
     
     std::unordered_map<std::string, ThemeProfile> m_themes;
     ThemeProfile m_activeTheme;

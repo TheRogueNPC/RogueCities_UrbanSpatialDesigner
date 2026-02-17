@@ -46,7 +46,7 @@ This plan closes the remaining gaps in your tool interaction pipeline and resize
 
 ### WP3: Tool→Viewport Deterministic Mutation Contract
 1. In `visualizer/src/ui/viewport/rc_viewport_interaction.cpp`, enforce one explicit left-click path per active domain/subtool.
-2. Add status emission when a selected action is “activate-only” and has no mutation path, so “nothing happened” becomes explicit feedback.
+2. Add status emission when a selected action is "activate-only" and has no mutation path, so "nothing happened" becomes explicit feedback.
 3. Ensure dispatcher-selected subtool is visibly reflected in properties/dev shell each frame.
 4. Acceptance: every enabled tool action leads to one of mutation, selection, gizmo interaction, or explicit non-mutating status.
 
@@ -67,7 +67,7 @@ This plan closes the remaining gaps in your tool interaction pipeline and resize
 ### WP6: Responsive Content Rules (No Clipping)
 1. Normalize panel internals to metric-driven sizing (`GetFrameHeight`, `GetFontSize`) and wrapping.
 2. Ensure tab bars use fitting/scroll policies where needed and content uses child scrolling for overflow.
-3. Remove any remaining “collapsed mode returns” in key production panels/tool libraries.
+3. Remove any remaining "collapsed mode returns" in key production panels/tool libraries.
 4. Acceptance: at small but valid window sizes, text/buttons remain visible or scrollable, never clipped or hidden unexpectedly.
 
 ### WP7: Guardrail Checks
@@ -102,7 +102,7 @@ This plan closes the remaining gaps in your tool interaction pipeline and resize
 9. Run static checks + build + manual sweeps.
 
 ## S5 Check (Approve/Revise Gates)
-1. Tool-click gate: no “click does nothing” on eligible viewport clicks.
+1. Tool-click gate: no "click does nothing" on eligible viewport clicks.
 2. Resize gate: no malformed panels during live resize at valid min sizes.
 3. Docking gate: dock/undock/popout/redock unchanged in capability.
 4. Generation gate: domain policy behavior matches matrix.
@@ -142,5 +142,44 @@ This plan closes the remaining gaps in your tool interaction pipeline and resize
 4. Explicit generation for non-axiom domains is acceptable for this phase.
 5. Minimum size contract stays `max(25% display, 1100x700)`.
 
+# Phase 2: Architecture & Polish (RC-0.10)
 
+## Summary
+Focus shifts from core stability (contracts) to application architecture, visual polish, and performance scalability.
 
+## P0: Architecture Refactor
+1. **Application Class Extraction** (`main_gui.cpp` -> `RogueCityApp`)
+   - Decouple generic GLFW/ImGui loop from Rogue Cities logic.
+   - Allow headless runs for CI/testing without graphics context.
+2. **Dynamic Panel System** (`rc_ui_root.h`)
+   - Replace static `Draw*` calls with a `PanelManager`.
+   - Support dynamic registration of tool windows (plugins).
+
+## P1: UI/UX Polish
+1. **Theming Engine** (`rc_ui_theme.h`)
+   - Centralize colors into `UITokens`.
+   - Support "Day/Night" or "Cyberpunk/Clean" theme switching.
+2. **Animation Framework**
+   - Standardize `ContextWindowPopup` ease-in-out (0.3s).
+   - Add visual feedback for "Generation" events (pulse effects).
+
+## P2: Performance
+1. **Async Task Queue** (`CityGenerator.hpp`)
+   - Move heavy generation steps (Roads, Zoning) off the main UI thread.
+   - Add a "Job Manager" UI panel to show progress.
+
+## P3: AI & Features
+1. **HFSM Simulation**
+   - Implement `EditorState` simulation steps for traffic/pedestrians.
+2. **Mini-Map Detachment**
+   - Allow the minimap to be a floating window (multi-monitor support).
+Execution Checklist
+[ ] Edit visualizer/src/ui/patterns/rc_ui_data_index_panel.h to remove DrawLegacy.
+
+[ ] Update Index Panels to generic Drawer pattern.
+
+[ ] Prune rc_ui_responsive.h.
+
+[ ] mv .github/prompts/PLAN.md docs/30_runbooks/completed/PHASE_1_PLAN.md.
+
+[ ] Create docs/plans/PHASE_2_NEXT_ITERATION.md.

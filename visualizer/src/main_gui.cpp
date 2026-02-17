@@ -4,6 +4,7 @@
 // UI system includes
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
+#include "ui/panels/rc_panel_axiom_editor.h"  // AxiomEditor::Undo/Redo
 #include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine theme
 #include "RogueCity/App/UI/ThemeManager.h"  // Multi-theme system
 
@@ -323,9 +324,14 @@ int main(int, char**)
         if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_R)) {
             ImGui::LoadIniSettingsFromMemory("", 0);
             RC_UI::ResetDockLayout();
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
-            // Soft reset (Ctrl+R): rebuild dock tree but keep persisted window settings.
+        } 
+        // Soft reset (Ctrl+Shift+L): rebuild dock tree but keep persisted window settings.
+        else if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_L)) {
             RC_UI::ResetDockLayout();
+        }
+        // Redo (Ctrl+R): note viewport handles Ctrl+Z for undo, Ctrl+Y for redo as well
+        else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+            RC_UI::Panels::AxiomEditor::Redo();
         }
         
         RC_UI::DrawRoot(dt);

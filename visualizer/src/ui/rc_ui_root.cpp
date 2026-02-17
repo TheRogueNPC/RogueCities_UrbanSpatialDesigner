@@ -1091,7 +1091,7 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
             return;
         }
 
-        // Check viewport size and show warnings if needed
+        // Hook for viewport-responsive panel adjustments (currently no-op per anti-churn contract).
         if (viewport != nullptr) {
             UpdateDynamicPanelSizes(viewport->Size);
         }

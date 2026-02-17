@@ -104,7 +104,7 @@ if(USE_LEGACY_GEOS)
             ROGUECITY_USE_LEGACY_GEOS=1
             ROGUECITY_GEOMETRY_LEGACY_SHIM=1
         )
-        message(WARNING "USE_LEGACY_GEOS=ON but GEOS was not found. Using legacy shim backend.")
+        message(STATUS "USE_LEGACY_GEOS=ON but GEOS was not found. Using legacy shim backend.")
     endif()
 else()
     find_package(Boost QUIET)

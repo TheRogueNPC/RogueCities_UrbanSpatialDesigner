@@ -29,6 +29,10 @@ struct OverlayConfig {
     bool show_gizmos = true;
     
     // AI_INTEGRATION_TAG: V1_PASS1_TASK5_OVERLAY_CONFIG
+    bool show_axioms = true;
+    bool show_roads = true;
+    bool show_districts = true;
+    bool show_lots = true;
     bool show_water_bodies = true;
     bool show_building_sites = true;
     bool show_lot_boundaries = true;

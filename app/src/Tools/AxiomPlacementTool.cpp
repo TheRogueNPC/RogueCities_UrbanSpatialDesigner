@@ -490,4 +490,9 @@ const char* AxiomPlacementTool::redo_label() const {
     return "Redo";
 }
 
+void AxiomPlacementTool::push_command(std::unique_ptr<ICommand> cmd) {
+    history_.Execute(std::move(cmd));
+    dirty_ = true;
+}
+
 } // namespace RogueCity::App

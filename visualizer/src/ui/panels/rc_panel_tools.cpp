@@ -55,14 +55,33 @@ void DrawContent(float dt)
 {
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
-    // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
-    // === TOOL MODE BUTTONS (HFSM-driven) ===
-    ImGui::SeparatorText("Editor Tools");
-    
-    // Get HFSM and GlobalState
+    // === STATUS LINE (Mode/Filter/Panels) ===
     using namespace RogueCity::Core::Editor;
     EditorHFSM& hfsm = GetEditorHFSM();
     GlobalState& gs = GetGlobalState();
+    
+    // Determine active mode from HFSM state
+    const char* mode_str = "IDLE";
+    switch (hfsm.state()) {
+        case EditorState::Editing_Axioms:
+        case EditorState::Viewport_PlaceAxiom: mode_str = "AXIOM"; break;
+        case EditorState::Editing_Water: mode_str = "WATER"; break;
+        case EditorState::Editing_Roads:
+        case EditorState::Viewport_DrawRoad: mode_str = "ROAD"; break;
+        case EditorState::Editing_Districts: mode_str = "DISTRICT"; break;
+        case EditorState::Editing_Lots: mode_str = "LOT"; break;
+        case EditorState::Editing_Buildings: mode_str = "BUILDING"; break;
+        case EditorState::Simulating: mode_str = "SIM"; break;
+        default: break;
+    }
+    
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+        "Mode: %s | Seed: %u", mode_str, AxiomEditor::GetSeed());
+    ImGui::Spacing();
+    
+    // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_MODE_BUTTONS
+    // === TOOL MODE BUTTONS (HFSM-driven) ===
+    ImGui::SeparatorText("Editor Tools");
     
     struct ToolModeButton {
         const char* label;
@@ -139,7 +158,7 @@ void DrawContent(float dt)
     uiint.RegisterWidget({"button", "Undo", "action:editor.undo", {"action", "history"}});
     uiint.RegisterAction({"editor.undo", "Undo", "Tools", {}, "AxiomEditor::Undo"});
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", AxiomEditor::GetUndoLabel());
+        ImGui::SetTooltip("%s (Ctrl+Z)", AxiomEditor::GetUndoLabel());
     }
 
     same_line_if_room();
@@ -155,7 +174,7 @@ void DrawContent(float dt)
     uiint.RegisterWidget({"button", "Redo", "action:editor.redo", {"action", "history"}});
     uiint.RegisterAction({"editor.redo", "Redo", "Tools", {}, "AxiomEditor::Redo"});
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", AxiomEditor::GetRedoLabel());
+        ImGui::SetTooltip("%s (Ctrl+R)", AxiomEditor::GetRedoLabel());
     }
 
     // Generation controls
@@ -170,6 +189,108 @@ void DrawContent(float dt)
     uiint.RegisterAction({"generator.regenerate", "Generate / Regenerate", "Tools", {}, "AxiomEditor::ForceGenerate"});
     if (!can_generate) {
         ImGui::EndDisabled();
+    }
+
+    // === Clear Operations (Undoable) ===
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Clear All Data button (warning style)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::ColorConvertU32ToFloat4(0xFF3A1A1A));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::ColorConvertU32ToFloat4(0xFF5A2A2A));
+    
+    static bool show_clear_all_confirm = false;
+    if (ImGui::Button("Clear All Data")) {
+        show_clear_all_confirm = true;
+    }
+    ImGui::PopStyleColor(3);
+    
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clear ALL layers (Axioms, Water, Roads, Districts, Lots, Buildings)\nThis action is UNDOABLE with Ctrl+Z");
+    }
+    
+    // Confirmation modal
+    if (show_clear_all_confirm) {
+        ImGui::OpenPopup("Confirm Clear All");
+        show_clear_all_confirm = false;
+    }
+    
+    if (ImGui::BeginPopupModal("Confirm Clear All", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "WARNING:");
+        ImGui::Text("This will clear ALL city data:");
+        ImGui::BulletText("Axioms");
+        ImGui::BulletText("Water Bodies");
+        ImGui::BulletText("Roads");
+        ImGui::BulletText("Districts");
+        ImGui::BulletText("Lots");
+        ImGui::BulletText("Buildings");
+        ImGui::Spacing();
+        ImGui::Text("You can undo this operation with Ctrl+Z.");
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Yes, Clear All", ImVec2(120, 0))) {
+            AxiomEditor::ClearAllData();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Clear by Layer (collapsing header)
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Clear by Layer")) {
+        ImGui::Indent();
+        
+        if (ImGui::Button("Clear Axioms")) {
+            AxiomEditor::ClearAxioms();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Axioms (UNDOABLE with Ctrl+Z)");
+        }
+        
+        if (ImGui::Button("Clear Water")) {
+            AxiomEditor::ClearWater();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Water Bodies (UNDOABLE with Ctrl+Z)");
+        }
+        
+        if (ImGui::Button("Clear Roads")) {
+            AxiomEditor::ClearRoads();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Roads (UNDOABLE with Ctrl+Z)");
+        }
+        
+        if (ImGui::Button("Clear Districts")) {
+            AxiomEditor::ClearDistricts();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Districts (UNDOABLE with Ctrl+Z)");
+        }
+        
+        if (ImGui::Button("Clear Lots")) {
+            AxiomEditor::ClearLots();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Lots (UNDOABLE with Ctrl+Z)");
+        }
+        
+        if (ImGui::Button("Clear Buildings")) {
+            AxiomEditor::ClearBuildings();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clear all Buildings (UNDOABLE with Ctrl+Z)");
+        }
+        
+        ImGui::Unindent();
     }
 
     // Dirty-layer propagation status (edit -> dirty downstream layers -> regenerate).
@@ -234,6 +355,28 @@ void DrawContent(float dt)
     ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
     same_line_if_room();
     ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
+    same_line_if_room();
+    ImGui::Checkbox("Validation Errors", &gs.validation_overlay.enabled);
+    
+    ImGui::SeparatorText("Layer Visibility");
+    ImGui::Checkbox("Axioms", &gs.show_layer_axioms);
+    uiint.RegisterWidget({"checkbox", "Axioms", "toggle:layer.axioms", {"layer", "visibility"}});
+    same_line_if_room();
+    ImGui::Checkbox("Water", &gs.show_layer_water);
+    uiint.RegisterWidget({"checkbox", "Water", "toggle:layer.water", {"layer", "visibility"}});
+    same_line_if_room();
+    ImGui::Checkbox("Roads", &gs.show_layer_roads);
+    uiint.RegisterWidget({"checkbox", "Roads", "toggle:layer.roads", {"layer", "visibility"}});
+    same_line_if_room();
+    ImGui::Checkbox("Districts", &gs.show_layer_districts);
+    uiint.RegisterWidget({"checkbox", "Districts", "toggle:layer.districts", {"layer", "visibility"}});
+    same_line_if_room();
+    ImGui::Checkbox("Lots", &gs.show_layer_lots);
+    uiint.RegisterWidget({"checkbox", "Lots", "toggle:layer.lots", {"layer", "visibility"}});
+    same_line_if_room();
+    ImGui::Checkbox("Buildings", &gs.show_layer_buildings);
+    uiint.RegisterWidget({"checkbox", "Buildings", "toggle:layer.buildings", {"layer", "visibility"}});
+    
     ImGui::PushTextWrapPos();
     ImGui::TextDisabled("Minimap: wheel=zoom, drag=pan, click=jump, L=pin/cycle, Shift+L=release auto, 1/2/3=set LOD, K=adaptive.");
     ImGui::PopTextWrapPos();
@@ -373,16 +516,6 @@ void DrawContent(float dt)
 
     same_line_if_room();
     ImGui::Text("Seed: %u", AxiomEditor::GetSeed());
-    
-    // === AI ASSIST CONTROLS ===
-    ImGui::Separator();
-    RogueCity::UI::AiAssist::DrawControls(dt);
-
-    ImGui::Separator();
-    if (ImGui::Button("Dev Shell")) {
-        RC_UI::Panels::DevShell::Toggle();
-    }
-    uiint.RegisterWidget({"button", "Dev Shell", "action:devshell.toggle", {"dev", "toggle"}});
 
     // Status / errors
     const char* err = AxiomEditor::GetValidationError();

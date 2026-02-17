@@ -199,6 +199,20 @@ Follow this workflow for any new generator (Zoning, Lots, Buildings, etc.):
 
 ### Build Workflows
 
+#### Windows Dev Shell Verification (VSCode Integrated Terminal)
+```cmd
+where cl
+where msbuild
+echo %VSCMD_VER%
+```
+
+Expected baseline:
+- `cl` resolves under `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\...`
+- `msbuild` resolves from Visual Studio/MSBuild path
+- `%VSCMD_VER%` is set (example: `18.2.1`)
+
+If these fail in VSCode, reload the window and open a fresh terminal so `.vscode/vsdev-init.cmd` re-initializes the toolchain.
+
 #### Standard Build (All Targets)
 ```powershell
 # Configure
@@ -212,6 +226,15 @@ cmake --build build --target RogueCityGenerators --config Release
 
 # Build GUI
 cmake --build build --target RogueCityVisualizerGui --config Release
+```
+
+#### MSBuild Diagnostics Policy (Windows)
+```cmd
+:: Normal/default diagnostics + binary log
+msbuild build_vs\RogueCities.sln /restore /t:Build /m /v:minimal /bl:artifacts\build.binlog
+
+:: Deep diagnostics only when investigating failures
+msbuild build_vs\RogueCities.sln /restore /t:Build /m /v:diag /fl /flp:logfile=artifacts\build.diag.log;verbosity=diagnostic
 ```
 
 #### Fast Core-Only Iteration

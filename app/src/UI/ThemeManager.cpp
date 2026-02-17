@@ -4,6 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
+#include <ctime>
 
 namespace RogueCity::UI {
 
@@ -100,6 +102,9 @@ void ThemeManager::RegisterBuiltInThemes() {
     m_themes["RedRetro"] = Themes::RedRetro();
     m_themes["Soviet"] = Themes::Soviet();
     m_themes["CyberPunk"] = Themes::CyberPunk();
+    
+    // Store built-in theme names for later checking
+    m_builtInThemeNames = { "Default", "RedRetro", "Soviet", "CyberPunk" };
 }
 
 bool ThemeManager::LoadTheme(const std::string& name) {
@@ -306,6 +311,44 @@ void ThemeManager::LoadCustomThemes() {
 const ThemeProfile* ThemeManager::GetTheme(const std::string& name) const {
     auto it = m_themes.find(name);
     return (it != m_themes.end()) ? &it->second : nullptr;
+}
+
+bool ThemeManager::IsBuiltInTheme(const std::string& name) const {
+    return std::find(m_builtInThemeNames.begin(), m_builtInThemeNames.end(), name) 
+           != m_builtInThemeNames.end();
+}
+
+std::string ThemeManager::CreateCustomFromActive(const std::string& basename) {
+    // Generate unique name with timestamp
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &time);
+#else
+    localtime_r(&time, &tm_buf);
+#endif
+    
+    char timestamp[32];
+    std::strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", &tm_buf);
+    
+    std::string new_name = basename + "_" + timestamp;
+    
+    // Copy active theme with new name
+    ThemeProfile custom_theme = m_activeTheme;
+    custom_theme.name = new_name;
+    
+    // Register and save
+    if (RegisterTheme(custom_theme)) {
+        std::string error;
+        if (SaveThemeToFile(custom_theme, &error)) {
+            // Switch to the new custom theme
+            LoadTheme(new_name);
+            return new_name;
+        }
+    }
+    
+    return ""; // Failed
 }
 
 } // namespace RogueCity::UI

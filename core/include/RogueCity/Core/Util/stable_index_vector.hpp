@@ -146,15 +146,18 @@ namespace siv
         void erase(ID id)
         {
             // Fetch relevant info
-            const ID data_id      = m_indexes[id];
-            const ID last_data_id = m_data.size() - 1;
-            const ID last_id      = m_metadata[last_data_id].rid;
+            const size_t id_index = static_cast<size_t>(id);
+            const ID data_id = m_indexes[id_index];
+            const size_t data_index = static_cast<size_t>(data_id);
+            const size_t last_data_index = m_data.size() - 1;
+            const ID last_id = m_metadata[last_data_index].rid;
+            const size_t last_id_index = static_cast<size_t>(last_id);
             // Update validity ID
-            ++m_metadata[data_id].validity_id;
+            ++m_metadata[data_index].validity_id;
             // Swap the object to delete with the object at the end
-            std::swap(m_data[data_id], m_data[last_data_id]);
-            std::swap(m_metadata[data_id], m_metadata[last_data_id]);
-            std::swap(m_indexes[id], m_indexes[last_id]);
+            std::swap(m_data[data_index], m_data[last_data_index]);
+            std::swap(m_metadata[data_index], m_metadata[last_data_index]);
+            std::swap(m_indexes[id_index], m_indexes[last_id_index]);
             // Destroy the object
             m_data.pop_back();
         }
@@ -189,7 +192,7 @@ namespace siv
         [[nodiscard]]
         uint64_t getDataIndex(ID id) const
         {
-            return m_indexes[id];
+            return m_indexes[static_cast<size_t>(id)];
         }
 
         /** Access the object reference by the provided ID
@@ -199,7 +202,7 @@ namespace siv
          */
         TObjectType& operator[](ID id)
         {
-            return m_data[m_indexes[id]];
+            return m_data[static_cast<size_t>(m_indexes[static_cast<size_t>(id)])];
         }
 
         /** Access the object reference by the provided ID
@@ -209,7 +212,7 @@ namespace siv
          */
          TObjectType const& operator[](ID id) const
         {
-            return m_data[m_indexes[id]];
+            return m_data[static_cast<size_t>(m_indexes[static_cast<size_t>(id)])];
         }
 
         /// Returns the number of objects in the vector
@@ -243,7 +246,7 @@ namespace siv
             /* Ensure the object is valid. If the data index is greater than the current size
              * it means that it has been swapped and removed. */
             assert(getDataIndex(id) < size());
-            return {id, m_metadata[m_indexes[id]].validity_id, this};
+            return {id, m_metadata[static_cast<size_t>(m_indexes[static_cast<size_t>(id)])].validity_id, this};
         }
 
         /** Creates a handle to an object using its position in the data vector
@@ -256,7 +259,8 @@ namespace siv
             /* Ensure the object is valid. If the data index is greater than the current size
              * it means that it has been swapped and removed. */
             assert(idx < size());
-            return {m_metadata[idx].rid, m_metadata[idx].validity_id, this};
+            const size_t data_index = static_cast<size_t>(idx);
+            return {m_metadata[data_index].rid, m_metadata[data_index].validity_id, this};
         }
 
         /** Checks if the provided object is still valid considering its last known validity ID
@@ -268,7 +272,7 @@ namespace siv
         [[nodiscard]]
         bool isValid(ID id, ID validity_id) const
         {
-            return validity_id == m_metadata[m_indexes[id]].validity_id;
+            return validity_id == m_metadata[static_cast<size_t>(m_indexes[static_cast<size_t>(id)])].validity_id;
         }
 
         /// Begin iterator of the data vector
@@ -303,9 +307,9 @@ namespace siv
         template<typename TCallback>
         void remove_if(TCallback&& predicate)
         {
-            for (uint32_t i{0}; i < m_data.size();) {
+            for (size_t i{0}; i < m_data.size();) {
                 if (predicate(m_data[i])) {
-                    eraseViaData(i);
+                    eraseViaData(static_cast<uint32_t>(i));
                 } else {
                     ++i;
                 }
@@ -327,7 +331,7 @@ namespace siv
         [[nodiscard]]
         ID getValidityID(ID id) const
         {
-            return m_metadata[m_indexes[id]].validity_id;
+            return m_metadata[static_cast<size_t>(m_indexes[static_cast<size_t>(id)])].validity_id;
         }
 
         /// Returns a raw pointer to the first element of the data vector
@@ -387,7 +391,7 @@ namespace siv
         ID getFreeSlot()
         {
             const ID id = getFreeID();
-            m_indexes[id] = m_data.size();
+            m_indexes[static_cast<size_t>(id)] = static_cast<ID>(m_data.size());
             return id;
         }
 

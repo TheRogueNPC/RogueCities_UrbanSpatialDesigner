@@ -38,3 +38,12 @@ Use this checklist after any changes to dock layout, viewport input, or OS windo
 1. Validate at `1280x1024` and `1920x1080`.
 2. Confirm no clipped critical controls (tabs, filters, tool buttons).
 3. Confirm resize flow has no helper popup windows stealing focus/capture.
+4. Verify minimum window size contract: OS window must not shrink below `1100x700` (GLFW enforced).
+5. Verify dock rebuild debouncing: dock layout should not churn during active drag, only rebuild after 3 stable frames.
+
+## 7. Key implementation constants
+
+- Minimum window size: `max(25% display, 1100x700)` via `glfwSetWindowSizeLimits`
+- Dock stability frames: `kDockBuildStableFrameCount = 3`
+- Dock stability tolerance: `kDockSizeStabilityTolerancePx = 2.0f`
+- Minimum center ratio: `kMinCenterRatio = 0.55f` (55% for center workspace)

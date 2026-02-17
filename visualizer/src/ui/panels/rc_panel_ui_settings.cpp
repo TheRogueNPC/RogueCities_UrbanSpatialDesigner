@@ -24,6 +24,13 @@ namespace {
     static char s_custom_theme_name[64] = "MyTheme";
     static bool s_layout_prefs_initialized = false;
     static RC_UI::DockLayoutPreferences s_layout_prefs_edit{};
+    
+    // Theme editing state
+    static bool s_auto_save_custom_themes = true;
+    static bool s_show_hex_by_default = true;
+    static bool s_theme_was_edited = false;
+    static float s_theme_save_timer = 0.0f;
+    static constexpr float kSaveDebounceSeconds = 2.0f;
 }
 
 bool IsOpen() {
@@ -59,7 +66,7 @@ static void DrawColorSwatch(const char* label, ImU32 color, float size = 40.0f) 
     ImGui::Dummy(ImVec2(size, size));
 }
 
-void DrawContent(float /*dt*/)
+void DrawContent(float dt)
 {
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
@@ -68,6 +75,20 @@ void DrawContent(float /*dt*/)
     if (!s_layout_prefs_initialized) {
         s_layout_prefs_edit = RC_UI::GetDockLayoutPreferences();
         s_layout_prefs_initialized = true;
+    }
+    
+    // Handle debounced theme auto-save
+    if (s_theme_was_edited && s_auto_save_custom_themes) {
+        s_theme_save_timer += dt;
+        if (s_theme_save_timer >= kSaveDebounceSeconds) {
+            std::string error;
+            const auto& active = theme_mgr.GetActiveTheme();
+            if (!theme_mgr.IsBuiltInTheme(active.name)) {
+                theme_mgr.SaveThemeToFile(active, &error);
+            }
+            s_theme_was_edited = false;
+            s_theme_save_timer = 0.0f;
+        }
     }
     
     bool panel_focused = ImGui::IsWindowFocused();
@@ -106,24 +127,83 @@ void DrawContent(float /*dt*/)
         ImGui::Spacing();
         ImGui::Separator();
         
-        // Theme preview swatches
-        const RogueCity::UI::ThemeProfile& active_theme = theme_mgr.GetActiveTheme();
-        ImGui::TextUnformatted("Theme Colors:");
+        // Theme color editor (interactive)
+        RogueCity::UI::ThemeProfile& active_theme_mut = theme_mgr.GetActiveThemeMutable();
+        ImGui::TextUnformatted("Theme Colors (Click to Edit):");
         ImGui::Spacing();
         
+        const ImGuiColorEditFlags color_flags = 
+            ImGuiColorEditFlags_DisplayHex | 
+            ImGuiColorEditFlags_InputRGB | 
+            ImGuiColorEditFlags_AlphaBar;
+        
+        bool any_color_edited = false;
+        
         ImGui::BeginGroup();
-        DrawColorSwatch("Primary", active_theme.primary_accent, 30.0f);
-        DrawColorSwatch("Secondary", active_theme.secondary_accent, 30.0f);
-        DrawColorSwatch("Success", active_theme.success_color, 30.0f);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Primary");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Primary", reinterpret_cast<float*>(&active_theme_mut.primary_accent), color_flags)) {
+            any_color_edited = true;
+        }
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Secondary");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Secondary", reinterpret_cast<float*>(&active_theme_mut.secondary_accent), color_flags)) {
+            any_color_edited = true;
+        }
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Success");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Success", reinterpret_cast<float*>(&active_theme_mut.success_color), color_flags)) {
+            any_color_edited = true;
+        }
         ImGui::EndGroup();
         
-        ImGui::SameLine(150.0f);
+        ImGui::SameLine(420.0f);
         
         ImGui::BeginGroup();
-        DrawColorSwatch("Warning", active_theme.warning_color, 30.0f);
-        DrawColorSwatch("Error", active_theme.error_color, 30.0f);
-        DrawColorSwatch("Border", active_theme.border_accent, 30.0f);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Warning");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Warning", reinterpret_cast<float*>(&active_theme_mut.warning_color), color_flags)) {
+            any_color_edited = true;
+        }
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Error");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Error", reinterpret_cast<float*>(&active_theme_mut.error_color), color_flags)) {
+            any_color_edited = true;
+        }
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Border");
+        ImGui::SameLine(120.0f);
+        if (ImGui::ColorEdit4("##Border", reinterpret_cast<float*>(&active_theme_mut.border_accent), color_flags)) {
+            any_color_edited = true;
+        }
         ImGui::EndGroup();
+        
+        // Handle color edits: auto-create custom theme if editing a built-in
+        if (any_color_edited) {
+            if (theme_mgr.IsBuiltInTheme(current_theme)) {
+                // Auto-create custom theme from edited built-in
+                std::string new_theme_name = theme_mgr.CreateCustomFromActive("Custom");
+                if (!new_theme_name.empty()) {
+                    gs.config.active_theme = new_theme_name;
+                    // Update theme list to show new custom theme
+                }
+            } else {
+                // Editing existing custom theme - mark for auto-save
+                s_theme_was_edited = true;
+                s_theme_save_timer = 0.0f;
+            }
+            // Apply changes immediately to UI
+            theme_mgr.ApplyToImGui();
+        }
         
         ImGui::Spacing();
         
@@ -132,19 +212,26 @@ void DrawContent(float /*dt*/)
     ImGui::Separator();
     
     // ======================================================================
-    // THEME DESCRIPTIONS (with breathing animation)
+    // THEME EDITOR OPTIONS (with breathing animation)
     // ======================================================================
-    RC_UI::AnimationHelpers::BeginBreathingHeader("Theme Descriptions", UITokens::InfoBlue, panel_focused);
+    RC_UI::AnimationHelpers::BeginBreathingHeader("Theme Editor Options", UITokens::InfoBlue, panel_focused);
     {
+        ImGui::Checkbox("Auto-save Custom Themes", &s_auto_save_custom_themes);
+        uiint.RegisterWidget({"checkbox", "Auto-save Custom Themes", "ui.theme_autosave", {"ui", "settings"}});
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Automatically save custom theme changes after 2 seconds");
+        }
         
-        ImGui::BulletText("Default: Y2K Cockpit - Cyan/Green/Yellow neon on dark");
-        ImGui::BulletText("RedRetro: Vintage arcade - Red/Cream/Blue (#D12128, #FAE3AC, #01344F)");
-        ImGui::BulletText("Soviet: Propaganda poster - Red/Beige/Black (#C0301E, #F6DA9D)");
-        ImGui::BulletText("CyberPunk: Neon noir - Purple/Pink/Blue (#8A509F, #FA99C5, #0A2670)");
-        ImGui::Spacing();
+        ImGui::Checkbox("Show Hex by Default", &s_show_hex_by_default);
+        uiint.RegisterWidget({"checkbox", "Show Hex by Default", "ui.theme_show_hex", {"ui", "settings"}});
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Display color values in hexadecimal format");
+        }
         
-        ImGui::TextWrapped("All themes follow the Cockpit Doctrine: Y2K geometry (hard edges, no rounding), motion-responsive UI, and LCARS elegance.");
         ImGui::Spacing();
+        ImGui::TextColored(
+            ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue), 
+            "Note: Editing a built-in theme auto-creates a custom copy");
         
     }
     
