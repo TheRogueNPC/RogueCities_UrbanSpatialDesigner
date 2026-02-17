@@ -9,7 +9,6 @@
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include <imgui.h>
 #include <glm/glm.hpp>
-#include <optional>
 
 namespace RC_UI::Viewport {
 

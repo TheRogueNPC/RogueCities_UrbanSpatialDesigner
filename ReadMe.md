@@ -292,6 +292,17 @@ cmake -B build_core -S . -DBUILD_CORE_ONLY=ON
 cmake --build build_core --target RogueCityCore --config Release
 ```
 
+### Additional Project Tooling (Diagnostics)
+
+These support tools were added alongside the project to keep editor diagnostics aligned with build output:
+
+- `tools/env_doctor.py` for environment and wiring checks
+- `tools/problems_triage.py` for root-cause grouping of Problems export data
+- `tools/problems_diff.py` for snapshot-based diagnostic diffs
+- `tools/dev_refresh.py` for one-click configure/build/diff/triage flow
+
+Reference: `tools/DIAGNOSTICS_TOOLCHAIN.md`
+
 ---
 
 ## Project Status

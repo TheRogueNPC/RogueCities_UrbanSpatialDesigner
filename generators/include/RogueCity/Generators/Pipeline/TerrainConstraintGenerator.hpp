@@ -32,7 +32,8 @@ public:
         Core::SiteProfile profile;
     };
 
-    [[nodiscard]] Output generate(const Input& input, const Config& config = Config{}) const;
+    [[nodiscard]] Output generate(const Input& input) const;
+    [[nodiscard]] Output generate(const Input& input, const Config& config) const;
 };
 
 } // namespace RogueCity::Generators

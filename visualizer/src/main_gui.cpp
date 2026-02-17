@@ -3,9 +3,7 @@
 
 // UI system includes
 #include "ui/rc_ui_root.h"
-#include "ui/rc_ui_theme.h"
 #include "ui/panels/rc_panel_axiom_editor.h"  // AxiomEditor::Undo/Redo
-#include "RogueCity/App/UI/DesignSystem.h"  // Cockpit Doctrine theme
 #include "RogueCity/App/UI/ThemeManager.h"  // Multi-theme system
 
 // AI system includes

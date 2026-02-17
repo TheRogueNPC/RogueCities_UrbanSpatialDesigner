@@ -15,8 +15,12 @@ namespace RogueCity::Generators::Urban {
 
         [[nodiscard]] static std::vector<Core::District> generate(
             const fva::Container<Core::Road>& roads,
+            const Core::Bounds& bounds);
+
+        [[nodiscard]] static std::vector<Core::District> generate(
+            const fva::Container<Core::Road>& roads,
             const Core::Bounds& bounds,
-            const Config& config = Config{});
+            const Config& config);
     };
 
 } // namespace RogueCity::Generators::Urban

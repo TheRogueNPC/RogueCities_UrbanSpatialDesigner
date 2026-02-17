@@ -1,7 +1,5 @@
 #pragma once
 #include "RogueCity/App/Editor/CommandHistory.hpp"
-#include "RogueCity/Core/Types.hpp"
-#include "RogueCity/Core/Editor/EditorState.hpp"
 #include "AxiomVisual.hpp"
 #include "ContextWindowPopup.hpp"
 #include <vector>

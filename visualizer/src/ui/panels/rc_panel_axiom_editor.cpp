@@ -4,9 +4,7 @@
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"  // NEW: Access to shared minimap
 #include "ui/rc_ui_input_gate.h"
-#include "ui/rc_ui_viewport_config.h"
 #include "ui/rc_ui_tokens.h"
-#include "ui/rc_ui_components.h"
 #include "ui/commands/rc_context_command_registry.h"
 #include "ui/commands/rc_context_menu_smart.h"
 #include "ui/commands/rc_context_menu_pie.h"
@@ -26,7 +24,6 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
-#include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "ui/viewport/rc_scene_frame.h"
 #include "ui/viewport/rc_minimap_renderer.h"
@@ -40,13 +37,9 @@
 #include <cctype>
 #include <cstring>
 #include <deque>
-#include <functional>
-#include <limits>
-#include <numbers>
 #include <numeric>
 #include <sstream>
 #include <unordered_map>
-#include <unordered_set>
 #include <string>
 
 namespace RC_UI::Panels::AxiomEditor {
@@ -61,8 +54,6 @@ namespace {
     }
 
     using Preview = RogueCity::App::RealTimePreview;
-    static bool s_viewport_open = true;
-    
     // === ROGUENAV MINIMAP CONFIGURATION ===
     enum class MinimapMode {
         Disabled,
@@ -373,6 +364,7 @@ RogueCity::Core::Editor::EditorAxiom::Type ToEditorAxiomType(RogueCity::App::Axi
     case AxiomVisual::AxiomType::Superblock: return EditorAxiom::Type::Superblock;
     case AxiomVisual::AxiomType::Linear: return EditorAxiom::Type::Linear;
     case AxiomVisual::AxiomType::GridCorrective: return EditorAxiom::Type::GridCorrective;
+    case AxiomVisual::AxiomType::COUNT: break;
     }
 
     return EditorAxiom::Type::Grid;

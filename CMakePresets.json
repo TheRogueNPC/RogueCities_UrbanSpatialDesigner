@@ -1,0 +1,92 @@
+{
+    "version": 8,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base-vs2026",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "binaryDir": "${sourceDir}/build_vs",
+            "cacheVariables": {
+                "ROGUECITY_BUILD_VISUALIZER": "ON",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_CXX_STANDARD": "20"
+            }
+        },
+        {
+            "name": "dev",
+            "displayName": "RogueCities Dev (VS2026 x64)",
+            "inherits": "base-vs2026"
+        },
+        {
+            "name": "RC_Dev_Preset",
+            "description": "",
+            "displayName": "",
+            "inherits": [
+                "base-vs2026",
+                "dev"
+            ]
+        },
+        {
+            "name": "Rc_Dev2",
+            "description": "",
+            "displayName": "",
+            "inherits": [
+                "base-vs2026",
+                "dev",
+                "RC_Dev_Preset"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "gui-debug",
+            "displayName": "Build GUI Debug",
+            "configurePreset": "dev",
+            "configuration": "Debug",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-release",
+            "displayName": "Build GUI Release",
+            "configurePreset": "dev",
+            "configuration": "Release",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "all-release",
+            "displayName": "Build ALL Release",
+            "configurePreset": "dev",
+            "configuration": "Release",
+            "targets": [
+                "ALL_BUILD"
+            ],
+            "jobs": 8
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "ctest-release",
+            "displayName": "CTest Release",
+            "configurePreset": "dev",
+            "configuration": "Release",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}

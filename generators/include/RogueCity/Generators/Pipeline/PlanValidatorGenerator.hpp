@@ -32,7 +32,8 @@ public:
         float max_severity{ 0.0f };
     };
 
-    [[nodiscard]] Output validate(const Input& input, const Config& config = Config{}) const;
+    [[nodiscard]] Output validate(const Input& input) const;
+    [[nodiscard]] Output validate(const Input& input, const Config& config) const;
 };
 
 } // namespace RogueCity::Generators

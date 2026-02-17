@@ -20,8 +20,23 @@
               "icon": "lucide-file",
               "title": "Untitled"
             }
+          },
+          {
+            "id": "33100b8770b4934b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Untitled.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Untitled"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -183,13 +198,14 @@
       "bases:Create new base": false
     }
   },
-  "active": "ee0399504a558c3d",
+  "active": "33100b8770b4934b",
   "lastOpenFiles": [
+    "Untitled.md",
+    "Writing/Untitled.md",
     "00_index/AGENT_ONBOARDING.md",
     "30_runbooks/resize-regression-checklist.md",
     "20_specs/tool-viewport-generation-contract.md",
     "LICENSES.md",
-    "Writing/Untitled.md",
     "Writing",
     "90_archive/legacy_temp/temp_documentation/rc-0-10-git-commit-message.md",
     "90_archive/legacy_temp/temp_documentation/README.md",
@@ -221,7 +237,6 @@
     "30_architecture/architecture-map.md",
     "20_specs/ui-patterns.md",
     "20_specs/ui-migration.md",
-    "20_specs/type-alias-migration-guide.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }

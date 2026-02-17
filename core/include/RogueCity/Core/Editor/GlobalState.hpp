@@ -7,9 +7,9 @@
 #include "RogueCity/Core/Editor/TexturePainting.hpp"
 #include "RogueCity/Core/Editor/SelectionManager.hpp"
 #include "RogueCity/Core/Editor/ViewportIndex.hpp"
-#include "RogueCity/Core/Util/FastVectorArray.hpp"
-#include "RogueCity/Core/Util/IndexVector.hpp"
-#include "RogueCity/Core/Util/StableIndexVector.hpp"
+#include "RogueCity/Core/Util/FastVectorArray.hpp"  // IWYU pragma: keep
+#include "RogueCity/Core/Util/IndexVector.hpp"  // IWYU pragma: keep
+#include "RogueCity/Core/Util/StableIndexVector.hpp"  // IWYU pragma: keep
 
 #include <array>
 #include <cstdint>

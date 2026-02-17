@@ -1,6 +1,5 @@
 // ThemeManager.cpp - Multi-theme system implementation
 #include "RogueCity/App/UI/ThemeManager.h"
-#include "RogueCity/App/UI/DesignSystem.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>

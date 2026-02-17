@@ -1,0 +1,61 @@
+{
+  "name": "vscode-problems-bridge",
+  "displayName": "VSCode Problems Bridge",
+  "description": "Exports VS Code diagnostics (Problems panel) to a JSON file in the workspace.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:problemsBridge.exportNow"
+  ],
+  "main": "./extension.js",
+  "files": [
+    "extension.js",
+    "README.md",
+    "package.json"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "problemsBridge.exportNow",
+        "title": "Problems Bridge: Export Diagnostics Now"
+      }
+    ],
+    "configuration": {
+      "title": "Problems Bridge",
+      "properties": {
+        "problemsBridge.autoExport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically export diagnostics when Problems data changes."
+        },
+        "problemsBridge.outputPath": {
+          "type": "string",
+          "default": ".vscode/problems.export.json",
+          "description": "Relative or absolute path for exported diagnostics JSON."
+        },
+        "problemsBridge.debounceMs": {
+          "type": "number",
+          "default": 600,
+          "minimum": 0,
+          "description": "Debounce delay before writing diagnostics after a change."
+        },
+        "problemsBridge.showNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show a brief status message after exporting diagnostics."
+        }
+      }
+    }
+  },
+  "repository": {
+    "type": "git"
+  },
+  "license": "MIT"
+}

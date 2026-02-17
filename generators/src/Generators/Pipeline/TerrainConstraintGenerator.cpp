@@ -104,6 +104,11 @@ void ApplyDeterministicErosion(
 } // namespace
 
 TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
+    const Input& input) const {
+    return generate(input, Config{});
+}
+
+TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
     const Input& input,
     const Config& config) const {
     Output output{};

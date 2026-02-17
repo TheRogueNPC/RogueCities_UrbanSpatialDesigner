@@ -5,9 +5,7 @@
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
-#include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/introspection/UiIntrospection.h"
-#include "integration/AiAssist.h"
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>

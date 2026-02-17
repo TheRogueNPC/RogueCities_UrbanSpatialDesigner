@@ -41,31 +41,6 @@ void Toggle() {
     s_open = !s_open;
 }
 
-// Helper to draw a color preview swatch
-static void DrawColorSwatch(const char* label, ImU32 color, float size = 40.0f) {
-    ImGui::Text("%s", label);
-    ImGui::SameLine();
-    ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    
-    draw_list->AddRectFilled(
-        cursor_pos,
-        ImVec2(cursor_pos.x + size, cursor_pos.y + size),
-        color,
-        0.0f
-    );
-    draw_list->AddRect(
-        cursor_pos,
-        ImVec2(cursor_pos.x + size, cursor_pos.y + size),
-        WithAlpha(UITokens::TextPrimary, 180),
-        0.0f,
-        0,
-        2.0f
-    );
-    
-    ImGui::Dummy(ImVec2(size, size));
-}
-
 void DrawContent(float dt)
 {
     auto& gs = RogueCity::Core::Editor::GetGlobalState();

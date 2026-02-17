@@ -94,6 +94,12 @@ namespace RogueCity::Generators::Urban {
 
     std::vector<Core::District> DistrictGenerator::generate(
         const fva::Container<Core::Road>& roads,
+        const Core::Bounds& bounds) {
+        return generate(roads, bounds, Config{});
+    }
+
+    std::vector<Core::District> DistrictGenerator::generate(
+        const fva::Container<Core::Road>& roads,
         const Core::Bounds& bounds,
         const Config& config) {
         std::vector<Core::District> out;

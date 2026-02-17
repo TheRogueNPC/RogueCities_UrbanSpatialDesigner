@@ -262,6 +262,29 @@ ctest --test-dir build --output-on-failure
 .\build\Release\test_generators.exe
 ```
 
+### Diagnostics Toolchain (Agent-RC Standard)
+
+Use this sequence whenever diagnostics drift from build reality:
+
+```powershell
+# 1) Verify environment/toolchain + workspace wiring
+python tools/env_doctor.py
+
+# 2) Triage current VS Code Problems export
+python tools/problems_triage.py --input .vscode/problems.export.json
+
+# 3) Diff against previous snapshot and store current snapshot
+python tools/problems_diff.py --current .vscode/problems.export.json --snapshot-current
+
+# 4) One-click refresh (configure + compile db + build + diff + triage)
+python tools/dev_refresh.py --configure-preset dev --build-preset gui-release
+```
+
+Notes:
+- Problems export source: `.vscode/problems.export.json`
+- Snapshot history: `.vscode/problems-history/`
+- If export is missing, run VS Code command: `Problems Bridge: Export Diagnostics Now`
+
 ### AI Toolserver Workflows
 
 #### Quick Start (3 Steps)

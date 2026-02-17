@@ -43,6 +43,11 @@ void PushViolation(
 } // namespace
 
 PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
+    const Input& input) const {
+    return validate(input, Config{});
+}
+
+PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
     const Input& input,
     const Config& config) const {
     Output output{};

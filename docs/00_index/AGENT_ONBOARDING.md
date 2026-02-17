@@ -41,21 +41,36 @@ Critical rule: Core must not depend on UI libraries.
 
 ### Rogue Protocol Container Matrix
 
-| Container | Use Case | When to Use | Aliases |
-| --------- | -------- | ----------- | ------- |
-| FVA | Roads, districts, UI entities | Stable IDs required in editor/UI | `FVA<T>` |
-| SIV | Buildings, props, churn-heavy entities | Need validity checks under churn | `SIV<T>`, `SIVHandle<T>` |
-| CIV | Internal/scratch data | Non-UI calculations, temporary geometry | `CIV<T>`, `CIVRef<T>` |
-| std::vector | Simple local data | Not for editor-exposed entity stores | none |
+- `FVA`
+  - use case: roads, districts, UI entities
+  - when: stable IDs required in editor/UI
+  - aliases: `FVA<T>`
+- `SIV`
+  - use case: buildings, props, churn-heavy entities
+  - when: validity checks under churn are required
+  - aliases: `SIV<T>`, `SIVHandle<T>`
+- `CIV`
+  - use case: internal/scratch data
+  - when: non-UI calculations and temporary geometry
+  - aliases: `CIV<T>`, `CIVRef<T>`
+- `std::vector`
+  - use case: simple local data
+  - when: not an editor-exposed entity store
+  - aliases: none
 
 ### Rogue Protocol Threading
 
-| Tool | Use Case | Trigger | Threshold |
-| ---- | -------- | ------- | --------- |
-| RogueWorker | Heavy parallel work | Grid/tensor/trace operations | `N = axioms × districts × density > 100` |
-| Main thread | UI state and drawing | All ImGui and state transitions | always |
+- `RogueWorker`
+  - use case: heavy parallel work
+  - trigger: grid/tensor/trace operations
+  - threshold: `N = axioms × districts × density > 100`
+- `Main thread`
+  - use case: UI state and drawing
+  - trigger: all ImGui and state transitions
+  - threshold: always
 
-Rule: If work loops over the grid, use worker policy. If it touches UI/GPU state, keep it on main thread.
+Rule: if work loops over the grid, use worker policy.
+If work touches UI/GPU state, keep it on main thread.
 
 ---
 
@@ -179,6 +194,34 @@ start build_vs\RogueCities.sln
 cmake --build build --target test_generators --config Release
 ctest --test-dir build --output-on-failure
 ```
+
+### Diagnostics Toolchain (Agent-RC Standard)
+
+Use this sequence when IDE Problems diverge from build output:
+
+```powershell
+# 1) Environment and toolchain sanity
+python tools/env_doctor.py
+
+# 2) Triage current Problems export
+python tools/problems_triage.py `
+  --input .vscode/problems.export.json
+
+# 3) Compare with previous snapshot and save current
+python tools/problems_diff.py `
+  --current .vscode/problems.export.json `
+  --snapshot-current
+
+# 4) One-click configure/build/diagnostics refresh
+python tools/dev_refresh.py `
+  --configure-preset dev `
+  --build-preset gui-release
+```
+
+Paths:
+
+- Problems export: `.vscode/problems.export.json`
+- Snapshot history: `.vscode/problems-history/`
 
 ---
 

@@ -10,6 +10,7 @@
 - **UI Agent Protocol**: Natural language UI layout optimization with command generation
 - **CitySpec Generator**: AI-driven city design from natural language descriptions
 - **Design Assistant**: Code-shape aware refactoring with pattern catalog system
+- **Diagnostics Toolchain**: Agent-readable Problems export + doctor/triage/diff/refresh scripts
  - **Template Refactor**: `RcDataIndexPanel<T>` template reduces index panel duplication by ~85%
  - **Viewport Margins**: Padding/margin helpers to prevent clipping (`rc_ui_viewport_config.h`)
  - **Context Menus**: Right-click menus in index panels with HFSM hooks
@@ -21,6 +22,8 @@
 - Documentation: `docs/AI_Integration_*`
  - Startup scripts: `tools/Start_Ai_Bridge_Fixed.ps1`, `tools/Stop_Ai_Bridge_Fixed.ps1`, `tools/Start_Ai_Bridge_Fallback.bat`
  - Utilities: `tools/Quick_Fix.ps1`, `tools/create_shortcut.ps1`, `tools/move_object_files.ps1`
+ - Diagnostics scripts: `tools/env_doctor.py`, `tools/problems_triage.py`, `tools/problems_diff.py`, `tools/dev_refresh.py`
+ - Problems export bridge: `.vscode/problems.export.json` (from VSCode Problems Bridge extension)
 
 ### Decision Log (Started February 10, 2026)
 - **2026-02-10: Viewport Selection Uses Viewport Index**

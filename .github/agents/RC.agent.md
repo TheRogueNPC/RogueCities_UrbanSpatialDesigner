@@ -19,9 +19,10 @@ Update policy: whenever this ruleset changes, update this artifact in the same e
 {"hot_path_contract":{"report":["big_o_time","big_o_memory","cache_behavior","simd_opportunities"],"avoid":["virtual_dispatch_inner_loop","heap_churn_inner_loop","branch_heavy_inner_loop"]}}
 {"verification":{"order":["changed_file_errors","targeted_tests","module_build","broader_confidence_check"],"hfsm":"add_transition_tests_when_state_logic_changes"}}
 {"build_diagnostics":{"default":"msbuild /v:minimal + /bl","escalate_on_failure":"use /v:diag only for investigation","verify_toolchain":["where cl","where msbuild","echo %VSCMD_VER%"]}}
+{"diagnostics_toolchain":{"doctor":"tools/env_doctor.py","triage":"tools/problems_triage.py","diff":"tools/problems_diff.py","refresh":"tools/dev_refresh.py","problems_export":".vscode/problems.export.json","history_dir":".vscode/problems-history"}}
 {"env_fallback":{"trigger":["toolchain_unstable","cmake_cache_corrupt","startup_hang","path_or_env_drift"],"sequence":["tools/preflight_startup.ps1","StartupBuild.bat","build_and_run.bat","build_and_run_gui.ps1"],"notes":"run_preflight_first_then_bat_first_for_windows_recovery"}}
 {"response_footer_required_for_nontrivial":["Correctness","Numerics","Complexity","Performance","Determinism","Tests","Risks/Tradeoffs"]}
-{"quick_refs":{"architecture_docs":"AI/docs/","readme":"ReadMe.md","hfsm_tests":"tests/test_editor_hfsm.cpp","pipeline":"generators/include/RogueCity/Generators/Pipeline/CityGenerator.hpp","startup_preflight":"tools/preflight_startup.ps1","startup_build":"StartupBuild.bat","startup_cli":"build_and_run.bat","startup_gui":"build_and_run_gui.ps1","vscode_terminal_init":".vscode/vsdev-init.cmd","vscode_settings":".vscode/settings.json"}}
+{"quick_refs":{"architecture_docs":"AI/docs/","readme":"ReadMe.md","hfsm_tests":"tests/test_editor_hfsm.cpp","pipeline":"generators/include/RogueCity/Generators/Pipeline/CityGenerator.hpp","startup_preflight":"tools/preflight_startup.ps1","startup_build":"StartupBuild.bat","startup_cli":"build_and_run.bat","startup_gui":"build_and_run_gui.ps1","vscode_terminal_init":".vscode/vsdev-init.cmd","vscode_settings":".vscode/settings.json","env_doctor":"tools/env_doctor.py","problems_triage":"tools/problems_triage.py","problems_diff":"tools/problems_diff.py","dev_refresh":"tools/dev_refresh.py"}}
 ```
 
 # RogueCitiesArchitect Agent
@@ -41,8 +42,22 @@ Update policy: whenever this ruleset changes, update this artifact in the same e
 - **Compile checks**: Suggest `cmake --build build` or `Ctrl+Shift+B` after edits
 - **Windows toolchain baseline**: Use workspace terminal profile `VS 2026 Developer Command Prompt` (`.vscode/vsdev-init.cmd`) and verify with `where cl`, `where msbuild`, `echo %VSCMD_VER%`
 - **Diagnostics verbosity policy**: Default to `/v:minimal` with `/bl:artifacts\build.binlog`; use `/v:diag` only when investigating build failures
+- **Environment sanity first**: Run `python tools/env_doctor.py` before deep diagnostics work
+- **Problem-first triage loop**: `python tools/problems_triage.py`, then `python tools/problems_diff.py`
+- **One-click recovery**: `python tools/dev_refresh.py` performs configure/build/diagnostics refresh in one run
 - **Header changes**: Remember to update both `.h` and `.cpp`, check includes
 - **Hot-reload capable**: Many UI changes can be tested without full rebuild via hot-reload system
+
+### Diagnostics Workflow (Required)
+1. Ensure Problems export exists: `.vscode/problems.export.json` (via Problems Bridge extension)
+2. Run environment checks:
+   - `python tools/env_doctor.py`
+3. Triage the current problem set:
+   - `python tools/problems_triage.py --input .vscode/problems.export.json`
+4. Compare against previous state:
+   - `python tools/problems_diff.py --current .vscode/problems.export.json --snapshot-current`
+5. Refresh toolchain/build when drift is suspected:
+   - `python tools/dev_refresh.py --configure-preset dev --build-preset gui-release`
 
 ### Search Strategy
 1. **Start broad**: Search for class/function names across codebase

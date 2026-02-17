@@ -7,6 +7,12 @@ namespace RogueCity::Generators::Urban {
 
     fva::Container<Core::Road> RoadGenerator::generate(
         const std::vector<Core::Vec2>& seeds,
+        const TensorFieldGenerator& field) {
+        return generate(seeds, field, Config{});
+    }
+
+    fva::Container<Core::Road> RoadGenerator::generate(
+        const std::vector<Core::Vec2>& seeds,
         const TensorFieldGenerator& field,
         const Config& config) {
         StreamlineTracer tracer;

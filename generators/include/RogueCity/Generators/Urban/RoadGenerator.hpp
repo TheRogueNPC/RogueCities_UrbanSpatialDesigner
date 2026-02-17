@@ -16,7 +16,7 @@ namespace RogueCity::Generators::Urban {
     class RoadGenerator {
     public:
         struct Config {
-            StreamlineTracer::Params tracing{};
+            StreamlineTracer::Params tracing;
             Roads::NoderConfig noder{};
             Roads::SimplifyConfig simplify{};
             Roads::FlowControlConfig flow_control{};
@@ -27,8 +27,12 @@ namespace RogueCity::Generators::Urban {
 
         [[nodiscard]] static fva::Container<Core::Road> generate(
             const std::vector<Core::Vec2>& seeds,
+            const TensorFieldGenerator& field);
+
+        [[nodiscard]] static fva::Container<Core::Road> generate(
+            const std::vector<Core::Vec2>& seeds,
             const TensorFieldGenerator& field,
-            const Config& config = Config{});
+            const Config& config);
     };
 
 } // namespace RogueCity::Generators::Urban
