@@ -185,6 +185,7 @@
   },
   "active": "ee0399504a558c3d",
   "lastOpenFiles": [
+    "00_index/AGENT_ONBOARDING.md",
     "30_runbooks/resize-regression-checklist.md",
     "20_specs/tool-viewport-generation-contract.md",
     "LICENSES.md",
@@ -221,7 +222,6 @@
     "20_specs/ui-patterns.md",
     "20_specs/ui-migration.md",
     "20_specs/type-alias-migration-guide.md",
-    "20_specs/tech-stack.md",
     "generated/doxygen/Doxy/html/doxygen.svg"
   ]
 }
