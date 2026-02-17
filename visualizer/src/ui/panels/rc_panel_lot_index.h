@@ -16,9 +16,4 @@ inline RC_UI::Patterns::RcDataIndexPanel<RogueCity::Core::LotToken, LotIndexTrai
     return panel;
 }
 
-// Draw the lot index panel.
-inline void Draw(float dt) {
-    GetPanel().Draw(dt);
-}
-
 } // namespace RC_UI::Panels::LotIndex

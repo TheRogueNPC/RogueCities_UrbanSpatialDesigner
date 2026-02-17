@@ -16,9 +16,4 @@ inline RC_UI::Patterns::RcDataIndexPanel<RogueCity::Core::BuildingSite, Building
     return panel;
 }
 
-// Draw the building index panel.
-inline void Draw(float dt) {
-    GetPanel().Draw(dt);
-}
-
 } // namespace RC_UI::Panels::BuildingIndex

@@ -16,9 +16,4 @@ inline RC_UI::Patterns::RcDataIndexPanel<RogueCity::Core::District, DistrictInde
     return panel;
 }
 
-// Draw the district index panel. Shows summary statistics and each district ID.
-inline void Draw(float dt) {
-    GetPanel().Draw(dt);
-}
-
 } // namespace RC_UI::Panels::DistrictIndex
