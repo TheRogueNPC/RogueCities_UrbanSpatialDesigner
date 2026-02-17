@@ -22,7 +22,7 @@
 - Documentation: `docs/AI_Integration_*`
  - Startup scripts: `tools/Start_Ai_Bridge_Fixed.ps1`, `tools/Stop_Ai_Bridge_Fixed.ps1`, `tools/Start_Ai_Bridge_Fallback.bat`
  - Utilities: `tools/Quick_Fix.ps1`, `tools/create_shortcut.ps1`, `tools/move_object_files.ps1`
- - Diagnostics scripts: `tools/env_doctor.py`, `tools/problems_triage.py`, `tools/problems_diff.py`, `tools/dev_refresh.py`
+ - Diagnostics scripts: `tools/env_doctor.py`, `tools/check_clang_builder_contract.py`, `tools/problems_triage.py`, `tools/problems_diff.py`, `tools/dev_refresh.py`
  - Problems export bridge: `.vscode/problems.export.json` (from VSCode Problems Bridge extension)
 
 ### Decision Log (Started February 10, 2026)

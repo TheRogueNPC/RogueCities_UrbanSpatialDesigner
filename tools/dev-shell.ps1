@@ -17,6 +17,7 @@ function rc-help {
     Write-Host "  rc-run" -ForegroundColor Yellow
     Write-Host "  rc-tst [-Preset ctest-release]" -ForegroundColor Yellow
     Write-Host "  rc-doctor" -ForegroundColor Yellow
+    Write-Host "  rc-contract" -ForegroundColor Yellow
     Write-Host "  rc-problems [-MaxItems 10]" -ForegroundColor Yellow
     Write-Host "  rc-pdiff" -ForegroundColor Yellow
     Write-Host "  rc-refresh [-ConfigurePreset dev] [-BuildPreset gui-release]" -ForegroundColor Yellow
@@ -90,6 +91,10 @@ function Invoke-RCPythonTool {
 
 function rc-doctor {
     Invoke-RCPythonTool -ScriptPath "tools\env_doctor.py"
+}
+
+function rc-contract {
+    Invoke-RCPythonTool -ScriptPath "tools\check_clang_builder_contract.py"
 }
 
 function rc-problems {

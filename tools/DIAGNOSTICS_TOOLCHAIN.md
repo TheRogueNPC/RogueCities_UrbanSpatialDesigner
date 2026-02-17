@@ -13,23 +13,26 @@ the VS Code Problems Bridge export file.
 1. `tools/env_doctor.py`
    - Validates toolchain, compile DB, VS Code settings, and Problems export wiring.
 
-2. `tools/problems_triage.py`
+2. `tools/check_clang_builder_contract.py`
+   - Enforces clang/builder safety rules (header API + include invariants).
+
+3. `tools/problems_triage.py`
    - Groups diagnostics by root cause and priority.
 
-3. `tools/problems_diff.py`
+4. `tools/problems_diff.py`
    - Diffs two diagnostics snapshots and tracks added/removed issues.
 
-4. `tools/dev_refresh.py`
+5. `tools/dev_refresh.py`
    - One-click: configure -> compile DB generation -> build -> diff -> triage.
 
 ## Typical Workflow
 
 ```powershell
 python tools/env_doctor.py
+python tools/check_clang_builder_contract.py
 python tools/problems_triage.py --input .vscode/problems.export.json
 python tools/problems_diff.py --current .vscode/problems.export.json --snapshot-current
 python tools/dev_refresh.py --configure-preset dev --build-preset gui-release
 ```
-
 
 

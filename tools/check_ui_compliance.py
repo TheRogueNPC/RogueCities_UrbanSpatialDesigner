@@ -50,6 +50,7 @@ def main() -> int:
         return 1
 
     contract_scripts = [
+        ROOT / "tools" / "check_clang_builder_contract.py",
         ROOT / "tools" / "check_tool_wiring_contract.py",
         ROOT / "tools" / "check_context_command_contract.py",
         ROOT / "tools" / "check_generator_viewport_contract.py",

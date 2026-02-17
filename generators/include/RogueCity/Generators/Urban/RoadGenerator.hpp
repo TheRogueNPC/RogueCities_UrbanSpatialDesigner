@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Generators/Roads/StreamlineTracer.hpp"
 #include "RogueCity/Generators/Roads/RoadNoder.hpp"
 #include "RogueCity/Generators/Roads/GraphSimplify.hpp"

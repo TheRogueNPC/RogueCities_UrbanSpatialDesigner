@@ -270,13 +270,16 @@ Use this sequence whenever diagnostics drift from build reality:
 # 1) Verify environment/toolchain + workspace wiring
 python tools/env_doctor.py
 
-# 2) Triage current VS Code Problems export
+# 2) Enforce clang/builder contract
+python tools/check_clang_builder_contract.py
+
+# 3) Triage current VS Code Problems export
 python tools/problems_triage.py --input .vscode/problems.export.json
 
-# 3) Diff against previous snapshot and store current snapshot
+# 4) Diff against previous snapshot and store current snapshot
 python tools/problems_diff.py --current .vscode/problems.export.json --snapshot-current
 
-# 4) One-click refresh (configure + compile db + build + diff + triage)
+# 5) One-click refresh (configure + compile db + build + diff + triage)
 python tools/dev_refresh.py --configure-preset dev --build-preset gui-release
 ```
 

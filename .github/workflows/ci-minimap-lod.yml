@@ -18,6 +18,9 @@ jobs:
         shell: pwsh
         run: ./tools/check_licenses.ps1
 
+      - name: Clang/builder contract check
+        run: python tools/check_clang_builder_contract.py
+
       - name: Configure
         run: cmake -B build -S .
 
