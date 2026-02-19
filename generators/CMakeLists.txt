@@ -56,6 +56,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Roads/Verticality.hpp
     include/RogueCity/Generators/Roads/IntersectionTemplates.hpp
     include/RogueCity/Generators/Scoring/RogueProfiler.hpp
+    include/RogueCity/Generators/Scoring/ScoringProfile.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
     include/RogueCity/Generators/Urban/FrontageProfiles.hpp
     include/RogueCity/Generators/Urban/Integrator.hpp
@@ -70,6 +71,8 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/LotGenerator.hpp
     include/RogueCity/Generators/Urban/SiteGenerator.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
+    include/RogueCity/Generators/Pipeline/GenerationContext.hpp
+    include/RogueCity/Generators/Pipeline/GenerationStage.hpp
     include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
     include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp
@@ -162,13 +165,24 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
-        glm::glm         # Math utilities
 )
 
 # C++20 features
 target_compile_features(RogueCityGenerators PUBLIC cxx_std_20)
 target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_GENERATORS_CITYSPEC_ADAPTER=1)
 add_library(RogueCity::Generators ALIAS RogueCityGenerators)
+
+# === INSTALL RULES ===
+install(TARGETS RogueCityGenerators
+    EXPORT RogueCitiesTargets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+)
+
+install(DIRECTORY include/RogueCity/Generators
+    DESTINATION include/RogueCity
+    FILES_MATCHING PATTERN "*.hpp"
+)
 
 # Optimization flags (configuration-specific)
 if(MSVC)

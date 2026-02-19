@@ -20,9 +20,11 @@ set(CORE_HEADERS
     include/RogueCity/Core/Export/TextureReplayHash.hpp
     include/RogueCity/Core/Editor/EditorState.hpp
     include/RogueCity/Core/Editor/GlobalState.hpp
+    include/RogueCity/Core/Editor/StableIDRegistry.hpp
     include/RogueCity/Core/Editor/TerrainBrush.hpp
     include/RogueCity/Core/Editor/TexturePainting.hpp
     include/RogueCity/Core/Editor/SelectionSync.hpp
+    include/RogueCity/Core/Simulation/SimulationPipeline.hpp
     include/RogueCity/Core/Texture/SIMDProcessor.hpp
     include/RogueCity/Core/Texture/TextureProcessor.hpp
     include/RogueCity/Core/Util/FastVectorArray.hpp
@@ -31,6 +33,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Util/RogueWorker.hpp
     include/RogueCity/Core/Validation/EditorIntegrity.hpp
     include/RogueCity/Core/Validation/EditorOverlayValidation.hpp
+    include/RogueCity/Core/Validation/DeterminismHash.hpp
 )
 
 set(CORE_SOURCES
@@ -43,12 +46,16 @@ set(CORE_SOURCES
     src/Core/Export/TextureReplayHash.cpp
     src/Core/Editor/EditorState.cpp
     src/Core/Editor/GlobalState.cpp
+    src/Core/Editor/StableIDRegistry.cpp
+    src/Core/Editor/ViewportIndex.cpp
     src/Core/Editor/TerrainBrush.cpp
     src/Core/Editor/TexturePainting.cpp
+    src/Core/Simulation/SimulationPipeline.cpp
     src/Core/Texture/SIMDProcessor.cpp
     src/Core/Texture/TextureProcessor.cpp
     src/Core/Validation/EditorIntegrity.cpp
     src/Core/Validation/EditorOverlayValidation.cpp
+    src/Core/Validation/DeterminismHash.cpp
 )
 
 # === LIBRARY TARGET ===
@@ -57,16 +64,16 @@ add_library(RogueCityCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 # === PUBLIC INTERFACE ===
 target_include_directories(RogueCityCore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${MAGIC_ENUM_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
 # === DEPENDENCIES ===
 find_package(Threads REQUIRED)
 
-target_link_libraries(RogueCityCore PUBLIC
-    glm::glm
-    magic_enum
-    Threads::Threads
+target_link_libraries(RogueCityCore
+    PUBLIC
+        Threads::Threads
 )
 
 # === C++ STANDARD ===
@@ -118,6 +125,7 @@ endforeach()
 
 # === INSTALL RULES ===
 install(TARGETS RogueCityCore
+    EXPORT RogueCitiesTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
 )

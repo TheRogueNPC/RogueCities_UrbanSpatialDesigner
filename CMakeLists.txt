@@ -8,6 +8,7 @@ cmake_minimum_required(VERSION 3.20)
 # Enable C language for Lua library compilation
 project(RogueCities VERSION 0.10.0 LANGUAGES CXX C)
 include(CTest)
+include(CMakePackageConfigHelpers)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,6 +91,10 @@ if(NOT TARGET magic_enum)
     add_library(magic_enum INTERFACE)
     target_include_directories(magic_enum INTERFACE "${MAGIC_ENUM_DIR}/include")
 endif()
+
+install(DIRECTORY "${MAGIC_ENUM_DIR}/include/magic_enum"
+    DESTINATION include
+)
 
 # === LInput (header-only) ===
 set(LINPUT_DIR "${CMAKE_SOURCE_DIR}/3rdparty/LInput")
@@ -202,6 +207,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/../bin)
 
+set(ROGUECITIES_INSTALL_CMAKEDIR "lib/cmake/RogueCities")
+
+configure_package_config_file(
+    "${CMAKE_SOURCE_DIR}/cmake/RogueCitiesConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/RogueCitiesConfig.cmake"
+    INSTALL_DESTINATION "${ROGUECITIES_INSTALL_CMAKEDIR}"
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/RogueCitiesConfigVersion.cmake"
+    VERSION "${PROJECT_VERSION}"
+    COMPATIBILITY SameMajorVersion
+)
+
+install(EXPORT RogueCitiesTargets
+    FILE RogueCitiesTargets.cmake
+    NAMESPACE RogueCity::
+    DESTINATION "${ROGUECITIES_INSTALL_CMAKEDIR}"
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/RogueCitiesConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/RogueCitiesConfigVersion.cmake"
+    DESTINATION "${ROGUECITIES_INSTALL_CMAKEDIR}"
+)
+
 # === VISUALIZER APP (stub) ===
 # ImGui-based Visualizer will live under the visualizer/ folder.
 # This keeps UI concerns separate from core/generators.
@@ -245,6 +276,55 @@ if(BUILD_TESTING)
     target_link_libraries(test_geometry_adapter PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_geometry_adapter PRIVATE cxx_std_20)
 
+    add_executable(test_city_generator_validation tests/test_city_generator_validation.cpp)
+    target_link_libraries(test_city_generator_validation PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_city_generator_validation PRIVATE cxx_std_20)
+
+    add_executable(test_generation_stages tests/test_generation_stages.cpp)
+    target_link_libraries(test_generation_stages PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generation_stages PRIVATE cxx_std_20)
+
+    add_executable(test_generation_stage_perf tests/test_generation_stage_perf.cpp)
+    target_link_libraries(test_generation_stage_perf PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generation_stage_perf PRIVATE cxx_std_20)
+
+    add_executable(test_generation_cancellation tests/test_generation_cancellation.cpp)
+    target_link_libraries(test_generation_cancellation PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generation_cancellation PRIVATE cxx_std_20)
+
+    add_executable(test_aesp_scoring_profiles tests/test_aesp_scoring_profiles.cpp)
+    target_link_libraries(test_aesp_scoring_profiles PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_aesp_scoring_profiles PRIVATE cxx_std_20)
+
+    add_executable(test_streamline_adaptive tests/test_streamline_adaptive.cpp)
+    target_link_libraries(test_streamline_adaptive PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_streamline_adaptive PRIVATE cxx_std_20)
+
+    add_executable(test_determinism_comprehensive tests/test_determinism_comprehensive.cpp)
+    target_link_libraries(test_determinism_comprehensive PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_determinism_comprehensive PRIVATE cxx_std_20)
+    target_compile_definitions(test_determinism_comprehensive PRIVATE ROGUECITY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+
+    add_executable(test_cancellation_coverage tests/test_cancellation_coverage.cpp)
+    target_link_libraries(test_cancellation_coverage PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_cancellation_coverage PRIVATE cxx_std_20)
+
+    add_executable(test_incremental_parity tests/test_incremental_parity.cpp)
+    target_link_libraries(test_incremental_parity PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_incremental_parity PRIVATE cxx_std_20)
+
+    add_executable(test_full_pipeline tests/integration/test_full_pipeline.cpp)
+    target_link_libraries(test_full_pipeline PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
+    target_compile_features(test_full_pipeline PRIVATE cxx_std_20)
+
+    add_executable(test_texture_replay tests/integration/test_texture_replay.cpp)
+    target_link_libraries(test_texture_replay PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
+    target_compile_features(test_texture_replay PRIVATE cxx_std_20)
+
+    add_executable(test_generation_latency tests/perf/test_generation_latency.cpp)
+    target_link_libraries(test_generation_latency PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generation_latency PRIVATE cxx_std_20)
+
     add_executable(test_core tests/test_core.cpp)
     target_link_libraries(test_core PRIVATE RogueCityCore)
     target_compile_features(test_core PRIVATE cxx_std_20)
@@ -277,6 +357,11 @@ if(BUILD_TESTING)
     target_link_libraries(test_texture_replay_hash PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_texture_replay_hash PRIVATE cxx_std_20)
 
+    add_executable(test_determinism_baseline tests/unit/test_determinism_baseline.cpp)
+    target_link_libraries(test_determinism_baseline PRIVATE RogueCityCore)
+    target_compile_features(test_determinism_baseline PRIVATE cxx_std_20)
+    target_compile_definitions(test_determinism_baseline PRIVATE ROGUECITY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+
     add_executable(test_minimap_lod_determinism tests/unit/test_minimap_lod_determinism.cpp)
     target_link_libraries(test_minimap_lod_determinism PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_minimap_lod_determinism PRIVATE cxx_std_20)
@@ -285,6 +370,18 @@ if(BUILD_TESTING)
     add_executable(test_editor_hfsm tests/test_editor_hfsm.cpp)
     target_link_libraries(test_editor_hfsm PRIVATE RogueCityCore)
     target_compile_features(test_editor_hfsm PRIVATE cxx_std_20)
+
+    add_executable(test_simulation_pipeline tests/test_simulation_pipeline.cpp)
+    target_link_libraries(test_simulation_pipeline PRIVATE RogueCityCore)
+    target_compile_features(test_simulation_pipeline PRIVATE cxx_std_20)
+
+    add_executable(test_stable_id_registry tests/test_stable_id_registry.cpp)
+    target_link_libraries(test_stable_id_registry PRIVATE RogueCityCore)
+    target_compile_features(test_stable_id_registry PRIVATE cxx_std_20)
+
+    add_executable(test_viewport_id_stability tests/test_viewport_id_stability.cpp)
+    target_link_libraries(test_viewport_id_stability PRIVATE RogueCityCore RogueCityApp)
+    target_compile_features(test_viewport_id_stability PRIVATE cxx_std_20)
 
     # === VIEWPORT COORDINATE TESTS (Phase 2) ===
     add_executable(test_viewport tests/test_viewport.cpp)
@@ -328,9 +425,25 @@ if(BUILD_TESTING)
     add_test(NAME test_terrain_constraints COMMAND test_terrain_constraints)
     add_test(NAME test_tensor_texture_integration COMMAND test_tensor_texture_integration)
     add_test(NAME test_texture_replay_hash COMMAND test_texture_replay_hash)
+    add_test(NAME test_determinism_baseline COMMAND test_determinism_baseline)
     add_test(NAME test_minimap_lod_determinism COMMAND test_minimap_lod_determinism)
+    add_test(NAME test_determinism_comprehensive COMMAND test_determinism_comprehensive)
+    add_test(NAME test_simulation_pipeline COMMAND test_simulation_pipeline)
+    add_test(NAME test_stable_id_registry COMMAND test_stable_id_registry)
+    add_test(NAME test_viewport_id_stability COMMAND test_viewport_id_stability)
     add_test(NAME test_generators COMMAND test_generators)
     add_test(NAME test_geometry_adapter COMMAND test_geometry_adapter)
+    add_test(NAME test_city_generator_validation COMMAND test_city_generator_validation)
+    add_test(NAME test_generation_stages COMMAND test_generation_stages)
+    add_test(NAME test_generation_stage_perf COMMAND test_generation_stage_perf)
+    add_test(NAME test_generation_cancellation COMMAND test_generation_cancellation)
+    add_test(NAME test_cancellation_coverage COMMAND test_cancellation_coverage)
+    add_test(NAME test_incremental_parity COMMAND test_incremental_parity)
+    add_test(NAME test_full_pipeline COMMAND test_full_pipeline)
+    add_test(NAME test_texture_replay COMMAND test_texture_replay)
+    add_test(NAME test_generation_latency COMMAND test_generation_latency)
+    add_test(NAME test_aesp_scoring_profiles COMMAND test_aesp_scoring_profiles)
+    add_test(NAME test_streamline_adaptive COMMAND test_streamline_adaptive)
 else()
     message(STATUS "BUILD_TESTING=OFF: skipping test executable targets")
 endif()

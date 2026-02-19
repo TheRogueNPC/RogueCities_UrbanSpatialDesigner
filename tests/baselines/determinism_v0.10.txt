@@ -1,0 +1,7 @@
+# RogueCities Determinism Baseline v0.10
+# Baseline state: empty GlobalState containers, no texture space initialized.
+roads=0xa8c7f832281a39c5
+districts=0xa8c7f832281a39c5
+lots=0xa8c7f832281a39c5
+buildings=0xa8c7f832281a39c5
+tensor=0x0000000000000000
