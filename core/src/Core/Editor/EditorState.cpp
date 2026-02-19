@@ -326,6 +326,7 @@ namespace RogueCity::Core::Editor {
                 Simulation::SimulationConfig cfg{};
                 cfg.fixed_timestep = 1.0f / 60.0f;
                 cfg.max_substeps = 1u;
+                cfg.deterministic_mode = true;
                 return cfg;
             }();
             static Simulation::SimulationPipeline simulation_pipeline{ step_config };

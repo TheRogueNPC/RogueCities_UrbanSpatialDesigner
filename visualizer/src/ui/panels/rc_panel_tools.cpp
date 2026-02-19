@@ -338,14 +338,18 @@ void DrawContent(float dt)
         {"Buildings", DirtyLayer::Buildings},
         {"Viewport", DirtyLayer::ViewportIndex},
     }};
+    ImGui::PushID("DirtyLayerChips");
     for (size_t chip_index = 0; chip_index < kDirtyChips.size(); ++chip_index) {
         const DirtyChip& chip = kDirtyChips[chip_index];
+        ImGui::PushID(static_cast<int>(chip_index));
         draw_chip(chip.label, gs.dirty_layers.IsDirty(chip.layer));
+        ImGui::PopID();
         if (chip_index + 1 < kDirtyChips.size()) {
             const float next_chip_width = ImGui::CalcTextSize(kDirtyChips[chip_index + 1].label).x + 30.0f;
             same_line_if_room(next_chip_width);
         }
     }
+    ImGui::PopID();
 
     ImGui::SeparatorText("Debug Overlays");
     ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);

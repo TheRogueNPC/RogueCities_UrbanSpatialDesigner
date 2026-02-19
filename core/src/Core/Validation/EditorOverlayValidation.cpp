@@ -86,6 +86,35 @@ size_t ToSizeT(uint64_t value) {
     return static_cast<size_t>(value > max ? max : value);
 }
 
+VpEntityKind ToEntityKind(const RogueCity::Core::PlanEntityType entity_type) {
+    switch (entity_type) {
+    case RogueCity::Core::PlanEntityType::Road:
+        return VpEntityKind::Road;
+    case RogueCity::Core::PlanEntityType::Lot:
+        return VpEntityKind::Lot;
+    case RogueCity::Core::PlanEntityType::District:
+        return VpEntityKind::District;
+    default:
+        return VpEntityKind::Unknown;
+    }
+}
+
+void AppendValidationError(
+    std::vector<ValidationError>& errors,
+    const ValidationSeverity severity,
+    const VpEntityKind entity_kind,
+    const uint32_t entity_id,
+    const Vec2& world_position,
+    std::string message) {
+    errors.emplace_back();
+    ValidationError& error = errors.back();
+    error.severity = severity;
+    error.entity_kind = entity_kind;
+    error.entity_id = entity_id;
+    error.world_position = world_position;
+    error.message = std::move(message);
+}
+
 } // namespace
 
 std::vector<ValidationError> CollectOverlayValidationErrors(const Editor::GlobalState& gs, float min_lot_area) {
@@ -93,26 +122,13 @@ std::vector<ValidationError> CollectOverlayValidationErrors(const Editor::Global
     errors.reserve(gs.plan_violations.size() + ToSizeT(gs.lots.size()) + gs.buildings.size());
 
     for (const auto& violation : gs.plan_violations) {
-        ValidationError e{};
-        e.severity = ToSeverity(violation.severity);
-        e.message = violation.message.empty() ? "Plan validation issue" : violation.message;
-        e.world_position = violation.location;
-        e.entity_id = violation.entity_id;
-        switch (violation.entity_type) {
-        case RogueCity::Core::PlanEntityType::Road:
-            e.entity_kind = VpEntityKind::Road;
-            break;
-        case RogueCity::Core::PlanEntityType::Lot:
-            e.entity_kind = VpEntityKind::Lot;
-            break;
-        case RogueCity::Core::PlanEntityType::District:
-            e.entity_kind = VpEntityKind::District;
-            break;
-        default:
-            e.entity_kind = VpEntityKind::Unknown;
-            break;
-        }
-        errors.push_back(std::move(e));
+        AppendValidationError(
+            errors,
+            ToSeverity(violation.severity),
+            ToEntityKind(violation.entity_type),
+            violation.entity_id,
+            violation.location,
+            violation.message.empty() ? std::string("Plan validation issue") : violation.message);
     }
 
     const float lot_area_threshold = std::max(1.0f, min_lot_area);
@@ -122,13 +138,13 @@ std::vector<ValidationError> CollectOverlayValidationErrors(const Editor::Global
             area = static_cast<float>(std::fabs(SignedPolygonArea(lot.boundary)));
         }
         if (area < lot_area_threshold) {
-            ValidationError e{};
-            e.severity = ValidationSeverity::Warning;
-            e.entity_kind = VpEntityKind::Lot;
-            e.entity_id = lot.id;
-            e.world_position = lot.centroid;
-            e.message = "Lot area below minimum threshold";
-            errors.push_back(std::move(e));
+            AppendValidationError(
+                errors,
+                ValidationSeverity::Warning,
+                VpEntityKind::Lot,
+                lot.id,
+                lot.centroid,
+                "Lot area below minimum threshold");
         }
     }
 
@@ -141,25 +157,25 @@ std::vector<ValidationError> CollectOverlayValidationErrors(const Editor::Global
     for (const auto& building : gs.buildings) {
         const auto lot_it = lots_by_id.find(building.lot_id);
         if (lot_it == lots_by_id.end()) {
-            ValidationError e{};
-            e.severity = ValidationSeverity::Critical;
-            e.entity_kind = VpEntityKind::Building;
-            e.entity_id = building.id;
-            e.world_position = building.position;
-            e.message = "Building references missing lot";
-            errors.push_back(std::move(e));
+            AppendValidationError(
+                errors,
+                ValidationSeverity::Critical,
+                VpEntityKind::Building,
+                building.id,
+                building.position,
+                "Building references missing lot");
             continue;
         }
 
         const auto* lot = lot_it->second;
         if (lot->boundary.size() >= 3 && !PointInPolygon(building.position, lot->boundary)) {
-            ValidationError e{};
-            e.severity = ValidationSeverity::Error;
-            e.entity_kind = VpEntityKind::Building;
-            e.entity_id = building.id;
-            e.world_position = building.position;
-            e.message = "Building footprint is outside its lot boundary";
-            errors.push_back(std::move(e));
+            AppendValidationError(
+                errors,
+                ValidationSeverity::Error,
+                VpEntityKind::Building,
+                building.id,
+                building.position,
+                "Building footprint is outside its lot boundary");
         }
     }
 
@@ -192,13 +208,13 @@ std::vector<ValidationError> CollectOverlayValidationErrors(const Editor::Global
                         continue;
                     }
 
-                    ValidationError e{};
-                    e.severity = ValidationSeverity::Warning;
-                    e.entity_kind = VpEntityKind::Road;
-                    e.entity_id = road_a.id;
-                    e.world_position = intersection;
-                    e.message = "Road intersection requires review";
-                    errors.push_back(std::move(e));
+                    AppendValidationError(
+                        errors,
+                        ValidationSeverity::Warning,
+                        VpEntityKind::Road,
+                        road_a.id,
+                        intersection,
+                        "Road intersection requires review");
 
                     if (errors.size() >= kMaxIntersectionErrors) {
                         return errors;

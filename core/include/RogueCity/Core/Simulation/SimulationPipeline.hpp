@@ -15,6 +15,8 @@ struct SimulationConfig {
   float fixed_timestep{1.0f / 60.0f};
   /// Safety cap for accumulated substeps in a single frame update.
   uint32_t max_substeps{4};
+  /// Enables deterministic stepping semantics for reproducible simulation runs.
+  bool deterministic_mode{true};
 };
 
 /// Result object returned by each simulation tick.

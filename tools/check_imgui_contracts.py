@@ -36,6 +36,10 @@ WIDGET_IN_LOOP = re.compile(
     r"\bImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo)\s*\(\s*\"([^\"]+)\""
 )
 
+WIDGET_WITH_LITERAL_LABEL = re.compile(
+    r"\bImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo|Combo|CollapsingHeader|MenuItem)\s*\(\s*\"([^\"]+)\""
+)
+
 
 def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
@@ -115,6 +119,56 @@ def check_loop_id_safety(path: Path, text: str) -> list[str]:
     return violations
 
 
+def check_duplicate_labels_in_draw_content(path: Path, text: str) -> list[str]:
+    lines = text.splitlines()
+    violations: list[str] = []
+
+    in_draw_content = False
+    brace_depth = 0
+    waiting_for_open_brace = False
+    id_scope_depth = 0
+    seen_labels: dict[str, int] = {}
+
+    for idx, line in enumerate(lines, start=1):
+        if not in_draw_content:
+            if re.search(r"\bDrawContent\s*\(", line):
+                waiting_for_open_brace = True
+
+        if waiting_for_open_brace and "{" in line:
+            in_draw_content = True
+            waiting_for_open_brace = False
+            brace_depth = line.count("{") - line.count("}")
+            id_scope_depth = 0
+            seen_labels.clear()
+            if brace_depth <= 0:
+                in_draw_content = False
+            continue
+
+        if in_draw_content:
+            id_scope_depth += line.count("PushID(")
+            id_scope_depth -= line.count("PopID(")
+            if id_scope_depth < 0:
+                id_scope_depth = 0
+
+            match = WIDGET_WITH_LITERAL_LABEL.search(line)
+            if match:
+                label = match.group(1)
+                if "##" not in label and id_scope_depth == 0:
+                    first_line = seen_labels.get(label)
+                    if first_line is None:
+                        seen_labels[label] = idx
+                    else:
+                        violations.append(
+                            f"{rel(path)}:{idx}: Duplicate widget label '{label}' in DrawContent() without ID scope (first at line {first_line})."
+                        )
+
+            brace_depth += line.count("{") - line.count("}")
+            if brace_depth <= 0:
+                in_draw_content = False
+
+    return violations
+
+
 def check_legacy_io_writes() -> list[str]:
     if not MAIN_GUI.exists():
         return []
@@ -153,6 +207,7 @@ def main() -> int:
         text = path.read_text(encoding="utf-8", errors="replace")
         violations.extend(check_draw_content_contracts(path, text))
         violations.extend(check_loop_id_safety(path, text))
+        violations.extend(check_duplicate_labels_in_draw_content(path, text))
 
     violations.extend(check_legacy_io_writes())
     violations.extend(check_input_gate_contract())

@@ -12,9 +12,11 @@ int main() {
     SimulationConfig cfg{};
     cfg.fixed_timestep = 0.1f;
     cfg.max_substeps = 4u;
+    cfg.deterministic_mode = true;
 
     GlobalState gs{};
     SimulationPipeline pipeline(cfg);
+    assert(pipeline.config().deterministic_mode);
 
     auto r0 = pipeline.ExecuteStep(gs, 0.05f);
     assert(r0.success);
