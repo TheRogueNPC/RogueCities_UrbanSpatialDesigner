@@ -38,7 +38,7 @@ Based on your repository structure and existing patterns, here's a production-re
 ### Testing & Validation
 - [x] Run full test suite to verify green baseline
 - [x] Generate baseline hash from clean state
-- [ ] Commit baseline hash file to version control
+- [x] Commit baseline hash file to version control
 - [x] Add baseline validation to CI pipeline
 - [x] Document baseline recording procedure
 
@@ -437,7 +437,7 @@ Based on your repository structure and existing patterns, here's a production-re
 ### Final Validation
 - [x] Run full test suite on clean build
 - [x] Generate final baseline hash for v0.10
-- [ ] Tag release commit with version
+- [x] Tag release commit with version
 - [x] Update CHANGELOG.md with all changes
 - [x] Create release notes highlighting determinism improvements
 
