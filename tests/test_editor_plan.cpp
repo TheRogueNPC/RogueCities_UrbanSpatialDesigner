@@ -98,6 +98,7 @@ void TestViewportIndexIntegrity() {
         const auto& b = gs_b.viewport_index[i];
         assert(a.kind == b.kind);
         assert(a.id == b.id);
+        assert(a.stable_id == b.stable_id);
         assert(a.parent == b.parent);
         assert(a.first_child == b.first_child);
         assert(a.child_count == b.child_count);

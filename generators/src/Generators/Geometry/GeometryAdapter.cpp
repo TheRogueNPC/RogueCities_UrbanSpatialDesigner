@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
@@ -130,6 +131,120 @@ using Ring = GeometryAdapter::Ring;
     return pointInsideRing(na.front(), nb) || pointInsideRing(nb.front(), na);
 }
 
+[[nodiscard]] Ring legacyConvexHull(const Ring& points) {
+    Ring sorted = points;
+    if (sorted.size() < 3) {
+        return sorted;
+    }
+
+    std::sort(sorted.begin(), sorted.end(), [](const Core::Vec2& a, const Core::Vec2& b) {
+        if (a.x != b.x) {
+            return a.x < b.x;
+        }
+        return a.y < b.y;
+    });
+    sorted.erase(std::unique(sorted.begin(), sorted.end(), [](const Core::Vec2& a, const Core::Vec2& b) {
+        return a.x == b.x && a.y == b.y;
+    }), sorted.end());
+    if (sorted.size() < 3) {
+        return sorted;
+    }
+
+    Ring lower;
+    for (const auto& p : sorted) {
+        while (lower.size() >= 2 &&
+               orient2d(lower[lower.size() - 2], lower.back(), p) <= 0.0) {
+            lower.pop_back();
+        }
+        lower.push_back(p);
+    }
+
+    Ring upper;
+    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
+        while (upper.size() >= 2 &&
+               orient2d(upper[upper.size() - 2], upper.back(), *it) <= 0.0) {
+            upper.pop_back();
+        }
+        upper.push_back(*it);
+    }
+
+    lower.pop_back();
+    upper.pop_back();
+    lower.insert(lower.end(), upper.begin(), upper.end());
+    return lower;
+}
+
+[[nodiscard]] double distancePointToSegment(
+    const Core::Vec2& point,
+    const Core::Vec2& start,
+    const Core::Vec2& end) {
+    const Core::Vec2 delta = end - start;
+    const double len2 = delta.lengthSquared();
+    if (len2 <= 1e-12) {
+        return point.distanceTo(start);
+    }
+
+    const double t = std::clamp(((point - start).dot(delta)) / len2, 0.0, 1.0);
+    const Core::Vec2 projection = start + (delta * t);
+    return point.distanceTo(projection);
+}
+
+void simplifyDouglasPeucker(
+    const Ring& points,
+    size_t first,
+    size_t last,
+    double tolerance,
+    std::vector<bool>& keep) {
+    if (last <= first + 1) {
+        return;
+    }
+
+    size_t split = first;
+    double max_dist = -std::numeric_limits<double>::infinity();
+    for (size_t i = first + 1; i < last; ++i) {
+        const double dist = distancePointToSegment(points[i], points[first], points[last]);
+        if (dist > max_dist) {
+            max_dist = dist;
+            split = i;
+        }
+    }
+
+    if (max_dist > tolerance && split > first && split < last) {
+        keep[split] = true;
+        simplifyDouglasPeucker(points, first, split, tolerance, keep);
+        simplifyDouglasPeucker(points, split, last, tolerance, keep);
+    }
+}
+
+[[nodiscard]] Ring legacySimplify(const Ring& ring, double tolerance) {
+    Ring normalized = normalizeRing(ring);
+    if (normalized.size() < 3) {
+        return normalized;
+    }
+
+    const double safe_tolerance = std::max(0.0, tolerance);
+    Ring open = normalized;
+    open.push_back(normalized.front());
+
+    std::vector<bool> keep(open.size(), false);
+    keep.front() = true;
+    keep.back() = true;
+    simplifyDouglasPeucker(open, 0u, open.size() - 1u, safe_tolerance, keep);
+
+    Ring simplified;
+    simplified.reserve(open.size());
+    for (size_t i = 0; i + 1 < open.size(); ++i) {
+        if (keep[i]) {
+            simplified.push_back(open[i]);
+        }
+    }
+
+    if (simplified.size() < 3) {
+        return normalized;
+    }
+    return simplified;
+}
+
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostBox = boost::geometry::model::box<BoostPoint>;
@@ -216,6 +331,56 @@ bool GeometryAdapter::intersects(const Ring& a, const Ring& b) {
     return boost::geometry::intersects(pa, pb);
 #else
     return legacyRingIntersects(a, b);
+#endif
+}
+
+GeometryAdapter::Ring GeometryAdapter::convexHull(const Ring& points) {
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
+    BoostPolygon source{};
+    auto& source_outer = source.outer();
+    source_outer.reserve(points.size() + 1);
+    for (const auto& p : points) {
+        source_outer.emplace_back(p.x, p.y);
+    }
+    if (!points.empty() && !(points.front().equals(points.back()))) {
+        source_outer.emplace_back(points.front().x, points.front().y);
+    }
+    boost::geometry::correct(source);
+
+    BoostPolygon hull{};
+    boost::geometry::convex_hull(source, hull);
+    Ring out;
+    for (const auto& p : hull.outer()) {
+        out.emplace_back(p.x(), p.y());
+    }
+    if (!out.empty() && out.front().equals(out.back())) {
+        out.pop_back();
+    }
+    return out;
+#else
+    return legacyConvexHull(points);
+#endif
+}
+
+GeometryAdapter::Ring GeometryAdapter::simplify(const Ring& ring, double tolerance) {
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
+    BoostPolygon poly = toBoostPolygon(ring);
+    if (poly.outer().size() < 4) {
+        return {};
+    }
+
+    BoostPolygon simplified{};
+    boost::geometry::simplify(poly, simplified, std::max(0.0, tolerance));
+    Ring out;
+    for (const auto& p : simplified.outer()) {
+        out.emplace_back(p.x(), p.y());
+    }
+    if (!out.empty() && out.front().equals(out.back())) {
+        out.pop_back();
+    }
+    return out;
+#else
+    return legacySimplify(ring, tolerance);
 #endif
 }
 

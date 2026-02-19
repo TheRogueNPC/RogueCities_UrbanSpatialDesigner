@@ -106,7 +106,6 @@ namespace RogueCity::Generators {
 
     private:
         Config config_;
-
         // ===== PIPELINE STAGES =====
 
         /// Stage 1: Subdivide districts into lots (AESP-aware)
@@ -114,8 +113,7 @@ namespace RogueCity::Generators {
             const std::vector<District>& districts,
             const std::vector<BlockPolygon>& blocks,
             const fva::Container<Road>& roads,
-            RNG& rng
-        );
+            RNG& rng);
 
         /// Stage 2: Classify lots using AESP (determine lot types)
         void classifyLots(std::vector<LotToken>& lots);
@@ -123,21 +121,18 @@ namespace RogueCity::Generators {
         /// Stage 3: Allocate building budget across lots
         [[nodiscard]] float allocateBudget(
             std::vector<LotToken>& lots,
-            float totalBudget
-        );
+            float totalBudget);
 
         /// Stage 4: Place buildings on lots
         [[nodiscard]] siv::Vector<BuildingSite> placeBuildings(
             const std::vector<LotToken>& lots,
-            RNG& rng
-        );
+            RNG& rng);
 
         /// Stage 5: Calculate population from buildings
-        [[nodiscard]] void calculatePopulation(
+        void calculatePopulation(
             const siv::Vector<BuildingSite>& buildings,
             uint32_t& outResidents,
-            uint32_t& outWorkers
-        );
+            uint32_t& outWorkers);
 
         // ===== HELPER METHODS =====
 

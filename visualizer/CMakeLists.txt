@@ -286,6 +286,28 @@ endif()
             
             # Disable precompiled headers for this target (mixed C/C++)
             set_target_properties(RogueCityVisualizerGui PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+
+            # Keep a convenient launcher binary at repo root next to build scripts.
+            set(ROGUECITY_GUI_ROOT_EXE "${CMAKE_SOURCE_DIR}/RogueCityVisualizerGui.exe")
+            set(ROGUECITY_GUI_SHORTCUT "${CMAKE_SOURCE_DIR}/RogueCityVisualizerGui.lnk")
+
+            add_custom_command(TARGET RogueCityVisualizerGui POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "$<TARGET_FILE:RogueCityVisualizerGui>"
+                    "${ROGUECITY_GUI_ROOT_EXE}"
+                COMMENT "Copying RogueCityVisualizerGui.exe to repository root"
+            )
+
+            if(WIN32)
+                find_program(ROGUECITY_POWERSHELL_EXE powershell)
+                if(ROGUECITY_POWERSHELL_EXE)
+                    add_custom_command(TARGET RogueCityVisualizerGui POST_BUILD
+                        COMMAND "${ROGUECITY_POWERSHELL_EXE}" -NoProfile -ExecutionPolicy Bypass -Command
+                            "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('${ROGUECITY_GUI_SHORTCUT}'); $S.TargetPath='${ROGUECITY_GUI_ROOT_EXE}'; $S.WorkingDirectory='${CMAKE_SOURCE_DIR}'; $S.IconLocation='${ROGUECITY_GUI_ROOT_EXE},0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
+                        COMMENT "Updating RogueCityVisualizerGui.lnk in repository root"
+                    )
+                endif()
+            endif()
             
             message(STATUS "GUI Visualizer enabled (using bundled GLFW from ${GLFW_LIB_DIR})")
         else()

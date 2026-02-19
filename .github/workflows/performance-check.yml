@@ -1,0 +1,54 @@
+name: Performance Check
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_TESTING=ON -DROGUEUI_ENFORCE_DESIGN_SYSTEM=OFF
+
+      - name: Build performance targets
+        run: |
+          cmake --build build --config ${CMAKE_BUILD_TYPE} --target test_generation_stage_perf
+          cmake --build build --config ${CMAKE_BUILD_TYPE} --target test_generation_latency
+
+      - name: Run performance budget tests
+        run: |
+          mkdir -p artifacts
+          ctest --test-dir build -C ${CMAKE_BUILD_TYPE} --output-on-failure --verbose -R "test_generation_stage_perf|test_generation_latency" | tee artifacts/ctest_perf.log
+
+      - name: Generate performance report
+        run: python3 tools/generate_perf_report.py --ctest-log artifacts/ctest_perf.log --output artifacts/performance_report.json
+
+      - name: Check performance regression budgets
+        run: |
+          python3 tools/check_perf_regression.py \
+            --report artifacts/performance_report.json \
+            --budgets tests/baselines/performance_budgets_v0.10.json \
+            --summary-file "${GITHUB_STEP_SUMMARY}" \
+            --emit-github-annotations \
+            --fail-on-missing \
+            --fail-on-regression
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: |
+            artifacts/performance_report.json
+            artifacts/ctest_perf.log

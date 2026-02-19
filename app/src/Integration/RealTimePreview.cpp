@@ -46,6 +46,14 @@ void RealTimePreview::update(float delta_time) {
         }
     }
 
+    if (phase_ == GenerationPhase::Cancelled) {
+        constexpr float kCancelledHoldSeconds = 0.8f;
+        if (phase_elapsed_seconds_ >= kCancelledHoldSeconds && !is_generating()) {
+            phase_ = GenerationPhase::Idle;
+            phase_elapsed_seconds_ = 0.0f;
+        }
+    }
+
     // Debounce -> init phase.
     if (!is_generating() && regeneration_pending_ && !init_pending_start_ &&
         time_since_last_request_ >= debounce_delay_) {
@@ -71,10 +79,14 @@ void RealTimePreview::update(float delta_time) {
         phase_elapsed_seconds_ = 0.0f;
     }
 }
-
+//
 void RealTimePreview::request_regeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config) {
+    if (is_generating()) {
+        cancel_inflight_generation();
+    }
+
     pending_axioms_ = axioms;
     pending_config_ = config;
     regeneration_pending_ = true;
@@ -89,6 +101,10 @@ void RealTimePreview::request_regeneration(
 void RealTimePreview::force_regeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config) {
+    if (is_generating()) {
+        cancel_inflight_generation();
+    }
+
     pending_axioms_ = axioms;
     pending_config_ = config;
     regeneration_pending_ = true;
@@ -128,6 +144,10 @@ float RealTimePreview::phase_elapsed_seconds() const {
     return phase_elapsed_seconds_;
 }
 
+void RealTimePreview::cancel_generation() {
+    cancel_inflight_generation();
+}
+
 void RealTimePreview::start_generation() {
     if (is_generating_.exchange(true, std::memory_order_relaxed)) {
         return;
@@ -143,20 +163,32 @@ void RealTimePreview::start_generation() {
     Generators::CityGenerator::Config config = pending_config_;
     pending_axioms_.clear();
 
+    cancellation_token_ = std::make_shared<Generators::CancellationToken>();
     const uint64_t token = generation_token_.fetch_add(1, std::memory_order_relaxed) + 1;
 
     generation_thread_ = std::jthread(
-        [this, token, axioms = std::move(axioms), config](std::stop_token st) mutable {
-            if (st.stop_requested()) {
+        [this, token, axioms = std::move(axioms), config, cancellation = cancellation_token_](std::stop_token st) mutable {
+            auto cancel_worker = [&]() {
+                generation_progress_.store(0.0f, std::memory_order_relaxed);
+                is_generating_.store(false, std::memory_order_relaxed);
+            };
+
+            if (st.stop_requested() || (cancellation && cancellation->IsCancelled())) {
+                cancel_worker();
                 return;
             }
 
             generation_progress_.store(0.1f, std::memory_order_relaxed);
 
             Generators::CityGenerator generator;
-            auto output = generator.generate(axioms, config);
+            Generators::GenerationContext context{};
+            context.cancellation = cancellation;
+            context.max_iterations = static_cast<uint64_t>(std::max(1, config.max_iterations_per_axiom)) *
+                static_cast<uint64_t>(std::max<size_t>(1u, axioms.size())) * 2048ull;
+            auto output = generator.GenerateWithContext(axioms, config, &context);
 
-            if (st.stop_requested()) {
+            if (st.stop_requested() || (cancellation && cancellation->IsCancelled())) {
+                cancel_worker();
                 return;
             }
 
@@ -164,6 +196,20 @@ void RealTimePreview::start_generation() {
             on_generation_complete(token, std::move(output));
         }
     );
+}
+
+void RealTimePreview::cancel_inflight_generation() {
+    generation_token_.fetch_add(1, std::memory_order_relaxed);
+    if (cancellation_token_) {
+        cancellation_token_->Cancel();
+    }
+    if (generation_thread_.joinable()) {
+        generation_thread_.request_stop();
+    }
+    is_generating_.store(false, std::memory_order_relaxed);
+    generation_progress_.store(0.0f, std::memory_order_relaxed);
+    phase_ = GenerationPhase::Cancelled;
+    phase_elapsed_seconds_ = 0.0f;
 }
 
 void RealTimePreview::on_generation_complete(uint64_t token, Generators::CityGenerator::CityOutput output) {

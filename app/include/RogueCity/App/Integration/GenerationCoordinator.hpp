@@ -35,6 +35,7 @@ public:
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
+    void CancelGeneration();
 
     [[nodiscard]] bool IsGenerating() const;
     [[nodiscard]] float GetProgress() const;

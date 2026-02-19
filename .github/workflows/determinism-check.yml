@@ -1,0 +1,32 @@
+name: Determinism Check
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_TESTING=ON -DROGUEUI_ENFORCE_DESIGN_SYSTEM=OFF
+
+      - name: Build determinism targets
+        run: |
+          cmake --build build --config ${CMAKE_BUILD_TYPE} --target test_determinism_baseline
+          cmake --build build --config ${CMAKE_BUILD_TYPE} --target test_determinism_comprehensive
+          cmake --build build --config ${CMAKE_BUILD_TYPE} --target test_incremental_parity
+
+      - name: Run determinism tests
+        run: |
+          ctest --test-dir build -C ${CMAKE_BUILD_TYPE} --output-on-failure -R "test_determinism_baseline|test_determinism_comprehensive|test_incremental_parity"

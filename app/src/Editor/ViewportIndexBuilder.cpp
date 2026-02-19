@@ -150,6 +150,8 @@ void ViewportIndexBuilder::Build(RogueCity::Core::Editor::GlobalState& gs) {
         SetLabelWithId(water_probe, "Water", water.id);
         index.push_back(water_probe);
     }
+
+    RogueCity::Core::Editor::RebuildStableIDMapping(index);
 }
 
 } // namespace RogueCity::App

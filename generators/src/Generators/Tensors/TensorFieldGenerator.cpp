@@ -18,6 +18,32 @@ namespace RogueCity::Generators {
         grid_.resize(config_.width * config_.height, Tensor2D::zero());
     }
 
+    TensorFieldGenerator::TensorFieldGenerator(const TensorFieldGenerator& other)
+        : config_(other.config_)
+        , grid_(other.grid_)
+        , basis_fields_()
+        , field_generated_(other.field_generated_)
+        , texture_space_(nullptr)
+        , last_sample_used_texture_(false)
+        , last_sample_used_fallback_(false)
+        , texture_fallback_warned_(false) {}
+
+    TensorFieldGenerator& TensorFieldGenerator::operator=(const TensorFieldGenerator& other) {
+        if (this == &other) {
+            return *this;
+        }
+
+        config_ = other.config_;
+        grid_ = other.grid_;
+        basis_fields_.clear(); // Basis fields are intentionally not cloned.
+        field_generated_ = other.field_generated_;
+        texture_space_ = nullptr;
+        last_sample_used_texture_ = false;
+        last_sample_used_fallback_ = false;
+        texture_fallback_warned_ = false;
+        return *this;
+    }
+
     void TensorFieldGenerator::addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay) {
         basis_fields_.push_back(
             std::make_unique<OrganicField>(center, radius, theta, curviness, decay)

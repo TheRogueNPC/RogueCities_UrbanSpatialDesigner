@@ -50,6 +50,10 @@ void GenerationCoordinator::ForceRegeneration(
     preview_.force_regeneration(axioms, config);
 }
 
+void GenerationCoordinator::CancelGeneration() {
+    preview_.cancel_generation();
+}
+
 bool GenerationCoordinator::IsGenerating() const {
     return preview_.is_generating();
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Generators/Scoring/ScoringProfile.hpp"
 #include <array>
 
 namespace RogueCity::Generators {
@@ -21,10 +22,17 @@ namespace RogueCity::Generators {
         [[nodiscard]] static AESPScores computeScores(RoadType primary, RoadType secondary);
 
         /// Classify district type from AESP scores (research formulas)
-        [[nodiscard]] static DistrictType classifyDistrict(const AESPScores& scores);
+        [[nodiscard]] static DistrictType classifyDistrict(
+            const AESPScores& scores,
+            const ScoringProfile& profile = ScoringProfile::Urban());
 
         /// Classify district directly from lot token
-        [[nodiscard]] static DistrictType classifyLot(const LotToken& lot);
+        [[nodiscard]] static DistrictType classifyLot(
+            const LotToken& lot,
+            const ScoringProfile& profile = ScoringProfile::Urban());
+
+        /// Deterministically select scoring profile from seed.
+        [[nodiscard]] static ScoringProfile selectProfileForSeed(uint32_t seed);
 
         /// Get road type → Access mapping (Table 2 from paper)
         [[nodiscard]] static float roadTypeToAccess(RoadType type);

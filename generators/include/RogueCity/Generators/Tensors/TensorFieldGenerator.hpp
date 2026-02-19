@@ -22,6 +22,10 @@ namespace RogueCity::Generators {
         /// Constructor
         TensorFieldGenerator();
         explicit TensorFieldGenerator(const Config& config);
+        TensorFieldGenerator(const TensorFieldGenerator& other);
+        TensorFieldGenerator& operator=(const TensorFieldGenerator& other);
+        TensorFieldGenerator(TensorFieldGenerator&& other) noexcept = default;
+        TensorFieldGenerator& operator=(TensorFieldGenerator&& other) noexcept = default;
 
         /// Add basis fields from axioms
         void addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay = 2.0);

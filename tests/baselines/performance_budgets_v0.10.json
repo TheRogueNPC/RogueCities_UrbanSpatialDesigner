@@ -1,0 +1,11 @@
+{
+  "metric_budgets_ms": {
+    "full_generation_ms": 5000,
+    "incremental_roads_ms": 1000,
+    "cancel_response_ms": 100
+  },
+  "test_runtime_budgets_sec": {
+    "test_generation_stage_perf": 15.0,
+    "test_generation_latency": 20.0
+  }
+}

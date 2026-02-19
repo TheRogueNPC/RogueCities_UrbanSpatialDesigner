@@ -1,6 +1,7 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Simulation/SimulationPipeline.hpp"
 #include "RogueCity/Core/Validation/EditorIntegrity.hpp"
 
 #include <vector>
@@ -321,9 +322,21 @@ namespace RogueCity::Core::Editor {
     void EditorHFSM::update(GlobalState& gs, float /*dt*/)
     {
         if (m_state == EditorState::Simulation_Stepping) {
-            //TODO Placeholder for a single deterministic simulation step.
-            // Future: run one tick of sim systems using RogueWorker for heavy workloads.
-            ++gs.frame_counter;
+            static const Simulation::SimulationConfig step_config = [] {
+                Simulation::SimulationConfig cfg{};
+                cfg.fixed_timestep = 1.0f / 60.0f;
+                cfg.max_substeps = 1u;
+                return cfg;
+            }();
+            static Simulation::SimulationPipeline simulation_pipeline{ step_config };
+            const auto step_result = simulation_pipeline.ExecuteStep(
+                gs,
+                simulation_pipeline.config().fixed_timestep);
+            if (!step_result.success) {
+                gs.tool_runtime.last_viewport_status = "simulation-step-failed";
+                gs.tool_runtime.last_action_status = step_result.error_message;
+                gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+            }
             transition_to(EditorState::Simulation_Paused, gs);
         }
     }

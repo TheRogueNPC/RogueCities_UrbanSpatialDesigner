@@ -133,6 +133,13 @@ namespace {
             return;
         }
 
+        if (phase == Preview::GenerationPhase::Cancelled) {
+            const float fade = std::clamp(t / 0.8f, 0.0f, 1.0f);
+            const ImVec4 color(1.0f, 0.35f + (fade * 0.55f), 0.0f, 1.0f - fade * 0.5f);
+            ImGui::TextColored(color, "_SWEEP_CANCELLED");
+            return;
+        }
+
         if (phase == Preview::GenerationPhase::StreetsSwept) {
             const float fade = std::clamp(t / 1.25f, 0.0f, 1.0f);
             const ImVec4 color(1.0f - fade, fade, 0.0f, 1.0f - fade * 0.5f);
@@ -1764,6 +1771,14 @@ void DrawContent(float dt) {
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 22));
         ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 235u), "MODE: AXIOM-EDIT");
         DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
+        if (s_generation_coordinator->IsGenerating()) {
+            ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 98));
+            if (ImGui::Button("_STOP_SWEEP")) {
+                s_generation_coordinator->CancelGeneration();
+                gs.tool_runtime.last_viewport_status = "preview-cancelled";
+                gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+            }
+        }
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
         ImGui::TextColored(TokenColorF(UITokens::TextSecondary),
             "Click-drag to set radius | Edit type via palette");

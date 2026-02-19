@@ -42,13 +42,21 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-set "VIS_EXE=%ROOT%bin\RogueCityVisualizerGui.exe"
+set "VIS_EXE_BIN=%ROOT%bin\RogueCityVisualizerGui.exe"
+set "VIS_EXE_ROOT=%ROOT%RogueCityVisualizerGui.exe"
 set "VIS_SHORTCUT=%ROOT%RogueCityVisualizerGui.lnk"
 
-if exist "%VIS_EXE%" (
+if exist "%VIS_EXE_BIN%" (
+    copy /Y "%VIS_EXE_BIN%" "%VIS_EXE_ROOT%" >nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo WARNING: Failed to copy "%VIS_EXE_BIN%" to "%VIS_EXE_ROOT%".
+    ) else (
+        echo Root launcher updated: "%VIS_EXE_ROOT%"
+    )
+
     where powershell >nul 2>nul
     if %ERRORLEVEL% EQU 0 (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('%VIS_SHORTCUT%'); $S.TargetPath='%VIS_EXE%'; $S.WorkingDirectory='%ROOT%'; $S.IconLocation='%VIS_EXE%,0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('%VIS_SHORTCUT%'); $S.TargetPath='%VIS_EXE_ROOT%'; $S.WorkingDirectory='%ROOT%'; $S.IconLocation='%VIS_EXE_ROOT%,0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
         if %ERRORLEVEL% EQU 0 (
             echo Shortcut updated: "%VIS_SHORTCUT%"
         ) else (
@@ -58,7 +66,7 @@ if exist "%VIS_EXE%" (
         echo WARNING: PowerShell not found; could not create shortcut "%VIS_SHORTCUT%".
     )
 ) else (
-    echo WARNING: Expected executable not found: "%VIS_EXE%"
+    echo WARNING: Expected executable not found: "%VIS_EXE_BIN%"
 )
 
 echo.
@@ -67,8 +75,12 @@ echo Build successful! Launching app...
 echo ===================================
 echo.
 
-:: Run the executable (output is in bin/ directory)
-start bin\RogueCityVisualizerGui.exe
+:: Run the executable from repository root for easy access.
+if exist "%VIS_EXE_ROOT%" (
+    start "" "%VIS_EXE_ROOT%"
+) else (
+    start bin\RogueCityVisualizerGui.exe
+)
 
 echo Application launched!
 pause

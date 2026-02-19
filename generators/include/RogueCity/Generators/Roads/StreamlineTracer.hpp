@@ -20,6 +20,16 @@ namespace RogueCity::Generators {
             int max_iterations{ 500 };      // Safety limit for infinite loops
             bool bidirectional{ true };     // Trace forward AND backward from seed
 
+            // Optional adaptive step sizing based on local curvature.
+            bool adaptive_step_size{ false };
+            double min_step_size{ 2.0 };
+            double max_step_size{ 12.0 };
+            double curvature_gain{ 1.5 };
+
+            // Optional network-wide separation enforcement with spatial acceleration.
+            bool enforce_network_separation{ false };
+            double separation_cell_size{ 0.0 };
+
             // Optional world-constraint sampling.
             const WorldConstraintField* constraints{ nullptr };
             const Data::TextureSpace* texture_space{ nullptr };

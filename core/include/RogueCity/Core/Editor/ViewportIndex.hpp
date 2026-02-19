@@ -5,8 +5,11 @@
 #include <array>
 #include <cstdio>
 #include <cstdint>
+#include <vector>
 
 namespace RogueCity::Core::Editor {
+
+struct StableID;
 
 enum class VpEntityKind : uint8_t {
     Unknown = 0,
@@ -23,8 +26,8 @@ inline constexpr uint32_t kViewportIndexInvalid = 0xFFFFFFFFu;
 
 struct VpProbeData {
     VpEntityKind kind{ VpEntityKind::Unknown };
-    // TODO(lua-compat): keep a stable alias/migration map when exposing/persisting viewport IDs.
     uint32_t id{ 0 };
+    uint64_t stable_id{ 0 };
     uint32_t parent{ kViewportIndexInvalid };
     uint32_t first_child{ 0 };
     uint16_t child_count{ 0 };
@@ -53,5 +56,8 @@ inline void SetViewportLabel(VpProbeData& probe, const char* text) {
     }
     std::snprintf(probe.label, sizeof(probe.label), "%s", text);
 }
+
+[[nodiscard]] uint64_t GetProbeStableID(const VpProbeData& probe);
+void RebuildStableIDMapping(std::vector<VpProbeData>& probes);
 
 } // namespace RogueCity::Core::Editor

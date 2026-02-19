@@ -2,4 +2,5 @@
 
 #pragma once
 
+// Include the header for viewport configuration constants and enums from the ui/ directory
 #include "ui/rc_ui_viewport_config.h"

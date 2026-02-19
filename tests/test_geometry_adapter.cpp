@@ -34,6 +34,20 @@ int main() {
     assert(GeometryAdapter::intersects(square_a, square_b));
     assert(!GeometryAdapter::intersects(square_a, square_c));
 
+    const GeometryAdapter::Ring cloud{
+        Vec2(0.0, 0.0), Vec2(1.0, 0.0), Vec2(2.0, 0.0),
+        Vec2(2.0, 2.0), Vec2(1.0, 1.0), Vec2(0.0, 2.0)
+    };
+    const auto hull = GeometryAdapter::convexHull(cloud);
+    assert(hull.size() >= 4);
+
+    const GeometryAdapter::Ring dense_polyline{
+        Vec2(0.0, 0.0), Vec2(1.0, 0.1), Vec2(2.0, -0.1), Vec2(3.0, 0.05), Vec2(4.0, 0.0)
+    };
+    const auto simplified = GeometryAdapter::simplify(dense_polyline, 0.15);
+    assert(!simplified.empty());
+    assert(simplified.size() <= dense_polyline.size());
+
     std::cout << "Geometry adapter tests PASSED\n";
     return 0;
 }

@@ -20,6 +20,7 @@ public:
         Idle,
         InitStreetSweeper,
         Sweeping,
+        Cancelled,
         StreetsSwept
     };
 
@@ -57,6 +58,7 @@ public:
     /// Status phase for UI overlays
     [[nodiscard]] GenerationPhase phase() const;
     [[nodiscard]] float phase_elapsed_seconds() const;
+    void cancel_generation();
 
 private:
     float debounce_delay_{ 0.5f };
@@ -80,11 +82,13 @@ private:
 
     std::jthread generation_thread_;
     std::atomic<uint64_t> generation_token_{ 0 };
+    std::shared_ptr<Generators::CancellationToken> cancellation_token_{};
 
     OnGenerationCompleteCallback on_complete_;
 
     /// Start background generation task
     void start_generation();
+    void cancel_inflight_generation();
 
     /// Handle generation completion (called from worker thread)
     void on_generation_complete(uint64_t token, Generators::CityGenerator::CityOutput output);
