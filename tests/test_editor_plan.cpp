@@ -2,8 +2,11 @@
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "ui/viewport/handlers/rc_viewport_non_axiom_pipeline.h"
+#include "ui/tools/rc_tool_interaction_metrics.h"
 
 #include <cassert>
 #include <array>
@@ -331,6 +334,62 @@ void TestGizmoTransformRoundTrip() {
     assert(gs.buildings[building_sid].position.distanceTo(baseline_building) < 1e-4);
 }
 
+void TestViewportHandlerSelectionInvariant() {
+    GlobalState gs{};
+
+    RogueCity::Core::District district{};
+    district.id = 70u;
+    district.border = {
+        RogueCity::Core::Vec2(4.0, 4.0),
+        RogueCity::Core::Vec2(16.0, 4.0),
+        RogueCity::Core::Vec2(16.0, 16.0),
+        RogueCity::Core::Vec2(4.0, 16.0)
+    };
+    gs.districts.add(district);
+
+    RogueCity::Core::Road road{};
+    road.id = 71u;
+    road.points = {
+        RogueCity::Core::Vec2(0.0, 10.0),
+        RogueCity::Core::Vec2(20.0, 10.0)
+    };
+    gs.roads.add(road);
+
+    RogueCity::Core::LotToken lot{};
+    lot.id = 72u;
+    lot.district_id = 70u;
+    lot.centroid = RogueCity::Core::Vec2(10.0, 10.0);
+    lot.boundary = {
+        RogueCity::Core::Vec2(8.0, 8.0),
+        RogueCity::Core::Vec2(12.0, 8.0),
+        RogueCity::Core::Vec2(12.0, 12.0),
+        RogueCity::Core::Vec2(8.0, 12.0)
+    };
+    gs.lots.add(lot);
+
+    RogueCity::Core::BuildingSite building{};
+    building.id = 73u;
+    building.position = RogueCity::Core::Vec2(10.0, 10.0);
+    building.lot_id = 72u;
+    building.district_id = 70u;
+    gs.buildings.push_back(building);
+
+    ViewportIndexBuilder::Build(gs);
+
+    const auto metrics = RC_UI::Tools::BuildToolInteractionMetrics(1.0f, 1.0f);
+    const auto picked = RC_UI::Viewport::PickFromViewportIndexTestHook(
+        gs,
+        RogueCity::Core::Vec2(10.0, 10.0),
+        metrics);
+    assert(picked.has_value());
+    assert(picked->kind == VpEntityKind::Building);
+
+    gs.selection_manager.Select(picked->kind, picked->id);
+    RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
+    assert(gs.selection.selected_building);
+    assert(gs.selection.selected_building->id == 73u);
+}
+
 } // namespace
 
 int main() {
@@ -341,5 +400,6 @@ int main() {
     TestSplineDeterminism();
     TestValidationCollector();
     TestGizmoTransformRoundTrip();
+    TestViewportHandlerSelectionInvariant();
     return 0;
 }

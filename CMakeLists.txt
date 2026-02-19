@@ -388,10 +388,60 @@ if(BUILD_TESTING)
     target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
     target_compile_features(test_viewport PRIVATE cxx_std_20)
 
+    set(VIEWPORT_INTERACTION_TEST_SOURCES
+        visualizer/src/ui/viewport/handlers/rc_viewport_handler_common.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_road_handler.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_district_handler.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_lot_handler.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_building_handler.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_water_handler.cpp
+        visualizer/src/ui/viewport/handlers/rc_viewport_non_axiom_pipeline.cpp
+        visualizer/src/ui/tools/rc_tool_interaction_metrics.cpp
+        visualizer/src/ui/tools/rc_tool_geometry_policy.cpp
+    )
+
+    add_executable(test_viewport_interaction_helpers
+        tests/test_viewport_interaction_helpers.cpp
+        visualizer/src/ui/tools/rc_tool_interaction_metrics.cpp
+        visualizer/src/ui/tools/rc_tool_geometry_policy.cpp
+    )
+    target_link_libraries(test_viewport_interaction_helpers PRIVATE RogueCityCore RogueCityApp)
+    target_compile_features(test_viewport_interaction_helpers PRIVATE cxx_std_20)
+    target_include_directories(test_viewport_interaction_helpers PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
+
+    add_executable(test_viewport_interaction_selection
+        tests/test_viewport_interaction_selection.cpp
+        ${VIEWPORT_INTERACTION_TEST_SOURCES}
+    )
+    target_link_libraries(test_viewport_interaction_selection PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
+    target_compile_features(test_viewport_interaction_selection PRIVATE cxx_std_20)
+    target_include_directories(test_viewport_interaction_selection PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
+
     # === EDITOR PLAN GAP TESTS (viewport index + dirty layers + undo determinism) ===
-    add_executable(test_editor_plan tests/test_editor_plan.cpp)
+    add_executable(test_editor_plan
+        tests/test_editor_plan.cpp
+        ${VIEWPORT_INTERACTION_TEST_SOURCES}
+    )
     target_link_libraries(test_editor_plan PRIVATE RogueCityCore RogueCityGenerators RogueCityApp)
     target_compile_features(test_editor_plan PRIVATE cxx_std_20)
+    target_include_directories(test_editor_plan PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
+
+    add_executable(test_systems_map_query
+        tests/test_systems_map_query.cpp
+        visualizer/src/ui/panels/rc_system_map_query.cpp
+    )
+    target_link_libraries(test_systems_map_query PRIVATE RogueCityCore)
+    target_compile_features(test_systems_map_query PRIVATE cxx_std_20)
+    target_include_directories(test_systems_map_query PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
+
+    add_executable(test_minimap_interaction_math
+        tests/test_minimap_interaction_math.cpp
+        visualizer/src/ui/viewport/rc_minimap_interaction_math.cpp
+    )
+    target_link_libraries(test_minimap_interaction_math PRIVATE RogueCityCore)
+    target_compile_features(test_minimap_interaction_math PRIVATE cxx_std_20)
+    target_include_directories(test_minimap_interaction_math PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
 
     # === AI LAYER TESTS ===
     add_executable(test_ai tests/test_ai.cpp)
@@ -431,6 +481,11 @@ if(BUILD_TESTING)
     add_test(NAME test_simulation_pipeline COMMAND test_simulation_pipeline)
     add_test(NAME test_stable_id_registry COMMAND test_stable_id_registry)
     add_test(NAME test_viewport_id_stability COMMAND test_viewport_id_stability)
+    add_test(NAME test_editor_plan COMMAND test_editor_plan)
+    add_test(NAME test_viewport_interaction_helpers COMMAND test_viewport_interaction_helpers)
+    add_test(NAME test_viewport_interaction_selection COMMAND test_viewport_interaction_selection)
+    add_test(NAME test_systems_map_query COMMAND test_systems_map_query)
+    add_test(NAME test_minimap_interaction_math COMMAND test_minimap_interaction_math)
     add_test(NAME test_generators COMMAND test_generators)
     add_test(NAME test_geometry_adapter COMMAND test_geometry_adapter)
     add_test(NAME test_city_generator_validation COMMAND test_city_generator_validation)

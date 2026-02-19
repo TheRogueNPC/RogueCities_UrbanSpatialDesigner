@@ -27,6 +27,7 @@
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "ui/viewport/rc_scene_frame.h"
 #include "ui/viewport/rc_minimap_renderer.h"
+#include "ui/viewport/rc_minimap_interaction_math.h"
 #include "ui/viewport/rc_viewport_scene_controller.h"
 #include "ui/viewport/rc_viewport_interaction.h"
 #include "ui/viewport/rc_viewport_overlays.h"
@@ -878,15 +879,19 @@ static ImVec2 WorldToMinimapUV(const RogueCity::Core::Vec2& world_pos, const Rog
 
 // Convert minimap pixel coords to world coordinates
 static RogueCity::Core::Vec2 MinimapPixelToWorld(const ImVec2& pixel_pos, const ImVec2& minimap_pos, const RogueCity::Core::Vec2& camera_pos) {
-    // Normalize to UV [0,1]
-    const double u = static_cast<double>(pixel_pos.x - minimap_pos.x) / static_cast<double>(kMinimapSize);
-    const double v = static_cast<double>(pixel_pos.y - minimap_pos.y) / static_cast<double>(kMinimapSize);
-    
-    // UV to world (centered on camera)
-    const double world_x = camera_pos.x + (u - 0.5) * static_cast<double>(kMinimapWorldSize) * static_cast<double>(s_minimap_zoom);
-    const double world_y = camera_pos.y + (v - 0.5) * static_cast<double>(kMinimapWorldSize) * static_cast<double>(s_minimap_zoom);
-    
-    return RogueCity::Core::Vec2(world_x, world_y);
+    return RC_UI::Viewport::MinimapPixelToWorld(
+        RogueCity::Core::Vec2(pixel_pos.x, pixel_pos.y),
+        RogueCity::Core::Vec2(minimap_pos.x, minimap_pos.y),
+        kMinimapSize,
+        camera_pos,
+        kMinimapWorldSize,
+        s_minimap_zoom);
+}
+
+static RogueCity::Core::Vec2 ClampMinimapCameraToConstraints(
+    const RogueCity::Core::Vec2& camera_pos,
+    const RogueCity::Core::Editor::GlobalState& gs) {
+    return RC_UI::Viewport::ClampToWorldConstraints(camera_pos, gs.world_constraints);
 }
 
 static int MinimapLODLevel(MinimapLOD lod) {
@@ -1071,6 +1076,34 @@ static bool ShouldRenderRoadForLOD(RogueCity::Core::RoadType type, MinimapLOD lo
         return detail != RoadDetailClass::Local; // Drop local at LOD1.
     }
     return detail == RoadDetailClass::Arterial; // Drop collector/local at LOD2.
+}
+
+struct ViewportRoadStyle {
+    ImU32 color{ TokenColor(UITokens::CyanAccent, 200u) };
+    float width{ 2.0f };
+};
+
+static ViewportRoadStyle ResolveViewportRoadStyle(RogueCity::Core::RoadType type) {
+    using RogueCity::Core::RoadType;
+    switch (type) {
+        case RoadType::Highway:
+            return {TokenColor(UITokens::AmberGlow, 230u), 4.6f};
+        case RoadType::Arterial:
+        case RoadType::Avenue:
+        case RoadType::Boulevard:
+        case RoadType::M_Major:
+            return {TokenColor(UITokens::CyanAccent, 220u), 3.2f};
+        case RoadType::Street:
+        case RoadType::M_Minor:
+            return {TokenColor(UITokens::InfoBlue, 210u), 2.2f};
+        case RoadType::Lane:
+        case RoadType::Alleyway:
+        case RoadType::CulDeSac:
+        case RoadType::Drive:
+        case RoadType::Driveway:
+        default:
+            return {TokenColor(UITokens::TextSecondary, 180u), 1.6f};
+    }
 }
 
 static const char* MinimapLODStatusText() {
@@ -1818,12 +1851,10 @@ void DrawContent(float dt) {
             
             for (size_t j = 1; j < road.points.size(); ++j) {
                 ImVec2 curr_screen = s_primary_viewport->world_to_screen(road.points[j]);
-                
-                // Y2K road styling (bright cyan for visibility)
-                ImU32 road_color = TokenColor(UITokens::CyanAccent, 200u);
-                float road_width = 2.0f;
-                
-                draw_list->AddLine(prev_screen, curr_screen, road_color, road_width);
+
+                // Hierarchy-aware road styling (additive visual change only).
+                const ViewportRoadStyle road_style = ResolveViewportRoadStyle(road.type);
+                draw_list->AddLine(prev_screen, curr_screen, road_style.color, road_style.width);
                 prev_screen = curr_screen;
             }
         }
@@ -2021,7 +2052,7 @@ void DrawContent(float dt) {
             float scroll = ImGui::GetIO().MouseWheel;
             if (scroll != 0.0f) {
                 s_minimap_zoom *= (1.0f + scroll * 0.1f);
-                s_minimap_zoom = std::clamp(s_minimap_zoom, 0.5f, 3.0f);
+                s_minimap_zoom = RC_UI::Viewport::ClampMinimapZoom(s_minimap_zoom);
             }
 
             const ImGuiIO& io = ImGui::GetIO();
@@ -2058,16 +2089,21 @@ void DrawContent(float dt) {
                 const auto camera_pos = s_primary_viewport->get_camera_xy();
                 const auto camera_z = s_primary_viewport->get_camera_z();
                 const ImVec2 delta = io.MouseDelta;
-                const double world_per_pixel = (kMinimapWorldSize * s_minimap_zoom) / kMinimapSize;
+                const double world_per_pixel = RC_UI::Viewport::ComputeMinimapWorldPerPixel(
+                    kMinimapWorldSize,
+                    s_minimap_zoom,
+                    kMinimapSize);
                 RogueCity::Core::Vec2 next_camera = camera_pos;
                 next_camera.x -= static_cast<double>(delta.x) * world_per_pixel;
                 next_camera.y -= static_cast<double>(delta.y) * world_per_pixel;
+                next_camera = ClampMinimapCameraToConstraints(next_camera, gs);
                 s_primary_viewport->set_camera_position(next_camera, camera_z);
             } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 // Click to jump camera
                 const auto camera_pos = s_primary_viewport->get_camera_xy();
                 const auto camera_z = s_primary_viewport->get_camera_z();
-                const auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_interact_pos, camera_pos);
+                auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_interact_pos, camera_pos);
+                world_pos = ClampMinimapCameraToConstraints(world_pos, gs);
                 s_primary_viewport->set_camera_position(world_pos, camera_z);
             }
         }

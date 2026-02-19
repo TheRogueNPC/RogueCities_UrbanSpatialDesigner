@@ -103,6 +103,7 @@ endif()
         src/ui/panels/rc_panel_axiom_bar.cpp
         src/ui/panels/rc_panel_axiom_editor.cpp
         src/ui/panels/rc_panel_system_map.cpp
+        src/ui/panels/rc_system_map_query.cpp
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
         src/ui/panels/rc_panel_inspector.cpp
@@ -122,7 +123,16 @@ endif()
         src/ui/viewport/rc_viewport_overlays.cpp
         src/ui/viewport/rc_scene_frame.cpp
         src/ui/viewport/rc_minimap_renderer.cpp
+        src/ui/viewport/rc_minimap_interaction_math.cpp
         src/ui/viewport/rc_viewport_scene_controller.cpp
+        src/ui/viewport/handlers/rc_viewport_handler_common.cpp
+        src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
+        src/ui/viewport/handlers/rc_viewport_road_handler.cpp
+        src/ui/viewport/handlers/rc_viewport_district_handler.cpp
+        src/ui/viewport/handlers/rc_viewport_lot_handler.cpp
+        src/ui/viewport/handlers/rc_viewport_building_handler.cpp
+        src/ui/viewport/handlers/rc_viewport_water_handler.cpp
+        src/ui/viewport/handlers/rc_viewport_non_axiom_pipeline.cpp
         src/ui/viewport/rc_viewport_interaction.cpp
         # Master Panel Architecture (RC-0.10)
         src/ui/panels/IPanelDrawer.cpp
@@ -197,6 +207,7 @@ endif()
                 src/ui/panels/rc_panel_axiom_bar.cpp
                 src/ui/panels/rc_panel_axiom_editor.cpp  # NEW: Integrated axiom editor
                 src/ui/panels/rc_panel_system_map.cpp
+                src/ui/panels/rc_system_map_query.cpp
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
                 src/ui/panels/rc_panel_inspector.cpp
@@ -222,7 +233,16 @@ endif()
                 src/ui/viewport/rc_viewport_overlays.cpp
                 src/ui/viewport/rc_scene_frame.cpp
                 src/ui/viewport/rc_minimap_renderer.cpp
+                src/ui/viewport/rc_minimap_interaction_math.cpp
                 src/ui/viewport/rc_viewport_scene_controller.cpp
+                src/ui/viewport/handlers/rc_viewport_handler_common.cpp
+                src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
+                src/ui/viewport/handlers/rc_viewport_road_handler.cpp
+                src/ui/viewport/handlers/rc_viewport_district_handler.cpp
+                src/ui/viewport/handlers/rc_viewport_lot_handler.cpp
+                src/ui/viewport/handlers/rc_viewport_building_handler.cpp
+                src/ui/viewport/handlers/rc_viewport_water_handler.cpp
+                src/ui/viewport/handlers/rc_viewport_non_axiom_pipeline.cpp
                 src/ui/viewport/rc_viewport_interaction.cpp
                 # ImGui backend implementations
                 "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"

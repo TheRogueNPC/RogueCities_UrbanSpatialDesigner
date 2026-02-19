@@ -181,6 +181,23 @@ namespace RogueCity::Core::Editor {
         float tension{ 0.5f };
     };
 
+    struct SystemsMapRuntimeState {
+        bool show_roads{ true };
+        bool show_districts{ true };
+        bool show_lots{ false };
+        bool show_buildings{ false };
+        bool show_water{ true };
+        bool show_world_constraints{ false };
+        bool show_labels{ false };
+        bool enable_hover_query{ true };
+        bool enable_click_select{ true };
+        VpEntityKind hovered_kind{ VpEntityKind::Unknown };
+        uint32_t hovered_id{ 0 };
+        float hovered_distance{ 0.0f };
+        uint64_t hovered_frame{ 0 };
+        std::string hovered_label{};
+    };
+
     enum class ToolDomain : uint8_t {
         Axiom = 0,
         Water,
@@ -392,6 +409,7 @@ namespace RogueCity::Core::Editor {
         
         bool minimap_manual_lod{ false };   // Render-only state; must not affect generation output.
         uint8_t minimap_lod_level{ 1 };     // 0=full,1=medium,2=coarse.
+        SystemsMapRuntimeState systems_map{};
         GizmoState gizmo{};
         LayerManagerState layer_manager{};
         std::unordered_map<uint64_t, uint8_t> entity_layers{};
