@@ -1,0 +1,17 @@
+{
+  "colors": {
+    "background_dark": 4278190080,
+    "border_accent": 4280168640,
+    "error_color": 4279508660,
+    "grid_overlay": 681433846,
+    "panel_background": 4279505940,
+    "primary_accent": 1056315766,
+    "secondary_accent": 1041422344,
+    "success_color": 1050251072,
+    "text_disabled": 4281484880,
+    "text_primary": 4288535286,
+    "text_secondary": 4286098120,
+    "warning_color": 4282168540
+  },
+  "name": "Custom_20260219_164447"
+}

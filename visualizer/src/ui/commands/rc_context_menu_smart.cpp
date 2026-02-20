@@ -4,9 +4,16 @@
 
 namespace RC_UI::Commands {
 
-void RequestOpenSmartMenu(SmartMenuState& state, const ImVec2& screen_pos) {
+void RequestOpenSmartMenu(
+    SmartMenuState& state,
+    const ImVec2& screen_pos,
+    std::optional<ToolLibrary> preferred_library) {
     state.open_requested = true;
     state.open_pos = screen_pos;
+    state.has_preferred_library = preferred_library.has_value();
+    if (preferred_library.has_value()) {
+        state.preferred_library = *preferred_library;
+    }
 }
 
 void DrawSmartMenu(
@@ -20,12 +27,13 @@ void DrawSmartMenu(
     }
 
     if (!ImGui::BeginPopup(popup_id)) {
+        state.has_preferred_library = false;
         return;
     }
 
-    for (ToolLibrary library : kToolLibraryOrder) {
+    const auto draw_library_menu = [&](ToolLibrary library) {
         if (!ImGui::BeginMenu(CommandLibraryName(library))) {
-            continue;
+            return;
         }
 
         const auto actions = GetCommandRegistry();
@@ -33,6 +41,7 @@ void DrawSmartMenu(
             if (action.library != library) {
                 continue;
             }
+            ImGui::PushID(static_cast<int>(action.id));
 
             const bool enabled = RC_UI::Tools::IsToolActionEnabled(action);
             if (!enabled) {
@@ -53,24 +62,38 @@ void DrawSmartMenu(
                 const bool executed = ExecuteCommand(action.id, dispatch_context, &status);
                 (void)executed;
                 ImGui::CloseCurrentPopup();
+                ImGui::PopID();
                 break;
             }
+            ImGui::PopID();
         }
         ImGui::EndMenu();
+    };
+
+    if (state.has_preferred_library) {
+        draw_library_menu(state.preferred_library);
+    } else {
+        for (ToolLibrary library : kToolLibraryOrder) {
+            draw_library_menu(library);
+        }
     }
 
     if (ImGui::BeginMenu("Global")) {
+        int command_index = 0;
         for (const auto& command : GetGlobalViewportCommands()) {
+            ImGui::PushID(command_index++);
             if (ImGui::Selectable(command.label, false)) {
                 std::string status;
                 const bool executed = ExecuteGlobalViewportCommand(command.id, dispatch_context, &status);
                 (void)executed;
                 ImGui::CloseCurrentPopup();
+                ImGui::PopID();
                 break;
             }
             if (ImGui::IsItemHovered() && command.tooltip != nullptr && command.tooltip[0] != '\0') {
                 ImGui::SetTooltip("%s", command.tooltip);
             }
+            ImGui::PopID();
         }
         ImGui::EndMenu();
     }

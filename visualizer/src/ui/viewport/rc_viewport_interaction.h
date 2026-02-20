@@ -73,6 +73,8 @@ struct RoadVertexDragState {
     bool active{ false };
     uint32_t road_id{ 0 };
     size_t vertex_index{ 0 };
+    bool tangent_handle_active{ false };
+    bool tangent_outgoing{ false };
 };
 
 struct DistrictBoundaryDragState {
@@ -85,6 +87,14 @@ struct WaterVertexDragState {
     bool active{ false };
     uint32_t water_id{ 0 };
     size_t vertex_index{ 0 };
+    bool tangent_handle_active{ false };
+    bool tangent_outgoing{ false };
+};
+
+struct SplinePenDragState {
+    bool active{ false };
+    uint32_t entity_id{ 0 };
+    RogueCity::Core::Vec2 last_point{};
 };
 
 struct NonAxiomInteractionState {
@@ -93,6 +103,8 @@ struct NonAxiomInteractionState {
     RoadVertexDragState road_vertex_drag{};
     DistrictBoundaryDragState district_boundary_drag{};
     WaterVertexDragState water_vertex_drag{};
+    SplinePenDragState road_pen_drag{};
+    SplinePenDragState water_pen_drag{};
 };
 
 struct NonAxiomInteractionParams {

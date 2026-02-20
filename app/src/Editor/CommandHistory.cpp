@@ -4,6 +4,10 @@
 
 namespace RogueCity::App {
 
+namespace {
+CommandHistory g_editor_command_history{};
+}
+
 void CommandHistory::TrimRedo() {
     if (cursor_ < history_.size()) {
         history_.erase(history_.begin() + static_cast<std::ptrdiff_t>(cursor_), history_.end());
@@ -70,6 +74,14 @@ const ICommand* CommandHistory::PeekRedo() const {
 void CommandHistory::Clear() {
     history_.clear();
     cursor_ = 0;
+}
+
+CommandHistory& GetEditorCommandHistory() {
+    return g_editor_command_history;
+}
+
+void ResetEditorCommandHistory() {
+    g_editor_command_history.Clear();
 }
 
 } // namespace RogueCity::App

@@ -15,11 +15,13 @@ void GenerationCoordinator::Update(float delta_time) {
     if (!was_generating && is_generating) {
         inflight_serial_ = scheduled_serial_;
         inflight_reason_ = scheduled_reason_;
+        inflight_depth_ = scheduled_depth_;
     }
 
     if (was_generating && !is_generating && inflight_serial_ > completed_serial_) {
         completed_serial_ = inflight_serial_;
         completed_reason_ = inflight_reason_;
+        completed_depth_ = inflight_depth_;
     }
 
 }
@@ -35,39 +37,47 @@ void GenerationCoordinator::SetOnComplete(OnGenerationCompleteCallback callback)
 void GenerationCoordinator::RequestRegeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
+    GenerationDepth depth,
     GenerationRequestReason reason) {
     ++scheduled_serial_;
     scheduled_reason_ = reason;
-    preview_.request_regeneration(axioms, config);
+    scheduled_depth_ = depth;
+    preview_.request_regeneration(axioms, config, depth);
 }
 
 void GenerationCoordinator::RequestRegenerationIncremental(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
     const Generators::StageMask& dirty_stages,
+    GenerationDepth depth,
     GenerationRequestReason reason) {
     ++scheduled_serial_;
     scheduled_reason_ = reason;
-    preview_.request_regeneration_incremental(axioms, config, dirty_stages);
+    scheduled_depth_ = depth;
+    preview_.request_regeneration_incremental(axioms, config, dirty_stages, depth);
 }
 
 void GenerationCoordinator::ForceRegeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
+    GenerationDepth depth,
     GenerationRequestReason reason) {
     ++scheduled_serial_;
     scheduled_reason_ = reason;
-    preview_.force_regeneration(axioms, config);
+    scheduled_depth_ = depth;
+    preview_.force_regeneration(axioms, config, depth);
 }
 
 void GenerationCoordinator::ForceRegenerationIncremental(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
     const Generators::StageMask& dirty_stages,
+    GenerationDepth depth,
     GenerationRequestReason reason) {
     ++scheduled_serial_;
     scheduled_reason_ = reason;
-    preview_.force_regeneration_incremental(axioms, config, dirty_stages);
+    scheduled_depth_ = depth;
+    preview_.force_regeneration_incremental(axioms, config, dirty_stages, depth);
 }
 
 void GenerationCoordinator::CancelGeneration() {
@@ -108,6 +118,14 @@ GenerationRequestReason GenerationCoordinator::LastScheduledReason() const {
 
 GenerationRequestReason GenerationCoordinator::LastCompletedReason() const {
     return completed_reason_;
+}
+
+GenerationDepth GenerationCoordinator::LastScheduledDepth() const {
+    return scheduled_depth_;
+}
+
+GenerationDepth GenerationCoordinator::LastCompletedDepth() const {
+    return completed_depth_;
 }
 
 const char* GenerationCoordinator::ReasonName(GenerationRequestReason reason) {

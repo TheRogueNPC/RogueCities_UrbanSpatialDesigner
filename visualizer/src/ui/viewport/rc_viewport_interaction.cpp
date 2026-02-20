@@ -9,12 +9,14 @@
 #include "ui/tools/rc_tool_interaction_metrics.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <functional>
 #include <limits>
 #include <numbers>
 #include <optional>
+#include <utility>
 #include <unordered_set>
 #include <vector>
 
@@ -38,17 +40,18 @@ namespace {
 void RequestDefaultContextCommandMenu(
     const RogueCity::Core::Editor::EditorConfig& config,
     const ImVec2& screen_pos,
-    const CommandMenuStateBundle& state_bundle) {
+    const CommandMenuStateBundle& state_bundle,
+    std::optional<RC_UI::ToolLibrary> preferred_library = std::nullopt) {
     using RogueCity::Core::Editor::ViewportCommandMode;
     switch (config.viewport_context_default_mode) {
         case ViewportCommandMode::SmartList:
             if (state_bundle.smart_menu != nullptr) {
-                RC_UI::Commands::RequestOpenSmartMenu(*state_bundle.smart_menu, screen_pos);
+                RC_UI::Commands::RequestOpenSmartMenu(*state_bundle.smart_menu, screen_pos, preferred_library);
             }
             break;
         case ViewportCommandMode::Pie:
             if (state_bundle.pie_menu != nullptr) {
-                RC_UI::Commands::RequestOpenPieMenu(*state_bundle.pie_menu, screen_pos);
+                RC_UI::Commands::RequestOpenPieMenu(*state_bundle.pie_menu, screen_pos, preferred_library);
             }
             break;
         case ViewportCommandMode::Palette:
@@ -1014,7 +1017,10 @@ bool HandleDomainPlacementActions(
             new_lot.generation_locked = true;
 
             if (vertical_split) {
-                const double split_x = std::clamp(world_pos.x, min_x + 1.0, max_x - 1.0);
+                const double width = max_x - min_x;
+                const double split_x = (width <= 2.0)
+                    ? (min_x + max_x) * 0.5
+                    : std::clamp(world_pos.x, min_x + 1.0, max_x - 1.0);
                 lot->boundary = {
                     {min_x, min_y}, {split_x, min_y}, {split_x, max_y}, {min_x, max_y}
                 };
@@ -1022,7 +1028,10 @@ bool HandleDomainPlacementActions(
                     {split_x, min_y}, {max_x, min_y}, {max_x, max_y}, {split_x, max_y}
                 };
             } else {
-                const double split_y = std::clamp(world_pos.y, min_y + 1.0, max_y - 1.0);
+                const double height = max_y - min_y;
+                const double split_y = (height <= 2.0)
+                    ? (min_y + max_y) * 0.5
+                    : std::clamp(world_pos.y, min_y + 1.0, max_y - 1.0);
                 lot->boundary = {
                     {min_x, min_y}, {max_x, min_y}, {max_x, split_y}, {min_x, split_y}
                 };
@@ -1142,7 +1151,22 @@ void ProcessViewportCommandTriggers(
         !params.minimap_hovered &&
         !io.WantTextInput &&
         !ImGui::IsAnyItemActive();
+
+    struct DomainHoldState {
+        float held_seconds{ 0.0f };
+        bool opened{ false };
+    };
+    static std::array<DomainHoldState, 6> s_domain_hold{};
+
+    const auto reset_domain_holds = [&]() {
+        for (auto& hold : s_domain_hold) {
+            hold.held_seconds = 0.0f;
+            hold.opened = false;
+        }
+    };
+
     if (!allow_command_hotkeys) {
+        reset_domain_holds();
         return;
     }
 
@@ -1165,6 +1189,43 @@ void ProcessViewportCommandTriggers(
         if (state_bundle.command_palette != nullptr) {
             RC_UI::Commands::RequestOpenCommandPalette(*state_bundle.command_palette);
         }
+    }
+
+    if (params.editor_config->viewport_hotkey_domain_context_enabled) {
+        using RC_UI::ToolLibrary;
+        static constexpr std::array<std::pair<ImGuiKey, ToolLibrary>, 6> kDomainKeys{{
+            {ImGuiKey_A, ToolLibrary::Axiom},
+            {ImGuiKey_W, ToolLibrary::Water},
+            {ImGuiKey_R, ToolLibrary::Road},
+            {ImGuiKey_D, ToolLibrary::District},
+            {ImGuiKey_L, ToolLibrary::Lot},
+            {ImGuiKey_B, ToolLibrary::Building},
+        }};
+        constexpr float kHoldOpenSeconds = 0.28f;
+
+        for (size_t i = 0; i < kDomainKeys.size(); ++i) {
+            auto& hold = s_domain_hold[i];
+            const bool key_down = ImGui::IsKeyDown(kDomainKeys[i].first) &&
+                !io.KeyCtrl && !io.KeyShift && !io.KeyAlt;
+
+            if (!key_down) {
+                hold.held_seconds = 0.0f;
+                hold.opened = false;
+                continue;
+            }
+
+            hold.held_seconds += io.DeltaTime;
+            if (!hold.opened && hold.held_seconds >= kHoldOpenSeconds) {
+                RequestDefaultContextCommandMenu(
+                    *params.editor_config,
+                    params.mouse_pos,
+                    state_bundle,
+                    kDomainKeys[i].second);
+                hold.opened = true;
+            }
+        }
+    } else {
+        reset_domain_holds();
     }
 }
 

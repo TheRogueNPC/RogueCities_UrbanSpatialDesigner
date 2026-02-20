@@ -36,9 +36,16 @@ std::vector<const RC_UI::Tools::ToolActionSpec*> BuildPieSliceActions(ToolLibrar
 
 } // namespace
 
-void RequestOpenPieMenu(PieMenuState& state, const ImVec2& screen_pos) {
+void RequestOpenPieMenu(
+    PieMenuState& state,
+    const ImVec2& screen_pos,
+    std::optional<ToolLibrary> preferred_library) {
     state.open_requested = true;
     state.open_pos = screen_pos;
+    state.has_preferred_library = preferred_library.has_value();
+    if (preferred_library.has_value()) {
+        state.preferred_library = *preferred_library;
+    }
 }
 
 void DrawPieMenu(
@@ -54,17 +61,19 @@ void DrawPieMenu(
 
     ImGui::SetNextWindowSize(ImVec2(360.0f, 240.0f), ImGuiCond_Always);
     if (!ImGui::BeginPopup(popup_id)) {
+        state.has_preferred_library = false;
         return;
     }
 
-    const auto slices = BuildPieSliceActions(preferred_library);
+    const ToolLibrary active_library = state.has_preferred_library ? state.preferred_library : preferred_library;
+    const auto slices = BuildPieSliceActions(active_library);
     if (slices.empty()) {
         ImGui::TextUnformatted("No commands available.");
         ImGui::EndPopup();
         return;
     }
 
-    ImGui::Text("Pie: %s", CommandLibraryName(preferred_library));
+    ImGui::Text("Pie: %s", CommandLibraryName(active_library));
     ImGui::Separator();
 
     size_t action_index = 0;
@@ -75,6 +84,8 @@ void DrawPieMenu(
             } else if (action_index < slices.size()) {
                 const auto* action = slices[action_index];
                 const bool enabled = action != nullptr && RC_UI::Tools::IsToolActionEnabled(*action);
+                const int action_id = action != nullptr ? static_cast<int>(action->id) : static_cast<int>(action_index);
+                ImGui::PushID(action_id);
                 if (!enabled) {
                     ImGui::BeginDisabled(true);
                 }
@@ -94,6 +105,7 @@ void DrawPieMenu(
                 if (action != nullptr && ImGui::IsItemHovered() && action->tooltip != nullptr && action->tooltip[0] != '\0') {
                     ImGui::SetTooltip("%s", action->tooltip);
                 }
+                ImGui::PopID();
                 ++action_index;
             }
 
@@ -105,18 +117,22 @@ void DrawPieMenu(
 
     ImGui::Separator();
     ImGui::TextUnformatted("Global");
+    int command_index = 0;
     for (const auto& command : GetGlobalViewportCommands()) {
+        ImGui::PushID(command_index++);
         if (ImGui::Button(command.label, ImVec2(112.0f, 26.0f))) {
             std::string status;
             const bool executed = ExecuteGlobalViewportCommand(command.id, dispatch_context, &status);
             (void)executed;
             ImGui::CloseCurrentPopup();
+            ImGui::PopID();
             break;
         }
         if (ImGui::IsItemHovered() && command.tooltip != nullptr && command.tooltip[0] != '\0') {
             ImGui::SetTooltip("%s", command.tooltip);
         }
         ImGui::SameLine();
+        ImGui::PopID();
     }
 
     ImGui::EndPopup();

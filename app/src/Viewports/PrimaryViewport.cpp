@@ -1,4 +1,5 @@
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
+#include "RogueCity/App/Tools/IViewportTool.hpp"
 #include <cmath>
 
 namespace RogueCity::App {
@@ -26,6 +27,34 @@ namespace {
         outPos = ImVec2(0.0f, 0.0f);
         outSize = ImVec2(1280.0f, 720.0f);
     }
+
+    struct RoadRenderStyle {
+        ImU32 fill{ IM_COL32(0, 220, 255, 255) };
+        ImU32 casing{ IM_COL32(8, 24, 34, 255) };
+        float width{ 2.0f };
+    };
+
+    [[nodiscard]] RoadRenderStyle ResolveRoadRenderStyle(Core::RoadType type) {
+        switch (type) {
+            case Core::RoadType::Highway:
+                return {IM_COL32(255, 196, 76, 255), IM_COL32(52, 30, 5, 255), 6.0f};
+            case Core::RoadType::Arterial:
+            case Core::RoadType::Avenue:
+            case Core::RoadType::Boulevard:
+            case Core::RoadType::M_Major:
+                return {IM_COL32(74, 236, 255, 255), IM_COL32(10, 34, 44, 255), 4.6f};
+            case Core::RoadType::Street:
+            case Core::RoadType::M_Minor:
+                return {IM_COL32(94, 178, 255, 240), IM_COL32(8, 28, 42, 255), 3.2f};
+            case Core::RoadType::Lane:
+            case Core::RoadType::Alleyway:
+            case Core::RoadType::CulDeSac:
+            case Core::RoadType::Drive:
+            case Core::RoadType::Driveway:
+            default:
+                return {IM_COL32(170, 186, 198, 210), IM_COL32(14, 22, 32, 245), 2.1f};
+        }
+    }
 }
 
 PrimaryViewport::PrimaryViewport() = default;
@@ -36,7 +65,30 @@ void PrimaryViewport::initialize(void* glfw_window) {
 }
 
 void PrimaryViewport::update(float delta_time) {
-    (void)delta_time;  // Reserved for camera smoothing, input handling
+    if (active_tool_ == nullptr) {
+        (void)delta_time;
+        return;
+    }
+
+    active_tool_->update(delta_time, *this);
+
+    if (!is_hovered()) {
+        return;
+    }
+
+    const Core::Vec2 world_pos = screen_to_world(ImGui::GetMousePos());
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        active_tool_->on_mouse_down(world_pos);
+    }
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        active_tool_->on_mouse_up(world_pos);
+    }
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        active_tool_->on_mouse_move(world_pos);
+    }
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+        active_tool_->on_right_click(world_pos);
+    }
 }
 
 void PrimaryViewport::render() {
@@ -78,22 +130,20 @@ void PrimaryViewport::render() {
     
     // Render city output (if available)
     if (city_output_) {
-        // Render roads
-        const ImU32 road_color = IM_COL32(0, 255, 255, 255);  // Cyan
+        // Render roads (two-pass casing + fill with hierarchy style).
         for (const auto& road : city_output_->roads) {
-            if (road.points.size() < 2) continue;
-            
-            const ImVec2 start_screen = world_to_screen(road.startPoint());
-            const ImVec2 end_screen = world_to_screen(road.endPoint());
-            
-            float thickness = 2.0f;
-            if (road.type == Core::RoadType::Highway) {
-                thickness = 6.0f;
-            } else if (road.type == Core::RoadType::Arterial) {
-                thickness = 4.0f;
+            if (road.points.size() < 2) {
+                continue;
             }
-            
-            draw_list->AddLine(start_screen, end_screen, road_color, thickness);
+
+            const RoadRenderStyle style = ResolveRoadRenderStyle(road.type);
+            ImVec2 prev_screen = world_to_screen(road.points.front());
+            for (size_t i = 1; i < road.points.size(); ++i) {
+                const ImVec2 curr_screen = world_to_screen(road.points[i]);
+                draw_list->AddLine(prev_screen, curr_screen, style.casing, style.width + 2.2f);
+                draw_list->AddLine(prev_screen, curr_screen, style.fill, style.width);
+                prev_screen = curr_screen;
+            }
         }
         
         // Render districts (wireframe polygons)
@@ -168,6 +218,14 @@ void PrimaryViewport::render() {
 
 void PrimaryViewport::set_city_output(const Generators::CityGenerator::CityOutput* output) {
     city_output_ = output;
+}
+
+void PrimaryViewport::set_active_tool(IViewportTool* tool) {
+    active_tool_ = tool;
+}
+
+IViewportTool* PrimaryViewport::active_tool() const {
+    return active_tool_;
 }
 
 void PrimaryViewport::set_camera_position(const Core::Vec2& xy, float z) {

@@ -12,19 +12,19 @@ namespace RogueCity::UI {
 
 ThemeProfile Themes::Default() {
     return ThemeProfile{
-        "Default",
-        IM_COL32(0, 255, 255, 255),      // primary_accent (Cyan)
-        IM_COL32(0, 255, 128, 255),      // secondary_accent (Green)
-        IM_COL32(0, 255, 100, 255),      // success_color
-        IM_COL32(255, 200, 0, 255),      // warning_color (Yellow)
-        IM_COL32(255, 50, 50, 255),      // error_color
-        IM_COL32(15, 20, 30, 255),       // background_dark
-        IM_COL32(20, 25, 35, 255),       // panel_background
-        IM_COL32(40, 50, 70, 100),       // grid_overlay (with alpha)
-        IM_COL32(255, 255, 255, 255),    // text_primary
-        IM_COL32(180, 180, 180, 255),    // text_secondary
-        IM_COL32(100, 100, 100, 255),    // text_disabled
-        IM_COL32(0, 255, 255, 255)       // border_accent (Cyan)
+        "Rogue",
+        IM_COL32(214, 120, 72, 255),     // primary_accent (sunset amber)
+        IM_COL32(96, 214, 208, 255),     // secondary_accent (neon teal)
+        IM_COL32(118, 196, 127, 255),    // success_color (urban green)
+        IM_COL32(232, 162, 78, 255),     // warning_color (streetlamp amber)
+        IM_COL32(196, 74, 60, 255),      // error_color (brick red)
+        IM_COL32(20, 16, 14, 255),       // background_dark (deep asphalt)
+        IM_COL32(32, 26, 22, 255),       // panel_background (warm charcoal)
+        IM_COL32(236, 172, 110, 42),     // grid_overlay (sunset haze)
+        IM_COL32(242, 222, 196, 255),    // text_primary (warm ivory)
+        IM_COL32(199, 170, 142, 255),    // text_secondary (soft tan)
+        IM_COL32(113, 98, 84, 255),      // text_disabled
+        IM_COL32(96, 214, 208, 255)      // border_accent (neon teal)
     };
 }
 
@@ -46,22 +46,27 @@ ThemeProfile Themes::RedRetro() {
     };
 }
 
-ThemeProfile Themes::Soviet() {
+ThemeProfile Themes::DowntownCity() {
     return ThemeProfile{
-        "Soviet",
-        IM_COL32(192, 48, 30, 255),      // primary_accent (#C0301E red)
-        IM_COL32(246, 218, 157, 255),    // secondary_accent (#F6DA9D beige)
-        IM_COL32(100, 200, 100, 255),    // success_color (muted green)
-        IM_COL32(220, 180, 60, 255),     // warning_color (gold)
-        IM_COL32(180, 30, 20, 255),      // error_color (dark red)
-        IM_COL32(0, 0, 0, 255),          // background_dark (#000000 black)
-        IM_COL32(20, 20, 20, 255),       // panel_background (near-black)
-        IM_COL32(246, 218, 157, 40),     // grid_overlay (beige with alpha)
-        IM_COL32(246, 218, 157, 255),    // text_primary (beige)
-        IM_COL32(200, 170, 120, 255),    // text_secondary (dimmed beige)
-        IM_COL32(80, 70, 50, 255),       // text_disabled
-        IM_COL32(192, 48, 30, 255)       // border_accent (red)
+        "Downtown City",
+        IM_COL32(214, 120, 72, 255),     // primary_accent (sunset amber)
+        IM_COL32(96, 214, 208, 255),     // secondary_accent (neon teal)
+        IM_COL32(118, 196, 127, 255),    // success_color (urban green)
+        IM_COL32(232, 162, 78, 255),     // warning_color (streetlamp amber)
+        IM_COL32(196, 74, 60, 255),      // error_color (brick red)
+        IM_COL32(20, 16, 14, 255),       // background_dark (deep asphalt)
+        IM_COL32(32, 26, 22, 255),       // panel_background (warm charcoal)
+        IM_COL32(236, 172, 110, 42),     // grid_overlay (sunset haze)
+        IM_COL32(242, 222, 196, 255),    // text_primary (warm ivory)
+        IM_COL32(199, 170, 142, 255),    // text_secondary (soft tan)
+        IM_COL32(113, 98, 84, 255),      // text_disabled
+        IM_COL32(96, 214, 208, 255)      // border_accent (neon teal)
     };
+}
+
+ThemeProfile Themes::Soviet() {
+    // Backward-compat shim for configs that still request "Soviet".
+    return Themes::DowntownCity();
 }
 
 ThemeProfile Themes::CyberPunk() {
@@ -91,29 +96,33 @@ ThemeManager& ThemeManager::Instance() {
 
 ThemeManager::ThemeManager() 
     : m_activeTheme(Themes::Default())
-    , m_activeThemeName("Default")
+    , m_activeThemeName("Rogue")
 {
     RegisterBuiltInThemes();
 }
 
 void ThemeManager::RegisterBuiltInThemes() {
-    m_themes["Default"] = Themes::Default();
+    m_themes["Rogue"] = Themes::Default();
     m_themes["RedRetro"] = Themes::RedRetro();
-    m_themes["Soviet"] = Themes::Soviet();
+    m_themes["Downtown City"] = Themes::DowntownCity();
     m_themes["CyberPunk"] = Themes::CyberPunk();
     
     // Store built-in theme names for later checking
-    m_builtInThemeNames = { "Default", "RedRetro", "Soviet", "CyberPunk" };
+    m_builtInThemeNames = { "Rogue", "RedRetro", "Downtown City", "CyberPunk" };
 }
 
 bool ThemeManager::LoadTheme(const std::string& name) {
-    auto it = m_themes.find(name);
+    std::string resolved_name = (name == "Default") ? "Rogue" : name;
+    if (resolved_name == "Soviet") {
+        resolved_name = "Rogue";
+    }
+    auto it = m_themes.find(resolved_name);
     if (it == m_themes.end()) {
         return false;
     }
     
     m_activeTheme = it->second;
-    m_activeThemeName = name;
+    m_activeThemeName = resolved_name;
     ApplyToImGui();
     return true;
 }

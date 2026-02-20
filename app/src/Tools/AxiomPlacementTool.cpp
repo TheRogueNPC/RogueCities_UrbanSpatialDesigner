@@ -91,6 +91,10 @@ static bool SnapshotsEqual(const AxiomPlacementTool::AxiomSnapshot& a,
 AxiomPlacementTool::AxiomPlacementTool() = default;
 AxiomPlacementTool::~AxiomPlacementTool() = default;
 
+const char* AxiomPlacementTool::tool_name() const {
+    return "AxiomPlacementTool";
+}
+
 void AxiomPlacementTool::update(float delta_time, PrimaryViewport& viewport) {
     knob_popup_.update();
     // Update all axiom animations

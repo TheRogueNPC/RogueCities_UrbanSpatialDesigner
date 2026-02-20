@@ -29,23 +29,27 @@ public:
     void RequestRegeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
+        GenerationDepth depth = GenerationDepth::FullPipeline,
         GenerationRequestReason reason = GenerationRequestReason::LivePreview);
 
     void RequestRegenerationIncremental(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
         const Generators::StageMask& dirty_stages,
+        GenerationDepth depth = GenerationDepth::FullPipeline,
         GenerationRequestReason reason = GenerationRequestReason::LivePreview);
 
     void ForceRegeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
+        GenerationDepth depth = GenerationDepth::FullPipeline,
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
 
     void ForceRegenerationIncremental(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
         const Generators::StageMask& dirty_stages,
+        GenerationDepth depth = GenerationDepth::FullPipeline,
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
     void CancelGeneration();
 
@@ -59,6 +63,8 @@ public:
     [[nodiscard]] uint64_t LastCompletedSerial() const;
     [[nodiscard]] GenerationRequestReason LastScheduledReason() const;
     [[nodiscard]] GenerationRequestReason LastCompletedReason() const;
+    [[nodiscard]] GenerationDepth LastScheduledDepth() const;
+    [[nodiscard]] GenerationDepth LastCompletedDepth() const;
     [[nodiscard]] static const char* ReasonName(GenerationRequestReason reason);
 
     [[nodiscard]] RealTimePreview* Preview();
@@ -72,6 +78,9 @@ private:
     GenerationRequestReason scheduled_reason_{ GenerationRequestReason::Unknown };
     GenerationRequestReason inflight_reason_{ GenerationRequestReason::Unknown };
     GenerationRequestReason completed_reason_{ GenerationRequestReason::Unknown };
+    GenerationDepth scheduled_depth_{ GenerationDepth::FullPipeline };
+    GenerationDepth inflight_depth_{ GenerationDepth::FullPipeline };
+    GenerationDepth completed_depth_{ GenerationDepth::FullPipeline };
 };
 
 } // namespace RogueCity::App

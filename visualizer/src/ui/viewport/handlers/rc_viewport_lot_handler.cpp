@@ -4,6 +4,35 @@
 #include <cmath>
 
 namespace RC_UI::Viewport::Handlers {
+namespace {
+
+RogueCity::Core::LotToken* ResolveEditableLotTarget(
+    ViewportInteractionContext& context,
+    bool allow_pick_from_cursor) {
+    if (context.gs.selection.selected_lot) {
+        if (auto* lot = FindLotMutable(context.gs, context.gs.selection.selected_lot->id);
+            lot != nullptr) {
+            return lot;
+        }
+    }
+
+    if (!allow_pick_from_cursor) {
+        return nullptr;
+    }
+
+    const auto picked = PickFromViewportIndex(
+        context.gs,
+        context.world_pos,
+        context.interaction_metrics,
+        context.io.KeyShift && context.io.KeyCtrl ? 0.6 : 1.6);
+    if (!picked.has_value() || picked->kind != RogueCity::Core::Editor::VpEntityKind::Lot) {
+        return nullptr;
+    }
+    SetPrimarySelection(context.gs, RogueCity::Core::Editor::VpEntityKind::Lot, picked->id);
+    return FindLotMutable(context.gs, picked->id);
+}
+
+} // namespace
 
 bool HandleLotPlacement(
     ViewportInteractionContext& context,
@@ -79,12 +108,23 @@ bool HandleLotPlacement(
                 }
             }
         }
+    } else if (add_click &&
+               context.gs.tool_runtime.lot_subtool == LotSubtool::Merge &&
+               !context.gs.selection.selected_lot) {
+        const auto picked = PickFromViewportIndex(
+            context.gs,
+            context.world_pos,
+            context.interaction_metrics,
+            context.io.KeyShift && context.io.KeyCtrl ? 0.6 : 1.6);
+        if (picked.has_value() && picked->kind == VpEntityKind::Lot) {
+            SetPrimarySelection(context.gs, VpEntityKind::Lot, picked->id);
+            return true;
+        }
     }
 
     if (add_click &&
-        context.gs.tool_runtime.lot_subtool == LotSubtool::Slice &&
-        context.gs.selection.selected_lot) {
-        LotToken* lot = FindLotMutable(context.gs, context.gs.selection.selected_lot->id);
+        context.gs.tool_runtime.lot_subtool == LotSubtool::Slice) {
+        LotToken* lot = ResolveEditableLotTarget(context, true);
         if (lot != nullptr) {
             RogueCity::Core::Vec2 center = lot->centroid;
             if (!lot->boundary.empty()) {
@@ -115,7 +155,10 @@ bool HandleLotPlacement(
             new_lot.generation_locked = true;
 
             if (vertical_split) {
-                const double split_x = std::clamp(context.world_pos.x, min_x + 1.0, max_x - 1.0);
+                const double width = max_x - min_x;
+                const double split_x = (width <= 2.0)
+                    ? (min_x + max_x) * 0.5
+                    : std::clamp(context.world_pos.x, min_x + 1.0, max_x - 1.0);
                 lot->boundary = {
                     {min_x, min_y}, {split_x, min_y}, {split_x, max_y}, {min_x, max_y}
                 };
@@ -123,7 +166,10 @@ bool HandleLotPlacement(
                     {split_x, min_y}, {max_x, min_y}, {max_x, max_y}, {split_x, max_y}
                 };
             } else {
-                const double split_y = std::clamp(context.world_pos.y, min_y + 1.0, max_y - 1.0);
+                const double height = max_y - min_y;
+                const double split_y = (height <= 2.0)
+                    ? (min_y + max_y) * 0.5
+                    : std::clamp(context.world_pos.y, min_y + 1.0, max_y - 1.0);
                 lot->boundary = {
                     {min_x, min_y}, {max_x, min_y}, {max_x, split_y}, {min_x, split_y}
                 };
@@ -151,9 +197,8 @@ bool HandleLotPlacement(
     }
 
     if (add_click &&
-        context.gs.tool_runtime.lot_subtool == LotSubtool::Align &&
-        context.gs.selection.selected_lot) {
-        LotToken* lot = FindLotMutable(context.gs, context.gs.selection.selected_lot->id);
+        context.gs.tool_runtime.lot_subtool == LotSubtool::Align) {
+        LotToken* lot = ResolveEditableLotTarget(context, true);
         if (lot != nullptr) {
             RogueCity::Core::Vec2 center = lot->boundary.empty() ? lot->centroid : PolygonCentroid(lot->boundary);
             SnapToGrid(

@@ -88,14 +88,25 @@ void DrawContent(float dt)
                 break;
             }
         }
+        if (theme_names.empty()) {
+            s_selected_theme_index = 0;
+        } else {
+            s_selected_theme_index = std::clamp(
+                s_selected_theme_index,
+                0,
+                static_cast<int>(theme_names.size()) - 1);
+        }
         
         ImGui::Text("Active Theme: %s", current_theme.c_str());
         ImGui::Spacing();
         
-        if (ImGui::Combo("Available Themes", &s_selected_theme_index, theme_names_cstr.data(), static_cast<int>(theme_names_cstr.size()))) {
+        if (!theme_names.empty() &&
+            ImGui::Combo("Available Themes", &s_selected_theme_index, theme_names_cstr.data(), static_cast<int>(theme_names_cstr.size()))) {
             // Theme changed - apply it
             theme_mgr.LoadTheme(theme_names[s_selected_theme_index]);
             gs.config.active_theme = theme_names[s_selected_theme_index];
+        } else if (theme_names.empty()) {
+            ImGui::TextDisabled("No themes are currently registered.");
         }
         uiint.RegisterWidget({"combo", "Available Themes", "ui.theme_selector", {"ui", "settings"}});
         
@@ -107,60 +118,64 @@ void DrawContent(float dt)
         ImGui::TextUnformatted("Theme Colors (Click to Edit):");
         ImGui::Spacing();
         
-        const ImGuiColorEditFlags color_flags = 
-            ImGuiColorEditFlags_DisplayHex | 
-            ImGuiColorEditFlags_InputRGB | 
+        ImGuiColorEditFlags color_flags =
+            ImGuiColorEditFlags_InputRGB |
             ImGuiColorEditFlags_AlphaBar;
+        color_flags |= s_show_hex_by_default
+            ? ImGuiColorEditFlags_DisplayHex
+            : ImGuiColorEditFlags_DisplayRGB;
         
         bool any_color_edited = false;
         
-        ImGui::BeginGroup();
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Primary");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Primary", reinterpret_cast<float*>(&active_theme_mut.primary_accent), color_flags)) {
-            any_color_edited = true;
+        struct ThemeColorRow {
+            const char* label;
+            const char* id;
+            ImU32* color;
+        };
+        ThemeColorRow rows[] = {
+            {"Primary", "theme_color_primary", &active_theme_mut.primary_accent},
+            {"Secondary", "theme_color_secondary", &active_theme_mut.secondary_accent},
+            {"Success", "theme_color_success", &active_theme_mut.success_color},
+            {"Warning", "theme_color_warning", &active_theme_mut.warning_color},
+            {"Error", "theme_color_error", &active_theme_mut.error_color},
+            {"Border", "theme_color_border", &active_theme_mut.border_accent},
+        };
+
+        auto draw_color_row = [&](const ThemeColorRow& row) {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(row.label);
+            ImGui::SameLine(std::max(92.0f, ImGui::GetContentRegionAvail().x * 0.36f));
+            ImVec4 color = ImGui::ColorConvertU32ToFloat4(*row.color);
+            float color_rgba[4] = { color.x, color.y, color.z, color.w };
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::ColorEdit4(row.id, color_rgba, color_flags)) {
+                *row.color = ImGui::ColorConvertFloat4ToU32(
+                    ImVec4(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]));
+                any_color_edited = true;
+            }
+        };
+
+        const bool two_columns = ImGui::GetContentRegionAvail().x >= 680.0f;
+        if (ImGui::BeginTable(
+                "theme_color_editor",
+                two_columns ? 2 : 1,
+                ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings)) {
+            ImGui::TableNextColumn();
+            for (int i = 0; i < 3; ++i) {
+                draw_color_row(rows[i]);
+            }
+            if (two_columns) {
+                ImGui::TableNextColumn();
+                for (int i = 3; i < 6; ++i) {
+                    draw_color_row(rows[i]);
+                }
+            } else {
+                for (int i = 3; i < 6; ++i) {
+                    draw_color_row(rows[i]);
+                }
+            }
+            ImGui::EndTable();
         }
-        
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Secondary");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Secondary", reinterpret_cast<float*>(&active_theme_mut.secondary_accent), color_flags)) {
-            any_color_edited = true;
-        }
-        
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Success");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Success", reinterpret_cast<float*>(&active_theme_mut.success_color), color_flags)) {
-            any_color_edited = true;
-        }
-        ImGui::EndGroup();
-        
-        ImGui::SameLine(420.0f);
-        
-        ImGui::BeginGroup();
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Warning");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Warning", reinterpret_cast<float*>(&active_theme_mut.warning_color), color_flags)) {
-            any_color_edited = true;
-        }
-        
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Error");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Error", reinterpret_cast<float*>(&active_theme_mut.error_color), color_flags)) {
-            any_color_edited = true;
-        }
-        
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Border");
-        ImGui::SameLine(120.0f);
-        if (ImGui::ColorEdit4("##Border", reinterpret_cast<float*>(&active_theme_mut.border_accent), color_flags)) {
-            any_color_edited = true;
-        }
-        ImGui::EndGroup();
         
         // Handle color edits: auto-create custom theme if editing a built-in
         if (any_color_edited) {
@@ -252,10 +267,12 @@ void DrawContent(float dt)
         ImGui::Checkbox("Hotkey: / -> Pie Menu", &gs.config.viewport_hotkey_slash_enabled);
         ImGui::Checkbox("Hotkey: `~ -> Pie Menu", &gs.config.viewport_hotkey_grave_enabled);
         ImGui::Checkbox("Hotkey: P -> Global Palette", &gs.config.viewport_hotkey_p_enabled);
+        ImGui::Checkbox("Hold A/W/R/D/L/B -> Domain Context", &gs.config.viewport_hotkey_domain_context_enabled);
         uiint.RegisterWidget({"checkbox", "Hotkey Space", "ui.hotkeys.space", {"ui", "settings", "commands"}});
         uiint.RegisterWidget({"checkbox", "Hotkey Slash", "ui.hotkeys.slash", {"ui", "settings", "commands"}});
         uiint.RegisterWidget({"checkbox", "Hotkey Grave", "ui.hotkeys.grave", {"ui", "settings", "commands"}});
         uiint.RegisterWidget({"checkbox", "Hotkey P", "ui.hotkeys.p", {"ui", "settings", "commands"}});
+        uiint.RegisterWidget({"checkbox", "Domain Context Hold", "ui.hotkeys.domain_context", {"ui", "settings", "commands"}});
         
         ImGui::Spacing();
         

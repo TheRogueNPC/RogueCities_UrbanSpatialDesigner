@@ -18,6 +18,11 @@ set(APP_SOURCES
     src/Tools/AxiomVisual.cpp
     src/Tools/AxiomAnimationController.cpp
     src/Tools/AxiomPlacementTool.cpp
+    src/Tools/RoadTool.cpp
+    src/Tools/DistrictTool.cpp
+    src/Tools/LotTool.cpp
+    src/Tools/BuildingTool.cpp
+    src/Tools/WaterTool.cpp
     src/Tools/AxiomIcon.cpp
     src/Tools/ContextWindowPopup.cpp
 
@@ -51,6 +56,12 @@ set(APP_HEADERS
     include/RogueCity/App/Tools/AxiomVisual.hpp
     include/RogueCity/App/Tools/AxiomAnimationController.hpp
     include/RogueCity/App/Tools/AxiomPlacementTool.hpp
+    include/RogueCity/App/Tools/IViewportTool.hpp
+    include/RogueCity/App/Tools/RoadTool.hpp
+    include/RogueCity/App/Tools/DistrictTool.hpp
+    include/RogueCity/App/Tools/LotTool.hpp
+    include/RogueCity/App/Tools/BuildingTool.hpp
+    include/RogueCity/App/Tools/WaterTool.hpp
     include/RogueCity/App/Tools/AxiomIcon.hpp
     include/RogueCity/App/Tools/ContextWindowPopup.hpp
 

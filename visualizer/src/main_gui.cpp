@@ -244,9 +244,9 @@ int main(int, char**)
     if (!gs_early.config.active_theme.empty()) {
         theme_mgr.LoadTheme(gs_early.config.active_theme);
     } else {
-        // Default theme on first launch
-        theme_mgr.LoadTheme("Default");
-        gs_early.config.active_theme = "Default";
+        // Rogue theme on first launch
+        theme_mgr.LoadTheme("Rogue");
+        gs_early.config.active_theme = "Rogue";
     }
     
     // Load AI configuration

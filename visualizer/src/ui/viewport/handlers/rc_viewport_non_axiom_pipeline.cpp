@@ -1,6 +1,7 @@
 #include "ui/viewport/handlers/rc_viewport_non_axiom_pipeline.h"
 
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
+#include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "ui/tools/rc_tool_geometry_policy.h"
@@ -36,9 +37,11 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
 
     if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Water) {
         interaction_state->water_vertex_drag.active = false;
+        interaction_state->water_pen_drag.active = false;
     }
     if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Roads) {
         interaction_state->road_vertex_drag.active = false;
+        interaction_state->road_pen_drag.active = false;
     }
     if (params.editor_state != RogueCity::Core::Editor::EditorState::Editing_Districts) {
         interaction_state->district_boundary_drag.active = false;
@@ -59,9 +62,27 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         !gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
     const auto dirty_before = gs.dirty_layers.flags;
     bool selection_click_applied = false;
+    bool command_history_applied = false;
 
     if (params.allow_viewport_key_actions) {
-        if (ImGui::IsKeyPressed(ImGuiKey_G)) {
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+            auto& history = RogueCity::App::GetEditorCommandHistory();
+            if (io.KeyShift) {
+                if (history.CanRedo()) {
+                    history.Redo();
+                    command_history_applied = true;
+                }
+            } else if (history.CanUndo()) {
+                history.Undo();
+                command_history_applied = true;
+            }
+        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) {
+            auto& history = RogueCity::App::GetEditorCommandHistory();
+            if (history.CanRedo()) {
+                history.Redo();
+                command_history_applied = true;
+            }
+        } else if (ImGui::IsKeyPressed(ImGuiKey_G)) {
             gs.gizmo.enabled = true;
             gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Translate;
         } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
@@ -300,7 +321,13 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
             interaction_state->selection_drag.lasso_points.clear();
         }
     } else if (!consumed_interaction) {
-        const auto hovered = Handlers::PickFromViewportIndex(gs, result.world_pos, interaction_metrics);
+        const bool precision_pick_mode = io.KeyShift && io.KeyCtrl;
+        const auto hovered = Handlers::PickFromViewportIndex(
+            gs,
+            result.world_pos,
+            interaction_metrics,
+            precision_pick_mode ? 0.6 : 1.8,
+            !precision_pick_mode);
         gs.hovered_entity = hovered;
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -348,6 +375,10 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         result.handled = true;
         result.outcome = InteractionOutcome::ActivateOnly;
         result.status_code = navigation_pan_applied ? "viewport-pan" : "viewport-zoom";
+    } else if (command_history_applied) {
+        result.handled = true;
+        result.outcome = InteractionOutcome::ActivateOnly;
+        result.status_code = "undo-redo-applied";
     } else if (consumed_interaction) {
         result.handled = true;
         result.outcome = InteractionOutcome::GizmoInteraction;

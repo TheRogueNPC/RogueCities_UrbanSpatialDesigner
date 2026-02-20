@@ -15,10 +15,12 @@ void RealTimePreview::update(float delta_time) {
     // Apply completed output on the main thread.
     {
         std::unique_ptr<Generators::CityGenerator::CityOutput> completed;
+        GenerationDepth completed_depth = GenerationDepth::FullPipeline;
         {
             std::lock_guard<std::mutex> lock(completed_mutex_);
             if (completed_output_ready_) {
                 completed = std::move(completed_output_);
+                completed_depth = completed_output_depth_;
                 completed_output_ready_ = false;
             }
         }
@@ -32,7 +34,7 @@ void RealTimePreview::update(float delta_time) {
             phase_elapsed_seconds_ = 0.0f;
 
             if (on_complete_ && current_output_) {
-                on_complete_(*current_output_);
+                on_complete_(*current_output_, completed_depth);
             }
         }
     }
@@ -82,7 +84,8 @@ void RealTimePreview::update(float delta_time) {
 //
 void RealTimePreview::request_regeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
-    const Generators::CityGenerator::Config& config) {
+    const Generators::CityGenerator::Config& config,
+    GenerationDepth depth) {
     if (is_generating()) {
         cancel_inflight_generation();
     }
@@ -91,6 +94,7 @@ void RealTimePreview::request_regeneration(
     pending_config_ = config;
     pending_incremental_ = false;
     pending_dirty_stages_ = Generators::FullStageMask();
+    pending_depth_ = depth;
     regeneration_pending_ = true;
     time_since_last_request_ = 0.0f;
 
@@ -103,7 +107,8 @@ void RealTimePreview::request_regeneration(
 void RealTimePreview::request_regeneration_incremental(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
-    const Generators::StageMask& dirty_stages) {
+    const Generators::StageMask& dirty_stages,
+    GenerationDepth depth) {
     if (is_generating()) {
         cancel_inflight_generation();
     }
@@ -112,6 +117,7 @@ void RealTimePreview::request_regeneration_incremental(
     pending_config_ = config;
     pending_incremental_ = true;
     pending_dirty_stages_ = dirty_stages.none() ? Generators::FullStageMask() : dirty_stages;
+    pending_depth_ = depth;
     regeneration_pending_ = true;
     time_since_last_request_ = 0.0f;
 
@@ -123,7 +129,8 @@ void RealTimePreview::request_regeneration_incremental(
 
 void RealTimePreview::force_regeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
-    const Generators::CityGenerator::Config& config) {
+    const Generators::CityGenerator::Config& config,
+    GenerationDepth depth) {
     if (is_generating()) {
         cancel_inflight_generation();
     }
@@ -132,6 +139,7 @@ void RealTimePreview::force_regeneration(
     pending_config_ = config;
     pending_incremental_ = false;
     pending_dirty_stages_ = Generators::FullStageMask();
+    pending_depth_ = depth;
     regeneration_pending_ = true;
     time_since_last_request_ = debounce_delay_;
 
@@ -144,7 +152,8 @@ void RealTimePreview::force_regeneration(
 void RealTimePreview::force_regeneration_incremental(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
-    const Generators::StageMask& dirty_stages) {
+    const Generators::StageMask& dirty_stages,
+    GenerationDepth depth) {
     if (is_generating()) {
         cancel_inflight_generation();
     }
@@ -153,6 +162,7 @@ void RealTimePreview::force_regeneration_incremental(
     pending_config_ = config;
     pending_incremental_ = true;
     pending_dirty_stages_ = dirty_stages.none() ? Generators::FullStageMask() : dirty_stages;
+    pending_depth_ = depth;
     regeneration_pending_ = true;
     time_since_last_request_ = debounce_delay_;
 
@@ -208,15 +218,17 @@ void RealTimePreview::start_generation() {
     Generators::CityGenerator::Config config = pending_config_;
     const bool incremental = pending_incremental_;
     const Generators::StageMask dirty_stages = pending_dirty_stages_;
+    const GenerationDepth depth = pending_depth_;
     pending_axioms_.clear();
     pending_incremental_ = false;
     pending_dirty_stages_ = Generators::FullStageMask();
+    pending_depth_ = GenerationDepth::FullPipeline;
 
     cancellation_token_ = std::make_shared<Generators::CancellationToken>();
     const uint64_t token = generation_token_.fetch_add(1, std::memory_order_relaxed) + 1;
 
     generation_thread_ = std::jthread(
-        [this, token, axioms = std::move(axioms), config, incremental, dirty_stages, cancellation = cancellation_token_](std::stop_token st) mutable {
+        [this, token, axioms = std::move(axioms), config, incremental, dirty_stages, depth, cancellation = cancellation_token_](std::stop_token st) mutable {
             auto cancel_worker = [&]() {
                 generation_progress_.store(0.0f, std::memory_order_relaxed);
                 is_generating_.store(false, std::memory_order_relaxed);
@@ -243,6 +255,27 @@ void RealTimePreview::start_generation() {
                         dirty_stages,
                         nullptr,
                         &context);
+                } else if (depth == GenerationDepth::AxiomBounds) {
+                    Generators::CityGenerator::Config preview_config = config;
+                    preview_config.num_seeds = std::clamp(
+                        static_cast<int>(axioms.size()) * 4,
+                        4,
+                        48);
+                    Generators::CityGenerator::StageOptions options{};
+                    options.use_cache = false;
+                    options.cascade_downstream = false;
+                    options.constrain_seeds_to_axiom_bounds = true;
+                    options.constrain_roads_to_axiom_bounds = true;
+                    options.stages_to_run.reset();
+                    Generators::MarkStageDirty(options.stages_to_run, Generators::GenerationStage::Terrain);
+                    Generators::MarkStageDirty(options.stages_to_run, Generators::GenerationStage::TensorField);
+                    Generators::MarkStageDirty(options.stages_to_run, Generators::GenerationStage::Roads);
+                    output = incremental_generator_cache_.GenerateStages(
+                        axioms,
+                        preview_config,
+                        options,
+                        nullptr,
+                        &context);
                 } else {
                     output = incremental_generator_cache_.GenerateWithContext(
                         axioms,
@@ -258,7 +291,7 @@ void RealTimePreview::start_generation() {
             }
 
             generation_progress_.store(0.95f, std::memory_order_relaxed);
-            on_generation_complete(token, std::move(output));
+            on_generation_complete(token, std::move(output), depth);
         }
     );
 }
@@ -277,7 +310,10 @@ void RealTimePreview::cancel_inflight_generation() {
     phase_elapsed_seconds_ = 0.0f;
 }
 
-void RealTimePreview::on_generation_complete(uint64_t token, Generators::CityGenerator::CityOutput output) {
+void RealTimePreview::on_generation_complete(
+    uint64_t token,
+    Generators::CityGenerator::CityOutput output,
+    GenerationDepth depth) {
     // Drop stale completions if a newer generation was scheduled.
     if (token != generation_token_.load(std::memory_order_relaxed)) {
         return;
@@ -285,6 +321,7 @@ void RealTimePreview::on_generation_complete(uint64_t token, Generators::CityGen
 
     std::lock_guard<std::mutex> lock(completed_mutex_);
     completed_output_ = std::make_unique<Generators::CityGenerator::CityOutput>(std::move(output));
+    completed_output_depth_ = depth;
     completed_output_ready_ = true;
 }
 

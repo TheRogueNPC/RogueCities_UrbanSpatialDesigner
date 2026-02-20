@@ -152,6 +152,87 @@ namespace {
         ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 242u), "AXIOM MODE ACTIVE");
     }
 
+    std::string BuildNonAxiomContextCue(const RogueCity::Core::Editor::GlobalState& gs) {
+        using RogueCity::Core::Editor::BuildingSubtool;
+        using RogueCity::Core::Editor::DistrictSubtool;
+        using RogueCity::Core::Editor::LotSubtool;
+        using RogueCity::Core::Editor::RoadSubtool;
+        using RogueCity::Core::Editor::ToolDomain;
+        using RogueCity::Core::Editor::WaterSubtool;
+
+        switch (gs.tool_runtime.active_domain) {
+        case ToolDomain::Road:
+        case ToolDomain::Paths:
+            switch (gs.tool_runtime.road_spline_subtool) {
+            case RogueCity::Core::Editor::RoadSplineSubtool::Selection:
+                return "Cue: Selection picks full spline; hover highlights candidate.";
+            case RogueCity::Core::Editor::RoadSplineSubtool::DirectSelect:
+                return "Cue: Drag points directly. Shift+Ctrl for precision pick.";
+            case RogueCity::Core::Editor::RoadSplineSubtool::Pen:
+                return "Cue: Freehand drag. Hold Shift for point mode. Ctrl+DoubleClick closes.";
+            case RogueCity::Core::Editor::RoadSplineSubtool::HandleTangents:
+                return "Cue: Drag tangent handles for smooth bezier-like shaping.";
+            default:
+                break;
+            }
+            switch (gs.tool_runtime.road_subtool) {
+            case RoadSubtool::Strengthen: return "Cue: LMB near road upgrades hierarchy.";
+            case RoadSubtool::Disconnect: return "Cue: LMB on vertex disconnects/splits road.";
+            case RoadSubtool::Stub: return "Cue: LMB drops short road stubs quickly.";
+            case RoadSubtool::Curve: return "Cue: Pen mode + TinySpline smoothing.";
+            case RoadSubtool::Grid: return "Cue: Pen mode snapped to grid.";
+            default: return "Cue: LMB pen/add, drag vertices in spline subtools.";
+            }
+        case ToolDomain::District:
+        case ToolDomain::Zone:
+            switch (gs.tool_runtime.district_subtool) {
+            case DistrictSubtool::Split: return "Cue: Insert mode on edges, drag vertices.";
+            case DistrictSubtool::Merge: return "Cue: LMB near another district to merge.";
+            default: return "Cue: LMB place/paint district areas.";
+            }
+        case ToolDomain::Lot:
+            switch (gs.tool_runtime.lot_subtool) {
+            case LotSubtool::Slice: return "Cue: LMB slices selected lot at cursor.";
+            case LotSubtool::Merge: return "Cue: LMB nearby lot to merge.";
+            case LotSubtool::Align: return "Cue: LMB realigns lot to snap/grid.";
+            default: return "Cue: LMB plots and edits lots.";
+            }
+        case ToolDomain::Building:
+        case ToolDomain::FloorPlan:
+        case ToolDomain::Furnature:
+            switch (gs.tool_runtime.building_subtool) {
+            case BuildingSubtool::Rotate: return "Cue: LMB rotates picked building (15deg).";
+            case BuildingSubtool::Scale: return "Cue: LMB scales picked building (+10%).";
+            case BuildingSubtool::Assign: return "Cue: LMB cycles building type.";
+            default: return "Cue: LMB places buildings; gizmo handles transforms.";
+            }
+        case ToolDomain::Water:
+        case ToolDomain::Flow:
+            switch (gs.tool_runtime.water_spline_subtool) {
+            case RogueCity::Core::Editor::WaterSplineSubtool::Selection:
+                return "Cue: Selection picks full water spline; hover highlights candidate.";
+            case RogueCity::Core::Editor::WaterSplineSubtool::DirectSelect:
+                return "Cue: Drag water points directly. Shift+Ctrl for precision pick.";
+            case RogueCity::Core::Editor::WaterSplineSubtool::Pen:
+                return "Cue: Freehand drag. Hold Shift for point mode. Ctrl+DoubleClick closes.";
+            case RogueCity::Core::Editor::WaterSplineSubtool::HandleTangents:
+                return "Cue: Drag tangent handles to shape shoreline/spline flow.";
+            default:
+                break;
+            }
+            switch (gs.tool_runtime.water_subtool) {
+            case WaterSubtool::Mask: return "Cue: LMB toggles shoreline mask on selected body.";
+            case WaterSubtool::Erode: return "Cue: Drag to erode/expand shoreline radially with falloff.";
+            case WaterSubtool::Contour: return "Cue: Drag to contour-align edits (dominant axis) with falloff.";
+            case WaterSubtool::Flow: return "Cue: Drag to advect edits along local tangent flow with falloff.";
+            default: return "Cue: LMB pen/add anchors, spline tools refine shape.";
+            }
+        case ToolDomain::Axiom:
+        default:
+            return "Cue: Axiom mode handles placement and preview.";
+        }
+    }
+
 }
 
 // === Clear Layer Command (Undoable) ===
@@ -512,11 +593,20 @@ void Initialize() {
     s_sync_manager->set_sync_enabled(true);
     s_sync_manager->set_smooth_factor(0.2f);
 
-    s_generation_coordinator->SetOnComplete([minimap](const RogueCity::Generators::CityGenerator::CityOutput& output) {
+    s_generation_coordinator->SetOnComplete([minimap](
+        const RogueCity::Generators::CityGenerator::CityOutput& output,
+        RogueCity::App::GenerationDepth depth) {
         auto& gs = RogueCity::Core::Editor::GetGlobalState();
-        RogueCity::App::ApplyCityOutputToGlobalState(output, gs);
-        gs.tool_runtime.explicit_generation_pending = false;
-        gs.tool_runtime.last_viewport_status = "generation-applied";
+        RogueCity::App::CityOutputApplyOptions apply_options{};
+        apply_options.scope = (depth == RogueCity::App::GenerationDepth::AxiomBounds)
+            ? RogueCity::App::GenerationScope::RoadsOnly
+            : RogueCity::App::GenerationScope::FullCity;
+        RogueCity::App::ApplyCityOutputToGlobalState(output, gs, apply_options);
+        gs.tool_runtime.explicit_generation_pending = (depth == RogueCity::App::GenerationDepth::AxiomBounds);
+        gs.tool_runtime.last_viewport_status =
+            (depth == RogueCity::App::GenerationDepth::AxiomBounds)
+                ? "generation-applied-roads-only"
+                : "generation-applied";
         gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
         if (s_primary_viewport) {
             s_primary_viewport->set_city_output(&output);
@@ -682,11 +772,13 @@ void ForceGenerate() {
             inputs,
             cfg,
             plan.dirty_stages,
+            RogueCity::App::GenerationDepth::FullPipeline,
             RogueCity::App::GenerationRequestReason::ForceGenerate);
     } else {
         s_generation_coordinator->ForceRegeneration(
             inputs,
             cfg,
+            RogueCity::App::GenerationDepth::FullPipeline,
             RogueCity::App::GenerationRequestReason::ForceGenerate);
     }
     gs.dirty_layers.MarkAllClean();
@@ -848,6 +940,7 @@ bool ApplyGeneratorRequest(
     s_generation_coordinator->ForceRegeneration(
         axioms,
         config,
+        RogueCity::App::GenerationDepth::FullPipeline,
         RogueCity::App::GenerationRequestReason::ExternalRequest);
     s_external_dirty = false;
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
@@ -1792,8 +1885,10 @@ void DrawContent(float dt) {
                 s_generation_coordinator->RequestRegeneration(
                     axiom_inputs,
                     config,
+                    RogueCity::App::GenerationDepth::AxiomBounds,
                     RogueCity::App::GenerationRequestReason::LivePreview);
                 gs.dirty_layers.MarkFromAxiomEdit();
+                gs.tool_runtime.explicit_generation_pending = true;
             } else {
                 const auto plan = RC_UI::Viewport::BuildPlacementGenerationPlan(gs.dirty_layers);
                 if (plan.use_incremental) {
@@ -1801,12 +1896,13 @@ void DrawContent(float dt) {
                         axiom_inputs,
                         config,
                         plan.dirty_stages,
+                        RogueCity::App::GenerationDepth::FullPipeline,
                         RogueCity::App::GenerationRequestReason::LivePreview);
                     gs.dirty_layers.MarkAllClean();
+                    gs.tool_runtime.explicit_generation_pending = false;
                 }
             }
             s_external_dirty = false;
-            gs.tool_runtime.explicit_generation_pending = false;
         }
     }
     
@@ -1844,9 +1940,12 @@ void DrawContent(float dt) {
         ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "Mode: %s", active_domain);
         ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 78));
         ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 230u), "Viewport: %s", viewport_status);
+        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 96));
+        const std::string cue = BuildNonAxiomContextCue(gs);
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 210u), "%s", cue.c_str());
     }
     if (!axiom_mode && gs.tool_runtime.explicit_generation_pending) {
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 96));
+        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 114));
         ImGui::TextColored(
             TokenColorF(UITokens::YellowWarning, 240u),
             "Generation pending (explicit trigger required)");
@@ -1895,10 +1994,69 @@ void DrawContent(float dt) {
     // Editor-local validation overlay payload.
     gs.validation_overlay.errors = RogueCity::Core::Validation::CollectOverlayValidationErrors(gs);
 
+    auto draw_polyline_highlight = [&](const std::vector<RogueCity::Core::Vec2>& points,
+                                       ImU32 color,
+                                       float thickness,
+                                       bool closed) {
+        if (points.size() < 2) {
+            return;
+        }
+        std::vector<ImVec2> screen_points;
+        screen_points.reserve(points.size());
+        for (const auto& point : points) {
+            screen_points.push_back(s_primary_viewport->world_to_screen(point));
+        }
+        draw_list->AddPolyline(
+            screen_points.data(),
+            static_cast<int>(screen_points.size()),
+            color,
+            closed,
+            thickness);
+    };
+
+    // Whole-spline visual cue for Selection subtools.
+    if (current_state == RogueCity::Core::Editor::EditorState::Editing_Roads &&
+        gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::Selection) {
+        if (gs.hovered_entity.has_value() &&
+            gs.hovered_entity->kind == RogueCity::Core::Editor::VpEntityKind::Road) {
+            if (RogueCity::Core::Road* hovered = FindRoadMutable(gs, gs.hovered_entity->id);
+                hovered != nullptr) {
+                draw_polyline_highlight(hovered->points, TokenColor(UITokens::YellowWarning, 220u), 3.2f, false);
+            }
+        }
+        if (gs.selection.selected_road) {
+            if (RogueCity::Core::Road* selected = FindRoadMutable(gs, gs.selection.selected_road->id);
+                selected != nullptr) {
+                draw_polyline_highlight(selected->points, TokenColor(UITokens::CyanAccent, 220u), 2.6f, false);
+            }
+        }
+    }
+    if (current_state == RogueCity::Core::Editor::EditorState::Editing_Water &&
+        gs.tool_runtime.water_spline_subtool == RogueCity::Core::Editor::WaterSplineSubtool::Selection) {
+        if (gs.hovered_entity.has_value() &&
+            gs.hovered_entity->kind == RogueCity::Core::Editor::VpEntityKind::Water) {
+            if (RogueCity::Core::WaterBody* hovered = FindWaterMutable(gs, gs.hovered_entity->id);
+                hovered != nullptr) {
+                const bool closed = hovered->type != RogueCity::Core::WaterType::River;
+                draw_polyline_highlight(hovered->boundary, TokenColor(UITokens::YellowWarning, 220u), 3.0f, closed);
+            }
+        }
+        const auto* primary = gs.selection_manager.Primary();
+        if (primary != nullptr && primary->kind == RogueCity::Core::Editor::VpEntityKind::Water) {
+            if (RogueCity::Core::WaterBody* selected = FindWaterMutable(gs, primary->id);
+                selected != nullptr) {
+                const bool closed = selected->type != RogueCity::Core::WaterType::River;
+                draw_polyline_highlight(selected->boundary, TokenColor(UITokens::InfoBlue, 220u), 2.4f, closed);
+            }
+        }
+    }
+
     // Road vertex handles + spline preview in road mode.
     if (current_state == RogueCity::Core::Editor::EditorState::Editing_Roads && gs.selection.selected_road) {
         const uint32_t road_id = gs.selection.selected_road->id;
         if (RogueCity::Core::Road* road = FindRoadMutable(gs, road_id); road != nullptr) {
+            const float world_to_screen = std::max(0.05f, s_primary_viewport->world_to_screen_scale(1.0f));
+            const double handle_world_length = std::max(4.0, 20.0 / static_cast<double>(world_to_screen));
             for (size_t i = 0; i < road->points.size(); ++i) {
                 const ImVec2 p = s_primary_viewport->world_to_screen(road->points[i]);
                 const ImU32 color = (s_non_axiom_interaction.road_vertex_drag.active &&
@@ -1907,6 +2065,44 @@ void DrawContent(float dt) {
                     : TokenColor(UITokens::CyanAccent, 225u);
                 draw_list->AddCircleFilled(p, 4.0f, color, 12);
                 draw_list->AddCircle(p, 6.0f, TokenColor(UITokens::BackgroundDark, 200u), 12, 1.0f);
+
+                if (gs.tool_runtime.road_spline_subtool == RogueCity::Core::Editor::RoadSplineSubtool::HandleTangents &&
+                    i > 0 &&
+                    i + 1 < road->points.size()) {
+                    const RogueCity::Core::Vec2 anchor = road->points[i];
+                    RogueCity::Core::Vec2 in_dir = road->points[i] - road->points[i - 1];
+                    RogueCity::Core::Vec2 out_dir = road->points[i] - road->points[i + 1];
+                    if (in_dir.lengthSquared() > 1e-8) {
+                        in_dir.normalize();
+                        const RogueCity::Core::Vec2 in_handle_world = anchor + in_dir * handle_world_length;
+                        const ImVec2 in_handle = s_primary_viewport->world_to_screen(in_handle_world);
+                        const bool in_active = s_non_axiom_interaction.road_vertex_drag.active &&
+                            s_non_axiom_interaction.road_vertex_drag.vertex_index == i &&
+                            s_non_axiom_interaction.road_vertex_drag.tangent_handle_active &&
+                            !s_non_axiom_interaction.road_vertex_drag.tangent_outgoing;
+                        draw_list->AddLine(p, in_handle, TokenColor(UITokens::AmberGlow, 190u), 1.4f);
+                        draw_list->AddCircleFilled(
+                            in_handle,
+                            3.4f,
+                            in_active ? TokenColor(UITokens::YellowWarning) : TokenColor(UITokens::AmberGlow, 225u),
+                            10);
+                    }
+                    if (out_dir.lengthSquared() > 1e-8) {
+                        out_dir.normalize();
+                        const RogueCity::Core::Vec2 out_handle_world = anchor + out_dir * handle_world_length;
+                        const ImVec2 out_handle = s_primary_viewport->world_to_screen(out_handle_world);
+                        const bool out_active = s_non_axiom_interaction.road_vertex_drag.active &&
+                            s_non_axiom_interaction.road_vertex_drag.vertex_index == i &&
+                            s_non_axiom_interaction.road_vertex_drag.tangent_handle_active &&
+                            s_non_axiom_interaction.road_vertex_drag.tangent_outgoing;
+                        draw_list->AddLine(p, out_handle, TokenColor(UITokens::AmberGlow, 190u), 1.4f);
+                        draw_list->AddCircleFilled(
+                            out_handle,
+                            3.4f,
+                            out_active ? TokenColor(UITokens::YellowWarning) : TokenColor(UITokens::AmberGlow, 225u),
+                            10);
+                    }
+                }
             }
 
             if (gs.spline_editor.enabled && road->points.size() >= 3) {
@@ -1967,6 +2163,8 @@ void DrawContent(float dt) {
         if (has_selected_water) {
             if (RogueCity::Core::WaterBody* water = FindWaterMutable(gs, primary->id);
                 water != nullptr && !water->boundary.empty()) {
+                const float world_to_screen = std::max(0.05f, s_primary_viewport->world_to_screen_scale(1.0f));
+                const double handle_world_length = std::max(4.0, 20.0 / static_cast<double>(world_to_screen));
                 for (size_t i = 0; i < water->boundary.size(); ++i) {
                     const ImVec2 p = s_primary_viewport->world_to_screen(water->boundary[i]);
                     const ImU32 color = (s_non_axiom_interaction.water_vertex_drag.active &&
@@ -1975,6 +2173,44 @@ void DrawContent(float dt) {
                         : TokenColor(UITokens::InfoBlue, 220u);
                     draw_list->AddCircleFilled(p, 4.0f, color, 12);
                     draw_list->AddCircle(p, 6.0f, TokenColor(UITokens::BackgroundDark, 180u), 12, 1.0f);
+
+                    if (gs.tool_runtime.water_spline_subtool == RogueCity::Core::Editor::WaterSplineSubtool::HandleTangents &&
+                        i > 0 &&
+                        i + 1 < water->boundary.size()) {
+                        const RogueCity::Core::Vec2 anchor = water->boundary[i];
+                        RogueCity::Core::Vec2 in_dir = water->boundary[i] - water->boundary[i - 1];
+                        RogueCity::Core::Vec2 out_dir = water->boundary[i] - water->boundary[i + 1];
+                        if (in_dir.lengthSquared() > 1e-8) {
+                            in_dir.normalize();
+                            const RogueCity::Core::Vec2 in_handle_world = anchor + in_dir * handle_world_length;
+                            const ImVec2 in_handle = s_primary_viewport->world_to_screen(in_handle_world);
+                            const bool in_active = s_non_axiom_interaction.water_vertex_drag.active &&
+                                s_non_axiom_interaction.water_vertex_drag.vertex_index == i &&
+                                s_non_axiom_interaction.water_vertex_drag.tangent_handle_active &&
+                                !s_non_axiom_interaction.water_vertex_drag.tangent_outgoing;
+                            draw_list->AddLine(p, in_handle, TokenColor(UITokens::InfoBlue, 195u), 1.3f);
+                            draw_list->AddCircleFilled(
+                                in_handle,
+                                3.4f,
+                                in_active ? TokenColor(UITokens::YellowWarning) : TokenColor(UITokens::InfoBlue, 230u),
+                                10);
+                        }
+                        if (out_dir.lengthSquared() > 1e-8) {
+                            out_dir.normalize();
+                            const RogueCity::Core::Vec2 out_handle_world = anchor + out_dir * handle_world_length;
+                            const ImVec2 out_handle = s_primary_viewport->world_to_screen(out_handle_world);
+                            const bool out_active = s_non_axiom_interaction.water_vertex_drag.active &&
+                                s_non_axiom_interaction.water_vertex_drag.vertex_index == i &&
+                                s_non_axiom_interaction.water_vertex_drag.tangent_handle_active &&
+                                s_non_axiom_interaction.water_vertex_drag.tangent_outgoing;
+                            draw_list->AddLine(p, out_handle, TokenColor(UITokens::InfoBlue, 195u), 1.3f);
+                            draw_list->AddCircleFilled(
+                                out_handle,
+                                3.4f,
+                                out_active ? TokenColor(UITokens::YellowWarning) : TokenColor(UITokens::InfoBlue, 230u),
+                                10);
+                        }
+                    }
                 }
             }
         }
@@ -2050,6 +2286,95 @@ void DrawContent(float dt) {
             TokenColor(UITokens::CyanAccent, 220u),
             false,
             2.0f);
+    }
+
+    const bool inspect_mode =
+        (!axiom_mode) &&
+        ((gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Road &&
+          gs.tool_runtime.road_subtool == RogueCity::Core::Editor::RoadSubtool::Inspect) ||
+         ((gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::District ||
+           gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Zone) &&
+          gs.tool_runtime.district_subtool == RogueCity::Core::Editor::DistrictSubtool::Inspect) ||
+         (gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Lot &&
+          gs.tool_runtime.lot_subtool == RogueCity::Core::Editor::LotSubtool::Inspect) ||
+         (gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Building &&
+          gs.tool_runtime.building_subtool == RogueCity::Core::Editor::BuildingSubtool::Inspect) ||
+         (gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Water &&
+          gs.tool_runtime.water_subtool == RogueCity::Core::Editor::WaterSubtool::Inspect));
+    if (inspect_mode && gs.hovered_entity.has_value()) {
+        if (ImGui::BeginTooltip()) {
+            const auto hovered = *gs.hovered_entity;
+            const RogueCity::Core::Vec2 inspect_world = non_axiom_interaction.has_world_pos
+                ? non_axiom_interaction.world_pos
+                : s_primary_viewport->screen_to_world(mouse_pos);
+            const auto nearest_vertex_index = [&](const std::vector<RogueCity::Core::Vec2>& points) -> int {
+                if (points.empty()) {
+                    return -1;
+                }
+                double best = std::numeric_limits<double>::max();
+                int best_index = -1;
+                for (size_t i = 0; i < points.size(); ++i) {
+                    const double d = points[i].distanceTo(inspect_world);
+                    if (d < best) {
+                        best = d;
+                        best_index = static_cast<int>(i);
+                    }
+                }
+                return best_index;
+            };
+            ImGui::TextColored(TokenColorF(UITokens::CyanAccent), "Inspect");
+            ImGui::Separator();
+            ImGui::Text("Kind: %u", static_cast<unsigned>(hovered.kind));
+            ImGui::Text("ID: %u", hovered.id);
+            switch (hovered.kind) {
+            case RogueCity::Core::Editor::VpEntityKind::Road:
+                if (RogueCity::Core::Road* road = FindRoadMutable(gs, hovered.id); road != nullptr) {
+                    ImGui::Text("Points: %zu", road->points.size());
+                    ImGui::Text("Type: %u", static_cast<unsigned>(road->type));
+                    ImGui::Text("Nearest Vertex: %d", nearest_vertex_index(road->points));
+                }
+                break;
+            case RogueCity::Core::Editor::VpEntityKind::District:
+                if (RogueCity::Core::District* district = FindDistrictMutable(gs, hovered.id); district != nullptr) {
+                    ImGui::Text("Vertices: %zu", district->border.size());
+                    ImGui::Text("Type: %u", static_cast<unsigned>(district->type));
+                    ImGui::Text("Nearest Vertex: %d", nearest_vertex_index(district->border));
+                }
+                break;
+            case RogueCity::Core::Editor::VpEntityKind::Lot:
+                for (const auto& lot : gs.lots) {
+                    if (lot.id == hovered.id) {
+                        ImGui::Text("District: %u", lot.district_id);
+                        ImGui::Text("Area: %.1f", lot.area);
+                        ImGui::Text("Boundary: %zu", lot.boundary.size());
+                        ImGui::Text("Nearest Vertex: %d", nearest_vertex_index(lot.boundary));
+                        break;
+                    }
+                }
+                break;
+            case RogueCity::Core::Editor::VpEntityKind::Building:
+                for (const auto& building : gs.buildings) {
+                    if (building.id == hovered.id) {
+                        ImGui::Text("District: %u", building.district_id);
+                        ImGui::Text("Lot: %u", building.lot_id);
+                        ImGui::Text("Type: %u", static_cast<unsigned>(building.type));
+                        break;
+                    }
+                }
+                break;
+            case RogueCity::Core::Editor::VpEntityKind::Water:
+                if (RogueCity::Core::WaterBody* water = FindWaterMutable(gs, hovered.id); water != nullptr) {
+                    ImGui::Text("Boundary: %zu", water->boundary.size());
+                    ImGui::Text("Type: %u", static_cast<unsigned>(water->type));
+                    ImGui::Text("Depth: %.2f", water->depth);
+                    ImGui::Text("Nearest Vertex: %d", nearest_vertex_index(water->boundary));
+                }
+                break;
+            default:
+                break;
+            }
+            ImGui::EndTooltip();
+        }
     }
     
     // === ROGUENAV MINIMAP OVERLAY ===

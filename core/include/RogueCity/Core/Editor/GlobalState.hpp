@@ -30,7 +30,7 @@ namespace RogueCity::Core::Editor {
     /// Editor configuration (persisted across sessions)
     struct EditorConfig {
         bool dev_mode_enabled{ false };  ///< Unlocks feature-gated panels (AI, experimental)
-        std::string active_theme{ "Default" };  ///< Active UI theme name
+        std::string active_theme{ "Rogue" };  ///< Active UI theme name
         bool show_grid_overlay{ false };  ///< Viewport grid overlay toggle
         float ui_scale{ 1.0f };  ///< Global UI scale multiplier
         bool ui_multi_viewport_enabled{ false };  ///< Dear ImGui platform windows (opt-in stability policy)
@@ -41,6 +41,7 @@ namespace RogueCity::Core::Editor {
         bool viewport_hotkey_slash_enabled{ true };  ///< Slash opens Pie while viewport has focus.
         bool viewport_hotkey_grave_enabled{ true };  ///< Grave/Tilde opens Pie while viewport has focus.
         bool viewport_hotkey_p_enabled{ true };  ///< P opens global command palette while viewport has focus.
+        bool viewport_hotkey_domain_context_enabled{ true };  ///< Hold domain keys (A/W/R/D/L/B) to open domain context menu/pie.
     };
 
     struct EditorParameters {

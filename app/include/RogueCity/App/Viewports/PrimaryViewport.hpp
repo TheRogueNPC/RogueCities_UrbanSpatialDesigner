@@ -5,6 +5,8 @@
 
 namespace RogueCity::App {
 
+class IViewportTool;
+
 /// Primary viewport: 3D/2D hybrid with orbital camera
 /// Displays full city with interactive axiom placement
 class PrimaryViewport {
@@ -15,6 +17,8 @@ public:
     void initialize(void* glfw_window);
     void update(float delta_time);
     void render();
+    void set_active_tool(IViewportTool* tool);
+    [[nodiscard]] IViewportTool* active_tool() const;
 
     /// Set city output to display
     void set_city_output(const Generators::CityGenerator::CityOutput* output);
@@ -34,6 +38,7 @@ public:
 
 private:
     const Generators::CityGenerator::CityOutput* city_output_{ nullptr };
+    IViewportTool* active_tool_{ nullptr };
     Core::Vec2 camera_xy_{ 0.0, 0.0 };
     float camera_z_{ 500.0f };
     float zoom_{ 1.0f };

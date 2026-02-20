@@ -10,8 +10,6 @@ namespace RC_UI::Viewport::Handlers {
 bool HandleDistrictPlacement(
     ViewportInteractionContext& context,
     NonAxiomInteractionState& interaction_state) {
-    (void)interaction_state;
-
     using RogueCity::Core::District;
     using RogueCity::Core::DistrictType;
     using RogueCity::Core::Editor::DistrictSubtool;
@@ -22,8 +20,23 @@ bool HandleDistrictPlacement(
         return false;
     }
 
-    const bool add_click = ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-        !context.io.KeyAlt && !context.io.KeyShift && !context.io.KeyCtrl;
+    const bool left_click = ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !context.io.KeyAlt;
+    const bool add_click = left_click && !context.io.KeyCtrl;
+    const bool ctrl_double_click = context.io.KeyCtrl && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+
+    if (left_click &&
+        (context.gs.tool_runtime.district_subtool == DistrictSubtool::Select ||
+         context.gs.tool_runtime.district_subtool == DistrictSubtool::Inspect)) {
+        const auto picked = PickFromViewportIndex(
+            context.gs,
+            context.world_pos,
+            context.interaction_metrics,
+            context.io.KeyShift && context.io.KeyCtrl ? 0.6 : 1.6);
+        if (picked.has_value() && picked->kind == VpEntityKind::District) {
+            SetPrimarySelection(context.gs, VpEntityKind::District, picked->id);
+            return true;
+        }
+    }
 
     if (add_click &&
         context.gs.tool_runtime.district_subtool == DistrictSubtool::Merge &&
@@ -63,21 +76,155 @@ bool HandleDistrictPlacement(
     }
 
     if (add_click &&
-        (context.gs.tool_runtime.district_subtool == DistrictSubtool::Paint ||
-         context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone)) {
-        District district{};
-        district.id = NextDistrictId(context.gs);
-        district.type = DistrictType::Mixed;
-        district.border = MakeSquareBoundary(context.world_pos, context.geometry_policy.district_placement_half_extent);
-        district.orientation = {1.0, 0.0};
-        district.is_user_placed = true;
-        district.generation_tag = RogueCity::Core::GenerationTag::M_user;
-        district.generation_locked = true;
-        context.gs.districts.add(std::move(district));
-        const uint32_t new_id = NextDistrictId(context.gs) - 1u;
-        SetPrimarySelection(context.gs, VpEntityKind::District, new_id);
-        MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
-        return true;
+        context.gs.tool_runtime.district_subtool == DistrictSubtool::Split &&
+        context.gs.selection.selected_district) {
+        RogueCity::Core::District* district = FindDistrictMutable(
+            context.gs,
+            context.gs.selection.selected_district->id);
+        if (district != nullptr && district->border.size() >= 3) {
+            double min_x = district->border.front().x;
+            double max_x = district->border.front().x;
+            double min_y = district->border.front().y;
+            double max_y = district->border.front().y;
+            for (const auto& p : district->border) {
+                min_x = std::min(min_x, p.x);
+                max_x = std::max(max_x, p.x);
+                min_y = std::min(min_y, p.y);
+                max_y = std::max(max_y, p.y);
+            }
+            const RogueCity::Core::Vec2 center((min_x + max_x) * 0.5, (min_y + max_y) * 0.5);
+            const bool vertical_split =
+                std::abs(context.world_pos.x - center.x) >= std::abs(context.world_pos.y - center.y);
+
+            District new_district = *district;
+            new_district.id = NextDistrictId(context.gs);
+            new_district.is_user_placed = true;
+            new_district.generation_tag = RogueCity::Core::GenerationTag::M_user;
+            new_district.generation_locked = true;
+
+            if (vertical_split) {
+                const double width = max_x - min_x;
+                const double split_x = (width <= 2.0)
+                    ? (min_x + max_x) * 0.5
+                    : std::clamp(context.world_pos.x, min_x + 1.0, max_x - 1.0);
+                district->border = {
+                    {min_x, min_y}, {split_x, min_y}, {split_x, max_y}, {min_x, max_y}
+                };
+                new_district.border = {
+                    {split_x, min_y}, {max_x, min_y}, {max_x, max_y}, {split_x, max_y}
+                };
+            } else {
+                const double height = max_y - min_y;
+                const double split_y = (height <= 2.0)
+                    ? (min_y + max_y) * 0.5
+                    : std::clamp(context.world_pos.y, min_y + 1.0, max_y - 1.0);
+                district->border = {
+                    {min_x, min_y}, {max_x, min_y}, {max_x, split_y}, {min_x, split_y}
+                };
+                new_district.border = {
+                    {min_x, split_y}, {max_x, split_y}, {max_x, max_y}, {min_x, max_y}
+                };
+            }
+            context.gs.districts.add(std::move(new_district));
+            MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+            return true;
+        }
+    }
+
+    if ((context.gs.tool_runtime.district_subtool == DistrictSubtool::Paint ||
+         context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone) &&
+        (add_click || (ctrl_double_click && context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone))) {
+        if (context.gs.tool_runtime.district_subtool == DistrictSubtool::Paint &&
+            context.gs.selection.selected_district) {
+            RogueCity::Core::District* district = FindDistrictMutable(
+                context.gs,
+                context.gs.selection.selected_district->id);
+            if (district != nullptr) {
+                district->is_user_placed = true;
+                district->generation_tag = RogueCity::Core::GenerationTag::M_user;
+                district->generation_locked = true;
+                if (district->border.empty() ||
+                    district->border.back().distanceTo(context.world_pos) >= context.interaction_metrics.world_lasso_step) {
+                    district->border.push_back(context.world_pos);
+                    MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+                    return true;
+                }
+            }
+        } else if (context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone) {
+            RogueCity::Core::District* district = context.gs.selection.selected_district
+                ? FindDistrictMutable(context.gs, context.gs.selection.selected_district->id)
+                : nullptr;
+            if (district == nullptr) {
+                District new_district{};
+                new_district.id = NextDistrictId(context.gs);
+                new_district.type = DistrictType::Residential;
+                new_district.border.push_back(context.world_pos);
+                new_district.orientation = {1.0, 0.0};
+                new_district.is_user_placed = true;
+                new_district.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                new_district.generation_locked = true;
+                context.gs.districts.add(std::move(new_district));
+                const uint32_t new_id = NextDistrictId(context.gs) - 1u;
+                SetPrimarySelection(context.gs, VpEntityKind::District, new_id);
+                MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+                return true;
+            }
+
+            district->is_user_placed = true;
+            district->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            district->generation_locked = true;
+
+            if (ctrl_double_click && district->border.size() >= 3) {
+                if (district->border.back().distanceTo(district->border.front()) > 1e-3) {
+                    district->border.push_back(district->border.front());
+                }
+                MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+                return true;
+            }
+
+            const double append_step = std::max(0.25, context.interaction_metrics.world_lasso_step * 0.5);
+            if (district->border.empty() ||
+                district->border.back().distanceTo(context.world_pos) >= append_step) {
+                district->border.push_back(context.world_pos);
+                MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+                return true;
+            }
+        } else {
+            District district{};
+            district.id = NextDistrictId(context.gs);
+            district.type = (context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone)
+                ? DistrictType::Residential
+                : DistrictType::Mixed;
+            district.border = MakeSquareBoundary(context.world_pos, context.geometry_policy.district_placement_half_extent);
+            district.orientation = {1.0, 0.0};
+            district.is_user_placed = true;
+            district.generation_tag = RogueCity::Core::GenerationTag::M_user;
+            district.generation_locked = true;
+            context.gs.districts.add(std::move(district));
+            const uint32_t new_id = NextDistrictId(context.gs) - 1u;
+            SetPrimarySelection(context.gs, VpEntityKind::District, new_id);
+            MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+            return true;
+        }
+    }
+
+    if ((context.gs.tool_runtime.district_subtool == DistrictSubtool::Paint ||
+         context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone) &&
+        context.gs.selection.selected_district &&
+        ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
+        !context.io.KeyAlt && !context.io.KeyShift && !context.io.KeyCtrl) {
+        RogueCity::Core::District* district = FindDistrictMutable(
+            context.gs,
+            context.gs.selection.selected_district->id);
+        if (district != nullptr &&
+            (district->border.empty() ||
+             district->border.back().distanceTo(context.world_pos) >=
+                 std::max(0.25, context.interaction_metrics.world_lasso_step *
+                     (context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone ? 0.55 : 1.0)))) {
+            district->border.push_back(context.world_pos);
+            MarkDirtyForSelectionKind(context.gs, VpEntityKind::District);
+            return true;
+        }
     }
 
     return false;
@@ -101,7 +248,9 @@ bool HandleDistrictVertexEdits(
     }
 
     bool consumed_interaction = false;
-    const double pick_radius = context.interaction_metrics.world_vertex_pick_radius;
+    const bool precision_pick_mode = context.io.KeyShift && context.io.KeyCtrl;
+    const double pick_radius = context.interaction_metrics.world_vertex_pick_radius *
+        (precision_pick_mode ? 0.65 : 1.35);
 
     if (!interaction_state.district_boundary_drag.active &&
         ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
@@ -119,6 +268,7 @@ bool HandleDistrictVertexEdits(
         const bool remove_vertex = context.gs.district_boundary_editor.delete_mode;
         const bool insert_vertex =
             context.gs.tool_runtime.district_subtool == DistrictSubtool::Split ||
+            context.gs.tool_runtime.district_subtool == DistrictSubtool::Zone ||
             context.gs.district_boundary_editor.insert_mode;
 
         if (remove_vertex && best <= pick_radius) {

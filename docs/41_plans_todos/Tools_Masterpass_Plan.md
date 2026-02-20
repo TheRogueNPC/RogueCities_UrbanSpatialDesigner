@@ -1,6 +1,6 @@
 # Tools Masterpass Plan (Repo-Aligned, 1–4 ASAP Passes)
 
-## Implementation Status (2026-02-19)
+## Implementation Status (2026-02-20)
 
 ### Pass Completion
 - Pass 1: complete (non-axiom ingress delegated to handler pipeline, signature unchanged).
@@ -27,6 +27,51 @@
 - Minimap interaction hardening:
   - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
   - `visualizer/src/ui/viewport/rc_minimap_interaction_math.cpp`
+
+### Latest Delta (2026-02-20)
+- Fixed generation-depth propagation race in preview completion callback (AxiomBounds no longer applied as stale FullPipeline):
+  - `app/include/RogueCity/App/Integration/RealTimePreview.hpp`
+  - `app/src/Integration/RealTimePreview.cpp`
+  - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
+- Added road clipping for axiom-bounds preview generation so skeleton output stays inside active axiom influence volumes:
+  - `generators/include/RogueCity/Generators/Pipeline/CityGenerator.hpp`
+  - `generators/src/Generators/Pipeline/CityGenerator.cpp`
+- Tuned AxiomBounds preview seed density to a bounded per-axiom range (reduces single-axiom full-map spread during live preview):
+  - `app/src/Integration/RealTimePreview.cpp`
+- Fixed ImGui conflicting-ID path in tools panel (mode buttons + layer visibility labels no longer collide):
+  - `visualizer/src/ui/panels/rc_panel_tools.cpp`
+- Refined district polygon authoring behavior:
+  - `District -> Zone` now supports vertex-based polygon shaping (click/drag append, `Ctrl+DoubleClick` close)
+  - `District -> Select/Inspect` now explicitly picks/selects district targets under cursor
+  - file:
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_district_handler.cpp`
+- Axiom preview generation is now road-skeleton-only and axiom-bounded:
+  - `app/src/Integration/RealTimePreview.cpp`
+  - `generators/include/RogueCity/Generators/Pipeline/CityGenerator.hpp`
+  - `generators/src/Generators/Pipeline/CityGenerator.cpp`
+  - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
+- Water library primaries now map to distinct interaction intent (no forced pen default for Flow/Contour/Erode):
+  - `visualizer/src/ui/tools/rc_tool_dispatcher.cpp`
+- Shared spline semantics hardened for road/water:
+  - whole-spline selection highlight
+  - direct-select + tangent-handle drag behavior
+  - freehand pen with Shift point mode
+  - Ctrl+double-click close-spline
+  - files:
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_road_handler.cpp`
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_water_handler.cpp`
+    - `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp`
+- Polygon-domain usability updates:
+  - district split safety guards + expanded vertex pick falloff
+  - lot merge/slice/align now auto-acquire lot target under cursor if none is selected
+  - viewport inspect tooltip now includes nearest-vertex index stubs for spline/polygon entities
+  - non-axiom viewport now applies shared command-history hotkeys (`Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+Y`)
+  - water `Flow`/`Contour`/`Erode` subtools now use differentiated deformation behavior (tangent, axis, radial)
+  - files:
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_district_handler.cpp`
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_lot_handler.cpp`
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_non_axiom_pipeline.cpp`
+    - `visualizer/src/ui/viewport/handlers/rc_viewport_water_handler.cpp`
 
 ### Deterministic Verification Additions
 - `tests/test_viewport_interaction_helpers.cpp`

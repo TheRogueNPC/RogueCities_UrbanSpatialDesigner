@@ -110,15 +110,15 @@ void ApplySubtoolSelection(const ToolActionSpec& action,
 
         case ToolActionId::Water_Flow:
             gs.tool_runtime.water_subtool = WaterSubtool::Flow;
-            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::DirectSelect;
             break;
         case ToolActionId::Water_Contour:
             gs.tool_runtime.water_subtool = WaterSubtool::Contour;
-            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::DirectSelect;
             break;
         case ToolActionId::Water_Erode:
             gs.tool_runtime.water_subtool = WaterSubtool::Erode;
-            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::DirectSelect;
             break;
         case ToolActionId::Water_Select:
             gs.tool_runtime.water_subtool = WaterSubtool::Select;
@@ -126,7 +126,7 @@ void ApplySubtoolSelection(const ToolActionSpec& action,
             break;
         case ToolActionId::Water_Mask:
             gs.tool_runtime.water_subtool = WaterSubtool::Mask;
-            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Pen;
+            gs.tool_runtime.water_spline_subtool = WaterSplineSubtool::Selection;
             break;
         case ToolActionId::Water_Inspect:
             gs.tool_runtime.water_subtool = WaterSubtool::Inspect;

@@ -1,5 +1,7 @@
 #include "ui/viewport/handlers/rc_viewport_domain_handlers_internal.h"
 
+#include <algorithm>
+
 namespace RC_UI::Viewport::Handlers {
 
 bool HandleBuildingPlacement(
@@ -56,6 +58,34 @@ bool HandleBuildingPlacement(
         }
         if (building != nullptr) {
             CycleBuildingType(building->type);
+            MarkDirtyForSelectionKind(context.gs, VpEntityKind::Building);
+            return true;
+        }
+    }
+
+    if (context.gs.tool_runtime.building_subtool == BuildingSubtool::Rotate ||
+        context.gs.tool_runtime.building_subtool == BuildingSubtool::Scale) {
+        RogueCity::Core::BuildingSite* building = nullptr;
+        if (context.gs.selection.selected_building) {
+            building = FindBuildingMutable(context.gs, context.gs.selection.selected_building->id);
+        }
+        if (building == nullptr) {
+            const auto picked = PickFromViewportIndex(context.gs, context.world_pos, context.interaction_metrics);
+            if (picked.has_value() && picked->kind == VpEntityKind::Building) {
+                building = FindBuildingMutable(context.gs, picked->id);
+                if (building != nullptr) {
+                    SetPrimarySelection(context.gs, VpEntityKind::Building, picked->id);
+                }
+            }
+        }
+        if (building != nullptr) {
+            if (context.gs.tool_runtime.building_subtool == BuildingSubtool::Rotate) {
+                constexpr float kRotateStepRadians = 0.261799f; // 15deg
+                building->rotation_radians += kRotateStepRadians;
+            } else {
+                constexpr float kScaleStep = 1.1f;
+                building->uniform_scale = std::clamp(building->uniform_scale * kScaleStep, 0.1f, 25.0f);
+            }
             MarkDirtyForSelectionKind(context.gs, VpEntityKind::Building);
             return true;
         }

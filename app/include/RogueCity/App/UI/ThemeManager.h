@@ -85,9 +85,10 @@ private:
 
 // === BUILT-IN THEME PRESETS ===
 namespace Themes {
-    ThemeProfile Default();      // Current cyan/green/yellow tokens
+    ThemeProfile Default();      // Rogue baseline preset (formerly Default)
     ThemeProfile RedRetro();     // #D12128, #FAE3AC, #01344F
-    ThemeProfile Soviet();       // #C0301E, #F6DA9D, #000000
+    ThemeProfile DowntownCity(); // Warm browns + sunset neon accents
+    ThemeProfile Soviet();       // Legacy alias -> DowntownCity
     ThemeProfile CyberPunk();    // #8A509F, #FA99C5, #0A2670
 }
 

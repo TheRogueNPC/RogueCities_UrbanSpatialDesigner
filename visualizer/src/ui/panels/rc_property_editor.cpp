@@ -77,8 +77,7 @@ struct LambdaCommand final : ICommand {
 };
 
 CommandHistory& PropertyHistory() {
-    static CommandHistory history{};
-    return history;
+    return RogueCity::App::GetEditorCommandHistory();
 }
 
 void CommitLambda(
@@ -109,6 +108,39 @@ void CommitValueChange(
         description,
         [setter, before]() mutable { setter(before); },
         [setter, after]() mutable { setter(after); });
+}
+
+template <typename TValue, typename TSetter>
+bool CommitValueOnDeactivate(
+    CommandHistory& history,
+    const char* description,
+    const TValue& current_value,
+    TSetter setter) {
+    static std::unordered_map<ImGuiID, TValue> edit_start_values{};
+
+    const ImGuiID item_id = ImGui::GetItemID();
+    if (item_id == 0u) {
+        return false;
+    }
+    if (ImGui::IsItemActivated()) {
+        edit_start_values[item_id] = current_value;
+    }
+    if (!ImGui::IsItemDeactivatedAfterEdit()) {
+        return false;
+    }
+
+    TValue before_value = current_value;
+    if (const auto it = edit_start_values.find(item_id); it != edit_start_values.end()) {
+        before_value = it->second;
+        edit_start_values.erase(it);
+    }
+
+    if (before_value == current_value) {
+        return false;
+    }
+
+    CommitValueChange(history, description, before_value, current_value, setter);
+    return true;
 }
 
 void MarkDirtyForKind(GlobalState& gs, VpEntityKind kind) {
@@ -557,43 +589,34 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     }
 
     {
-        const float before = district.budget_allocated;
-        if (ImGui::InputFloat("Budget Allocated", &district.budget_allocated)) {
-            const float after = district.budget_allocated;
-            CommitValueChange(
+        ImGui::InputFloat("Budget Allocated", &district.budget_allocated);
+        if (CommitValueOnDeactivate(
                 history,
                 "District Budget",
-                before,
-                after,
-                [&district](float v) { district.budget_allocated = v; });
+                district.budget_allocated,
+                [&district](float v) { district.budget_allocated = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
     }
 
     {
-        const uint32_t before = district.projected_population;
-        if (ImGui::InputScalar("Population", ImGuiDataType_U32, &district.projected_population)) {
-            const uint32_t after = district.projected_population;
-            CommitValueChange(
+        ImGui::InputScalar("Population", ImGuiDataType_U32, &district.projected_population);
+        if (CommitValueOnDeactivate(
                 history,
                 "District Population",
-                before,
-                after,
-                [&district](uint32_t v) { district.projected_population = v; });
+                district.projected_population,
+                [&district](uint32_t v) { district.projected_population = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
     }
 
     {
-        const float before = district.desirability;
-        if (ImGui::InputFloat("Desirability", &district.desirability)) {
-            const float after = district.desirability;
-            CommitValueChange(
+        ImGui::InputFloat("Desirability", &district.desirability);
+        if (CommitValueOnDeactivate(
                 history,
                 "District Desirability",
-                before,
-                after,
-                [&district](float v) { district.desirability = v; });
+                district.desirability,
+                [&district](float v) { district.desirability = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
     }
@@ -677,18 +700,16 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
     ImGui::InputScalar("District ID", ImGuiDataType_U32, &lot.district_id);
 
     {
-        const RogueCity::Core::Vec2 before = lot.centroid;
         float centroid_xy[2] = { static_cast<float>(lot.centroid.x), static_cast<float>(lot.centroid.y) };
         if (ImGui::InputFloat2("Centroid", centroid_xy)) {
             lot.centroid.x = centroid_xy[0];
             lot.centroid.y = centroid_xy[1];
-            const RogueCity::Core::Vec2 after = lot.centroid;
-            CommitValueChange(
+        }
+        if (CommitValueOnDeactivate(
                 history,
                 "Lot Centroid",
-                before,
-                after,
-                [&lot](const RogueCity::Core::Vec2& v) { lot.centroid = v; });
+                lot.centroid,
+                [&lot](const RogueCity::Core::Vec2& v) { lot.centroid = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::Lot);
         }
     }
@@ -781,18 +802,16 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
     ImGui::InputScalar("District ID", ImGuiDataType_U32, &building.district_id);
 
     {
-        const RogueCity::Core::Vec2 before = building.position;
         float pos_xy[2] = { static_cast<float>(building.position.x), static_cast<float>(building.position.y) };
         if (ImGui::InputFloat2("Position", pos_xy)) {
             building.position.x = pos_xy[0];
             building.position.y = pos_xy[1];
-            const RogueCity::Core::Vec2 after = building.position;
-            CommitValueChange(
+        }
+        if (CommitValueOnDeactivate(
                 history,
                 "Building Position",
-                before,
-                after,
-                [&building](const RogueCity::Core::Vec2& v) { building.position = v; });
+                building.position,
+                [&building](const RogueCity::Core::Vec2& v) { building.position = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::Building);
         }
     }
@@ -861,44 +880,36 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
     }
 
     {
-        const float before = building.estimated_cost;
-        if (ImGui::InputFloat("Estimated Cost", &building.estimated_cost)) {
-            const float after = building.estimated_cost;
-            CommitValueChange(
+        ImGui::InputFloat("Estimated Cost", &building.estimated_cost);
+        if (CommitValueOnDeactivate(
                 history,
                 "Building Cost",
-                before,
-                after,
-                [&building](float v) { building.estimated_cost = v; });
+                building.estimated_cost,
+                [&building](float v) { building.estimated_cost = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::Building);
         }
     }
 
     {
-        const float before = building.rotation_radians;
-        if (ImGui::InputFloat("Rotation (rad)", &building.rotation_radians)) {
-            const float after = building.rotation_radians;
-            CommitValueChange(
+        ImGui::InputFloat("Rotation (rad)", &building.rotation_radians);
+        if (CommitValueOnDeactivate(
                 history,
                 "Building Rotation",
-                before,
-                after,
-                [&building](float v) { building.rotation_radians = v; });
+                building.rotation_radians,
+                [&building](float v) { building.rotation_radians = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::Building);
         }
     }
 
     {
-        const float before = building.uniform_scale;
         if (ImGui::DragFloat("Uniform Scale", &building.uniform_scale, 0.01f, 0.05f, 20.0f, "%.2f")) {
             building.uniform_scale = std::clamp(building.uniform_scale, 0.05f, 20.0f);
-            const float after = building.uniform_scale;
-            CommitValueChange(
+        }
+        if (CommitValueOnDeactivate(
                 history,
                 "Building Scale",
-                before,
-                after,
-                [&building](float v) { building.uniform_scale = v; });
+                building.uniform_scale,
+                [&building](float v) { building.uniform_scale = v; })) {
             MarkDirtyForKind(gs, VpEntityKind::Building);
         }
     }

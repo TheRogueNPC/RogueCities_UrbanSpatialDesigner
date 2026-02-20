@@ -46,7 +46,9 @@ struct ViewportInteractionContext {
 [[nodiscard]] std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState& gs,
     const RogueCity::Core::Vec2& world_pos,
-    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics);
+    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics,
+    double radius_scale = 1.0,
+    bool prefer_manhattan = true);
 
 [[nodiscard]] std::vector<RogueCity::Core::Editor::SelectionItem> QueryRegionFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState& gs,

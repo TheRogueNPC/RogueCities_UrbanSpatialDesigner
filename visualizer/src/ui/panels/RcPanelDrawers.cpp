@@ -137,7 +137,7 @@ namespace ZoningControl {
     public:
         PanelType type() const override { return PanelType::ZoningControl; }
         const char* display_name() const override { return "Zoning Control"; }
-        PanelCategory category() const override { return PanelCategory::Controls; }
+        PanelCategory category() const override { return PanelCategory::Hidden; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_zoning_control.cpp"; }
         std::vector<std::string> tags() const override { return {"control", "zoning", "generator"}; }
         
@@ -161,7 +161,7 @@ namespace LotControl {
     public:
         PanelType type() const override { return PanelType::LotControl; }
         const char* display_name() const override { return "Lot Control"; }
-        PanelCategory category() const override { return PanelCategory::Controls; }
+        PanelCategory category() const override { return PanelCategory::Hidden; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_lot_control.cpp"; }
         std::vector<std::string> tags() const override { return {"control", "lot", "generator"}; }
        
@@ -178,7 +178,7 @@ namespace BuildingControl {
     public:
         PanelType type() const override { return PanelType::BuildingControl; }
         const char* display_name() const override { return "Building Control"; }
-        PanelCategory category() const override { return PanelCategory::Controls; }
+        PanelCategory category() const override { return PanelCategory::Hidden; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_building_control.cpp"; }
         std::vector<std::string> tags() const override { return {"control", "building", "generator"}; }
         
@@ -195,7 +195,7 @@ namespace WaterControl {
     public:
         PanelType type() const override { return PanelType::WaterControl; }
         const char* display_name() const override { return "Water Control"; }
-        PanelCategory category() const override { return PanelCategory::Controls; }
+        PanelCategory category() const override { return PanelCategory::Hidden; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_water_control.cpp"; }
         std::vector<std::string> tags() const override { return {"control", "water", "generator"}; }
         
@@ -255,7 +255,7 @@ namespace Telemetry {
     public:
         PanelType type() const override { return PanelType::Telemetry; }
         const char* display_name() const override { return "Telemetry"; }
-        PanelCategory category() const override { return PanelCategory::System; }
+        PanelCategory category() const override { return PanelCategory::Controls; }
         const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_telemetry.cpp"; }
         std::vector<std::string> tags() const override { return {"system", "telemetry", "debug"}; }
         

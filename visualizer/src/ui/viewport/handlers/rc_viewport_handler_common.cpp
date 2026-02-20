@@ -17,6 +17,7 @@ bool ProbeContainsPoint(
     uint32_t id,
     const RogueCity::Core::Vec2& world_pos,
     double world_radius,
+    bool prefer_manhattan,
     int& out_priority,
     double& out_distance) {
     using RogueCity::Core::Editor::VpEntityKind;
@@ -71,7 +72,11 @@ bool ProbeContainsPoint(
                 out_distance = world_pos.distanceTo(lot.centroid);
                 return true;
             }
-            const double d = world_pos.distanceTo(lot.centroid);
+            const double dx = std::abs(world_pos.x - lot.centroid.x);
+            const double dy = std::abs(world_pos.y - lot.centroid.y);
+            const double euclid = std::sqrt(dx * dx + dy * dy);
+            const double manhattan = dx + dy;
+            const double d = prefer_manhattan ? (0.7 * euclid + 0.3 * manhattan) : euclid;
             if (d <= world_radius * 2.0) {
                 out_priority = 2;
                 out_distance = d;
@@ -87,7 +92,11 @@ bool ProbeContainsPoint(
             if (building.id != id) {
                 continue;
             }
-            const double d = world_pos.distanceTo(building.position);
+            const double dx = std::abs(world_pos.x - building.position.x);
+            const double dy = std::abs(world_pos.y - building.position.y);
+            const double euclid = std::sqrt(dx * dx + dy * dy);
+            const double manhattan = dx + dy;
+            const double d = prefer_manhattan ? (0.65 * euclid + 0.35 * manhattan) : euclid;
             if (d <= world_radius * 1.75) {
                 out_priority = 5;
                 out_distance = d;
@@ -233,8 +242,10 @@ bool ResolveSelectionAnchor(
 std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState& gs,
     const RogueCity::Core::Vec2& world_pos,
-    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics) {
-    const double world_radius = interaction_metrics.world_pick_radius;
+    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics,
+    double radius_scale,
+    bool prefer_manhattan) {
+    const double world_radius = std::max(0.25, interaction_metrics.world_pick_radius * std::max(0.2, radius_scale));
     int best_priority = -1;
     double best_distance = std::numeric_limits<double>::max();
     std::optional<RogueCity::Core::Editor::SelectionItem> best{};
@@ -248,7 +259,7 @@ std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
         }
         int priority = 0;
         double distance = 0.0;
-        if (!ProbeContainsPoint(gs, probe.kind, probe.id, world_pos, world_radius, priority, distance)) {
+        if (!ProbeContainsPoint(gs, probe.kind, probe.id, world_pos, world_radius, prefer_manhattan, priority, distance)) {
             continue;
         }
         if (priority > best_priority || (priority == best_priority && distance < best_distance)) {

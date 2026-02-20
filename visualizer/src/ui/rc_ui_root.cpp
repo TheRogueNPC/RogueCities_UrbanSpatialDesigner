@@ -441,9 +441,7 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             library_avail.x < ResponsiveConstants::MIN_PANEL_WIDTH ||
             library_avail.y < ResponsiveConstants::MIN_PANEL_HEIGHT;
 
-        if (content_renderer) {
-            content_renderer();
-        } else {
+        auto render_action_grid = [&]() {
             auto& hfsm = RogueCity::Core::Editor::GetEditorHFSM();
             auto& gs = RogueCity::Core::Editor::GetGlobalState();
             if (compact_layout) {
@@ -456,8 +454,10 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             const float max_icon_size = std::max(26.0f, std::min(46.0f, library_avail.x - 12.0f));
             const float icon_size = std::clamp(ImGui::GetFrameHeight() * 1.6f, 26.0f, max_icon_size);
             const float spacing = std::max(4.0f, ImGui::GetStyle().ItemSpacing.x * (compact_layout ? 0.75f : 1.0f));
+            const float label_band_height = std::max(24.0f, ImGui::GetTextLineHeight() * 1.9f);
+            const ImVec2 entry_size(icon_size, icon_size + label_band_height + 5.0f);
             const int columns = static_cast<int>(std::max(1.0f,
-                std::floor((library_avail.x + spacing) / (icon_size + spacing))));
+                std::floor((library_avail.x + spacing) / (entry_size.x + spacing))));
 
             auto draw_action_section = [&](Tools::ToolActionGroup group, const char* header, const std::string& widget_binding) {
                 std::vector<size_t> group_indices;
@@ -496,40 +496,62 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
                     if (!action_enabled) {
                         ImGui::BeginDisabled();
                     }
-                    const bool clicked = ImGui::InvisibleButton("ToolEntry", ImVec2(icon_size, icon_size));
+                    const bool clicked = ImGui::InvisibleButton("ToolEntry", entry_size);
                     if (!action_enabled) {
                         ImGui::EndDisabled();
                     }
 
                     const ImVec2 bmin = ImGui::GetItemRectMin();
                     const ImVec2 bmax = ImGui::GetItemRectMax();
-                    const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+                    const ImVec2 center((bmin.x + bmax.x) * 0.5f, bmin.y + icon_size * 0.48f);
                     ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                    const float pulse = 0.5f + 0.5f * static_cast<float>(std::sin(ImGui::GetTime() * 4.0 + action_index * 0.37));
+                    const ImU32 active_border = WithAlpha(LerpColor(UITokens::ToolActiveBorder, UITokens::CyanAccent, pulse), 240u);
+                    const ImU32 active_fill = WithAlpha(LerpColor(UITokens::ToolActiveFill, UITokens::PanelBackground, 1.0f - pulse * 0.35f), 245u);
 
                     const ImU32 fill = !action_enabled
                         ? UITokens::ToolDisabledFill
-                        : (action_active ? UITokens::ToolActiveFill : WithAlpha(UITokens::PanelBackground, 220u));
+                        : (action_active ? active_fill : WithAlpha(UITokens::PanelBackground, 220u));
                     const ImU32 border = !action_enabled
                         ? WithAlpha(UITokens::TextSecondary, 100u)
-                        : (action_active ? UITokens::ToolActiveBorder : WithAlpha(UITokens::TextSecondary, 180u));
+                        : (action_active ? active_border : WithAlpha(UITokens::TextSecondary, 180u));
                     draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
                     draw_list->AddRect(bmin, bmax, border, 8.0f, 0, action_active ? 2.0f : 1.5f);
                     if (action_active) {
                         draw_list->AddRectFilled(
                             ImVec2(bmin.x + 3.0f, bmin.y + 3.0f),
                             ImVec2(bmax.x - 3.0f, bmin.y + 6.0f),
-                            WithAlpha(UITokens::ToolActiveBorder, 220u),
+                            WithAlpha(active_border, 220u),
                             2.0f);
                     }
-                    DrawToolLibraryIcon(draw_list, tool, ImVec2(center.x, center.y - icon_size * 0.08f), icon_size * 0.42f);
-                    const ImVec2 label_size = ImGui::CalcTextSize(action.label);
+                    DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.34f);
+
+                    std::string label_text = action.label;
+                    const float max_label_width = std::max(10.0f, entry_size.x - 8.0f);
+                    if (ImGui::CalcTextSize(label_text.c_str()).x > max_label_width) {
+                        const size_t split = label_text.find(' ');
+                        if (split != std::string::npos && split + 1u < label_text.size()) {
+                            std::string wrapped = label_text;
+                            wrapped[split] = '\n';
+                            if (ImGui::CalcTextSize(wrapped.c_str()).x <= max_label_width + 6.0f) {
+                                label_text = std::move(wrapped);
+                            }
+                        }
+                    }
+                    if (ImGui::CalcTextSize(label_text.c_str()).x > max_label_width) {
+                        while (label_text.size() > 4u && ImGui::CalcTextSize((label_text + "...").c_str()).x > max_label_width) {
+                            label_text.pop_back();
+                        }
+                        label_text += "...";
+                    }
+                    const ImVec2 label_size = ImGui::CalcTextSize(label_text.c_str());
                     const ImVec2 label_pos(
-                        bmin.x + std::max(2.0f, (icon_size - label_size.x) * 0.5f),
-                        bmax.y - label_size.y - 2.0f);
+                        bmin.x + std::max(2.0f, (entry_size.x - label_size.x) * 0.5f),
+                        bmin.y + icon_size + std::max(1.0f, (label_band_height - label_size.y) * 0.5f));
                     draw_list->AddText(
                         label_pos,
                         action_enabled ? WithAlpha(UITokens::TextPrimary, action_active ? 255u : 215u) : UITokens::TextDisabled,
-                        action.label);
+                        label_text.c_str());
 
                     if (clicked) {
                         std::string dispatch_status;
@@ -570,6 +592,46 @@ static void RenderToolLibraryWindow(ToolLibrary tool,
             draw_action_section(Tools::ToolActionGroup::Primary, nullptr, std::string(window_name) + ".primary[]");
             draw_action_section(Tools::ToolActionGroup::Spline, "Spline Tools", std::string(window_name) + ".spline[]");
             draw_action_section(Tools::ToolActionGroup::FutureStub, "Future Stubs", std::string(window_name) + ".future[]");
+
+            const Tools::ToolActionSpec* active_action = nullptr;
+            for (const auto& action : actions) {
+                const bool same_domain =
+                    gs.tool_runtime.active_domain == action.domain ||
+                    (action.domain == RogueCity::Core::Editor::ToolDomain::District &&
+                     gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::Zone) ||
+                    (action.domain == RogueCity::Core::Editor::ToolDomain::Zone &&
+                     gs.tool_runtime.active_domain == RogueCity::Core::Editor::ToolDomain::District);
+                if (same_domain && IsToolActionActive(action, gs)) {
+                    active_action = &action;
+                    break;
+                }
+            }
+            if (active_action != nullptr && active_action->tooltip != nullptr && active_action->tooltip[0] != '\0') {
+                ImGui::Spacing();
+                ImGui::SeparatorText("Context Cue");
+                ImGui::TextColored(
+                    ImGui::ColorConvertU32ToFloat4(UITokens::TextPrimary),
+                    "Active: %s",
+                    active_action->label);
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextColored(
+                    ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+                    "%s",
+                    active_action->tooltip);
+                ImGui::PopTextWrapPos();
+            }
+        };
+
+        if (!actions.empty()) {
+            render_action_grid();
+        }
+        if (content_renderer) {
+            if (!actions.empty()) {
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+            }
+            content_renderer();
         }
         EndWindowContainer();
     }
@@ -1189,7 +1251,10 @@ void DrawRoot(float dt)
         "Water Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        Tools::GetToolActionsForLibrary(ToolLibrary::Water));
+        Tools::GetToolActionsForLibrary(ToolLibrary::Water),
+        false,
+        nullptr,
+        [dt]() { Panels::WaterControl::DrawContent(dt); });
     RenderToolLibraryWindow(ToolLibrary::Road,
         "Road Library",
         "visualizer/src/ui/rc_ui_root.cpp",
@@ -1199,17 +1264,26 @@ void DrawRoot(float dt)
         "District Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        Tools::GetToolActionsForLibrary(ToolLibrary::District));
+        Tools::GetToolActionsForLibrary(ToolLibrary::District),
+        false,
+        nullptr,
+        [dt]() { Panels::ZoningControl::DrawContent(dt); });
     RenderToolLibraryWindow(ToolLibrary::Lot,
         "Lot Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        Tools::GetToolActionsForLibrary(ToolLibrary::Lot));
+        Tools::GetToolActionsForLibrary(ToolLibrary::Lot),
+        false,
+        nullptr,
+        [dt]() { Panels::LotControl::DrawContent(dt); });
     RenderToolLibraryWindow(ToolLibrary::Building,
         "Building Library",
         "visualizer/src/ui/rc_ui_root.cpp",
         "Library",
-        Tools::GetToolActionsForLibrary(ToolLibrary::Building));
+        Tools::GetToolActionsForLibrary(ToolLibrary::Building),
+        false,
+        nullptr,
+        [dt]() { Panels::BuildingControl::DrawContent(dt); });
 
     bool& axiom_popout = s_tool_library_popout[ToolLibraryIndex(ToolLibrary::Axiom)];
     RenderToolLibraryWindow(ToolLibrary::Axiom,
@@ -1228,7 +1302,8 @@ void DrawRoot(float dt)
         "Floating",
         Tools::GetToolActionsForLibrary(ToolLibrary::Water),
         true,
-        &water_popout);
+        &water_popout,
+        [dt]() { Panels::WaterControl::DrawContent(dt); });
 
     bool& road_popout = s_tool_library_popout[ToolLibraryIndex(ToolLibrary::Road)];
     RenderToolLibraryWindow(ToolLibrary::Road,
@@ -1246,7 +1321,8 @@ void DrawRoot(float dt)
         "Floating",
         Tools::GetToolActionsForLibrary(ToolLibrary::District),
         true,
-        &district_popout);
+        &district_popout,
+        [dt]() { Panels::ZoningControl::DrawContent(dt); });
 
     bool& lot_popout = s_tool_library_popout[ToolLibraryIndex(ToolLibrary::Lot)];
     RenderToolLibraryWindow(ToolLibrary::Lot,
@@ -1255,7 +1331,8 @@ void DrawRoot(float dt)
         "Floating",
         Tools::GetToolActionsForLibrary(ToolLibrary::Lot),
         true,
-        &lot_popout);
+        &lot_popout,
+        [dt]() { Panels::LotControl::DrawContent(dt); });
 
     bool& building_popout = s_tool_library_popout[ToolLibraryIndex(ToolLibrary::Building)];
     RenderToolLibraryWindow(ToolLibrary::Building,
@@ -1264,7 +1341,8 @@ void DrawRoot(float dt)
         "Floating",
         Tools::GetToolActionsForLibrary(ToolLibrary::Building),
         true,
-        &building_popout);
+        &building_popout,
+        [dt]() { Panels::BuildingControl::DrawContent(dt); });
 
     // MASTER PANEL SYSTEM (RC-0.10)
     // All panels now routed through unified drawer registry

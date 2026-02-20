@@ -112,6 +112,12 @@ public:
     struct StageOptions {
         StageMask stages_to_run{ FullStageMask() };
         bool use_cache{ true };
+        // When false, only explicitly requested stages run (no downstream cascade).
+        bool cascade_downstream{ true };
+        // When true, seed sampling is constrained to axiom influence volumes.
+        bool constrain_seeds_to_axiom_bounds{ false };
+        // When true, traced roads are clipped to axiom influence volumes.
+        bool constrain_roads_to_axiom_bounds{ false };
     };
 
     CityGenerator() = default;
@@ -188,7 +194,8 @@ private:
     std::vector<Vec2> generateSeeds(
         const WorldConstraintField* constraints,
         const Core::Data::TextureSpace* texture_space,
-        GenerationContext* context);
+        GenerationContext* context,
+        const std::vector<AxiomInput>* seed_axiom_bounds);
 
     fva::Container<Road> traceRoads(
         const TensorFieldGenerator& field,

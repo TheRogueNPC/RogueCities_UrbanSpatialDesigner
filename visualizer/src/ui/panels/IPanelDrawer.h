@@ -12,6 +12,9 @@ namespace RogueCity::Core::Editor {
     struct GlobalState;
     class EditorHFSM;
 }
+namespace RogueCity::App {
+    class CommandHistory;
+}
 
 namespace RogueCity::UIInt {
     class UiIntrospector;
@@ -70,6 +73,7 @@ struct DrawContext {
     RogueCity::Core::Editor::GlobalState& global_state;
     RogueCity::Core::Editor::EditorHFSM& hfsm;
     RogueCity::UIInt::UiIntrospector& introspector;
+    RogueCity::App::CommandHistory* command_history{ nullptr };
     float dt;
     
     // Popout state (managed by MasterPanel)

@@ -12,6 +12,29 @@
 namespace RogueCity::App {
 namespace {
 
+void MarkDirtyLayersCleanForScope(
+    RogueCity::Core::Editor::GlobalState& gs,
+    GenerationScope scope) {
+    using RogueCity::Core::Editor::DirtyLayer;
+
+    auto clear_layer = [&](DirtyLayer layer) {
+        gs.dirty_layers.flags[static_cast<size_t>(layer)] = false;
+    };
+
+    clear_layer(DirtyLayer::Axioms);
+    clear_layer(DirtyLayer::Tensor);
+    clear_layer(DirtyLayer::Roads);
+    clear_layer(DirtyLayer::ViewportIndex);
+
+    if (scope == GenerationScope::RoadsAndBounds || scope == GenerationScope::FullCity) {
+        clear_layer(DirtyLayer::Districts);
+    }
+    if (scope == GenerationScope::FullCity) {
+        clear_layer(DirtyLayer::Lots);
+        clear_layer(DirtyLayer::Buildings);
+    }
+}
+
 bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
     if (polygon.size() < 3) {
         return false;
@@ -114,6 +137,11 @@ void ApplyCityOutputToGlobalState(
     const Generators::CityGenerator::CityOutput& output,
     Core::Editor::GlobalState& gs,
     const CityOutputApplyOptions& options) {
+    const bool apply_district_bounds =
+        options.scope == GenerationScope::RoadsAndBounds ||
+        options.scope == GenerationScope::FullCity;
+    const bool apply_lots_buildings = options.scope == GenerationScope::FullCity;
+
     std::vector<RogueCity::Core::Road> locked_user_roads;
     std::vector<RogueCity::Core::District> locked_user_districts;
     std::vector<RogueCity::Core::LotToken> locked_user_lots;
@@ -162,27 +190,33 @@ void ApplyCityOutputToGlobalState(
     }
 
     std::vector<RogueCity::Core::District> generated_districts;
-    generated_districts.reserve(output.districts.size());
-    for (auto district : output.districts) {
-        district.is_user_placed = false;
-        MarkGenerated(district);
-        generated_districts.push_back(std::move(district));
+    if (apply_district_bounds) {
+        generated_districts.reserve(output.districts.size());
+        for (auto district : output.districts) {
+            district.is_user_placed = false;
+            MarkGenerated(district);
+            generated_districts.push_back(std::move(district));
+        }
     }
 
     std::vector<RogueCity::Core::LotToken> generated_lots;
-    generated_lots.reserve(output.lots.size());
-    for (auto lot : output.lots) {
-        lot.is_user_placed = false;
-        MarkGenerated(lot);
-        generated_lots.push_back(std::move(lot));
+    if (apply_lots_buildings) {
+        generated_lots.reserve(output.lots.size());
+        for (auto lot : output.lots) {
+            lot.is_user_placed = false;
+            MarkGenerated(lot);
+            generated_lots.push_back(std::move(lot));
+        }
     }
 
     std::vector<RogueCity::Core::BuildingSite> generated_buildings;
-    generated_buildings.reserve(output.buildings.size());
-    for (auto building : output.buildings) {
-        building.is_user_placed = false;
-        MarkGenerated(building);
-        generated_buildings.push_back(std::move(building));
+    if (apply_lots_buildings) {
+        generated_buildings.reserve(output.buildings.size());
+        for (auto building : output.buildings) {
+            building.is_user_placed = false;
+            MarkGenerated(building);
+            generated_buildings.push_back(std::move(building));
+        }
     }
 
     std::unordered_set<uint32_t> used_road_ids;
@@ -200,57 +234,61 @@ void ApplyCityOutputToGlobalState(
     std::unordered_map<uint32_t, uint32_t> district_id_remap;
     std::unordered_set<uint32_t> used_district_ids;
     uint32_t next_district_id = 1u;
-    for (const auto& district : locked_user_districts) {
-        if (district.id > 0u) {
-            used_district_ids.insert(district.id);
-            next_district_id = std::max(next_district_id, district.id + 1u);
+    if (apply_district_bounds) {
+        for (const auto& district : locked_user_districts) {
+            if (district.id > 0u) {
+                used_district_ids.insert(district.id);
+                next_district_id = std::max(next_district_id, district.id + 1u);
+            }
         }
-    }
-    for (auto& district : generated_districts) {
-        AssignEntityId(district, used_district_ids, &next_district_id, &district_id_remap);
-    }
-
-    for (auto& lot : generated_lots) {
-        auto district_it = district_id_remap.find(lot.district_id);
-        if (district_it != district_id_remap.end()) {
-            lot.district_id = district_it->second;
+        for (auto& district : generated_districts) {
+            AssignEntityId(district, used_district_ids, &next_district_id, &district_id_remap);
         }
     }
 
-    std::unordered_map<uint32_t, uint32_t> lot_id_remap;
-    std::unordered_set<uint32_t> used_lot_ids;
-    uint32_t next_lot_id = 1u;
-    for (const auto& lot : locked_user_lots) {
-        if (lot.id > 0u) {
-            used_lot_ids.insert(lot.id);
-            next_lot_id = std::max(next_lot_id, lot.id + 1u);
+    if (apply_lots_buildings) {
+        for (auto& lot : generated_lots) {
+            auto district_it = district_id_remap.find(lot.district_id);
+            if (district_it != district_id_remap.end()) {
+                lot.district_id = district_it->second;
+            }
         }
-    }
-    for (auto& lot : generated_lots) {
-        AssignEntityId(lot, used_lot_ids, &next_lot_id, &lot_id_remap);
-    }
 
-    for (auto& building : generated_buildings) {
-        auto district_it = district_id_remap.find(building.district_id);
-        if (district_it != district_id_remap.end()) {
-            building.district_id = district_it->second;
+        std::unordered_map<uint32_t, uint32_t> lot_id_remap;
+        std::unordered_set<uint32_t> used_lot_ids;
+        uint32_t next_lot_id = 1u;
+        for (const auto& lot : locked_user_lots) {
+            if (lot.id > 0u) {
+                used_lot_ids.insert(lot.id);
+                next_lot_id = std::max(next_lot_id, lot.id + 1u);
+            }
         }
-        auto lot_it = lot_id_remap.find(building.lot_id);
-        if (lot_it != lot_id_remap.end()) {
-            building.lot_id = lot_it->second;
+        for (auto& lot : generated_lots) {
+            AssignEntityId(lot, used_lot_ids, &next_lot_id, &lot_id_remap);
         }
-    }
 
-    std::unordered_set<uint32_t> used_building_ids;
-    uint32_t next_building_id = 1u;
-    for (const auto& building : locked_user_buildings) {
-        if (building.id > 0u) {
-            used_building_ids.insert(building.id);
-            next_building_id = std::max(next_building_id, building.id + 1u);
+        for (auto& building : generated_buildings) {
+            auto district_it = district_id_remap.find(building.district_id);
+            if (district_it != district_id_remap.end()) {
+                building.district_id = district_it->second;
+            }
+            auto lot_it = lot_id_remap.find(building.lot_id);
+            if (lot_it != lot_id_remap.end()) {
+                building.lot_id = lot_it->second;
+            }
         }
-    }
-    for (auto& building : generated_buildings) {
-        AssignEntityId(building, used_building_ids, &next_building_id);
+
+        std::unordered_set<uint32_t> used_building_ids;
+        uint32_t next_building_id = 1u;
+        for (const auto& building : locked_user_buildings) {
+            if (building.id > 0u) {
+                used_building_ids.insert(building.id);
+                next_building_id = std::max(next_building_id, building.id + 1u);
+            }
+        }
+        for (auto& building : generated_buildings) {
+            AssignEntityId(building, used_building_ids, &next_building_id);
+        }
     }
 
     gs.roads.clear();
@@ -262,38 +300,52 @@ void ApplyCityOutputToGlobalState(
     }
 
     gs.districts.clear();
-    for (const auto& district : generated_districts) {
-        gs.districts.add(district);
+    if (apply_district_bounds) {
+        for (const auto& district : generated_districts) {
+            gs.districts.add(district);
+        }
     }
     for (const auto& district : locked_user_districts) {
         gs.districts.add(district);
     }
 
     gs.blocks.clear();
-    for (const auto& block : output.blocks) {
-        gs.blocks.add(block);
+    if (apply_district_bounds) {
+        for (const auto& block : output.blocks) {
+            gs.blocks.add(block);
+        }
     }
 
     gs.lots.clear();
-    for (const auto& lot : generated_lots) {
-        gs.lots.add(lot);
+    if (apply_lots_buildings) {
+        for (const auto& lot : generated_lots) {
+            gs.lots.add(lot);
+        }
     }
     for (const auto& lot : locked_user_lots) {
         gs.lots.add(lot);
     }
 
     gs.buildings.clear();
-    for (const auto& building : generated_buildings) {
-        gs.buildings.push_back(building);
+    if (apply_lots_buildings) {
+        for (const auto& building : generated_buildings) {
+            gs.buildings.push_back(building);
+        }
     }
     for (const auto& building : locked_user_buildings) {
         gs.buildings.push_back(building);
     }
 
     gs.generation_stats.roads_generated = static_cast<uint32_t>(generated_roads.size());
-    gs.generation_stats.districts_generated = static_cast<uint32_t>(generated_districts.size());
-    gs.generation_stats.lots_generated = static_cast<uint32_t>(generated_lots.size());
-    gs.generation_stats.buildings_generated = static_cast<uint32_t>(generated_buildings.size());
+    gs.generation_stats.districts_generated = apply_district_bounds
+        ? static_cast<uint32_t>(generated_districts.size())
+        : 0u;
+    gs.generation_stats.lots_generated = apply_lots_buildings
+        ? static_cast<uint32_t>(generated_lots.size())
+        : 0u;
+    gs.generation_stats.buildings_generated = apply_lots_buildings
+        ? static_cast<uint32_t>(generated_buildings.size())
+        : 0u;
     gs.world_constraints = output.world_constraints;
     gs.site_profile = output.site_profile;
     gs.plan_violations = output.plan_violations;
@@ -343,35 +395,37 @@ void ApplyCityOutputToGlobalState(
 
         auto& zone_layer = texture_space.zoneLayer();
         zone_layer.fill(0u);
-        const auto& coords = texture_space.coordinateSystem();
-        for (const auto& district : output.districts) {
-            if (district.border.size() < 3) {
-                continue;
-            }
+        if (apply_district_bounds) {
+            const auto& coords = texture_space.coordinateSystem();
+            for (const auto& district : output.districts) {
+                if (district.border.size() < 3) {
+                    continue;
+                }
 
-            RogueCity::Core::Bounds district_bounds{};
-            district_bounds.min = district.border.front();
-            district_bounds.max = district.border.front();
-            for (const auto& p : district.border) {
-                district_bounds.min.x = std::min(district_bounds.min.x, p.x);
-                district_bounds.min.y = std::min(district_bounds.min.y, p.y);
-                district_bounds.max.x = std::max(district_bounds.max.x, p.x);
-                district_bounds.max.y = std::max(district_bounds.max.y, p.y);
-            }
+                RogueCity::Core::Bounds district_bounds{};
+                district_bounds.min = district.border.front();
+                district_bounds.max = district.border.front();
+                for (const auto& p : district.border) {
+                    district_bounds.min.x = std::min(district_bounds.min.x, p.x);
+                    district_bounds.min.y = std::min(district_bounds.min.y, p.y);
+                    district_bounds.max.x = std::max(district_bounds.max.x, p.x);
+                    district_bounds.max.y = std::max(district_bounds.max.y, p.y);
+                }
 
-            const auto pmin = coords.worldToPixel(district_bounds.min);
-            const auto pmax = coords.worldToPixel(district_bounds.max);
-            const int x0 = std::clamp(std::min(pmin.x, pmax.x), 0, zone_layer.width() - 1);
-            const int x1 = std::clamp(std::max(pmin.x, pmax.x), 0, zone_layer.width() - 1);
-            const int y0 = std::clamp(std::min(pmin.y, pmax.y), 0, zone_layer.height() - 1);
-            const int y1 = std::clamp(std::max(pmin.y, pmax.y), 0, zone_layer.height() - 1);
-            const uint8_t zone_value = static_cast<uint8_t>(static_cast<uint8_t>(district.type) + 1u);
+                const auto pmin = coords.worldToPixel(district_bounds.min);
+                const auto pmax = coords.worldToPixel(district_bounds.max);
+                const int x0 = std::clamp(std::min(pmin.x, pmax.x), 0, zone_layer.width() - 1);
+                const int x1 = std::clamp(std::max(pmin.x, pmax.x), 0, zone_layer.width() - 1);
+                const int y0 = std::clamp(std::min(pmin.y, pmax.y), 0, zone_layer.height() - 1);
+                const int y1 = std::clamp(std::max(pmin.y, pmax.y), 0, zone_layer.height() - 1);
+                const uint8_t zone_value = static_cast<uint8_t>(static_cast<uint8_t>(district.type) + 1u);
 
-            for (int y = y0; y <= y1; ++y) {
-                for (int x = x0; x <= x1; ++x) {
-                    const RogueCity::Core::Vec2 world = coords.pixelToWorld({x, y});
-                    if (PointInPolygon(world, district.border)) {
-                        zone_layer.at(x, y) = zone_value;
+                for (int y = y0; y <= y1; ++y) {
+                    for (int x = x0; x <= x1; ++x) {
+                        const RogueCity::Core::Vec2 world = coords.pixelToWorld({x, y});
+                        if (PointInPolygon(world, district.border)) {
+                            zone_layer.at(x, y) = zone_value;
+                        }
                     }
                 }
             }
@@ -384,7 +438,11 @@ void ApplyCityOutputToGlobalState(
         RogueCity::App::ViewportIndexBuilder::Build(gs);
     }
     if (options.mark_dirty_layers_clean) {
-        gs.dirty_layers.MarkAllClean();
+        if (options.scope == GenerationScope::FullCity) {
+            gs.dirty_layers.MarkAllClean();
+        } else {
+            MarkDirtyLayersCleanForScope(gs, options.scope);
+        }
     }
 }
 

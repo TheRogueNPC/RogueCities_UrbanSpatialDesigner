@@ -97,6 +97,59 @@ void AssertTextureMatchesConstraints(
     return inside;
 }
 
+[[nodiscard]] bool PointInsideAnyAxiom(
+    const Core::Vec2& point,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    for (const auto& axiom : axioms) {
+        const double radius = std::max(8.0, axiom.radius);
+        if (point.distanceTo(axiom.position) <= radius) {
+            return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] fva::Container<Core::Road> ClipRoadsToAxiomInfluence(
+    const fva::Container<Core::Road>& roads,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    if (axioms.empty()) {
+        return roads;
+    }
+
+    fva::Container<Core::Road> clipped{};
+    uint32_t next_id = 1u;
+
+    for (const auto& road : roads) {
+        if (road.points.size() < 2) {
+            continue;
+        }
+
+        Core::Road segment = road;
+        segment.points.clear();
+
+        auto flush_segment = [&]() {
+            if (segment.points.size() < 2) {
+                segment.points.clear();
+                return;
+            }
+            segment.id = next_id++;
+            clipped.add(segment);
+            segment.points.clear();
+        };
+
+        for (const auto& p : road.points) {
+            if (PointInsideAnyAxiom(p, axioms)) {
+                segment.points.push_back(p);
+            } else {
+                flush_segment();
+            }
+        }
+        flush_segment();
+    }
+
+    return clipped;
+}
+
 [[nodiscard]] bool TerrainConfigEqual(
     const TerrainConstraintGenerator::Config& a,
     const TerrainConstraintGenerator::Config& b) {
@@ -191,6 +244,7 @@ CityGenerator::CityOutput CityGenerator::RegenerateIncremental(
     StageOptions options{};
     options.stages_to_run = dirty_stages;
     options.use_cache = true;
+    options.cascade_downstream = true;
     return GenerateStages(axioms, config, options, global_state, context);
 }
 
@@ -471,7 +525,9 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     if (dirty.none()) {
         dirty = FullStageMask();
     }
-    CascadeDirty(dirty);
+    if (options.cascade_downstream) {
+        CascadeDirty(dirty);
+    }
 
     const uint64_t axioms_hash = HashAxioms(axioms);
     InvalidateCacheIfInputChanged(config_, axioms_hash);
@@ -554,7 +610,11 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     // Stage 2: Roads.
     if (should_run_stage(GenerationStage::Roads)) {
         const SiteProfile* site_profile = constraints != nullptr ? &cache_.site_profile : nullptr;
-        std::vector<Vec2> seeds = generateSeeds(constraints, texture_space, context);
+        std::vector<Vec2> seeds = generateSeeds(
+            constraints,
+            texture_space,
+            context,
+            options.constrain_seeds_to_axiom_bounds ? &axioms : nullptr);
         if (ShouldAbort(context)) {
             copy_cache_to_output();
             output.plan_approved = false;
@@ -568,6 +628,9 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
             site_profile,
             texture_space,
             context);
+        if (options.constrain_roads_to_axiom_bounds) {
+            cache_.roads = ClipRoadsToAxiomInfluence(cache_.roads, axioms);
+        }
         cache_.valid_stages.set(StageIndex(GenerationStage::Roads), true);
     }
 
@@ -728,9 +791,28 @@ TensorFieldGenerator CityGenerator::generateTensorField(
 std::vector<Vec2> CityGenerator::generateSeeds(
     const WorldConstraintField* constraints,
     const Core::Data::TextureSpace* texture_space,
-    GenerationContext* context) {
+    GenerationContext* context,
+    const std::vector<AxiomInput>* seed_axiom_bounds) {
     std::vector<Vec2> seeds;
     seeds.reserve(static_cast<size_t>(std::max(1, config_.num_seeds)));
+
+    const auto sample_seed = [&]() {
+        if (seed_axiom_bounds != nullptr && !seed_axiom_bounds->empty()) {
+            const int max_index = static_cast<int>(seed_axiom_bounds->size()) - 1;
+            const int index = std::clamp(rng_.uniformInt(0, max_index), 0, max_index);
+            const auto& axiom = (*seed_axiom_bounds)[static_cast<size_t>(index)];
+            const double radius = std::max(8.0, axiom.radius);
+            const double angle = rng_.uniform(0.0, 2.0 * M_PI);
+            const double radial = std::sqrt(rng_.uniform(0.0, 1.0)) * radius;
+            const Vec2 local(std::cos(angle) * radial, std::sin(angle) * radial);
+            return Vec2(
+                std::clamp(axiom.position.x + local.x, 0.0, static_cast<double>(config_.width)),
+                std::clamp(axiom.position.y + local.y, 0.0, static_cast<double>(config_.height)));
+        }
+        return Vec2(
+            rng_.uniform(0.0, static_cast<double>(config_.width)),
+            rng_.uniform(0.0, static_cast<double>(config_.height)));
+    };
 
     const int max_attempts = std::max(8, config_.num_seeds * 25);
     int attempts = 0;
@@ -744,10 +826,7 @@ std::vector<Vec2> CityGenerator::generateSeeds(
             context->BumpIterations();
         }
 
-        Vec2 seed(
-            rng_.uniform(0.0, static_cast<double>(config_.width)),
-            rng_.uniform(0.0, static_cast<double>(config_.height))
-        );
+        Vec2 seed = sample_seed();
 
         if (texture_space != nullptr) {
             const Vec2 uv = texture_space->coordinateSystem().worldToUV(seed);
@@ -771,9 +850,18 @@ std::vector<Vec2> CityGenerator::generateSeeds(
     }
 
     if (seeds.empty()) {
-        seeds.push_back(Vec2(
-            static_cast<double>(config_.width) * 0.5,
-            static_cast<double>(config_.height) * 0.5));
+        if (seed_axiom_bounds != nullptr && !seed_axiom_bounds->empty()) {
+            for (const auto& axiom : *seed_axiom_bounds) {
+                seeds.push_back(Vec2(
+                    std::clamp(axiom.position.x, 0.0, static_cast<double>(config_.width)),
+                    std::clamp(axiom.position.y, 0.0, static_cast<double>(config_.height))));
+            }
+        }
+        if (seeds.empty()) {
+            seeds.push_back(Vec2(
+                static_cast<double>(config_.width) * 0.5,
+                static_cast<double>(config_.height) * 0.5));
+        }
     }
 
     return seeds;

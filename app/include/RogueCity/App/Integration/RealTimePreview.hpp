@@ -9,12 +9,17 @@
 
 namespace RogueCity::App {
 
+enum class GenerationDepth : uint8_t {
+    AxiomBounds = 0,
+    FullPipeline
+};
+
 /// Manages debounced real-time preview of city generation
 /// Uses RogueWorker for background generation (>10ms operations)
 class RealTimePreview {
 public:
     using OnGenerationCompleteCallback = 
-        std::function<void(const Generators::CityGenerator::CityOutput&)>;
+        std::function<void(const Generators::CityGenerator::CityOutput&, GenerationDepth)>;
 
     enum class GenerationPhase : uint8_t {
         Idle,
@@ -33,24 +38,28 @@ public:
     /// Request city regeneration (debounced)
     void request_regeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
-        const Generators::CityGenerator::Config& config);
+        const Generators::CityGenerator::Config& config,
+        GenerationDepth depth = GenerationDepth::FullPipeline);
 
     /// Request incremental regeneration for dirty stages (debounced).
     void request_regeneration_incremental(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
-        const Generators::StageMask& dirty_stages);
+        const Generators::StageMask& dirty_stages,
+        GenerationDepth depth = GenerationDepth::FullPipeline);
 
     /// Force immediate regeneration (no debounce)
     void force_regeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
-        const Generators::CityGenerator::Config& config);
+        const Generators::CityGenerator::Config& config,
+        GenerationDepth depth = GenerationDepth::FullPipeline);
 
     /// Force immediate incremental regeneration for dirty stages.
     void force_regeneration_incremental(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
-        const Generators::StageMask& dirty_stages);
+        const Generators::StageMask& dirty_stages,
+        GenerationDepth depth = GenerationDepth::FullPipeline);
 
     /// Set debounce delay (default: 0.5s)
     void set_debounce_delay(float seconds);
@@ -87,10 +96,12 @@ private:
     Generators::CityGenerator::Config pending_config_;
     bool pending_incremental_{ false };
     Generators::StageMask pending_dirty_stages_{ Generators::FullStageMask() };
+    GenerationDepth pending_depth_{ GenerationDepth::FullPipeline };
 
     std::unique_ptr<Generators::CityGenerator::CityOutput> current_output_;
 
     std::unique_ptr<Generators::CityGenerator::CityOutput> completed_output_;
+    GenerationDepth completed_output_depth_{ GenerationDepth::FullPipeline };
     bool completed_output_ready_{ false };
     mutable std::mutex completed_mutex_;
 
@@ -107,7 +118,10 @@ private:
     void cancel_inflight_generation();
 
     /// Handle generation completion (called from worker thread)
-    void on_generation_complete(uint64_t token, Generators::CityGenerator::CityOutput output);
+    void on_generation_complete(
+        uint64_t token,
+        Generators::CityGenerator::CityOutput output,
+        GenerationDepth depth);
 };
 
 } // namespace RogueCity::App

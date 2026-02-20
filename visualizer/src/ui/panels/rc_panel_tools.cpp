@@ -7,6 +7,7 @@
 #include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/tools/rc_tool_dispatcher.h"
+#include "RogueCity/App/Editor/CommandHistory.hpp"
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>
@@ -165,6 +166,7 @@ void DrawContent(float dt)
             same_line_if_room();
         }
         const ToolModeButton& tool_button = kToolButtons[static_cast<size_t>(i)];
+        ImGui::PushID(tool_button.label);
         RenderToolButton(
             tool_button.label,
             tool_button.event,
@@ -174,19 +176,25 @@ void DrawContent(float dt)
             gs,
             uiint,
             button_size);
+        ImGui::PopID();
     }
     
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Undo / Redo (Axiom tool command history)
-    const bool can_undo = AxiomEditor::CanUndo();
-    const bool can_redo = AxiomEditor::CanRedo();
+    // Undo / Redo (prefer global history, fallback to legacy axiom history)
+    auto& global_history = RogueCity::App::GetEditorCommandHistory();
+    const bool can_undo = global_history.CanUndo() || AxiomEditor::CanUndo();
+    const bool can_redo = global_history.CanRedo() || AxiomEditor::CanRedo();
     if (!can_undo) {
         ImGui::BeginDisabled();
     }
     if (ImGui::Button("Undo")) {
-        AxiomEditor::Undo();
+        if (global_history.CanUndo()) {
+            global_history.Undo();
+        } else {
+            AxiomEditor::Undo();
+        }
     }
     if (!can_undo) {
         ImGui::EndDisabled();
@@ -194,7 +202,11 @@ void DrawContent(float dt)
     uiint.RegisterWidget({"button", "Undo", "action:editor.undo", {"action", "history"}});
     uiint.RegisterAction({"editor.undo", "Undo", "Tools", {}, "AxiomEditor::Undo"});
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s (Ctrl+Z)", AxiomEditor::GetUndoLabel());
+        const char* undo_label = AxiomEditor::GetUndoLabel();
+        if (global_history.CanUndo() && global_history.PeekUndo() != nullptr) {
+            undo_label = global_history.PeekUndo()->GetDescription();
+        }
+        ImGui::SetTooltip("%s (Ctrl+Z)", undo_label);
     }
 
     same_line_if_room();
@@ -202,7 +214,11 @@ void DrawContent(float dt)
         ImGui::BeginDisabled();
     }
     if (ImGui::Button("Redo")) {
-        AxiomEditor::Redo();
+        if (global_history.CanRedo()) {
+            global_history.Redo();
+        } else {
+            AxiomEditor::Redo();
+        }
     }
     if (!can_redo) {
         ImGui::EndDisabled();
@@ -210,7 +226,11 @@ void DrawContent(float dt)
     uiint.RegisterWidget({"button", "Redo", "action:editor.redo", {"action", "history"}});
     uiint.RegisterAction({"editor.redo", "Redo", "Tools", {}, "AxiomEditor::Redo"});
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s (Ctrl+R)", AxiomEditor::GetRedoLabel());
+        const char* redo_label = AxiomEditor::GetRedoLabel();
+        if (global_history.CanRedo() && global_history.PeekRedo() != nullptr) {
+            redo_label = global_history.PeekRedo()->GetDescription();
+        }
+        ImGui::SetTooltip("%s (Ctrl+R)", redo_label);
     }
 
     // Generation controls
@@ -399,22 +419,22 @@ void DrawContent(float dt)
     ImGui::Checkbox("Validation Errors", &gs.validation_overlay.enabled);
     
     ImGui::SeparatorText("Layer Visibility");
-    ImGui::Checkbox("Axioms", &gs.show_layer_axioms);
+    ImGui::Checkbox("Axioms##layer_visibility", &gs.show_layer_axioms);
     uiint.RegisterWidget({"checkbox", "Axioms", "toggle:layer.axioms", {"layer", "visibility"}});
     same_line_if_room();
-    ImGui::Checkbox("Water", &gs.show_layer_water);
+    ImGui::Checkbox("Water##layer_visibility", &gs.show_layer_water);
     uiint.RegisterWidget({"checkbox", "Water", "toggle:layer.water", {"layer", "visibility"}});
     same_line_if_room();
-    ImGui::Checkbox("Roads", &gs.show_layer_roads);
+    ImGui::Checkbox("Roads##layer_visibility", &gs.show_layer_roads);
     uiint.RegisterWidget({"checkbox", "Roads", "toggle:layer.roads", {"layer", "visibility"}});
     same_line_if_room();
-    ImGui::Checkbox("Districts", &gs.show_layer_districts);
+    ImGui::Checkbox("Districts##layer_visibility", &gs.show_layer_districts);
     uiint.RegisterWidget({"checkbox", "Districts", "toggle:layer.districts", {"layer", "visibility"}});
     same_line_if_room();
-    ImGui::Checkbox("Lots", &gs.show_layer_lots);
+    ImGui::Checkbox("Lots##layer_visibility", &gs.show_layer_lots);
     uiint.RegisterWidget({"checkbox", "Lots", "toggle:layer.lots", {"layer", "visibility"}});
     same_line_if_room();
-    ImGui::Checkbox("Buildings", &gs.show_layer_buildings);
+    ImGui::Checkbox("Buildings##layer_visibility", &gs.show_layer_buildings);
     uiint.RegisterWidget({"checkbox", "Buildings", "toggle:layer.buildings", {"layer", "visibility"}});
     
     ImGui::PushTextWrapPos();

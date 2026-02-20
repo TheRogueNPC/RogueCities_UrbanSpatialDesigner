@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/App/Editor/CommandHistory.hpp"
+#include "RogueCity/App/Tools/IViewportTool.hpp"
 #include "AxiomVisual.hpp"
 #include "ContextWindowPopup.hpp"
 #include <vector>
@@ -12,7 +13,7 @@ class PrimaryViewport;
 
 /// Tool for placing and editing axioms in viewport
 /// Active during EditorState::Editing_Axioms
-class AxiomPlacementTool {
+class AxiomPlacementTool : public IViewportTool {
 public:
     struct AxiomSnapshot;
 
@@ -28,17 +29,19 @@ public:
     AxiomPlacementTool();
     ~AxiomPlacementTool();
 
+    [[nodiscard]] const char* tool_name() const override;
+
     /// Update tool state (call per frame when active)
-    void update(float delta_time, PrimaryViewport& viewport);
+    void update(float delta_time, PrimaryViewport& viewport) override;
 
     /// Render tool overlays (ghost preview, knobs, etc.)
-    void render(ImDrawList* draw_list, const PrimaryViewport& viewport);
+    void render(ImDrawList* draw_list, const PrimaryViewport& viewport) override;
 
     /// Handle mouse events
-    void on_mouse_down(const Core::Vec2& world_pos);
-    void on_mouse_up(const Core::Vec2& world_pos);
-    void on_mouse_move(const Core::Vec2& world_pos);
-    void on_right_click(const Core::Vec2& world_pos);  // Delete axiom
+    void on_mouse_down(const Core::Vec2& world_pos) override;
+    void on_mouse_up(const Core::Vec2& world_pos) override;
+    void on_mouse_move(const Core::Vec2& world_pos) override;
+    void on_right_click(const Core::Vec2& world_pos) override;  // Delete axiom
 
     /// Axiom management
     void add_axiom(std::unique_ptr<AxiomVisual> axiom);

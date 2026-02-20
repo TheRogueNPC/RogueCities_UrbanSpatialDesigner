@@ -38,4 +38,8 @@ private:
     size_t cursor_{ 0 };
 };
 
+/// Shared editor-wide command history for panels/tools that participate in global undo/redo.
+CommandHistory& GetEditorCommandHistory();
+void ResetEditorCommandHistory();
+
 } // namespace RogueCity::App

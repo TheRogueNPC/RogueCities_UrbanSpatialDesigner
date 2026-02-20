@@ -8,6 +8,7 @@
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_animation.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include <imgui.h>
@@ -32,7 +33,7 @@ void RcMasterPanel::Draw(float dt) {
     auto& hfsm = GetEditorHFSM();
     auto& introspector = RogueCity::UIInt::UiIntrospector::Instance();
     
-    DrawContext ctx{gs, hfsm, introspector, dt, false};
+    DrawContext ctx{gs, hfsm, introspector, &RogueCity::App::GetEditorCommandHistory(), dt, false};
     
     // Handle search overlay (Ctrl+P)
     if (ImGui::IsKeyPressed(ImGuiKey_P) && ImGui::GetIO().KeyCtrl) {
