@@ -129,9 +129,9 @@ bool HandleRoadVertexEdits(
                 RogueCity::Core::Road split_road{};
                 split_road.id = NextRoadId(context.gs);
                 split_road.type = road->type;
-                split_road.is_user_created = road->is_user_created;
-                split_road.generation_tag = road->generation_tag;
-                split_road.generation_locked = road->generation_locked;
+                split_road.is_user_created = true;
+                split_road.generation_tag = RogueCity::Core::GenerationTag::M_user;
+                split_road.generation_locked = true;
                 split_road.points.assign(
                     road->points.begin() + static_cast<std::ptrdiff_t>(best_idx),
                     road->points.end());

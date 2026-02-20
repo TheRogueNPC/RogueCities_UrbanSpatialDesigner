@@ -28,6 +28,7 @@
 #include "ui/viewport/rc_scene_frame.h"
 #include "ui/viewport/rc_minimap_renderer.h"
 #include "ui/viewport/rc_minimap_interaction_math.h"
+#include "ui/viewport/rc_placement_system.h"
 #include "ui/viewport/rc_viewport_scene_controller.h"
 #include "ui/viewport/rc_viewport_interaction.h"
 #include "ui/viewport/rc_viewport_overlays.h"
@@ -674,11 +675,20 @@ void ForceGenerate() {
     RogueCity::Generators::CityGenerator::Config cfg;
     if (!BuildInputs(inputs, cfg)) return;
 
-    s_generation_coordinator->ForceRegeneration(
-        inputs,
-        cfg,
-        RogueCity::App::GenerationRequestReason::ForceGenerate);
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    const auto plan = RC_UI::Viewport::BuildPlacementGenerationPlan(gs.dirty_layers);
+    if (plan.use_incremental && !gs.dirty_layers.IsDirty(RogueCity::Core::Editor::DirtyLayer::Axioms)) {
+        s_generation_coordinator->ForceRegenerationIncremental(
+            inputs,
+            cfg,
+            plan.dirty_stages,
+            RogueCity::App::GenerationRequestReason::ForceGenerate);
+    } else {
+        s_generation_coordinator->ForceRegeneration(
+            inputs,
+            cfg,
+            RogueCity::App::GenerationRequestReason::ForceGenerate);
+    }
     gs.dirty_layers.MarkAllClean();
     gs.tool_runtime.explicit_generation_pending = false;
     gs.tool_runtime.last_viewport_status = "explicit-generation-triggered";
@@ -1772,17 +1782,31 @@ void DrawContent(float dt) {
     RogueCity::Generators::CityGenerator::Config config;
     const bool inputs_ok = BuildInputs(axiom_inputs, config);
     if (inputs_ok) {
-        // Debounced live preview: keep updating the request while the user manipulates axioms.
         const bool domain_live_preview_enabled = gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
+        const bool axiom_inputs_dirty =
+            ui_modified_axiom || s_external_dirty || s_axiom_tool->is_interacting() || s_axiom_tool->consume_dirty();
+        const bool placement_dirty = gs.dirty_layers.AnyDirty();
         if (s_generation_coordinator && s_live_preview && domain_live_preview_enabled &&
-            (ui_modified_axiom || s_external_dirty || s_axiom_tool->is_interacting() || s_axiom_tool->consume_dirty())) {
-            s_generation_coordinator->RequestRegeneration(
-                axiom_inputs,
-                config,
-                RogueCity::App::GenerationRequestReason::LivePreview);
+            (axiom_inputs_dirty || placement_dirty)) {
+            if (axiom_inputs_dirty) {
+                s_generation_coordinator->RequestRegeneration(
+                    axiom_inputs,
+                    config,
+                    RogueCity::App::GenerationRequestReason::LivePreview);
+                gs.dirty_layers.MarkFromAxiomEdit();
+            } else {
+                const auto plan = RC_UI::Viewport::BuildPlacementGenerationPlan(gs.dirty_layers);
+                if (plan.use_incremental) {
+                    s_generation_coordinator->RequestRegenerationIncremental(
+                        axiom_inputs,
+                        config,
+                        plan.dirty_stages,
+                        RogueCity::App::GenerationRequestReason::LivePreview);
+                    gs.dirty_layers.MarkAllClean();
+                }
+            }
             s_external_dirty = false;
             gs.tool_runtime.explicit_generation_pending = false;
-            gs.dirty_layers.MarkFromAxiomEdit();
         }
     }
     

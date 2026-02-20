@@ -379,6 +379,37 @@ namespace RogueCity::Core::Editor {
     void EditorHFSM::on_enter(EditorState s, GlobalState& gs)
     {
         switch (s) {
+        case EditorState::Editing_Axioms:
+            gs.tool_runtime.active_domain = ToolDomain::Axiom;
+            break;
+        case EditorState::Editing_Water:
+            if (gs.tool_runtime.active_domain != ToolDomain::Water &&
+                gs.tool_runtime.active_domain != ToolDomain::Flow) {
+                gs.tool_runtime.active_domain = ToolDomain::Water;
+            }
+            break;
+        case EditorState::Editing_Roads:
+            if (gs.tool_runtime.active_domain != ToolDomain::Road &&
+                gs.tool_runtime.active_domain != ToolDomain::Paths) {
+                gs.tool_runtime.active_domain = ToolDomain::Road;
+            }
+            break;
+        case EditorState::Editing_Districts:
+            if (gs.tool_runtime.active_domain != ToolDomain::District &&
+                gs.tool_runtime.active_domain != ToolDomain::Zone) {
+                gs.tool_runtime.active_domain = ToolDomain::District;
+            }
+            break;
+        case EditorState::Editing_Lots:
+            gs.tool_runtime.active_domain = ToolDomain::Lot;
+            break;
+        case EditorState::Editing_Buildings:
+            if (gs.tool_runtime.active_domain != ToolDomain::Building &&
+                gs.tool_runtime.active_domain != ToolDomain::FloorPlan &&
+                gs.tool_runtime.active_domain != ToolDomain::Furnature) {
+                gs.tool_runtime.active_domain = ToolDomain::Building;
+            }
+            break;
         case EditorState::Simulating:
             RogueCity::Core::Validation::ValidateAll(gs);
             RogueCity::Core::Validation::SpatialCheckAll(gs);

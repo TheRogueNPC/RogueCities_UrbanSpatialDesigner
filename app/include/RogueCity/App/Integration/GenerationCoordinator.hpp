@@ -31,9 +31,21 @@ public:
         const Generators::CityGenerator::Config& config,
         GenerationRequestReason reason = GenerationRequestReason::LivePreview);
 
+    void RequestRegenerationIncremental(
+        const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+        const Generators::CityGenerator::Config& config,
+        const Generators::StageMask& dirty_stages,
+        GenerationRequestReason reason = GenerationRequestReason::LivePreview);
+
     void ForceRegeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config,
+        GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
+
+    void ForceRegenerationIncremental(
+        const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+        const Generators::CityGenerator::Config& config,
+        const Generators::StageMask& dirty_stages,
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
     void CancelGeneration();
 

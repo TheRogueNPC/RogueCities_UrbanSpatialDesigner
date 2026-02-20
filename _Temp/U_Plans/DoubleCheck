@@ -1,0 +1,730 @@
+# RogueCities: Viewport Tool Execution Plan â€” 2D Foundation â†’ Y2K Visualization â†’ 40xx 3D
+
+---
+### The One Structural Change That Enables All of This
+#MISSION_CRITICAL
+Right now `ProcessNonAxiomViewportInteraction` is a monolith that handles pan, zoom, domain placement, gizmo, box-select, lasso, hover, and click-select in a single ~600-line function with a consumed/unconsumed flag threading through it. Every global tool you add makes it longer.
+
+Before Tier 2, split it into a pipeline of discrete handlers with an early-exit consumed flag:
+
+```cpp
+// Ordered pipeline â€” first handler to set consumed = true wins
+GlobalNavigationHandler(gs, params, result);   // pan, zoom, orbit â€” never consumed
+GlobalSelectHandler(gs, params, result, state); // V key, Esc
+GlobalGizmoHandler(gs, params, result, state);  // existing gizmo code
+GlobalLassoBoxHandler(gs, params, result, state); // existing box/lasso
+DomainPlacementHandler(gs, params, result, state); // existing HandleDomainPlacementActions
+GlobalInspectHandler(gs, params, result);       // hover tooltip
+GlobalHoverHandler(gs, params, result);         // existing hover/click-select
+```
+
+Each handler is a free function in its own .cpp file. `NonAxiomInteractionState` gets split into sub-state structs per handler. `ToolInteractionMetrics` stays the single source of world-space pick radii shared across all of them.
+
+This gives you a clean insertion point for every future global tool without touching existing domain logic.
+## PART 1: THE HARD TRUTH â€” WHAT THE CODE CURRENTLY DOES
+
+After reading `PrimaryViewport.cpp`, `AxiomPlacementTool.cpp`, `EditorManipulation.cpp`, and `ViewportIndex.hpp`, here is the actual execution picture:
+
+### What's actually wired end-to-end âœ…
+
+|System|Status|
+|---|---|
+|**Axiom Placement Tool**|Fully implemented: place, drag-to-size, move, resize via knob, undo/redo, right-click delete, ghost preview, ICommand pattern|
+|**PrimaryViewport rendering**|Roads (cyan lines, thickness by hierarchy), Districts (magenta wireframe + RES/COM/IND/MIX label at centroid), Lots (amber wireframe). All driven by `CityGenerator::CityOutput*` pointer|
+|**Camera**|Pan (xy), zoom (z â†’ 500/max(100,z)), yaw rotation. `screen_to_world` / `world_to_screen` with Catmull-Rom spline support in `EditorManipulation`|
+|**EditorManipulation**|`ApplyTranslate`, `ApplyRotate`, `ApplyScale` all handle Road/District/Lot/Building/Water via SelectionItem. `MoveRoadVertex`, `InsertDistrictVertex`, `RemoveDistrictVertex` all exist|
+|**VpProbeData / ViewportIndex**|Full entity kind enum: Axiom, Road, District, Lot, Building, Water, Block. StableID mapping, slope, flood, aesp, zone_mask, road_hierarchy all in the probe struct|
+
+### What is MISSING from `app/src/Tools/`
+
+The `Tools/` directory has only Axiom files + `ContextWindowPopup.cpp`. There are **zero implementations** for:
+
+- `RoadTool.cpp` â€” no interactive road drawing
+- `DistrictTool.cpp` â€” no district paint/edit
+- `LotTool.cpp` â€” no lot subdivision interaction
+- `BuildingTool.cpp` â€” no building placement interaction
+- `WaterTool.cpp` â€” no water body painting
+
+The `EditorState.hpp` declares `Editing_Roads`, `Editing_Districts`, `Editing_Lots`, `Editing_Buildings`, `Editing_Water`, `Tool_Roads`, `Tool_Buildings`, `Tool_Water` events, and the `Viewport_DrawRoad`, `Viewport_PlaceAxiom`, `Viewport_BoxSelect` states â€” **none of those viewport states route to a corresponding tool handler in PrimaryViewport** yet.
+
+The PrimaryViewport `update()` is a stub: `(void)delta_time; // Reserved for camera smoothing, input handling` â€” it consumes no input at all.
+
+---
+
+## PART 2: EXPECTED VIEWPORT TOOL EXECUTION â€” SPEC PER TOOL
+
+This is what each tool _should_ do in 2D, expressed as a precise interaction contract.
+
+### [A] PAN TOOL (`Viewport_Pan`)
+
+```
+MouseDown(middle) OR (alt+left)  â†’ begin pan, cache anchor = screen_to_world(mouse)
+MouseMove                        â†’ camera_xy_ -= (world_pos - anchor) 
+MouseUp                          â†’ end pan
+Scroll wheel                     â†’ camera_z_ Â±= delta * pan_speed; zoom_ recalculated
+```
+
+_Currently: zoom calculation exists via `set_camera_position` but no input wires into it._
+
+---
+
+### [B] SELECT TOOL (`Viewport_Select`)
+
+```
+Click on entity                  â†’ probe ViewportIndex at mouse_world
+                                   â†’ set SelectionManager selection[0] = VpProbeData
+                                   â†’ highlight entity (draw accent rect/outline in render)
+Shift+Click                      â†’ append to multi-selection
+Click empty                      â†’ clear selection
+BoxSelect drag                   â†’ collect all probes whose world AABB intersects the drag rect
+                                   â†’ commit to SelectionManager
+Right-click selected entity      â†’ context menu (delete / properties / move to layer)
+```
+
+_`SelectionManager.hpp` and `SelectionSync.hpp` exist but aren't called from PrimaryViewport._
+
+---
+
+### [C] ROAD TOOL (`Viewport_DrawRoad`) â€” the most complex
+
+**Expected 2D execution flow:**
+
+```
+1. MouseDown on empty            â†’ begin polyline; commit point[0] = world_pos
+2. MouseMove                     â†’ ghost preview segment from point[0] to mouse_world
+                                   â†’ snap to grid if snap_to_grid enabled (snap_size granularity)
+                                   â†’ show snap indicator diamond
+3. MouseDown (subsequent)        â†’ commit point[n]; extend polyline
+                                   â†’ if within 10m of existing road endpoint â†’ MERGE (T-junction or end-to-end)
+                                   â†’ if within 10m of existing road midpoint â†’ SPLIT + T-junction
+4. Double-click OR Enter         â†’ finalize road; push AddRoadCommand into GlobalState.roads
+                                   â†’ trigger DirtyLayer::Roads â†’ schedule regeneration of downstream (lots, buildings)
+5. Escape                        â†’ cancel, discard ghost
+6. Right-click existing road     â†’ context menu: Set Hierarchy (Local/Collector/Arterial/Highway), Delete, Split Here
+7. Drag road vertex (select mode â†’ road vertex sub-select)
+                                 â†’ EditorManipulation::MoveRoadVertex()
+                                 â†’ push ModifyRoadVertexCommand
+```
+
+**Visual feedback required:**
+
+- Ghost segment: dashed cyan line from last committed point to mouse
+- Snap indicator: small diamond at snap point, color shift to green when snapping
+- Junction preview: yellow circle when near an existing endpoint (merge zone)
+- Road hierarchy colors: Highway=`IM_COL32(255,120,0,255)` amber, Arterial=`IM_COL32(0,255,200,255)` teal, Local=`IM_COL32(0,180,255,255)` blue â€” instead of the current flat cyan for everything
+
+---
+
+### [D] DISTRICT TOOL (`Editing_Districts`)
+
+```
+1. Click to place polygon vertices (minimum 3)
+2. MouseMove â†’ ghost edge from last vertex to mouse
+3. Click near first vertex (within 15m) â†’ CLOSE polygon â†’ push AddDistrictCommand
+4. Shift+drag existing border â†’ InsertDistrictVertex at edge midpoint
+5. Alt+click existing vertex â†’ RemoveDistrictVertex (if border.size() > 3)
+6. Drag vertex â†’ EditorManipulation::ApplyTranslate on single vertex
+7. Right-click closed district â†’ set DistrictType (Residential/Commercial/Industrial/Mixed/Park)
+```
+
+---
+
+### [E] LOT TOOL (`Editing_Lots`)
+
+_Lots are currently generator-output only â€” no manual subdivision exists._
+
+```
+Expected: 
+1. Click inside a District â†’ subdivide that district's area using LotSubdivider
+2. Drag lot boundary edge â†’ resize lot (LotToken.boundary manipulation)
+3. Right-click lot â†’ set zone type, merge with adjacent
+```
+
+This tool likely lives at the generator-interaction boundary, not pure editor interaction.
+
+---
+
+### [F] BUILDING TOOL (`Editing_Buildings`)
+
+```
+1. Click inside a Lot â†’ place BuildingSite at centroid
+2. Drag to orient â†’ set rotation_radians
+3. Right-click â†’ set building type preset / afg_preset
+4. Move via ApplyTranslate (already wired in EditorManipulation)
+```
+
+---
+
+### [G] WATER TOOL (`Editing_Water` / `AI_INTEGRATION_TAG: V1_PASS1_TASK2_WATER_STATE`)
+
+```
+1. Paint mode: click+drag â†’ add boundary vertices to WaterBody
+2. Flood fill variant: click inside district â†’ auto-expand to fill
+3. VpProbeData.flood field is populated â€” needs visualization overlay
+4. Right-click water body â†’ set type (River / Lake / Canal)
+```
+
+---
+
+## PART 3: THE 2D CORRECTNESS CHECKLIST (Priority Order)
+
+These are the blockers before you can say any tool "works" in 2D.
+
+### CRITICAL MISSING â€” Ship Nothing Until Fixed
+
+**P0-A: PrimaryViewport input routing** `PrimaryViewport::update()` must route mouse events to the active tool. Implement an `IViewportTool` interface:
+
+```cpp
+struct IViewportTool {
+    virtual void on_mouse_down(const Core::Vec2& world_pos, ImGuiMouseButton btn) = 0;
+    virtual void on_mouse_up(const Core::Vec2& world_pos, ImGuiMouseButton btn) = 0;
+    virtual void on_mouse_move(const Core::Vec2& world_pos) = 0;
+    virtual void on_scroll(float delta) = 0;
+    virtual void render(ImDrawList*, const PrimaryViewport&) = 0;
+    virtual ~IViewportTool() = default;
+};
+```
+
+`PrimaryViewport` holds a `IViewportTool* active_tool_` and dispatches `ImGui::IsMouseClicked/Released/GetMousePos` in `update()`. The AxiomPlacementTool already implements this pattern exactly â€” generalize it.
+
+**P0-B: Pan + Zoom must actually work** Currently `camera_xy_` and `camera_z_` have no input path. Middle-mouse pan and scroll-wheel zoom need to be live before any tool testing is meaningful.
+
+**P0-C: Road Tool stub** Create `app/src/Tools/RoadTool.cpp` + `.hpp`. Minimum viable: click-to-place polyline vertices, Enter to commit, push to `GlobalState.roads`, set `DirtyLayer::Roads`. Use the ghost line pattern already established in AxiomPlacementTool's ghost circle.
+
+**P0-D: Road rendering differentiates hierarchy** `PrimaryViewport::render()` currently draws all roads in flat `IM_COL32(0,255,255,255)` at hardcoded thickness. Road hierarchy data is in `VpProbeData.road_hierarchy` â€” use it to drive color AND thickness per the spec above.
+
+---
+
+### HIGH â€” Needed for usable session
+
+**P1-A: SelectionManager wired into PrimaryViewport** `SelectionManager.hpp` exists but nothing probes the ViewportIndex on click. Implement a `ViewportIndexBuilder` call chain after each generation, then hit-test on `Viewport_Select` mouse clicks.
+
+**P1-B: Box selection in `Viewport_BoxSelect`** Draw selection rect overlay (dashed white border), collect all VpProbeData within world-space rect, push to SelectionManager. The `EditorState` event already declares this state.
+
+**P1-C: Road vertex drag** `EditorManipulation::MoveRoadVertex` exists â€” needs to be invoked. In `Viewport_Select` mode, after selecting a road, draw its vertices as small squares; dragging one calls `MoveRoadVertex` and pushes a `ModifyRoadVertexCommand`.
+
+**P1-D: District tool** `InsertDistrictVertex` and `RemoveDistrictVertex` are implemented. Build the polygon placement UI around them.
+
+---
+
+### MEDIUM â€” Quality and correctness polish
+
+**P2-A: Grid snap in road/district/building tools** `EditorParameters.snap_to_grid` and `snap_size` fields exist in `GlobalState.hpp`[screenshot from images]. Snap world_pos to `round(x / snap_size) * snap_size` when enabled.
+
+**P2-B: Undo/redo for all tools** AxiomPlacementTool has a working undo/redo pattern (ICommand + CommandHistory). Road/District/Building tools must use the same pattern. Do not allow `GlobalState` mutations outside of an `ICommand::Execute()`.
+
+**P2-C: DirtyLayer propagation** `DirtyLayer` enum (Axioms, Tensor, Roads...) exists in `GlobalState.hpp`. Road tool must set the appropriate dirty flag, which triggers downstream regeneration. Currently nothing outside AxiomPlacementTool sets dirty flags.
+
+**P2-D: Water body rendering** `PrimaryViewport::render()` has no water rendering path despite `GlobalState.waterbodies` existing and `VpProbeData.flood` being populated. Add a fill polygon (semi-transparent blue-teal) for water bodies.
+
+---
+
+## PART 4: Y2K MAP VISUALIZATION UPGRADE
+
+The current renderer has the bones of the Y2K aesthetic already: deep blue-black bg `IM_COL32(15,20,30)`, cyan roads, magenta districts, subtle grid. Here is how to push it to full **Y2K cockpit cartography**.
+
+### Color System â€”we Will swap the default profile with this one to  Replace the flat palette with a semantic one then we will update our token system to allow for this to follow system wide  as far as added features 
+
+```cpp
+// Y2K Cartographic Palette
+namespace Y2KPalette {
+    // Roads by hierarchy
+    constexpr ImU32 kHighway    = IM_COL32(255, 160,  40, 255); // amber
+    constexpr ImU32 kArterial   = IM_COL32(  0, 220, 180, 255); // teal
+    constexpr ImU32 kCollector  = IM_COL32( 80, 180, 255, 255); // sky blue
+    constexpr ImU32 kLocal      = IM_COL32( 40, 130, 200, 200); // dim blue
+    
+    // Districts (fill + border)
+    constexpr ImU32 kResidential_Fill   = IM_COL32( 20,  80,  60,  60);
+    constexpr ImU32 kResidential_Border = IM_COL32(  0, 255, 150, 200);
+    constexpr ImU32 kCommercial_Fill    = IM_COL32( 80,  20,  80,  60);
+    constexpr ImU32 kCommercial_Border  = IM_COL32(255,   0, 220, 200);
+    constexpr ImU32 kIndustrial_Fill    = IM_COL32( 80,  50,  10,  60);
+    constexpr ImU32 kIndustrial_Border  = IM_COL32(255, 160,   0, 200);
+    
+    // Lots
+    constexpr ImU32 kLot_Unzoned  = IM_COL32(200, 200, 200,  30);
+    constexpr ImU32 kLot_Zoned    = IM_COL32(255, 220, 100,  60);
+    
+    // Water
+    constexpr ImU32 kWater_Fill   = IM_COL32(  0,  80, 180,  80);
+    constexpr ImU32 kWater_Border = IM_COL32(  0, 200, 255, 255);
+    
+    // Grid
+    constexpr ImU32 kGrid_Minor   = IM_COL32( 40,  50,  70, 100);
+    constexpr ImU32 kGrid_Major   = IM_COL32( 60,  80, 120, 180);
+}
+```
+
+### Layered rendering order (painter's algorithm)
+
+```
+1. Background fill (deep blue-black) â† already done
+2. Minor grid (50m cells)            â† already done
+3. Major grid (500m cells, brighter) â† ADD
+4. Water body fills (semi-transparent)â† ADD
+5. District fills (semi-transparent)  â† ADD (currently wireframe only)
+6. Lot fills (very subtle)            â† ADD
+7. District borders                   â† exists, needs color system
+8. Lot borders                        â† exists
+9. Road lines (hierarchy-colored)     
+```
+
+## RogueCities UI Panel System â€” Full Architectural Analysis & Plan
+
+Here's a complete breakdown of what you've built, what's solid, what has friction, and a prioritized action plan.
+
+---
+
+### What You Have: System Map
+
+#### Core Abstractions
+
+**`IPanelDrawer`** is your cornerstone interface. It's clean and well-designed:
+
+- `PanelType` (21 types, `uint8_t` enum) and `PanelCategory` (6 categories) enumerate the full panel space
+- `DrawContext` bundles `GlobalState&`, `EditorHFSM&`, `UiIntrospector&`, and `dt` â€” avoiding parameter bloat across all `draw()` calls
+- Optional hooks (`on_activated`, `on_deactivated`, `on_message`, `is_visible`, `can_popout`) are correctly defaulted so concrete drawers only override what they need
+- `source_file()` and `tags()` for introspection metadata is forward-thinking for your AI agent tooling
+
+**`PanelRegistry`** is a proper singleton with ownership semantics (`unordered_map<PanelType, unique_ptr<IPanelDrawer>>`). `GetPanelsInCategory()` sorts by enum value for consistent tab ordering. `DrawByType()` is a clean dispatch convenience.
+
+**`RcPanelDrawers.cpp`** houses all concrete drawer wrappers as nested `Drawer` classes inside named namespaces (e.g., `namespace RoadIndex { class Drawer : public IPanelDrawer {...} }`). Each is a thin adapter â€” it calls the actual panel's `GetPanel().DrawContent(ctx.global_state, ctx.introspector)`, meaning the real panel logic lives in the individual `rc_panel_*.cpp` files. This is correct separation.
+
+**`rc_property_editor.cpp`** is by far your most sophisticated panel:
+
+- `DrawEnumCombo<EnumType>` template with `magic_enum` â€” type-safe, zero-boilerplate enum dropdowns
+- `LambdaCommand` + `CommitLambda` / `CommitValueChange<T>` â€” a full before/after undo-redo system backed by `CommandHistory`, scoped to property edits only via a local static `PropertyHistory()`
+- `MarkDirtyForKind()` â€” correct cascade dirty propagation (Road â†’ Districts â†’ Lots â†’ Buildings â†’ ViewportIndex)
+- `DrawSingleRoad`, `DrawSingleDistrict`, `DrawSingleLot`, `DrawSingleBuilding` â€” each handles generation tag + lock state, layer assignment, and entity-specific fields
+- `DrawBatchEditor` with `ApplyBatchValue<>` template handles multi-select correctly
+- `DrawQuerySelection` â€” a powerful filter/select tool built into the panel itself
+- Ctrl+Z / Ctrl+Y keyboard shortcuts scoped to window focus â€” correct behavior
+
+---
+
+### Structural Issues & Friction Points
+
+#### 1. `PropertyHistory()` Is Isolated from the Global `CommandHistory`
+
+**Problem:** `rc_property_editor.cpp` creates its own local static `CommandHistory` that is entirely separate from the editor-wide `CommandHistory`. This means Ctrl+Z in the property panel and Ctrl+Z elsewhere operate on different stacks. A user editing a road type in the property editor and then undoing a road draw will get the wrong result.
+
+**Fix:** Pass the global `CommandHistory&` through `DrawContext` or access it via `GlobalState`. Replace:
+
+```cpp
+static CommandHistory history{};
+```
+
+with a reference to `ctx.global_state.command_history` (or whichever field holds the canonical history). `PropertyEditor::Draw(GlobalState& gs)` already has access â€” just thread it through.
+
+#### 2. Linear Search for Entities Is O(n)
+
+**Problem:** `FindRoad`, `FindDistrict`, `FindLot`, `FindBuilding` all iterate `gs.roads`, `gs.districts`, etc. by ID. With hundreds or thousands of entities this becomes noticeable in the property panel, which redraws every frame.
+
+**Fix:** Add ID-to-index maps on `GlobalState` (e.g., `unordered_map<uint32_t, size_t> road_index_map`) rebuilt on structural changes. The property editor and batch editor both become O(1) lookups. Alternatively, if entities are stored sorted by ID, use `lower_bound`.
+
+#### 3. `RcPanelDrawers.cpp` Will Become Unmaintainable
+
+**Problem:** Every panel drawer is defined in a single file. With 21 panel types (and 3 more behind `ROGUE_AI_DLC_ENABLED`), that file grows linearly. Adding a new panel requires editing this monolith, which violates Open/Closed Principle.
+
+**Fix:** Split into one file per category or one file per panel, registered via a factory function. Each panel's `CreateDrawer()` factory is already declared at the bottom of each namespace â€” just move each into its own `.cpp` and have `InitializePanelRegistry()` call them all. Example structure:
+
+```
+panels/drawers/road_index_drawer.cpp
+panels/drawers/district_index_drawer.cpp
+panels/drawers/zoning_control_drawer.cpp
+...
+```
+
+`InitializePanelRegistry()` becomes a list of `registry.Register(RoadIndex::CreateDrawer())` calls. This also makes the AI-DLC gating cleaner â€” just conditionally compile those 3 source files.
+
+#### 4. District Border Vertex Editor Has a Command-Per-Frame Bug Potential
+
+**Problem:** `DrawSingleDistrict` calls `CommitLambda` inside `ImGui::InputFloat2` for each vertex every time the value changes. ImGui's `InputFloat2` fires on every character input, meaning rapid typing can flood `CommandHistory` with hundreds of micro-commits.
+
+**Fix:** Use a begin/end edit pattern. Capture `before` on `ImGui::IsItemActivated()` and commit only on `ImGui::IsItemDeactivatedAfterEdit()`:
+
+```cpp
+static std::vector<Vec2> vertex_edit_before;
+if (ImGui::IsItemActivated()) vertex_edit_before = district.border;
+if (ImGui::IsItemDeactivatedAfterEdit()) {
+    CommitLambda(history, "District Boundary Vertex", ...);
+}
+```
+
+This applies identically to all `InputFloat`, `InputScalar`, `DragFloat` fields in the property editor.
+
+#### 5. `DrawContext` Lacks `CommandHistory`
+
+**Problem:** `DrawContext` passes `GlobalState&`, `EditorHFSM&`, and `UiIntrospector&`, but not the command history. Any drawer that needs undo-redo has to either get it from `GlobalState` directly or reinvent a local one (as `rc_property_editor.cpp` does).
+
+**Fix:** Add `CommandHistory& command_history` to `DrawContext`. This is a one-line change to the struct and a one-line change to wherever `DrawContext` is constructed.
+
+#### 6. `PanelType` Is a `uint8_t` Enum That Will Overflow
+
+**Problem:** You currently have 21 types + `COUNT`. `uint8_t` gives you 255 slots. That's comfortable now, but the AI DLC adds 3 more and your roadmap clearly includes more panel types (FloorPlan, Furnature subtools are already mentioned as stubs). More pressingly, if `COUNT` is used for range checks, inserting a type mid-enum shifts all subsequent values and breaks serialization.
+
+**Fix:** Stop using enum value as a stable ID for serialization. Add a `PanelTypeToString()` / `PanelTypeFromString()` round-trip (magic_enum works here) and serialize by name, not by integer value. Keep `uint8_t` for runtime storage â€” it's fine â€” just decouple it from persistence.
+
+#### 7. `on_message` Has a Void Pointer Interface
+
+**Problem:** The `on_message(const char* event_type, void* data)` virtual in `IPanelDrawer` is an untyped message bus that will cause bugs as the codebase grows. There's no way to validate the type of `data` at compile time.
+
+**Fix:** Either replace it with a typed variant-based event system, or remove it until you have a concrete use case. A lightweight approach:
+
+```cpp
+struct PanelEvent { std::string type; std::any payload; };
+virtual void on_message(const PanelEvent& event) {}
+```
+
+This keeps it flexible but makes misuse detectable at runtime.
+
+---
+
+### The `is_visible(DrawContext& ctx)` Hook â€” Use It
+
+This is currently defaulted to `return true` on all drawers. It's the right place to implement:
+
+- Hiding `DevShell` in non-debug builds
+- Hiding `AiConsole` / `UiAgent` / `CitySpec` when `ROGUE_AI_DLC_ENABLED` isn't defined at runtime (as opposed to compile time â€” gives you a runtime toggle)
+- Showing `WaterControl` only when the water layer is active
+- Showing `AxiomEditor` only when an axiom is selected
+
+This costs zero architectural work â€” the hook is already there. Wire it up in each drawer's `is_visible` override.
+
+---
+
+### Prioritized Action Plan
+
+|Priority|Task|Effort|Impact|
+|---|---|---|---|
+|**P0**|Fix `PropertyHistory()` â€” unify with global `CommandHistory` via `DrawContext`|Low|Critical for correct undo behavior|
+|**P0**|Fix InputFloat/DragFloat flooding â€” use `IsItemActivated` / `IsItemDeactivatedAfterEdit`|Medium|Prevents history corruption|
+|**P1**|Add `CommandHistory&` to `DrawContext`|Trivial|Enables all panels to undo-redo correctly|
+|**P1**|Add entity ID lookup maps to `GlobalState`|Medium|O(1) property editor, scales with city size|
+|**P1**|Split `RcPanelDrawers.cpp` into per-category files|Low|Maintainability for 21+ panel types|
+|**P2**|Implement `is_visible()` overrides per drawer|Low|State-reactive panel visibility|
+|**P2**|Decouple `PanelType` enum value from serialized ID|Medium|Required before any save format stabilizes|
+|**P3**|Replace `on_message(void*)` with typed event|Medium|Future-proofing inter-panel communication|
+
+---
+
+### What's Already Excellent (Don't Touch)
+
+- `DrawEnumCombo<T>` with magic_enum â€” perfect, use this pattern everywhere
+- `ApplyBatchValue<>` template â€” solid, extend to more fields as needed
+- `CommitValueChange<TValue>` â€” clean, only commits if `before != after`
+- `MarkDirtyForKind()` cascade logic â€” correct dependency order
+- `DrawContext` struct pattern â€” right abstraction level
+- `IPanelDrawer` interface with optional lifecycle hooks â€” production-quality design
+- `PanelRegistry` with `unordered_map` + sorted output â€” correct and efficient
+- The `#if defined(ROGUE_AI_DLC_ENABLED)` gating in `RcPanelDrawers.cpp` â€” clean compile-time feature flagging
+- `DrawQuerySelection` inline in the property panel â€” genuinely useful for debugging city state
+
+The core architecture is sound. The issues above are the kind that don't hurt on day 1 but compound badly by the time you have a full city simulation running frame-to-frame with a live user making edits. Fix P0 items before any beta release, P1 before the codebase grows further.
+
+
+## RogueCities UI Panel System â€” Full Architectural Analysis & Plan
+
+Here's a complete breakdown of what you've built, what's solid, what has friction, and a prioritized action plan.
+
+---
+
+### What You Have: System Map
+
+#### Core Abstractions
+
+**`IPanelDrawer`** is your cornerstone interface. It's clean and well-designed:
+
+- `PanelType` (21 types, `uint8_t` enum) and `PanelCategory` (6 categories) enumerate the full panel space
+- `DrawContext` bundles `GlobalState&`, `EditorHFSM&`, `UiIntrospector&`, and `dt` â€” avoiding parameter bloat across all `draw()` calls
+- Optional hooks (`on_activated`, `on_deactivated`, `on_message`, `is_visible`, `can_popout`) are correctly defaulted so concrete drawers only override what they need
+- `source_file()` and `tags()` for introspection metadata is forward-thinking for your AI agent tooling
+
+**`PanelRegistry`** is a proper singleton with ownership semantics (`unordered_map<PanelType, unique_ptr<IPanelDrawer>>`). `GetPanelsInCategory()` sorts by enum value for consistent tab ordering. `DrawByType()` is a clean dispatch convenience.
+
+**`RcPanelDrawers.cpp`** houses all concrete drawer wrappers as nested `Drawer` classes inside named namespaces (e.g., `namespace RoadIndex { class Drawer : public IPanelDrawer {...} }`). Each is a thin adapter â€” it calls the actual panel's `GetPanel().DrawContent(ctx.global_state, ctx.introspector)`, meaning the real panel logic lives in the individual `rc_panel_*.cpp` files. This is correct separation.
+
+**`rc_property_editor.cpp`** is by far your most sophisticated panel:
+
+- `DrawEnumCombo<EnumType>` template with `magic_enum` â€” type-safe, zero-boilerplate enum dropdowns
+- `LambdaCommand` + `CommitLambda` / `CommitValueChange<T>` â€” a full before/after undo-redo system backed by `CommandHistory`, scoped to property edits only via a local static `PropertyHistory()`
+- `MarkDirtyForKind()` â€” correct cascade dirty propagation (Road â†’ Districts â†’ Lots â†’ Buildings â†’ ViewportIndex)
+- `DrawSingleRoad`, `DrawSingleDistrict`, `DrawSingleLot`, `DrawSingleBuilding` â€” each handles generation tag + lock state, layer assignment, and entity-specific fields
+- `DrawBatchEditor` with `ApplyBatchValue<>` template handles multi-select correctly
+- `DrawQuerySelection` â€” a powerful filter/select tool built into the panel itself
+- Ctrl+Z / Ctrl+Y keyboard shortcuts scoped to window focus â€” correct behavior
+
+---
+
+### Structural Issues & Friction Points
+
+#### 1. `PropertyHistory()` Is Isolated from the Global `CommandHistory`
+
+**Problem:** `rc_property_editor.cpp` creates its own local static `CommandHistory` that is entirely separate from the editor-wide `CommandHistory`. This means Ctrl+Z in the property panel and Ctrl+Z elsewhere operate on different stacks. A user editing a road type in the property editor and then undoing a road draw will get the wrong result.
+
+**Fix:** Pass the global `CommandHistory&` through `DrawContext` or access it via `GlobalState`. Replace:
+
+```cpp
+static CommandHistory history{};
+```
+
+with a reference to `ctx.global_state.command_history` (or whichever field holds the canonical history). `PropertyEditor::Draw(GlobalState& gs)` already has access â€” just thread it through.
+
+#### 2. Linear Search for Entities Is O(n)
+
+**Problem:** `FindRoad`, `FindDistrict`, `FindLot`, `FindBuilding` all iterate `gs.roads`, `gs.districts`, etc. by ID. With hundreds or thousands of entities this becomes noticeable in the property panel, which redraws every frame.
+
+**Fix:** Add ID-to-index maps on `GlobalState` (e.g., `unordered_map<uint32_t, size_t> road_index_map`) rebuilt on structural changes. The property editor and batch editor both become O(1) lookups. Alternatively, if entities are stored sorted by ID, use `lower_bound`.
+
+#### 3. `RcPanelDrawers.cpp` Will Become Unmaintainable
+
+**Problem:** Every panel drawer is defined in a single file. With 21 panel types (and 3 more behind `ROGUE_AI_DLC_ENABLED`), that file grows linearly. Adding a new panel requires editing this monolith, which violates Open/Closed Principle.
+
+**Fix:** Split into one file per category or one file per panel, registered via a factory function. Each panel's `CreateDrawer()` factory is already declared at the bottom of each namespace â€” just move each into its own `.cpp` and have `InitializePanelRegistry()` call them all. Example structure:
+
+```
+panels/drawers/road_index_drawer.cpp
+panels/drawers/district_index_drawer.cpp
+panels/drawers/zoning_control_drawer.cpp
+...
+```
+
+`InitializePanelRegistry()` becomes a list of `registry.Register(RoadIndex::CreateDrawer())` calls. This also makes the AI-DLC gating cleaner â€” just conditionally compile those 3 source files.
+
+#### 4. District Border Vertex Editor Has a Command-Per-Frame Bug Potential
+
+**Problem:** `DrawSingleDistrict` calls `CommitLambda` inside `ImGui::InputFloat2` for each vertex every time the value changes. ImGui's `InputFloat2` fires on every character input, meaning rapid typing can flood `CommandHistory` with hundreds of micro-commits.
+
+**Fix:** Use a begin/end edit pattern. Capture `before` on `ImGui::IsItemActivated()` and commit only on `ImGui::IsItemDeactivatedAfterEdit()`:
+
+```cpp
+static std::vector<Vec2> vertex_edit_before;
+if (ImGui::IsItemActivated()) vertex_edit_before = district.border;
+if (ImGui::IsItemDeactivatedAfterEdit()) {
+    CommitLambda(history, "District Boundary Vertex", ...);
+}
+```
+
+This applies identically to all `InputFloat`, `InputScalar`, `DragFloat` fields in the property editor.
+
+#### 5. `DrawContext` Lacks `CommandHistory`
+
+**Problem:** `DrawContext` passes `GlobalState&`, `EditorHFSM&`, and `UiIntrospector&`, but not the command history. Any drawer that needs undo-redo has to either get it from `GlobalState` directly or reinvent a local one (as `rc_property_editor.cpp` does).
+
+**Fix:** Add `CommandHistory& command_history` to `DrawContext`. This is a one-line change to the struct and a one-line change to wherever `DrawContext` is constructed.
+
+#### 6. `PanelType` Is a `uint8_t` Enum That Will Overflow
+
+**Problem:** You currently have 21 types + `COUNT`. `uint8_t` gives you 255 slots. That's comfortable now, but the AI DLC adds 3 more and your roadmap clearly includes more panel types (FloorPlan, Furnature subtools are already mentioned as stubs). More pressingly, if `COUNT` is used for range checks, inserting a type mid-enum shifts all subsequent values and breaks serialization.
+
+**Fix:** Stop using enum value as a stable ID for serialization. Add a `PanelTypeToString()` / `PanelTypeFromString()` round-trip (magic_enum works here) and serialize by name, not by integer value. Keep `uint8_t` for runtime storage â€” it's fine â€” just decouple it from persistence.
+
+#### 7. `on_message` Has a Void Pointer Interface
+
+**Problem:** The `on_message(const char* event_type, void* data)` virtual in `IPanelDrawer` is an untyped message bus that will cause bugs as the codebase grows. There's no way to validate the type of `data` at compile time.
+
+**Fix:** Either replace it with a typed variant-based event system, or remove it until you have a concrete use case. A lightweight approach:
+
+```cpp
+struct PanelEvent { std::string type; std::any payload; };
+virtual void on_message(const PanelEvent& event) {}
+```
+
+This keeps it flexible but makes misuse detectable at runtime.
+
+---
+
+### The `is_visible(DrawContext& ctx)` Hook â€” Use It
+
+This is currently defaulted to `return true` on all drawers. It's the right place to implement:
+
+- Hiding `DevShell` in non-debug builds
+- Hiding `AiConsole` / `UiAgent` / `CitySpec` when `ROGUE_AI_DLC_ENABLED` isn't defined at runtime (as opposed to compile time â€” gives you a runtime toggle)
+- Showing `WaterControl` only when the water layer is active
+- Showing `AxiomEditor` only when an axiom is selected
+
+This costs zero architectural work â€” the hook is already there. Wire it up in each drawer's `is_visible` override.
+
+---
+
+### Prioritized Action Plan
+
+|Priority|Task|Effort|Impact|
+|---|---|---|---|
+|**P0**|Fix `PropertyHistory()` â€” unify with global `CommandHistory` via `DrawContext`|Low|Critical for correct undo behavior|
+|**P0**|Fix InputFloat/DragFloat flooding â€” use `IsItemActivated` / `IsItemDeactivatedAfterEdit`|Medium|Prevents history corruption|
+|**P1**|Add `CommandHistory&` to `DrawContext`|Trivial|Enables all panels to undo-redo correctly|
+|**P1**|Add entity ID lookup maps to `GlobalState`|Medium|O(1) property editor, scales with city size|
+|**P1**|Split `RcPanelDrawers.cpp` into per-category files|Low|Maintainability for 21+ panel types|
+|**P2**|Implement `is_visible()` overrides per drawer|Low|State-reactive panel visibility|
+|**P2**|Decouple `PanelType` enum value from serialized ID|Medium|Required before any save format stabilizes|
+|**P3**|Replace `on_message(void*)` with typed event|Medium|Future-proofing inter-panel communication|
+
+---
+
+### What's Already Excellent (Don't Touch)
+
+- `DrawEnumCombo<T>` with magic_enum â€” perfect, use this pattern everywhere
+- `ApplyBatchValue<>` template â€” solid, extend to more fields as needed
+- `CommitValueChange<TValue>` â€” clean, only commits if `before != after`
+- `MarkDirtyForKind()` cascade logic â€” correct dependency order
+- `DrawContext` struct pattern â€” right abstraction level
+- `IPanelDrawer` interface with optional lifecycle hooks â€” production-quality design
+- `PanelRegistry` with `unordered_map` + sorted output â€” correct and efficient
+- The `#if defined(ROGUE_AI_DLC_ENABLED)` gating in `RcPanelDrawers.cpp` â€” clean compile-time feature flagging
+- `DrawQuerySelection` inline in the property panel â€” genuinely useful for debugging city state
+
+The core architecture is sound. The issues above are the kind that don't hurt on day 1 but compound badly by the time you have a full city simulation running frame-to-frame with a live user making edits. Fix P0 items before any beta release, P1 before the codebase grows further.
+
+
+## Global Viewport Tools: What You Need and Where They Live
+
+This is grounded entirely in what exists in the  codebase. The `EditorState` enum, `ToolRuntimeState`, `ToolActionId`, and `ProcessNonAxiomViewportInteraction` all expose exactly what is and isn't there.
+
+---
+### What "Global" Means in Your Architecture
+
+A global viewport tool is one that operates **regardless of active domain** â€” it runs before `HandleDomainPlacementActions()` consumes the click, works across all entity types, and routes through `EditorState` transitions that aren't domain-specific. Currently you have exactly three: the gizmo (Translate/Rotate/Scale), Box Select (`Alt+Shift+LMB`), and Lasso Select (`Alt+LMB`). Everything else is domain-locked.
+
+The HFSM already has the right slots for true global tools â€” `Viewport_Pan`, `Viewport_Select`, `Viewport_PlaceAxiom`, `Viewport_DrawRoad`, `Viewport_BoxSelect` are all first-class `EditorState` values, not sub-states of a domain. That's your architectural contract for what belongs at the global level.
+
+---
+
+### The Global Tools To Add â€” Grouped by Priority
+
+---
+
+#### Tier 1 â€” Fix Before Anything Else (These Are Broken Stubs)
+
+**1. Pan Tool (`Viewport_Pan`)** The `EditorState` entry exists. The Axiom path has pan implemented via `Alt+LMB` orbit and `MMB` pan. The non-Axiom path has **zero pan code** â€” there is no `Viewport_Pan` handler in `ProcessNonAxiomViewportInteraction`. Navigation in the 2D viewport is completely unimplemented unless you're in Axiom mode.
+
+What to build:
+
+```cpp
+// In ProcessNonAxiomViewportInteraction, before domain dispatch:
+if (io.MouseDown[ImGuiMouseButton_Middle] ||
+    (io.KeyShift && io.MouseDown[ImGuiMouseButton_Right])) {
+    const float zoom = params.primary_viewport->world_to_screen_scale(1.0f);
+    const float pan_speed = gs.params.viewport_pan_speed;
+    const Vec2 delta_world(
+        -io.MouseDelta.x / zoom * pan_speed,
+        -io.MouseDelta.y / zoom * pan_speed);
+    auto cam = params.primary_viewport->get_camera_xy();
+    cam.x += delta_world.x;
+    cam.y += delta_world.y;
+    params.primary_viewport->set_camera_position(cam, camera_z);
+    result.outcome = InteractionOutcome::ActivateOnly;
+    return result;
+}
+```
+
+Add `EditorState::Viewport_Pan` transition via Spacebar held (Blender-style) or dedicated hotkey. Cursor should show a hand icon â€” use `ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll)` while active.
+
+---
+
+**2. Zoom Tool (scroll wheel + keyboard)** The Axiom path has scroll zoom clamped to `[80, 4000]` on `camera_z`. The non-Axiom path has zero zoom code. The `SceneFrame` carries `camera_z` but nothing modifies it in the non-Axiom interaction path.
+
+Add to the global pre-dispatch block:
+
+```cpp
+if (io.MouseWheel != 0.0f && params.in_viewport && !params.minimap_hovered) {
+    const float z = params.primary_viewport->get_camera_z();
+    const float factor = std::pow(1.12f, -io.MouseWheel);
+    const float new_z = std::clamp(z * factor, 80.0f, 4000.0f);
+    params.primary_viewport->set_camera_position(
+        params.primary_viewport->get_camera_xy(), new_z);
+    result.outcome = InteractionOutcome::ActivateOnly;
+    // Don't return â€” zoom doesn't consume click
+}
+```
+
+Also add `Ctrl+=` / `Ctrl+-` keyboard zoom and `Ctrl+0` for reset-to-fit (frame all entities).
+
+---
+
+**3. Universal Select (`V` key / `Viewport_Select` state)** Currently `Viewport_Select` is a `EditorState` value with no corresponding tool path. A press of `V` (or `Esc` from any domain) should drop into a cross-domain select mode where:
+
+- Left click picks the highest-priority entity under cursor via `PickFromViewportIndex()` regardless of current domain
+- The HFSM transitions to `Viewport_Select`
+- The active domain in `ToolRuntimeState` stays where it was so returning to the prior tool works
+
+This is the "arrow tool" present in every professional editor. The `PickFromViewportIndex` function already handles cross-domain priority (Building=5 > Lot=4 > Road=3 > District=2) â€” you just need the mode and hotkey wired.
+
+---
+
+#### Tier 2 â€” High Value, Architecturally Clean to Add
+
+**4. Frame / Focus (`F` key)** `F` over a selection â†’ zoom + pan camera to frame the bounding box of the selected entities. `Shift+F` â†’ frame the entire city. This is a navigation tool every editor has and yours doesn't.
+
+Implementation calls `ResolveSelectionAnchor()` for each selected item to get a bounding box, then sets `camera_xy` to the centroid and `camera_z` to a value derived from the diagonal of the bounding box divided by `viewport_zoom`. All the pieces are in `ProcessNonAxiomViewportInteraction` already.
+
+---
+
+**5. Terrain Brush â€” Global Paint Mode** `GlobalState` already has `ApplyTerrainBrush(const TerrainBrush::Stroke& stroke)` and `ApplyTexturePaint(const TexturePainting::Stroke& stroke)` as fully implemented methods. The `TextureSpace` has height, slope, nature, tensor, and zone layers. But there is **zero viewport interaction** wired to them â€” no `ToolDomain::Flow` or terrain brush activation path anywhere in `HandleDomainPlacementActions`.
+
+This needs to be a global tool (not domain-locked) because terrain affects all entity types. The domain `ToolDomain::Flow` already exists in the enum â€” wire it:
+
+```
+EditorEvent::Tool_Water â†’ already transitions HFSM
+ToolDomain::Flow        â†’ already in enum but no interaction code
+TerrainBrush::Stroke    â†’ already has position, radius, strength, layer
+```
+
+In the viewport: hold LMB + drag â†’ sample `world_pos` each frame â†’ call `gs.ApplyTerrainBrush()` â†’ mark `DirtyLayer::ViewportIndex`. The brush radius should render as a world-space circle on the cursor â€” a `AddCircle` at `world_pos` with `WorldToScreenScale(brush_radius)`.
+
+---
+
+**6. Ruler / Measure Tool** There is no distance measurement anywhere in the tool contract. For urban spatial design this is critical â€” a designer needs to know if a road segment is 100m or 400m, whether a district is large enough for its axiom, etc.
+
+Implementation: a global tool with two states (placing first point, dragging to second point). Draw a line from start to cursor, display the world-space distance as a label at the midpoint. Add to `GlobalState`:
+
+```cpp
+struct MeasureState {
+    bool active{ false };
+    Vec2 start{};
+    Vec2 end{};
+    bool has_end{ false };
+};
+MeasureState measure{};
+```
+
+Hotkey: `M`. No `ToolActionId` entry needed â€” it's purely a viewport overlay tool that doesn't mutate city data.
+
+---
+
+**7. Eyedropper / Inspector (`I` key or `Building_Inspect` / `Road_Inspect` subtools)** The `Inspect` subtool exists in every domain's enum (`Road_Inspect`, `District_Inspect`, `Lot_Inspect`, `Building_Inspect`) but has exactly zero interaction code. The `Inspect` concept should be a global cross-domain tool: hover or click any entity, display a floating tooltip with its key properties without changing selection.
+
+This is different from the Property Editor â€” it's inline, zero-click, ephemeral. Implementation: in the hover path of `ProcessNonAxiomViewportInteraction`, when `active_domain` is any `*_Inspect` subtool, render an `ImGui::BeginTooltip()` with the entity's primary fields. Uses `PickFromViewportIndex` + `FindRoad/District/Lot/Building` exactly as the property editor does, but renders at cursor instead.
+
+---
+
+**8. Stamp Tool (Global Axiom Placement)** The `AxiomPlacementTool` and `Viewport_PlaceAxiom` state exist. But Axiom placement right now is a mode fork â€” the code splits at `ProcessAxiomViewportInteraction` vs `ProcessNonAxiomViewportInteraction`, meaning Axiom placement disables all other tools entirely. A stamp tool would let you drop an axiom at cursor position without entering full Axiom mode â€” quick-place from any domain via `Alt+A` or a hotkey, dispatch `DispatchToolAction(ToolActionId::Axiom_Organic, ...)` and return to the previous domain.
+
+---
+
+#### Tier 3 â€” For When 2D Is Solid, Before 40XX
+
+**9. Camera Orbit / Tilt (Pre-3D Prep)** The `SceneFrame` already has `camera_yaw` and the Axiom path already implements orbit via `Alt+LMB` and yaw-aware pan. In 2D this appears as a rotation of the map view â€” useful for aligning roads to screen. In the 40XX path this becomes the pitch/yaw/roll camera for 3D terrain inspection. Wire `camera_yaw` into `BuildSceneFrame()` so it feeds `ViewportOverlays::WorldToScreen()` â€” the yaw rotation is already in the `WorldToScreen` formula using `cos(yaw)` / `sin(yaw)`, it just needs a non-zero input.
+
+**10. Multi-viewport Sync Tool** `gs.config.ui_multi_viewport_enabled` exists, `ViewportSyncManager` is referenced in `SceneControllerUpdateInput`, but there is no UI to manage split-viewport layouts. For a city designer comparing two generation strategies side by side this is high value. Add a global toggle: one viewport locked to bird's-eye, one to street-level inspection. The `SceneFrame` + `SceneControllerUpdateInput` is already structured for this. we can tie this into our mini map and our System Map functionalities 
+
+---
+
+### Mapping to Your Existing Structures
+
+Here is where each global tool fits architecturally:
+
+|Tool|EditorState|ToolActionId|New Dispatch Needed|HFSM Event|
+|---|---|---|---|---|
+|Pan|`Viewport_Pan`|None (MMB/modifier)|No|`Viewport_Pan`|
+|Zoom|None (always active)|None|No|None|
+|Universal Select|`Viewport_Select`|None (`V`)|No|`Viewport_Select`|
+|Frame/Focus|None (`F` hotkey)|None|No|None|
+|Terrain Brush|`Editing_Water` + `Flow` domain|`Future_Flow` (rename)|Yes|`Tool_Water`|
+|Ruler|New global overlay state|None (`M`)|No|None|
+|Inspector|Any `*_Inspect` subtool|Existing inspect IDs|Yes â€” wire handlers|None|
+|Stamp Axiom|`Viewport_PlaceAxiom`|Existing axiom IDs|Yes â€” quick-place path|`AxiomPlaced`|
+|Orbit/Tilt|`Viewport_Pan`|None|No|`Viewport_Pan`|
+
+---

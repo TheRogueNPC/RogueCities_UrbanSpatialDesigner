@@ -59,6 +59,11 @@ void MarkDirtyForSelectionKind(
     RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Editor::VpEntityKind kind);
 
+void PromoteEntityToUserLocked(
+    RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::Core::Editor::VpEntityKind kind,
+    uint32_t id);
+
 [[nodiscard]] RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
 [[nodiscard]] RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
 [[nodiscard]] RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);

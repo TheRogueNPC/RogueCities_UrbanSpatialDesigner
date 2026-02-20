@@ -10,6 +10,7 @@ pushd "%ROOT%" >nul || (echo ERROR: Failed to cd to "%ROOT%". & exit /b 1)
 set "CFG=Release"
 set "CLEAN=0"
 set "VISUALIZER=auto"
+set "BUILD_GUI=auto"
 set "WITH_UI_TOOLCHAIN=0"
 
 :parse_args
@@ -19,6 +20,8 @@ if /I "%~1"=="--release"      (set "CFG=Release" & shift & goto parse_args)
 if /I "%~1"=="--clean"        (set "CLEAN=1"     & shift & goto parse_args)
 if /I "%~1"=="--visualizer"   (set "VISUALIZER=on"  & shift & goto parse_args)
 if /I "%~1"=="--no-visualizer" (set "VISUALIZER=off" & shift & goto parse_args)
+if /I "%~1"=="--gui"          (set "BUILD_GUI=on"   & shift & goto parse_args)
+if /I "%~1"=="--no-gui"       (set "BUILD_GUI=off"  & shift & goto parse_args)
 if /I "%~1"=="--with-ui-toolchain" (set "WITH_UI_TOOLCHAIN=1" & shift & goto parse_args)
 if /I "%~1"=="-h"  goto help
 if /I "%~1"=="--help" goto help
@@ -28,12 +31,14 @@ goto help
 
 :help
 echo.
-echo Usage: StartupBuild.bat [--release ^| --debug] [--visualizer ^| --no-visualizer] [--clean]
+echo Usage: StartupBuild.bat [--release ^| --debug] [--visualizer ^| --no-visualizer] [--gui ^| --no-gui] [--clean]
 echo.
 echo   --release         Build Release (default)
 echo   --debug           Build Debug
 echo   --visualizer      Force building visualizer target(s)
 echo   --no-visualizer   Force skipping visualizer target(s)
+echo   --gui             Force building RogueCityVisualizerGui
+echo   --no-gui          Skip RogueCityVisualizerGui build
 echo   --clean           Delete "build" before configuring
 echo   --with-ui-toolchain  Also build test_ui_toolchain.exe (may require Lua/sol2 setup)
 echo.
@@ -45,6 +50,10 @@ exit /b 2
 set "IMGUI_HDR=%ROOT%3rdparty\imgui\imgui.h"
 if /I "%VISUALIZER%"=="auto" (
   if exist "%IMGUI_HDR%" (set "VISUALIZER=on") else (set "VISUALIZER=off")
+)
+
+if /I "%BUILD_GUI%"=="auto" (
+  if /I "%VISUALIZER%"=="on" (set "BUILD_GUI=on") else (set "BUILD_GUI=off")
 )
 
 set "VISUALIZER_CMAKE=OFF"
@@ -68,6 +77,9 @@ if not exist "%BUILD_DIR%\" mkdir "%BUILD_DIR%" >nul 2>nul
 set "TARGETS=test_core test_generators test_editor_hfsm"
 if /I "%VISUALIZER%"=="on" (
   set "TARGETS=%TARGETS% RogueCityVisualizerHeadless"
+  if /I "%BUILD_GUI%"=="on" (
+    set "TARGETS=%TARGETS% RogueCityVisualizerGui"
+  )
 )
 if "%WITH_UI_TOOLCHAIN%"=="1" (
   set "TARGETS=%TARGETS% test_ui_toolchain"
@@ -204,6 +216,7 @@ del /q "%DEST%\*.exe" >nul 2>nul
 set /a COPIED=0
 
 call :CopyFromDir "%ROOT%build" "%DEST%"
+call :CopyFromDir "%ROOT%bin" "%DEST%"
 call :CopyFromDir "%ROOT%build_core" "%DEST%"
 call :CopyFromDir "%ROOT%build_gui" "%DEST%"
 call :CopyFromDir "%ROOT%build_ninja" "%DEST%"

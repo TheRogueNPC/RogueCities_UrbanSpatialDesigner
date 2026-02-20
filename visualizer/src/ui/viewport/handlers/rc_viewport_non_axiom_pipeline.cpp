@@ -60,18 +60,6 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
     const auto dirty_before = gs.dirty_layers.flags;
     bool selection_click_applied = false;
 
-    const float zoom = params.primary_viewport->world_to_screen_scale(1.0f);
-    const auto interaction_metrics = RC_UI::Tools::BuildToolInteractionMetrics(zoom, gs.config.ui_scale);
-    const auto geometry_policy = RC_UI::Tools::ResolveToolGeometryPolicy(gs, params.editor_state);
-    Handlers::ViewportInteractionContext interaction_context{
-        gs,
-        params.editor_state,
-        result.world_pos,
-        interaction_metrics,
-        geometry_policy,
-        io,
-    };
-
     if (params.allow_viewport_key_actions) {
         if (ImGui::IsKeyPressed(ImGuiKey_G)) {
             gs.gizmo.enabled = true;
@@ -95,7 +83,56 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
 
     Handlers::ApplyToolPreferredGizmoOperation(gs, params.editor_state);
 
-    bool consumed_interaction = Handlers::HandleDomainPlacementStage(interaction_context, *interaction_state);
+    bool navigation_pan_applied = false;
+    bool navigation_zoom_applied = false;
+
+    if (io.MouseWheel != 0.0f) {
+        const float z = params.primary_viewport->get_camera_z();
+        const float factor = std::pow(1.12f, -io.MouseWheel);
+        const float new_z = std::clamp(z * factor, 80.0f, 4000.0f);
+        params.primary_viewport->set_camera_position(params.primary_viewport->get_camera_xy(), new_z);
+        result.world_pos = params.primary_viewport->screen_to_world(params.mouse_pos);
+        navigation_zoom_applied = true;
+    }
+
+    const bool pan =
+        io.MouseDown[ImGuiMouseButton_Middle] ||
+        (io.KeyShift && io.MouseDown[ImGuiMouseButton_Right]);
+    if (pan) {
+        const float z = params.primary_viewport->get_camera_z();
+        const float pan_zoom = 500.0f / std::max(100.0f, z);
+        const float yaw = params.primary_viewport->get_camera_yaw();
+        const float dx = io.MouseDelta.x / pan_zoom;
+        const float dy = io.MouseDelta.y / pan_zoom;
+        const float c = std::cos(yaw);
+        const float s = std::sin(yaw);
+        RogueCity::Core::Vec2 delta_world(dx * c - dy * s, dx * s + dy * c);
+
+        auto cam = params.primary_viewport->get_camera_xy();
+        cam.x -= delta_world.x;
+        cam.y -= delta_world.y;
+        params.primary_viewport->set_camera_position(cam, z);
+        result.world_pos = params.primary_viewport->screen_to_world(params.mouse_pos);
+        gs.hovered_entity.reset();
+        navigation_pan_applied = true;
+    }
+
+    const float zoom = params.primary_viewport->world_to_screen_scale(1.0f);
+    const auto interaction_metrics = RC_UI::Tools::BuildToolInteractionMetrics(zoom, gs.config.ui_scale);
+    const auto geometry_policy = RC_UI::Tools::ResolveToolGeometryPolicy(gs, params.editor_state);
+    Handlers::ViewportInteractionContext interaction_context{
+        gs,
+        params.editor_state,
+        result.world_pos,
+        interaction_metrics,
+        geometry_policy,
+        io,
+    };
+
+    bool consumed_interaction = navigation_pan_applied;
+    if (!consumed_interaction) {
+        consumed_interaction = Handlers::HandleDomainPlacementStage(interaction_context, *interaction_state);
+    }
 
     const auto& selected_items = gs.selection_manager.Items();
     if (!consumed_interaction && gs.gizmo.enabled && !selected_items.empty()) {
@@ -175,6 +212,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
                         if (!seen.insert(Handlers::SelectionKey(item)).second) {
                             continue;
                         }
+                        Handlers::PromoteEntityToUserLocked(gs, item.kind, item.id);
                         Handlers::MarkDirtyForSelectionKind(gs, item.kind);
                     }
                 }
@@ -306,6 +344,10 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         result.handled = true;
         result.outcome = InteractionOutcome::Selection;
         result.status_code = "selection-updated";
+    } else if (navigation_pan_applied || navigation_zoom_applied) {
+        result.handled = true;
+        result.outcome = InteractionOutcome::ActivateOnly;
+        result.status_code = navigation_pan_applied ? "viewport-pan" : "viewport-zoom";
     } else if (consumed_interaction) {
         result.handled = true;
         result.outcome = InteractionOutcome::GizmoInteraction;

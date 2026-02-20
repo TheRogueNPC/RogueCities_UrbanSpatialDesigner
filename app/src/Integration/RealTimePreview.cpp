@@ -89,6 +89,29 @@ void RealTimePreview::request_regeneration(
 
     pending_axioms_ = axioms;
     pending_config_ = config;
+    pending_incremental_ = false;
+    pending_dirty_stages_ = Generators::FullStageMask();
+    regeneration_pending_ = true;
+    time_since_last_request_ = 0.0f;
+
+    if (phase_ == GenerationPhase::StreetsSwept) {
+        phase_ = GenerationPhase::Idle;
+        phase_elapsed_seconds_ = 0.0f;
+    }
+}
+
+void RealTimePreview::request_regeneration_incremental(
+    const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+    const Generators::CityGenerator::Config& config,
+    const Generators::StageMask& dirty_stages) {
+    if (is_generating()) {
+        cancel_inflight_generation();
+    }
+
+    pending_axioms_ = axioms;
+    pending_config_ = config;
+    pending_incremental_ = true;
+    pending_dirty_stages_ = dirty_stages.none() ? Generators::FullStageMask() : dirty_stages;
     regeneration_pending_ = true;
     time_since_last_request_ = 0.0f;
 
@@ -107,10 +130,32 @@ void RealTimePreview::force_regeneration(
 
     pending_axioms_ = axioms;
     pending_config_ = config;
+    pending_incremental_ = false;
+    pending_dirty_stages_ = Generators::FullStageMask();
     regeneration_pending_ = true;
     time_since_last_request_ = debounce_delay_;
 
     // Jump straight into init/start sequence next update.
+    phase_ = GenerationPhase::InitStreetSweeper;
+    phase_elapsed_seconds_ = 0.0f;
+    init_pending_start_ = true;
+}
+
+void RealTimePreview::force_regeneration_incremental(
+    const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+    const Generators::CityGenerator::Config& config,
+    const Generators::StageMask& dirty_stages) {
+    if (is_generating()) {
+        cancel_inflight_generation();
+    }
+
+    pending_axioms_ = axioms;
+    pending_config_ = config;
+    pending_incremental_ = true;
+    pending_dirty_stages_ = dirty_stages.none() ? Generators::FullStageMask() : dirty_stages;
+    regeneration_pending_ = true;
+    time_since_last_request_ = debounce_delay_;
+
     phase_ = GenerationPhase::InitStreetSweeper;
     phase_elapsed_seconds_ = 0.0f;
     init_pending_start_ = true;
@@ -161,13 +206,17 @@ void RealTimePreview::start_generation() {
     // Move the latest request into the worker.
     std::vector<Generators::CityGenerator::AxiomInput> axioms = std::move(pending_axioms_);
     Generators::CityGenerator::Config config = pending_config_;
+    const bool incremental = pending_incremental_;
+    const Generators::StageMask dirty_stages = pending_dirty_stages_;
     pending_axioms_.clear();
+    pending_incremental_ = false;
+    pending_dirty_stages_ = Generators::FullStageMask();
 
     cancellation_token_ = std::make_shared<Generators::CancellationToken>();
     const uint64_t token = generation_token_.fetch_add(1, std::memory_order_relaxed) + 1;
 
     generation_thread_ = std::jthread(
-        [this, token, axioms = std::move(axioms), config, cancellation = cancellation_token_](std::stop_token st) mutable {
+        [this, token, axioms = std::move(axioms), config, incremental, dirty_stages, cancellation = cancellation_token_](std::stop_token st) mutable {
             auto cancel_worker = [&]() {
                 generation_progress_.store(0.0f, std::memory_order_relaxed);
                 is_generating_.store(false, std::memory_order_relaxed);
@@ -180,12 +229,28 @@ void RealTimePreview::start_generation() {
 
             generation_progress_.store(0.1f, std::memory_order_relaxed);
 
-            Generators::CityGenerator generator;
             Generators::GenerationContext context{};
             context.cancellation = cancellation;
             context.max_iterations = static_cast<uint64_t>(std::max(1, config.max_iterations_per_axiom)) *
                 static_cast<uint64_t>(std::max<size_t>(1u, axioms.size())) * 2048ull;
-            auto output = generator.GenerateWithContext(axioms, config, &context);
+            Generators::CityGenerator::CityOutput output{};
+            {
+                std::lock_guard<std::mutex> lock(incremental_generator_mutex_);
+                if (incremental) {
+                    output = incremental_generator_cache_.RegenerateIncremental(
+                        axioms,
+                        config,
+                        dirty_stages,
+                        nullptr,
+                        &context);
+                } else {
+                    output = incremental_generator_cache_.GenerateWithContext(
+                        axioms,
+                        config,
+                        &context,
+                        nullptr);
+                }
+            }
 
             if (st.stop_requested() || (cancellation && cancellation->IsCancelled())) {
                 cancel_worker();

@@ -41,6 +41,16 @@ void GenerationCoordinator::RequestRegeneration(
     preview_.request_regeneration(axioms, config);
 }
 
+void GenerationCoordinator::RequestRegenerationIncremental(
+    const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+    const Generators::CityGenerator::Config& config,
+    const Generators::StageMask& dirty_stages,
+    GenerationRequestReason reason) {
+    ++scheduled_serial_;
+    scheduled_reason_ = reason;
+    preview_.request_regeneration_incremental(axioms, config, dirty_stages);
+}
+
 void GenerationCoordinator::ForceRegeneration(
     const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
     const Generators::CityGenerator::Config& config,
@@ -48,6 +58,16 @@ void GenerationCoordinator::ForceRegeneration(
     ++scheduled_serial_;
     scheduled_reason_ = reason;
     preview_.force_regeneration(axioms, config);
+}
+
+void GenerationCoordinator::ForceRegenerationIncremental(
+    const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+    const Generators::CityGenerator::Config& config,
+    const Generators::StageMask& dirty_stages,
+    GenerationRequestReason reason) {
+    ++scheduled_serial_;
+    scheduled_reason_ = reason;
+    preview_.force_regeneration_incremental(axioms, config, dirty_stages);
 }
 
 void GenerationCoordinator::CancelGeneration() {

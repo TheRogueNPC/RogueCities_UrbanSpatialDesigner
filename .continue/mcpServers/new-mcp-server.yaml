@@ -1,0 +1,50 @@
+name: RogueCities MCP Config
+version: 0.0.1
+schema: v1
+
+mcpServers:
+
+  # ════════════════════════════════════════════════════════
+  # SERENA — Codebase-aware IDE assistant
+  # ════════════════════════════════════════════════════════
+  - name: serena
+    command: uvx
+    args:
+      - --from
+      - git+https://github.com/oraios/serena
+      - serena
+      - start-mcp-server
+      - serena==latest
+      - --context
+      - ide-assistant
+    cwd: D:\Projects\RogueCities\RogueCities_UrbanSpatialDesigner
+    env: {}
+
+  # ════════════════════════════════════════════════════════
+  # DESKTOP COMMANDER — Shell + file ops (zero config)
+  # ════════════════════════════════════════════════════════
+  - name: desktop-commander
+    command: npx
+    args:
+      - -y
+      - "@wonderwhy-er/desktop-commander@0.2.32"
+    env: {}
+
+  # ════════════════════════════════════════════════════════
+  # MARKITDOWN — Convert PDFs/docs/HTML to Markdown
+  # ════════════════════════════════════════════════════════
+  - name: markitdown
+    command: uvx
+    args:
+      - markitdown-mcp==0.0.1a4
+    env: {}
+
+  # ════════════════════════════════════════════════════════
+  # PLAYWRIGHT — Browser automation (zero config)
+  # ════════════════════════════════════════════════════════
+  - name: playwright
+    command: npx
+    args:
+      - -y
+      - "@playwright/mcp@latest"
+    env: {}

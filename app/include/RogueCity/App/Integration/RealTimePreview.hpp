@@ -35,10 +35,22 @@ public:
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config);
 
+    /// Request incremental regeneration for dirty stages (debounced).
+    void request_regeneration_incremental(
+        const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+        const Generators::CityGenerator::Config& config,
+        const Generators::StageMask& dirty_stages);
+
     /// Force immediate regeneration (no debounce)
     void force_regeneration(
         const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
         const Generators::CityGenerator::Config& config);
+
+    /// Force immediate incremental regeneration for dirty stages.
+    void force_regeneration_incremental(
+        const std::vector<Generators::CityGenerator::AxiomInput>& axioms,
+        const Generators::CityGenerator::Config& config,
+        const Generators::StageMask& dirty_stages);
 
     /// Set debounce delay (default: 0.5s)
     void set_debounce_delay(float seconds);
@@ -73,6 +85,8 @@ private:
 
     std::vector<Generators::CityGenerator::AxiomInput> pending_axioms_;
     Generators::CityGenerator::Config pending_config_;
+    bool pending_incremental_{ false };
+    Generators::StageMask pending_dirty_stages_{ Generators::FullStageMask() };
 
     std::unique_ptr<Generators::CityGenerator::CityOutput> current_output_;
 
@@ -83,6 +97,8 @@ private:
     std::jthread generation_thread_;
     std::atomic<uint64_t> generation_token_{ 0 };
     std::shared_ptr<Generators::CancellationToken> cancellation_token_{};
+    Generators::CityGenerator incremental_generator_cache_{};
+    std::mutex incremental_generator_mutex_{};
 
     OnGenerationCompleteCallback on_complete_;
 

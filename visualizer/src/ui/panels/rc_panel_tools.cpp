@@ -6,6 +6,7 @@
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/tools/rc_tool_dispatcher.h"
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>
@@ -13,9 +14,28 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
+#include <string>
 #include <imgui.h>
 
 namespace RC_UI::Panels::Tools {
+
+namespace {
+
+[[nodiscard]] std::optional<RC_UI::Tools::ToolActionId> DefaultLibraryAction(RC_UI::ToolLibrary tool) {
+    using RC_UI::Tools::ToolActionId;
+    switch (tool) {
+        case RC_UI::ToolLibrary::Axiom: return ToolActionId::Axiom_Organic;
+        case RC_UI::ToolLibrary::Water: return ToolActionId::Water_Flow;
+        case RC_UI::ToolLibrary::Road: return ToolActionId::Road_Spline;
+        case RC_UI::ToolLibrary::District: return ToolActionId::District_Zone;
+        case RC_UI::ToolLibrary::Lot: return ToolActionId::Lot_Plot;
+        case RC_UI::ToolLibrary::Building: return ToolActionId::Building_Place;
+    }
+    return std::nullopt;
+}
+
+} // namespace
 
 // AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_BUTTONS
 // Helper to render a tool button with state-reactive highlighting
@@ -26,6 +46,7 @@ static void RenderToolButton(
     RC_UI::ToolLibrary library_tool,
     RogueCity::Core::Editor::EditorHFSM& hfsm,
     RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::UIInt::UiIntrospector& uiint,
     const ImVec2& size)
 {
     using namespace RogueCity::Core::Editor;
@@ -40,7 +61,23 @@ static void RenderToolButton(
     }
     
     if (ImGui::Button(label, size)) {
-        hfsm.handle_event(event, gs);
+        bool dispatched = false;
+        if (const auto default_action = DefaultLibraryAction(library_tool); default_action.has_value()) {
+            std::string dispatch_status;
+            const auto dispatch_result = RC_UI::Tools::DispatchToolAction(
+                *default_action,
+                RC_UI::Tools::DispatchContext{
+                    &hfsm,
+                    &gs,
+                    &uiint,
+                    "Tools"
+                },
+                &dispatch_status);
+            dispatched = dispatch_result == RC_UI::Tools::DispatchResult::Handled;
+        }
+        if (!dispatched) {
+            hfsm.handle_event(event, gs);
+        }
         RC_UI::ActivateToolLibrary(library_tool);
     }
     
@@ -135,6 +172,7 @@ void DrawContent(float dt)
             tool_button.library,
             hfsm,
             gs,
+            uiint,
             button_size);
     }
     

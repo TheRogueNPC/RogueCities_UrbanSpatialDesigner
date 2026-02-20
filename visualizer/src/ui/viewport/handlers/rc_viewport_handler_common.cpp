@@ -318,6 +318,37 @@ void MarkDirtyForSelectionKind(
     RogueCity::Core::Editor::VpEntityKind kind) {
     using RogueCity::Core::Editor::DirtyLayer;
     using RogueCity::Core::Editor::VpEntityKind;
+
+    const auto* primary = gs.selection_manager.Primary();
+    if (primary != nullptr && primary->kind == kind) {
+        PromoteEntityToUserLocked(gs, primary->kind, primary->id);
+    } else {
+        switch (kind) {
+        case VpEntityKind::Road:
+            if (gs.selection.selected_road) {
+                PromoteEntityToUserLocked(gs, kind, gs.selection.selected_road->id);
+            }
+            break;
+        case VpEntityKind::District:
+            if (gs.selection.selected_district) {
+                PromoteEntityToUserLocked(gs, kind, gs.selection.selected_district->id);
+            }
+            break;
+        case VpEntityKind::Lot:
+            if (gs.selection.selected_lot) {
+                PromoteEntityToUserLocked(gs, kind, gs.selection.selected_lot->id);
+            }
+            break;
+        case VpEntityKind::Building:
+            if (gs.selection.selected_building) {
+                PromoteEntityToUserLocked(gs, kind, gs.selection.selected_building->id);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
     switch (kind) {
     case VpEntityKind::Road:
         gs.dirty_layers.MarkDirty(DirtyLayer::Roads);
@@ -343,6 +374,52 @@ void MarkDirtyForSelectionKind(
         break;
     }
     gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+}
+
+void PromoteEntityToUserLocked(
+    RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::Core::Editor::VpEntityKind kind,
+    uint32_t id) {
+    using RogueCity::Core::Editor::VpEntityKind;
+    switch (kind) {
+    case VpEntityKind::Road:
+        if (auto* road = FindRoadMutable(gs, id); road != nullptr) {
+            road->is_user_created = true;
+            road->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            road->generation_locked = true;
+        }
+        break;
+    case VpEntityKind::District:
+        if (auto* district = FindDistrictMutable(gs, id); district != nullptr) {
+            district->is_user_placed = true;
+            district->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            district->generation_locked = true;
+        }
+        break;
+    case VpEntityKind::Lot:
+        if (auto* lot = FindLotMutable(gs, id); lot != nullptr) {
+            lot->is_user_placed = true;
+            lot->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            lot->generation_locked = true;
+        }
+        break;
+    case VpEntityKind::Building:
+        if (auto* building = FindBuildingMutable(gs, id); building != nullptr) {
+            building->is_user_placed = true;
+            building->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            building->generation_locked = true;
+        }
+        break;
+    case VpEntityKind::Water:
+        if (auto* water = FindWaterMutable(gs, id); water != nullptr) {
+            water->is_user_placed = true;
+            water->generation_tag = RogueCity::Core::GenerationTag::M_user;
+            water->generation_locked = true;
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {

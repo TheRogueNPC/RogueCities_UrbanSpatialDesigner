@@ -124,6 +124,7 @@ endif()
         src/ui/viewport/rc_scene_frame.cpp
         src/ui/viewport/rc_minimap_renderer.cpp
         src/ui/viewport/rc_minimap_interaction_math.cpp
+        src/ui/viewport/rc_placement_system.cpp
         src/ui/viewport/rc_viewport_scene_controller.cpp
         src/ui/viewport/handlers/rc_viewport_handler_common.cpp
         src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
@@ -234,6 +235,7 @@ endif()
                 src/ui/viewport/rc_scene_frame.cpp
                 src/ui/viewport/rc_minimap_renderer.cpp
                 src/ui/viewport/rc_minimap_interaction_math.cpp
+                src/ui/viewport/rc_placement_system.cpp
                 src/ui/viewport/rc_viewport_scene_controller.cpp
                 src/ui/viewport/handlers/rc_viewport_handler_common.cpp
                 src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
