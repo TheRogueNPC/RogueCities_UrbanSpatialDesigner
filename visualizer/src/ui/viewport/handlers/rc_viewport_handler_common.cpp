@@ -2,6 +2,11 @@
 
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/segment.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -10,6 +15,31 @@
 namespace RC_UI::Viewport::Handlers {
 
 namespace {
+
+using BoostPoint = boost::geometry::model::d2::point_xy<double>;
+using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+using BoostSegment = boost::geometry::model::segment<BoostPoint>;
+
+bool BuildBoostPolygon(
+    const std::vector<RogueCity::Core::Vec2>& border,
+    BoostPolygon& out_poly) {
+    if (border.size() < 3) {
+        return false;
+    }
+
+    auto& outer = out_poly.outer();
+    outer.clear();
+    outer.reserve(border.size() + 1);
+    for (const auto& p : border) {
+        outer.emplace_back(p.x, p.y);
+    }
+    if (!border.front().equals(border.back())) {
+        outer.emplace_back(border.front().x, border.front().y);
+    }
+
+    boost::geometry::correct(out_poly);
+    return out_poly.outer().size() >= 4;
+}
 
 bool ProbeContainsPoint(
     const RogueCity::Core::Editor::GlobalState& gs,
@@ -137,32 +167,17 @@ uint64_t SelectionKey(const RogueCity::Core::Editor::SelectionItem& item) {
 }
 
 double DistanceToSegment(const RogueCity::Core::Vec2& p, const RogueCity::Core::Vec2& a, const RogueCity::Core::Vec2& b) {
-    const RogueCity::Core::Vec2 ab = b - a;
-    const double ab_len_sq = ab.lengthSquared();
-    if (ab_len_sq <= 1e-9) {
-        return p.distanceTo(a);
-    }
-    const double t = std::clamp((p - a).dot(ab) / ab_len_sq, 0.0, 1.0);
-    const RogueCity::Core::Vec2 proj = a + ab * t;
-    return p.distanceTo(proj);
+    const BoostPoint point(p.x, p.y);
+    const BoostSegment segment(BoostPoint(a.x, a.y), BoostPoint(b.x, b.y));
+    return boost::geometry::distance(point, segment);
 }
 
 bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
-    if (polygon.size() < 3) {
+    BoostPolygon boost_polygon{};
+    if (!BuildBoostPolygon(polygon, boost_polygon)) {
         return false;
     }
-
-    bool inside = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto& pi = polygon[i];
-        const auto& pj = polygon[j];
-        const bool intersect = ((pi.y > point.y) != (pj.y > point.y)) &&
-            (point.x < (pj.x - pi.x) * (point.y - pi.y) / ((pj.y - pi.y) + 1e-12) + pi.x);
-        if (intersect) {
-            inside = !inside;
-        }
-    }
-    return inside;
+    return boost::geometry::covered_by(BoostPoint(point.x, point.y), boost_polygon);
 }
 
 RogueCity::Core::Vec2 PolygonCentroid(const std::vector<RogueCity::Core::Vec2>& points) {

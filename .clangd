@@ -1,0 +1,9 @@
+CompileFlags:
+  CompilationDatabase: build_vs
+---
+If:
+  PathMatch: (^|.*/)(3rdparty|_Temp|docs/generated)/.*
+Diagnostics:
+  Suppress: ["*"]
+Index:
+  Background: Skip

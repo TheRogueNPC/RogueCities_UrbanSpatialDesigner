@@ -1,6 +1,7 @@
 {
   "default": true,
   "ignores": [
-    "docs/**"
+    "docs/**",
+    "_Temp/**"
   ]
 }

@@ -8,7 +8,7 @@
 namespace RogueCity::Generators::Geometry {
 
     enum class Backend : uint8_t {  
-        LegacyGeos = 0,
+        LegacyShim = 0,
         BoostGeometry = 1,
     };
 

@@ -17,6 +17,35 @@ if (-not $env:CMAKE_BUILD_PARALLEL_LEVEL) {
 $env:CTEST_OUTPUT_ON_FAILURE = "1"
 $env:PATH = "$repoRoot\tools;$env:PATH"
 
+# Ensure CMake tools are available in shells that do not inherit system PATH
+$programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
+$cmakeBinCandidates = @(
+    (Join-Path $env:ProgramFiles "CMake\bin"),
+    ($(if ($programFilesX86) { Join-Path $programFilesX86 "CMake\bin" } else { $null }))
+) | Where-Object { $_ }
+
+$cmakeResolved = $false
+foreach ($cmakeBin in $cmakeBinCandidates) {
+    $cmakeExe = Join-Path $cmakeBin "cmake.exe"
+    if (Test-Path $cmakeExe) {
+        if (-not ($env:PATH -split ';' | Where-Object { $_ -ieq $cmakeBin })) {
+            $env:PATH = "$cmakeBin;$env:PATH"
+        }
+        if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            Set-Alias -Name cmake -Value $cmakeExe -Scope Global
+        }
+        $ctestExe = Join-Path $cmakeBin "ctest.exe"
+        if ((Test-Path $ctestExe) -and -not (Get-Command ctest -ErrorAction SilentlyContinue)) {
+            Set-Alias -Name ctest -Value $ctestExe -Scope Global
+        }
+        $cmakeResolved = $true
+        break
+    }
+}
+if (-not $cmakeResolved -and -not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+    Write-Warning "cmake.exe not found in standard locations; rc-cfg/rc-bld may fail."
+}
+
 # Force MSVC to use absolute paths in diagnostics (improves VS Code click-to-open)
 $env:FC = "Absolute" 
 $env:CC = "Absolute"

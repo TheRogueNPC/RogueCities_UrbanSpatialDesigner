@@ -3,7 +3,7 @@
 #include <imgui.h>
 #include <functional>
 #include <string>
-
+//todo ensure that we are not hardcoding contextual popups within our functions and instead are using a more flexible system that allows for different types of contextual interactions (e.g. for building properties, axiom properties, etc.) and that the ContextWindowPopup is designed to be reusable across these different contexts. The popup should be able to display different content and handle different types of input based on the context in which it is used, rather than being tightly coupled to a specific use case like adjusting ring radii. This may involve designing the ContextWindowPopup to accept a more generic content rendering function or data structure that can be customized for each use case, rather than hardcoding it for a specific type of interaction. also consider the user experience of the popup, ensuring that it is intuitive and easy to use across different contexts, and that it provides clear feedback to the user about what they are adjusting and how it will affect the city generation. This may involve adding labels, tooltips, or other UI elements to guide the user in using the popup effectively. 
 namespace RogueCity::App {
 
 /// Context window popup for numeric entry (double-click knob)

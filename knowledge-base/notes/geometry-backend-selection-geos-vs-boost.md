@@ -1,17 +1,16 @@
 ---
-tags: [roguecity, geometry, geos, boost-geometry, cmake-flags]
+tags: [roguecity, geometry, boost-geometry, cmake-flags]
 type: reference
 created: 2026-02-15
 ---
 
-# Geometry Backend Selection (GEOS vs Boost.Geometry)
+# Geometry Backend Selection (Boost.Geometry)
 
-Geometry processing is controlled by `USE_LEGACY_GEOS`; when enabled it prefers GEOS and falls back to a legacy shim, while disabled mode prefers Boost and also falls back to the legacy shim if Boost is unavailable.
+Geometry processing uses Boost.Geometry in this repo. GEOS is not part of the active build path.
 
 ## Relevant Build Flags
-- `-DUSE_LEGACY_GEOS=ON` for GEOS-first mode
-- `-DUSE_LEGACY_GEOS=OFF` for Boost.Geometry-first mode
-- Fallback macros are defined when preferred backend is missing
+- No GEOS toggle is supported.
+- `ROGUECITY_USE_BOOST_GEOMETRY=1` is defined for generators.
 
 ## Source Files
 - `CMakeLists.txt`

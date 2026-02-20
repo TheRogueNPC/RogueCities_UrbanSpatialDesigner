@@ -19,7 +19,7 @@ public:
 
     enum class Mode {
         Idle,              // No interaction
-        Placing,           // Click to place new axiom
+        Placing,           // Click to place new axiom 
         DraggingSize,      // Dragging to set radius
         DraggingAxiom,     // Dragging axiom position
         DraggingKnob,      // Adjusting ring radius via knob
@@ -67,7 +67,7 @@ public:
     /// True while the user is manipulating the tool (placing/dragging)
     [[nodiscard]] bool is_interacting() const;
 
-    // Undo/Redo support
+    // Undo/Redo support // todo remove and integrate with CommandHistory
     [[nodiscard]] bool can_undo() const;
     [[nodiscard]] bool can_redo() const;
     void undo();
@@ -76,6 +76,7 @@ public:
     [[nodiscard]] const char* redo_label() const;
     void push_command(std::unique_ptr<ICommand> cmd);
 
+    //todo this struct captures all relevant properties of an axiom for undo/redo and copy/paste should be incorporated into the command system
     struct AxiomSnapshot {
         int id{ 0 };
         AxiomVisual::AxiomType type{ AxiomVisual::AxiomType::Radial };
@@ -89,8 +90,11 @@ public:
         float stem_branch_angle{ 0.7f };
         float superblock_block_size{ 250.0f };
     };
-
-private:
+//todo this private helper function compares two snapshots for equality (used to determine if a change occurred for undo/redo) needs to be incorporated into the command system if the system doesnt account for this. 
+    static bool SnapshotsEqual(const AxiomSnapshot& a, const AxiomSnapshot& b) {
+        return a.type == b.type &&
+        a.position == b.position &&
+private: 
     AxiomSnapshot snapshot_axiom(const AxiomVisual& axiom) const;
     AxiomVisual* find_axiom(int axiom_id);
 

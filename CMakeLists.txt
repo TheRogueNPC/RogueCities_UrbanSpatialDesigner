@@ -13,9 +13,8 @@ include(CMakePackageConfigHelpers)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Geometry backend migration switches.
-# Keep the legacy path available while Boost.Geometry is validated.
-option(USE_LEGACY_GEOS "Use GEOS instead of Boost.Geometry for geometry backend" ON)
+# Geometry backend.
+# GEOS is not supported in this repo; geometry operations use Boost.Geometry.
 option(ROGUECITY_ENABLE_SLTERRAIN "Enable SLTerrainGeneration integration when present" ON)
 option(ROGUECITY_ENABLE_FASTNOISE2 "Enable FastNoise2 integration when present" OFF)
 option(ROGUECITY_ENABLE_DELAUNATOR "Enable delaunator-cpp integration when present" OFF)
@@ -51,7 +50,7 @@ message(STATUS "===========================================")
 message(STATUS "Building RogueCity Core (MVP Mode)")
 message(STATUS "Ignoring old src/Generator/ code")
 message(STATUS "===========================================")
-message(STATUS "Geometry backend preference: USE_LEGACY_GEOS=${USE_LEGACY_GEOS}")
+message(STATUS "Geometry backend: Boost.Geometry (required)")
 message(STATUS "Optional terrain backend: ROGUECITY_ENABLE_SLTERRAIN=${ROGUECITY_ENABLE_SLTERRAIN}")
 
 # === GLM ===

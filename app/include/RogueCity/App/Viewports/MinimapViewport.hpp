@@ -5,8 +5,7 @@
 
 namespace RogueCity::App {
 
-/// Minimap viewport: 2D orthographic top-down view
-/// Syncs XY with primary viewport (optional), acts as navigation aid
+/// Minimap viewport: 2D orthographic top-down view acts as an overveiw for the entire city making proccess. needs to have contextual interactivity and is just as useful as the editor itself, Syncs XY with primary viewport (optional), acts as navigation aid
 class MinimapViewport {
 public:
     enum class Size { Small, Medium, Large };
@@ -22,10 +21,11 @@ public:
     void set_city_output(const Generators::CityGenerator::CityOutput* output);
 
     /// Camera position (synced or independent)
+    ///todo allow for a toggle to set if synced or independant 
     void set_camera_position(const Core::Vec2& xy);
     [[nodiscard]] Core::Vec2 get_camera_xy() const;
 
-    /// Configuration
+    /// Configuration needs to allow for user control
     void set_size(Size size);
     [[nodiscard]] Size get_size() const;
 

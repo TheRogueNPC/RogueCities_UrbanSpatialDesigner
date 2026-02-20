@@ -74,20 +74,27 @@ public:
     /// Convert to generator input
     [[nodiscard]] Generators::CityGenerator::AxiomInput to_axiom_input() const;
 
+    //this private helper function computes the current decay parameter based on the ring distribution (used for real-time preview generation) needs to be incorporated into the generator bridge if the bridge is responsible for this logic. 
+//todo check the usefulness of-> [[nodiscard]] double compute_decay() const;
 private:
     int id_;
-    AxiomType type_;
-    Core::Vec2 position_{ 0.0, 0.0 };
-    float rotation_{ 0.0 };
-    float decay_{ 2.0 };
+    AxiomType type_; // Determines how the axiom influences generation (radial, grid, etc.)
+    Core::Vec2 position_{ 0.0, 0.0 }; // World coordinates (meters)
+    float rotation_{ 0.0 }; // Radians, for directional axioms (e.g. stem branch angle)
+    float decay_{ 2.0 }; // Overall influence decay (computed from rings, affects generation)
 
-    float organic_curviness_{ 0.5f };
-    int radial_spokes_{ 8 };
-    float loose_grid_jitter_{ 0.15f };
-    float suburban_loop_strength_{ 0.7f };
-    float stem_branch_angle_{ 0.7f };
-    float superblock_block_size_{ 250.0f };
+    float organic_curviness_{ 0.5f }; // For grid axioms: 0 = strict grid, 1 = fully organic 
 
+    int radial_spokes_{ 8 }; // For radial axioms: number of spokes (0 for pure circle influence)
+
+    float loose_grid_jitter_{ 0.15f }; // For grid axioms: max random offset as fraction of cell size (0 = perfect grid, 1 = max jitter)
+
+    float suburban_loop_strength_{ 0.7f }; // For suburban axioms: 0 = no loops (strict tree), 1 = strong loops (more like organic)
+
+    float stem_branch_angle_{ 0.7f }; // For stem axioms: angle in radians between main stem and branches (e.g. 0.7 ~ 40 degrees)
+
+    float superblock_block_size_{ 250.0f }; // For superblock axioms: size of each block in meters
+//todo consider if the ring parameters should be exposed for user editing or if they should be fixed and only used for internal decay computation. If exposed, we would need to add getters/setters for each ring radius to possibly allow independent control of each ring's influence on the decay calculation.
     Ring rings_[3];  // Immediate, Medium, Far influence
     std::vector<std::unique_ptr<RingControlKnob>> knobs_;
     std::unique_ptr<AxiomAnimationController> animator_;
@@ -97,8 +104,7 @@ private:
     bool animation_enabled_{ true };
 };
 
-/// Control knob for adjusting ring radius
-/// Y2K capsule design with double-click popup support
+/// Control knob for adjusting ring radius with double-click popup support
 struct RingControlKnob {
     int ring_index;                  // 0, 1, 2
     Core::Vec2 world_position;       // Position on ring

@@ -2,10 +2,86 @@
 
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace RC_UI::Viewport::Handlers {
+
+namespace {
+
+using BoostPoint = boost::geometry::model::d2::point_xy<double>;
+using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+
+[[nodiscard]] bool BuildBoostPolygon(
+    const std::vector<RogueCity::Core::Vec2>& border,
+    BoostPolygon& out_poly) {
+    if (border.size() < 3) {
+        return false;
+    }
+
+    auto& outer = out_poly.outer();
+    outer.clear();
+    outer.reserve(border.size() + 1);
+    for (const auto& p : border) {
+        outer.emplace_back(p.x, p.y);
+    }
+
+    if (!border.front().equals(border.back())) {
+        outer.emplace_back(border.front().x, border.front().y);
+    }
+
+    boost::geometry::correct(out_poly);
+    return out_poly.outer().size() >= 4;
+}
+
+[[nodiscard]] bool MergeDistrictBordersBoost(
+    const std::vector<RogueCity::Core::Vec2>& primary_border,
+    const std::vector<RogueCity::Core::Vec2>& other_border,
+    std::vector<RogueCity::Core::Vec2>& merged_border) {
+    BoostPolygon primary_poly{};
+    BoostPolygon other_poly{};
+    if (!BuildBoostPolygon(primary_border, primary_poly) ||
+        !BuildBoostPolygon(other_border, other_poly)) {
+        return false;
+    }
+
+    std::vector<BoostPolygon> merged_polygons;
+    boost::geometry::union_(primary_poly, other_poly, merged_polygons);
+    if (merged_polygons.empty()) {
+        return false;
+    }
+
+    const BoostPolygon* best = nullptr;
+    double best_area = -1.0;
+    for (const auto& poly : merged_polygons) {
+        const double area = std::abs(boost::geometry::area(poly));
+        if (area > best_area) {
+            best_area = area;
+            best = &poly;
+        }
+    }
+    if (best == nullptr) {
+        return false;
+    }
+
+    merged_border.clear();
+    merged_border.reserve(best->outer().size());
+    for (const auto& p : best->outer()) {
+        merged_border.emplace_back(p.x(), p.y());
+    }
+    if (!merged_border.empty() && merged_border.front().equals(merged_border.back())) {
+        merged_border.pop_back();
+    }
+
+    return merged_border.size() >= 3;
+}
+
+} // namespace
 
 bool HandleDistrictPlacement(
     ViewportInteractionContext& context,
@@ -58,7 +134,11 @@ bool HandleDistrictPlacement(
                     const uint32_t target_id = target->id;
                     if (RogueCity::Core::District* other = FindDistrictMutable(context.gs, target_id);
                         other != nullptr && !other->border.empty()) {
-                        primary->border.insert(primary->border.end(), other->border.begin(), other->border.end());
+                        std::vector<RogueCity::Core::Vec2> merged_border;
+                        if (!MergeDistrictBordersBoost(primary->border, other->border, merged_border)) {
+                            return false;
+                        }
+                        primary->border = std::move(merged_border);
                         for (size_t i = 0; i < context.gs.districts.size(); ++i) {
                             auto handle = context.gs.districts.createHandleFromData(i);
                             if (handle && handle->id == target_id) {

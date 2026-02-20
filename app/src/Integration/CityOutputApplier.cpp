@@ -3,6 +3,10 @@
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <unordered_map>
@@ -11,6 +15,9 @@
 
 namespace RogueCity::App {
 namespace {
+
+using BoostPoint = boost::geometry::model::d2::point_xy<double>;
+using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 
 void MarkDirtyLayersCleanForScope(
     RogueCity::Core::Editor::GlobalState& gs,
@@ -35,22 +42,23 @@ void MarkDirtyLayersCleanForScope(
     }
 }
 
-bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
-    if (polygon.size() < 3) {
+bool BuildBoostPolygon(const std::vector<RogueCity::Core::Vec2>& border, BoostPolygon& out_poly) {
+    if (border.size() < 3) {
         return false;
     }
 
-    bool inside = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto& a = polygon[i];
-        const auto& b = polygon[j];
-        const bool intersects = ((a.y > point.y) != (b.y > point.y)) &&
-            (point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) + 1e-12) + a.x);
-        if (intersects) {
-            inside = !inside;
-        }
+    auto& outer = out_poly.outer();
+    outer.clear();
+    outer.reserve(border.size() + 1);
+    for (const auto& point : border) {
+        outer.emplace_back(point.x, point.y);
     }
-    return inside;
+    if (!border.front().equals(border.back())) {
+        outer.emplace_back(border.front().x, border.front().y);
+    }
+
+    boost::geometry::correct(out_poly);
+    return out_poly.outer().size() >= 4;
 }
 
 void NormalizeUserMetadata(RogueCity::Core::Road& road) {
@@ -401,6 +409,10 @@ void ApplyCityOutputToGlobalState(
                 if (district.border.size() < 3) {
                     continue;
                 }
+                BoostPolygon district_polygon{};
+                if (!BuildBoostPolygon(district.border, district_polygon)) {
+                    continue;
+                }
 
                 RogueCity::Core::Bounds district_bounds{};
                 district_bounds.min = district.border.front();
@@ -423,7 +435,7 @@ void ApplyCityOutputToGlobalState(
                 for (int y = y0; y <= y1; ++y) {
                     for (int x = x0; x <= x1; ++x) {
                         const RogueCity::Core::Vec2 world = coords.pixelToWorld({x, y});
-                        if (PointInPolygon(world, district.border)) {
+                        if (boost::geometry::covered_by(BoostPoint(world.x, world.y), district_polygon)) {
                             zone_layer.at(x, y) = zone_value;
                         }
                     }

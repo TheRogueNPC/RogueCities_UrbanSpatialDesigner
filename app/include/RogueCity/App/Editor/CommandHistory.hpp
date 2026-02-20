@@ -7,7 +7,7 @@
 
 namespace RogueCity::App {
 
-class ICommand {
+class ICommand { // Interface for editor commands that can be executed, undone, and redone.
 public:
     virtual ~ICommand() = default;
     virtual void Execute() = 0;
@@ -15,7 +15,7 @@ public:
     virtual const char* GetDescription() const = 0;
 };
 
-class CommandHistory {
+class CommandHistory { // Manages a history of editor commands for undo/redo functionality.
 public:
     void Execute(std::unique_ptr<ICommand> cmd);
     void Commit(std::unique_ptr<ICommand> cmd);
@@ -39,7 +39,7 @@ private:
 };
 
 /// Shared editor-wide command history for panels/tools that participate in global undo/redo.
-CommandHistory& GetEditorCommandHistory();
+CommandHistory& GetEditorCommandHistory(); 
 void ResetEditorCommandHistory();
 
 } // namespace RogueCity::App

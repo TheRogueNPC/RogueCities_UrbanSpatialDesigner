@@ -49,12 +49,13 @@ cmake --build build_vs --target RogueCityVisualizerGui --config Release --parall
 cmake -B build_vs -S . -DROGUECITY_BUILD_VISUALIZER=ON
 ```
 
-## Geometry Migration Flags
+## Geometry Backend
 
 ```powershell
-cmake -B build_vs -S . -DUSE_LEGACY_GEOS=ON
-cmake -B build_vs -S . -DUSE_LEGACY_GEOS=OFF
+cmake -B build_vs -S .
 ```
+
+This repo uses Boost.Geometry for geometry processing. GEOS is not part of the active build path.
 
 Recommended dependency install:
 

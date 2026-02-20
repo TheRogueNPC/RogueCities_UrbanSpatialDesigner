@@ -1,5 +1,6 @@
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Tools/IViewportTool.hpp"
+#include <array>
 #include <cmath>
 
 namespace RogueCity::App {
@@ -88,6 +89,26 @@ void PrimaryViewport::update(float delta_time) {
     }
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         active_tool_->on_right_click(world_pos);
+    }
+    if (ImGui::GetIO().MouseWheel != 0.0f) {
+        active_tool_->on_scroll(ImGui::GetIO().MouseWheel, world_pos);
+    }
+
+    constexpr std::array<ImGuiKey, 6> kForwardedKeys{
+        ImGuiKey_Enter,
+        ImGuiKey_Escape,
+        ImGuiKey_Delete,
+        ImGuiKey_Backspace,
+        ImGuiKey_Z,
+        ImGuiKey_Y,
+    };
+    for (ImGuiKey key : kForwardedKeys) {
+        if (ImGui::IsKeyPressed(key, false)) {
+            active_tool_->on_key(key, true);
+        }
+        if (ImGui::IsKeyReleased(key)) {
+            active_tool_->on_key(key, false);
+        }
     }
 }
 
@@ -221,7 +242,16 @@ void PrimaryViewport::set_city_output(const Generators::CityGenerator::CityOutpu
 }
 
 void PrimaryViewport::set_active_tool(IViewportTool* tool) {
+    if (active_tool_ == tool) {
+        return;
+    }
+    if (active_tool_ != nullptr) {
+        active_tool_->on_deactivate(*this);
+    }
     active_tool_ = tool;
+    if (active_tool_ != nullptr) {
+        active_tool_->on_activate(*this);
+    }
 }
 
 IViewportTool* PrimaryViewport::active_tool() const {

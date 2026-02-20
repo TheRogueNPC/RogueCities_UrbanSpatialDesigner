@@ -85,11 +85,12 @@ private:
 
 // === BUILT-IN THEME PRESETS ===
 namespace Themes {
-    ThemeProfile Default();      // Rogue baseline preset (formerly Default)
-    ThemeProfile RedRetro();     // #D12128, #FAE3AC, #01344F
-    ThemeProfile DowntownCity(); // Warm browns + sunset neon accents
-    ThemeProfile Soviet();       // Legacy alias -> DowntownCity
-    ThemeProfile CyberPunk();    // #8A509F, #FA99C5, #0A2670
+    ThemeProfile Default();          // Rogue baseline preset (formerly Default)
+    ThemeProfile RedRetro();         // #D12128, #FAE3AC, #01344F
+    ThemeProfile DowntownCity();     // #1B1B2F, #E94560, #0F3460
+    ThemeProfile RedlightDistrict(); // #C70039, #FF5733, #900C3F
+    ThemeProfile CyberPunk();       // #8A509F, #FA99C5, #0A2670
+    ThemeProfile Tron();            // #0FF, #F0F, #FF0 on black
 }
 
 } // namespace RogueCity::UI

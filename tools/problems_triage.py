@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Pattern, Set, Tuple
 
 
 SEVERITY_WEIGHT = {
@@ -52,6 +53,42 @@ def flatten(payload: dict) -> List[FlatDiagnostic]:
                 )
             )
     return rows
+
+
+def compile_patterns(raw_patterns: List[str], flag_name: str) -> List[Pattern[str]]:
+    patterns: List[Pattern[str]] = []
+    for raw in raw_patterns:
+        try:
+            patterns.append(re.compile(raw))
+        except re.error as exc:
+            raise ValueError(f"Invalid regex for {flag_name}: {raw!r} ({exc})") from exc
+    return patterns
+
+
+def matches_any(text: str, patterns: List[Pattern[str]]) -> bool:
+    return any(pattern.search(text) for pattern in patterns)
+
+
+def filter_rows(
+    rows: List[FlatDiagnostic],
+    sources: Set[str],
+    severities: Set[str],
+    include_paths: List[Pattern[str]],
+    exclude_paths: List[Pattern[str]],
+) -> List[FlatDiagnostic]:
+    filtered: List[FlatDiagnostic] = []
+    for row in rows:
+        normalized_path = row.file_path.replace("\\", "/")
+        if sources and row.source not in sources:
+            continue
+        if severities and row.severity not in severities:
+            continue
+        if include_paths and not matches_any(normalized_path, include_paths):
+            continue
+        if exclude_paths and matches_any(normalized_path, exclude_paths):
+            continue
+        filtered.append(row)
+    return filtered
 
 
 def category_for(row: FlatDiagnostic) -> Tuple[str, str]:
@@ -172,6 +209,30 @@ def main() -> int:
     parser.add_argument("--max-items", type=int, default=10)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--write", default="", help="Optional output path for triage JSON.")
+    parser.add_argument(
+        "--source",
+        action="append",
+        default=[],
+        help="Exact diagnostic source filter. Repeatable (e.g. --source clang --source clangd).",
+    )
+    parser.add_argument(
+        "--severity",
+        action="append",
+        default=[],
+        help="Exact severity filter. Repeatable (e.g. --severity Error).",
+    )
+    parser.add_argument(
+        "--include-path",
+        action="append",
+        default=[],
+        help="Regex for normalized path include filter. Repeatable.",
+    )
+    parser.add_argument(
+        "--exclude-path",
+        action="append",
+        default=[],
+        help="Regex for normalized path exclude filter. Repeatable.",
+    )
     args = parser.parse_args()
 
     path = Path(args.input)
@@ -179,8 +240,21 @@ def main() -> int:
         print(f"[ERROR] Input file not found: {path}")
         return 2
 
+    try:
+        include_patterns = compile_patterns(args.include_path, "--include-path")
+        exclude_patterns = compile_patterns(args.exclude_path, "--exclude-path")
+    except ValueError as exc:
+        print(f"[ERROR] {exc}")
+        return 2
+
     payload = load_export(path)
-    rows = flatten(payload)
+    rows = filter_rows(
+        flatten(payload),
+        sources=set(args.source),
+        severities=set(args.severity),
+        include_paths=include_patterns,
+        exclude_paths=exclude_patterns,
+    )
     summary = summarize(rows)
 
     if args.write:

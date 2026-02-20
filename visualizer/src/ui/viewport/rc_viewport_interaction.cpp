@@ -8,6 +8,11 @@
 #include "ui/tools/rc_tool_geometry_policy.h"
 #include "ui/tools/rc_tool_interaction_metrics.h"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/segment.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -36,6 +41,10 @@ const char* InteractionOutcomeString(InteractionOutcome outcome) {
 }
 
 namespace {
+
+using BoostPoint = boost::geometry::model::d2::point_xy<double>;
+using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+using BoostSegment = boost::geometry::model::segment<BoostPoint>;
 
 void RequestDefaultContextCommandMenu(
     const RogueCity::Core::Editor::EditorConfig& config,
@@ -68,14 +77,9 @@ uint64_t SelectionKey(const RogueCity::Core::Editor::SelectionItem& item) {
 }
 
 double DistanceToSegment(const RogueCity::Core::Vec2& p, const RogueCity::Core::Vec2& a, const RogueCity::Core::Vec2& b) {
-    const RogueCity::Core::Vec2 ab = b - a;
-    const double ab_len_sq = ab.lengthSquared();
-    if (ab_len_sq <= 1e-9) {
-        return p.distanceTo(a);
-    }
-    const double t = std::clamp((p - a).dot(ab) / ab_len_sq, 0.0, 1.0);
-    const RogueCity::Core::Vec2 proj = a + ab * t;
-    return p.distanceTo(proj);
+    const BoostPoint point(p.x, p.y);
+    const BoostSegment segment(BoostPoint(a.x, a.y), BoostPoint(b.x, b.y));
+    return boost::geometry::distance(point, segment);
 }
 
 bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueCity::Core::Vec2>& polygon) {
@@ -83,17 +87,21 @@ bool PointInPolygon(const RogueCity::Core::Vec2& point, const std::vector<RogueC
         return false;
     }
 
-    bool inside = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto& pi = polygon[i];
-        const auto& pj = polygon[j];
-        const bool intersect = ((pi.y > point.y) != (pj.y > point.y)) &&
-            (point.x < (pj.x - pi.x) * (point.y - pi.y) / ((pj.y - pi.y) + 1e-12) + pi.x);
-        if (intersect) {
-            inside = !inside;
-        }
+    BoostPolygon boost_polygon{};
+    auto& outer = boost_polygon.outer();
+    outer.clear();
+    outer.reserve(polygon.size() + 1);
+    for (const auto& p : polygon) {
+        outer.emplace_back(p.x, p.y);
     }
-    return inside;
+    if (!polygon.front().equals(polygon.back())) {
+        outer.emplace_back(polygon.front().x, polygon.front().y);
+    }
+    boost::geometry::correct(boost_polygon);
+    if (boost_polygon.outer().size() < 4) {
+        return false;
+    }
+    return boost::geometry::covered_by(BoostPoint(point.x, point.y), boost_polygon);
 }
 
 RogueCity::Core::Vec2 PolygonCentroid(const std::vector<RogueCity::Core::Vec2>& points) {
@@ -1243,8 +1251,11 @@ AxiomInteractionResult ProcessAxiomViewportInteraction(const AxiomInteractionPar
     result.has_world_pos = true;
     result.world_pos = params.primary_viewport->screen_to_world(params.mouse_pos);
 
-    const bool orbit = io.KeyAlt && io.MouseDown[ImGuiMouseButton_Left];
-    const bool pan = io.MouseDown[ImGuiMouseButton_Middle] || (io.KeyShift && io.MouseDown[ImGuiMouseButton_Right]);
+    const bool orbit = io.KeyAlt &&
+        (io.MouseDown[ImGuiMouseButton_Left] || io.MouseDown[ImGuiMouseButton_Middle]);
+    const bool pan =
+        ((!io.KeyAlt) && io.MouseDown[ImGuiMouseButton_Middle]) ||
+        (io.KeyShift && io.MouseDown[ImGuiMouseButton_Right]);
     const bool zoom_drag = io.KeyCtrl && io.MouseDown[ImGuiMouseButton_Right];
     result.nav_active = orbit || pan || zoom_drag;
 

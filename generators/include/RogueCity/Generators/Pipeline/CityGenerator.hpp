@@ -115,9 +115,9 @@ public:
         // When false, only explicitly requested stages run (no downstream cascade).
         bool cascade_downstream{ true };
         // When true, seed sampling is constrained to axiom influence volumes.
-        bool constrain_seeds_to_axiom_bounds{ false };
-        // When true, traced roads are clipped to axiom influence volumes.
-        bool constrain_roads_to_axiom_bounds{ false };
+        bool constrain_seeds_to_axiom_bounds{ true };
+        // When true, generated geometry is clipped/filtered to axiom influence volumes.
+        bool constrain_roads_to_axiom_bounds{ true };
     };
 
     CityGenerator() = default;

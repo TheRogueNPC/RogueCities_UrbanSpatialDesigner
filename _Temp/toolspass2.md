@@ -1470,7 +1470,7 @@ This costs zero architectural work — the hook is already there. Wire it up in 
 
 1. **Square placement is the only placement shape.** There is no freehand paint, no polygon draw, no circular brush. The district boundary editor requires manual vertex manipulation after placement
     
-2. **The Merge is broken topologically.** Concatenating two separate polygon's border points does not produce a merged polygon — it creates a star shape or figure-8. A proper merge needs a union operation (GEOS is already in your stack)
+2. **The Merge is broken topologically.** Concatenating two separate polygon's border points does not produce a merged polygon — it creates a star shape or figure-8. A proper merge needs a union operation (use Boost.Geometry union_ instead)
     
 3. **`Split` subtool has no viewport interaction.** The `DistrictSubtool::Split` name exists but the interaction code only uses it to trigger `insert_mode` — there is no click-to-slice-district behavior
     
@@ -2229,7 +2229,7 @@ AxiomPlacementTool has a working undo/redo pattern (ICommand + CommandHistory). 
 
 ## PART 4: Y2K MAP VISUALIZATION UPGRADE
 
-The current renderer has the bones of the Y2K aesthetic already: deep blue-black bg `IM_COL32(15,20,30)`, cyan roads, magenta districts, subtle grid. Here is how to push it to full **Y2K cockpit cartography**.[](https://raw.githubusercontent.com/TheRogueNPC/RogueCities_UrbanSpatialDesigner/main/app/src/Viewports/PrimaryViewport.cpp)​
+
 
 ## Color System — Replace the flat palette with a semantic one added to our token system
 

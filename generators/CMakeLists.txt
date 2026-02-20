@@ -92,37 +92,37 @@ target_include_directories(RogueCityGenerators
         $<INSTALL_INTERFACE:include>
 )
 
-# Geometry backend selection for incremental GEOS -> Boost migration.
-if(USE_LEGACY_GEOS)
-    find_package(GEOS CONFIG QUIET)
-    if(GEOS_FOUND)
-        target_link_libraries(RogueCityGenerators PUBLIC GEOS::geos_c)
-        target_compile_definitions(RogueCityGenerators PUBLIC
-            ROGUECITY_USE_LEGACY_GEOS=1
-            ROGUECITY_HAS_GEOS=1
-        )
-        message(STATUS "Generators geometry backend: GEOS")
-    else()
-        target_compile_definitions(RogueCityGenerators PUBLIC
-            ROGUECITY_USE_LEGACY_GEOS=1
-            ROGUECITY_GEOMETRY_LEGACY_SHIM=1
-        )
-        message(STATUS "USE_LEGACY_GEOS=ON but GEOS was not found. Using legacy shim backend.")
-    endif()
-else()
-    find_package(Boost QUIET)
-    if(Boost_FOUND)
-        target_include_directories(RogueCityGenerators PRIVATE ${Boost_INCLUDE_DIRS})
-        target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
-        message(STATUS "Generators geometry backend: Boost.Geometry")
-    else()
-        target_compile_definitions(RogueCityGenerators PUBLIC
-            ROGUECITY_USE_LEGACY_GEOS=1
-            ROGUECITY_GEOMETRY_LEGACY_SHIM=1
-        )
-        message(WARNING "USE_LEGACY_GEOS=OFF but Boost was not found. Falling back to legacy shim backend.")
-    endif()
+# Geometry backend selection.
+# This repo uses Boost.Geometry only (header-only).
+set(_roguecity_boost_hints
+    "${CMAKE_SOURCE_DIR}/3rdparty/boost_1_87_0"
+    "${CMAKE_SOURCE_DIR}/3rdparty/boost"
+    "${CMAKE_SOURCE_DIR}/3rdparty/boost/include"
+    "$ENV{BOOST_ROOT}"
+    "$ENV{BOOST_INCLUDEDIR}"
+    "C:/vcpkg/installed/x64-windows/include"
+)
+
+find_path(ROGUECITY_BOOST_INCLUDE_DIR
+    NAMES boost/geometry.hpp
+    HINTS ${_roguecity_boost_hints}
+)
+
+if(NOT ROGUECITY_BOOST_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "Boost headers not found (boost/geometry.hpp).\n"
+        "Checked hints:\n"
+        "  - ${_roguecity_boost_hints}\n"
+        "Set BOOST_ROOT or BOOST_INCLUDEDIR, or provide 3rdparty/boost."
+    )
 endif()
+
+target_include_directories(RogueCityGenerators
+    PUBLIC
+        $<BUILD_INTERFACE:${ROGUECITY_BOOST_INCLUDE_DIR}>
+)
+target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
+message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
 
 # Optional SLTerrainGeneration integration (header-first fallback).
 if(ROGUECITY_ENABLE_SLTERRAIN)

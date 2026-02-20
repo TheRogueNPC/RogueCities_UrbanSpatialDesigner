@@ -1,5 +1,10 @@
 #include "ui/panels/rc_system_map_query.h"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/segment.hpp>
+
 #include <algorithm>
 #include <limits>
 
@@ -7,18 +12,17 @@ namespace RC_UI::Panels::SystemMap {
 
 namespace {
 
+using BoostPoint = boost::geometry::model::d2::point_xy<double>;
+using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+using BoostSegment = boost::geometry::model::segment<BoostPoint>;
+
 [[nodiscard]] float DistanceToSegment(
     const RogueCity::Core::Vec2& p,
     const RogueCity::Core::Vec2& a,
     const RogueCity::Core::Vec2& b) {
-    const RogueCity::Core::Vec2 ab = b - a;
-    const double ab_len_sq = ab.lengthSquared();
-    if (ab_len_sq <= 1e-9) {
-        return static_cast<float>(p.distanceTo(a));
-    }
-    const double t = std::clamp((p - a).dot(ab) / ab_len_sq, 0.0, 1.0);
-    const RogueCity::Core::Vec2 proj = a + ab * t;
-    return static_cast<float>(p.distanceTo(proj));
+    const BoostPoint point(p.x, p.y);
+    const BoostSegment segment(BoostPoint(a.x, a.y), BoostPoint(b.x, b.y));
+    return static_cast<float>(boost::geometry::distance(point, segment));
 }
 
 [[nodiscard]] bool PointInPolygon(
@@ -28,17 +32,21 @@ namespace {
         return false;
     }
 
-    bool inside = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto& a = polygon[i];
-        const auto& b = polygon[j];
-        const bool intersects = ((a.y > point.y) != (b.y > point.y)) &&
-            (point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) + 1e-12) + a.x);
-        if (intersects) {
-            inside = !inside;
-        }
+    BoostPolygon boost_polygon{};
+    auto& outer = boost_polygon.outer();
+    outer.clear();
+    outer.reserve(polygon.size() + 1);
+    for (const auto& p : polygon) {
+        outer.emplace_back(p.x, p.y);
     }
-    return inside;
+    if (!polygon.front().equals(polygon.back())) {
+        outer.emplace_back(polygon.front().x, polygon.front().y);
+    }
+    boost::geometry::correct(boost_polygon);
+    if (boost_polygon.outer().size() < 4) {
+        return false;
+    }
+    return boost::geometry::covered_by(BoostPoint(point.x, point.y), boost_polygon);
 }
 
 [[nodiscard]] RogueCity::Core::Vec2 PolygonCentroid(const std::vector<RogueCity::Core::Vec2>& points) {

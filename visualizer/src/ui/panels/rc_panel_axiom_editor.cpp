@@ -1891,7 +1891,9 @@ void DrawContent(float dt) {
                 gs.tool_runtime.explicit_generation_pending = true;
             } else {
                 const auto plan = RC_UI::Viewport::BuildPlacementGenerationPlan(gs.dirty_layers);
-                if (plan.use_incremental) {
+                const bool allow_incremental_live_pipeline =
+                    !gs.tool_runtime.explicit_generation_pending;
+                if (plan.use_incremental && allow_incremental_live_pipeline) {
                     s_generation_coordinator->RequestRegenerationIncremental(
                         axiom_inputs,
                         config,

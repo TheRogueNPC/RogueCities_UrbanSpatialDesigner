@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
-
+//todo [[MISSION CRITICAL]] ensure that all UI code references DesignTokens for colors, spacing, and timing, and that no hardcoded values are used outside of this file. This is essential for maintaining a consistent design language across the entire application and for enabling easy updates to the design system in the future. Additionally, consider implementing static analysis checks or code review guidelines to enforce this rule and prevent design drift over time. The DesignSystem class should be the only place where ImGui style settings are defined, and all UI components should reference the tokens defined in DesignTokens for their styling needs. This will help ensure that our UI remains cohesive and true to our Cockpit Doctrine design principles as we continue to develop and expand the application.
 namespace RogueCity::UI {
 
 // ============================================================================

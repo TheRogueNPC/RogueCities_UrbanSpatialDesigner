@@ -50,6 +50,22 @@ int main() {
     const auto revalidated = generator.RegenerateIncremental(axioms, cfg, validation_only);
     assert(revalidated.roads.size() == incremental.roads.size());
 
+    // Non-cascading partial execution must only emit requested layers.
+    CityGenerator::StageOptions preview{};
+    preview.use_cache = false;
+    preview.cascade_downstream = false;
+    preview.stages_to_run.reset();
+    MarkStageDirty(preview.stages_to_run, GenerationStage::Terrain);
+    MarkStageDirty(preview.stages_to_run, GenerationStage::TensorField);
+    MarkStageDirty(preview.stages_to_run, GenerationStage::Roads);
+    const auto preview_output = generator.GenerateStages(axioms, cfg, preview);
+    assert(preview_output.roads.size() > 0);
+    assert(preview_output.districts.empty());
+    assert(preview_output.blocks.empty());
+    assert(preview_output.lots.empty());
+    assert(preview_output.buildings.empty());
+    assert(preview_output.plan_violations.empty());
+
     // Stage dependency cascade: tensor dirty should regenerate downstream and match a full generation.
     auto moved_axioms = axioms;
     moved_axioms[0].position = Vec2(820.0, 980.0);

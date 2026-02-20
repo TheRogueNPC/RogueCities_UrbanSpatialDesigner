@@ -275,15 +275,13 @@ Backend GeometryAdapter::backend() noexcept {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     return Backend::BoostGeometry;
 #else
-    return Backend::LegacyGeos;
+    return Backend::LegacyShim;
 #endif
 }
 
 const char* GeometryAdapter::backendName() noexcept {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     return "Boost.Geometry";
-#elif defined(ROGUECITY_HAS_GEOS)
-    return "GEOS";
 #else
     return "LegacyShim";
 #endif

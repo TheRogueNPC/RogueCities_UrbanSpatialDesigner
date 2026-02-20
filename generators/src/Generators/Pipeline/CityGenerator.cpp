@@ -150,6 +150,83 @@ void AssertTextureMatchesConstraints(
     return clipped;
 }
 
+[[nodiscard]] Core::Vec2 PolygonCentroid(const std::vector<Core::Vec2>& polygon) {
+    if (polygon.empty()) {
+        return {};
+    }
+
+    Core::Vec2 centroid{};
+    for (const auto& p : polygon) {
+        centroid += p;
+    }
+    centroid /= static_cast<double>(polygon.size());
+    return centroid;
+}
+
+[[nodiscard]] bool PolygonTouchesAnyAxiom(
+    const std::vector<Core::Vec2>& polygon,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    if (polygon.empty()) {
+        return false;
+    }
+
+    return PointInsideAnyAxiom(PolygonCentroid(polygon), axioms);
+}
+
+[[nodiscard]] std::vector<Core::District> ClipDistrictsToAxiomInfluence(
+    const std::vector<Core::District>& districts,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    if (axioms.empty()) {
+        return districts;
+    }
+
+    std::vector<Core::District> clipped{};
+    clipped.reserve(districts.size());
+    for (const auto& district : districts) {
+        if (PolygonTouchesAnyAxiom(district.border, axioms)) {
+            clipped.push_back(district);
+        }
+    }
+    return clipped;
+}
+
+[[nodiscard]] std::vector<Core::LotToken> ClipLotsToAxiomInfluence(
+    const std::vector<Core::LotToken>& lots,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    if (axioms.empty()) {
+        return lots;
+    }
+
+    std::vector<Core::LotToken> clipped{};
+    clipped.reserve(lots.size());
+    for (const auto& lot : lots) {
+        const bool inside =
+            !lot.boundary.empty()
+            ? PolygonTouchesAnyAxiom(lot.boundary, axioms)
+            : PointInsideAnyAxiom(lot.centroid, axioms);
+        if (inside) {
+            clipped.push_back(lot);
+        }
+    }
+    return clipped;
+}
+
+[[nodiscard]] siv::Vector<Core::BuildingSite> ClipBuildingsToAxiomInfluence(
+    const siv::Vector<Core::BuildingSite>& buildings,
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    if (axioms.empty()) {
+        return buildings;
+    }
+
+    siv::Vector<Core::BuildingSite> clipped{};
+    for (const auto& building : buildings) {
+        if (PointInsideAnyAxiom(building.position, axioms)) {
+            clipped.push_back(building);
+        }
+    }
+    return clipped;
+}
+
 [[nodiscard]] bool TerrainConfigEqual(
     const TerrainConstraintGenerator::Config& a,
     const TerrainConstraintGenerator::Config& b) {
@@ -538,7 +615,13 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     const auto should_run_stage = [&](GenerationStage stage) {
         const bool dirty_stage = IsStageDirty(dirty, stage);
         const bool cached_stage = cache_.valid_stages.test(StageIndex(stage));
-        return !options.use_cache || dirty_stage || !cached_stage;
+        if (!options.cascade_downstream) {
+            return dirty_stage;
+        }
+        if (!options.use_cache) {
+            return dirty_stage;
+        }
+        return dirty_stage || !cached_stage;
     };
 
     const auto copy_cache_to_output = [&]() {
@@ -552,6 +635,39 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
         output.buildings = cache_.buildings;
         output.plan_violations = cache_.plan_violations;
         output.plan_approved = cache_.plan_approved;
+    };
+
+    const auto trim_output_for_partial_stages = [&]() {
+        if (options.cascade_downstream) {
+            return;
+        }
+
+        if (!IsStageDirty(dirty, GenerationStage::Terrain)) {
+            output.world_constraints = WorldConstraintField{};
+            output.site_profile = SiteProfile{};
+        }
+        if (!IsStageDirty(dirty, GenerationStage::TensorField)) {
+            output.tensor_field = TensorFieldGenerator{};
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Roads)) {
+            output.roads.clear();
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Districts)) {
+            output.districts.clear();
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Blocks)) {
+            output.blocks.clear();
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Lots)) {
+            output.lots.clear();
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Buildings)) {
+            output.buildings.clear();
+        }
+        if (!IsStageDirty(dirty, GenerationStage::Validation)) {
+            output.plan_violations.clear();
+            output.plan_approved = true;
+        }
     };
 
     // Stage 0: Terrain constraints and site profile.
@@ -584,6 +700,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -603,6 +720,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -636,6 +754,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -643,6 +762,9 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     // Stage 3: Districts.
     if (should_run_stage(GenerationStage::Districts)) {
         cache_.districts = classifyDistricts(cache_.roads, constraints, context);
+        if (options.constrain_roads_to_axiom_bounds) {
+            cache_.districts = ClipDistrictsToAxiomInfluence(cache_.districts, axioms);
+        }
         cache_.valid_stages.set(StageIndex(GenerationStage::Districts), true);
     }
 
@@ -654,6 +776,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -666,6 +789,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -674,11 +798,15 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     if (should_run_stage(GenerationStage::Lots)) {
         const SiteProfile* site_profile = constraints != nullptr ? &cache_.site_profile : nullptr;
         cache_.lots = generateLots(cache_.roads, cache_.districts, cache_.blocks, site_profile, context);
+        if (options.constrain_roads_to_axiom_bounds) {
+            cache_.lots = ClipLotsToAxiomInfluence(cache_.lots, axioms);
+        }
         cache_.valid_stages.set(StageIndex(GenerationStage::Lots), true);
     }
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -694,11 +822,15 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
                 cache_.districts,
                 *texture_space);
         }
+        if (options.constrain_roads_to_axiom_bounds) {
+            cache_.buildings = ClipBuildingsToAxiomInfluence(cache_.buildings, axioms);
+        }
         cache_.valid_stages.set(StageIndex(GenerationStage::Buildings), true);
     }
 
     if (ShouldAbort(context)) {
         copy_cache_to_output();
+        trim_output_for_partial_stages();
         output.plan_approved = false;
         return output;
     }
@@ -724,6 +856,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
     }
 
     copy_cache_to_output();
+    trim_output_for_partial_stages();
     return output;
 }
 

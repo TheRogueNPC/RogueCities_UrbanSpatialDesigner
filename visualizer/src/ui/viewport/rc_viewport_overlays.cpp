@@ -4,6 +4,7 @@
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "RogueCity/App/UI/ThemeManager.h"
 #include <imgui.h>
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -100,6 +101,101 @@ bool ResolveAnchorForItem(
     default:
         return false;
     }
+}
+
+double SignedArea2D(const std::vector<ImVec2>& points) {
+    if (points.size() < 3) {
+        return 0.0;
+    }
+    double area2 = 0.0;
+    for (size_t i = 0; i < points.size(); ++i) {
+        const size_t j = (i + 1) % points.size();
+        area2 += static_cast<double>(points[i].x) * static_cast<double>(points[j].y) -
+            static_cast<double>(points[j].x) * static_cast<double>(points[i].y);
+    }
+    return area2;
+}
+
+double Cross2D(const ImVec2& a, const ImVec2& b, const ImVec2& c) {
+    return static_cast<double>(b.x - a.x) * static_cast<double>(c.y - a.y) -
+        static_cast<double>(b.y - a.y) * static_cast<double>(c.x - a.x);
+}
+
+bool PointInTriangle(const ImVec2& p, const ImVec2& a, const ImVec2& b, const ImVec2& c) {
+    const double c0 = Cross2D(a, b, p);
+    const double c1 = Cross2D(b, c, p);
+    const double c2 = Cross2D(c, a, p);
+    const bool has_neg = (c0 < 0.0) || (c1 < 0.0) || (c2 < 0.0);
+    const bool has_pos = (c0 > 0.0) || (c1 > 0.0) || (c2 > 0.0);
+    return !(has_neg && has_pos);
+}
+
+bool TriangulateSimplePolygon(const std::vector<ImVec2>& points, std::vector<uint32_t>& out_indices) {
+    out_indices.clear();
+    if (points.size() < 3) {
+        return false;
+    }
+
+    std::vector<uint32_t> vertices(points.size());
+    for (uint32_t i = 0; i < static_cast<uint32_t>(points.size()); ++i) {
+        vertices[i] = i;
+    }
+
+    if (SignedArea2D(points) < 0.0) {
+        std::reverse(vertices.begin(), vertices.end());
+    }
+
+    const double epsilon = 1e-8;
+    size_t fail_safe = 0;
+    while (vertices.size() > 2) {
+        bool ear_found = false;
+        for (size_t i = 0; i < vertices.size(); ++i) {
+            const size_t prev_i = (i + vertices.size() - 1) % vertices.size();
+            const size_t next_i = (i + 1) % vertices.size();
+            const uint32_t a_i = vertices[prev_i];
+            const uint32_t b_i = vertices[i];
+            const uint32_t c_i = vertices[next_i];
+            const ImVec2& a = points[a_i];
+            const ImVec2& b = points[b_i];
+            const ImVec2& c = points[c_i];
+
+            if (Cross2D(a, b, c) <= epsilon) {
+                continue;
+            }
+
+            bool contains_vertex = false;
+            for (size_t j = 0; j < vertices.size(); ++j) {
+                const uint32_t p_i = vertices[j];
+                if (p_i == a_i || p_i == b_i || p_i == c_i) {
+                    continue;
+                }
+                if (PointInTriangle(points[p_i], a, b, c)) {
+                    contains_vertex = true;
+                    break;
+                }
+            }
+            if (contains_vertex) {
+                continue;
+            }
+
+            out_indices.push_back(a_i);
+            out_indices.push_back(b_i);
+            out_indices.push_back(c_i);
+            vertices.erase(vertices.begin() + static_cast<std::ptrdiff_t>(i));
+            ear_found = true;
+            break;
+        }
+
+        if (!ear_found) {
+            break;
+        }
+        ++fail_safe;
+        if (fail_safe > points.size() * points.size()) {
+            break;
+        }
+    }
+
+    return !out_indices.empty() && out_indices.size() % 3 == 0;
 }
 
 } // namespace
@@ -576,7 +672,17 @@ void ViewportOverlays::DrawPolygon(const std::vector<RogueCity::Core::Vec2>& poi
 
     const ImU32 fill = ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, color.a));
     const ImU32 outline = ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, std::min(color.a + 0.2f, 1.0f)));
-    draw_list->AddConvexPolyFilled(screen_points.data(), static_cast<int>(screen_points.size()), fill);
+    std::vector<uint32_t> triangle_indices;
+    if (TriangulateSimplePolygon(screen_points, triangle_indices)) {
+        for (size_t i = 0; i + 2 < triangle_indices.size(); i += 3) {
+            const ImVec2& a = screen_points[triangle_indices[i]];
+            const ImVec2& b = screen_points[triangle_indices[i + 1]];
+            const ImVec2& c = screen_points[triangle_indices[i + 2]];
+            draw_list->AddTriangleFilled(a, b, c, fill);
+        }
+    } else {
+        draw_list->AddConvexPolyFilled(screen_points.data(), static_cast<int>(screen_points.size()), fill);
+    }
     draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), outline, true, 1.0f);
 }
 
@@ -627,7 +733,8 @@ ImVec2 ViewportOverlays::WorldToScreen(const RogueCity::Core::Vec2& world_pos) c
     const RogueCity::Core::Vec2 rel(world_pos.x - view_transform_.camera_xy.x, world_pos.y - view_transform_.camera_xy.y);
     const float c = std::cos(view_transform_.yaw);
     const float s = std::sin(view_transform_.yaw);
-    const RogueCity::Core::Vec2 rotated(rel.x * c - rel.y * s, rel.x * s + rel.y * c);
+    // Keep overlay projection consistent with PrimaryViewport::world_to_screen (R(-yaw)).
+    const RogueCity::Core::Vec2 rotated(rel.x * c + rel.y * s, -rel.x * s + rel.y * c);
 
     return ImVec2(
         vp_pos.x + vp_size.x * 0.5f + static_cast<float>(rotated.x) * view_transform_.zoom,
@@ -1055,6 +1162,11 @@ void ViewportOverlays::RenderGridOverlay(const RogueCity::Core::Editor::GlobalSt
     if (!gs.config.show_grid_overlay) {
         return;
     }
+    if (view_transform_.viewport_size.x <= 0.0f ||
+        view_transform_.viewport_size.y <= 0.0f ||
+        view_transform_.zoom <= 1e-6f) {
+        return;
+    }
     
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     auto& theme_mgr = ::RogueCity::UI::ThemeManager::Instance();
@@ -1068,19 +1180,46 @@ void ViewportOverlays::RenderGridOverlay(const RogueCity::Core::Editor::GlobalSt
     // Grid spacing: 50px in world space (adjust per zoom if needed)
     const double grid_spacing = 50.0;
     
-    // Calculate visible bounds in world space
+    // Calculate visible bounds in world space from the four viewport corners.
     const ImVec2 viewport_min = view_transform_.viewport_pos;
     const ImVec2 viewport_max = ImVec2(
         viewport_min.x + view_transform_.viewport_size.x,
         viewport_min.y + view_transform_.viewport_size.y
     );
-    
-    // Compute world bounds from viewport (simple approximation)
-    // For proper implementation, invert camera projection
-    const double world_min_x = view_transform_.camera_xy.x - view_transform_.viewport_size.x / (2.0 * view_transform_.zoom);
-    const double world_max_x = view_transform_.camera_xy.x + view_transform_.viewport_size.x / (2.0 * view_transform_.zoom);
-    const double world_min_y = view_transform_.camera_xy.y - view_transform_.viewport_size.y / (2.0 * view_transform_.zoom);
-    const double world_max_y = view_transform_.camera_xy.y + view_transform_.viewport_size.y / (2.0 * view_transform_.zoom);
+
+    const float c = std::cos(view_transform_.yaw);
+    const float s = std::sin(view_transform_.yaw);
+    const auto screen_to_world = [&](const ImVec2& screen_pos) -> RogueCity::Core::Vec2 {
+        const float nx = (screen_pos.x - viewport_min.x) / view_transform_.viewport_size.x - 0.5f;
+        const float ny = (screen_pos.y - viewport_min.y) / view_transform_.viewport_size.y - 0.5f;
+        const RogueCity::Core::Vec2 view(
+            static_cast<double>(nx * view_transform_.viewport_size.x / view_transform_.zoom),
+            static_cast<double>(ny * view_transform_.viewport_size.y / view_transform_.zoom));
+        const RogueCity::Core::Vec2 rel(
+            view.x * c - view.y * s,
+            view.x * s + view.y * c);
+        return RogueCity::Core::Vec2(
+            view_transform_.camera_xy.x + rel.x,
+            view_transform_.camera_xy.y + rel.y);
+    };
+
+    const std::array<RogueCity::Core::Vec2, 4> corners{
+        screen_to_world(viewport_min),
+        screen_to_world(ImVec2(viewport_max.x, viewport_min.y)),
+        screen_to_world(viewport_max),
+        screen_to_world(ImVec2(viewport_min.x, viewport_max.y))
+    };
+
+    double world_min_x = corners[0].x;
+    double world_max_x = corners[0].x;
+    double world_min_y = corners[0].y;
+    double world_max_y = corners[0].y;
+    for (const auto& corner : corners) {
+        world_min_x = std::min(world_min_x, corner.x);
+        world_max_x = std::max(world_max_x, corner.x);
+        world_min_y = std::min(world_min_y, corner.y);
+        world_max_y = std::max(world_max_y, corner.y);
+    }
     
     // Snap to grid multiples
     const int grid_start_x = static_cast<int>(std::floor(world_min_x / grid_spacing)) - 1;
