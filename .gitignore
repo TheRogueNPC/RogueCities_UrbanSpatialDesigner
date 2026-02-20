@@ -20,3 +20,14 @@ imgui.ini
 /mcp-server/
 /3rdparty/vcpkg/
 .vscode/mcp.json
+
+# Vendored/third-party dependencies (managed externally)
+/3rdparty/boost_1_87_0/
+/3rdparty/glfw/
+/3rdparty/imgui/
+/3rdparty/magic_enum/
+/3rdparty/ymery-cpp/
+
+# Common local artifacts
+/vcpkg_installed/
+/build/

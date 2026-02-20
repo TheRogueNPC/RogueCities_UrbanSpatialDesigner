@@ -1,29 +1,37 @@
 [submodule "3rdparty/ImDesignManager"]
 	path = 3rdparty/ImDesignManager
 	url = https://github.com/Toikron/ImDesignManager.git
+	ignore = dirty
 
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
 	url = https://github.com/g-truc/glm.git
+	ignore = dirty
 
 [submodule "3rdparty/magic_enum"]
 	path = 3rdparty/magic_enum
 	url = https://github.com/Neargye/magic_enum.git
+	ignore = dirty
 
 [submodule "3rdparty/sol2"]
 	path = 3rdparty/sol2
 	url = https://github.com/ThePhD/sol2.git
+	ignore = dirty
 
 [submodule "3rdparty/tabulate"]
 	path = 3rdparty/tabulate
 	url = https://github.com/p-ranav/tabulate.git
+	ignore = dirty
 
 [submodule "3rdparty/ymery-cpp"]
 	path = 3rdparty/ymery-cpp
 	url = https://github.com/zokrezyl/ymery-cpp.git
+	ignore = dirty
 [submodule "3rdparty/imgui"]
 	path = 3rdparty/imgui
 	url = https://github.com/ocornut/imgui.git
+	ignore = dirty
 [submodule "3rdparty/glfw"]
 	path = 3rdparty/glfw
 	url = https://github.com/glfw/glfw.git
+	ignore = dirty
