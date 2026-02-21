@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <unordered_map>
 
 namespace RogueCity::Generators {
@@ -347,6 +348,90 @@ namespace RogueCity::Generators {
             // }
 
             polyline.push_back(next);
+
+            // =====================================================================
+            // CONTINUOUS TENSOR ALIGNMENT CORRECTION
+            // =====================================================================
+            // When alignment-strengthening terminal features are active (e.g.,
+            // AxisAlignmentLock, HoneycombStrictness), we continuously nudge the
+            // traced polyline toward the tensor field direction.
+            //
+            // WHY: Complex tensor fields from multiple features can cause roads
+            // to drift from intended directions. This correction keeps them aligned.
+            // =====================================================================
+            if (params.tensor_alignment_strength > 0.0 &&
+                (iter + 1) % params.alignment_check_interval == 0 &&
+                polyline.size() >= 3) {
+
+                // Compute the current traced direction (last segment)
+                Vec2 traced_dir = polyline.back() - polyline[polyline.size() - 2];
+                traced_dir.normalize();
+
+                // Sample the tensor at the current position
+                const Tensor2D tensor = field.sampleTensor(current);
+                const Vec2 target_dir = use_major ? tensor.majorEigenvector() : tensor.minorEigenvector();
+
+                // Compute angular deviation (signed)
+                const double cross = traced_dir.x * target_dir.y - traced_dir.y * target_dir.x;
+                const double dot = traced_dir.dot(target_dir);
+                const double deviation_rad = std::atan2(cross, dot);
+                const double deviation_deg = std::abs(deviation_rad) * (180.0 / kPi);
+
+                // If deviation exceeds tolerance, apply correction
+                const double tolerance_rad = params.tensor_alignment_tolerance_degrees * (kPi / 180.0);
+                if (deviation_deg > params.tensor_alignment_tolerance_degrees) {
+                    // Compute correction factor: stronger deviation = stronger correction
+                    const double excess = std::min(std::abs(deviation_rad) - tolerance_rad, tolerance_rad);
+                    const double correction_factor = (excess / tolerance_rad) * params.tensor_alignment_strength;
+
+                    // Rotate the last point toward the target direction
+                    const double rotate_rad = deviation_rad * correction_factor;
+                    const double c = std::cos(rotate_rad);
+                    const double s = std::sin(rotate_rad);
+
+                    // Get the previous point and apply rotation to the last segment
+                    const Vec2 prev_pt = polyline[polyline.size() - 2];
+                    const Vec2 last_pt = polyline.back();
+                    const Vec2 segment = last_pt - prev_pt;
+
+                    const Vec2 corrected_segment(
+                        segment.x * c - segment.y * s,
+                        segment.x * s + segment.y * c
+                    );
+
+                    // Update the last point with corrected position
+                    polyline.back() = prev_pt + corrected_segment;
+
+#ifndef NDEBUG
+                    std::cerr << "[AlignmentCorrection] iter=" << iter
+                              << " deviation=" << deviation_deg << "deg"
+                              << " correction=" << (correction_factor * 100.0) << "%"
+                              << std::endl;
+#endif
+                }
+            }
+
+            // =====================================================================
+            // TENSOR CONFIDENCE CHECK
+            // =====================================================================
+            // Stop tracing if the tensor field confidence drops below threshold.
+            // This prevents roads from continuing into weak/undefined tensor regions
+            // where the field may have conflicting influences from multiple features.
+            // =====================================================================
+            if (params.min_tensor_confidence > 0.0) {
+                const double confidence = field.sampleTensorConfidence(current);
+                if (confidence < params.min_tensor_confidence) {
+#ifndef NDEBUG
+                    std::cerr << "[ConfidenceStop] iter=" << iter
+                              << " confidence=" << confidence
+                              << " < threshold=" << params.min_tensor_confidence
+                              << " at (" << current.x << ", " << current.y << ")"
+                              << std::endl;
+#endif
+                    break;
+                }
+            }
+
             if (params.adaptive_step_size) {
                 // Curvature-adaptive stepping: tighten in high curvature, relax in straighter runs.
                 Vec2 direction = next - current;

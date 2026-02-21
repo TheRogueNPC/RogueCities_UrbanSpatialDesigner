@@ -2,6 +2,7 @@
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp"
 #include "RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp"
+#include "RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp"
 
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -672,6 +673,15 @@ bool CityGenerator::ValidateAxioms(
             }
         }
 
+        // Validate feature conflicts - some features have opposing effects
+        // that produce unpredictable tensor fields when combined.
+        {
+            const auto feature_conflicts = validateFeatureConflicts(axiom.terminal_features);
+            for (const auto& conflict_msg : feature_conflicts) {
+                local_errors.push_back(prefix + conflict_msg);
+            }
+        }
+
         // Perform type-specific validation for the axiom.
         switch (axiom.type) {
             case AxiomInput::Type::Organic:
@@ -1109,7 +1119,8 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
             site_profile,
             texture_space,
             context,
-            global_state);
+            global_state,
+            &resolved_axioms);
         if (options.constrain_roads_to_axiom_bounds) {
             cache_.roads = ClipRoadsToAxiomInfluence(cache_.roads, resolved_axioms);
         }
@@ -1513,6 +1524,7 @@ std::vector<Vec2> CityGenerator::generateSeeds(
 
 // Configures and executes road tracing from seed points.
 // Constraint/profile data can tighten tracing policy for environmentally sensitive modes.
+// Axioms are scanned for alignment-demanding terminal features to configure tensor alignment.
 fva::Container<Road> CityGenerator::traceRoads(
     const TensorFieldGenerator& field,
     const std::vector<Vec2>& seeds,
@@ -1520,7 +1532,8 @@ fva::Container<Road> CityGenerator::traceRoads(
     const SiteProfile* profile,
     const Core::Data::TextureSpace* texture_space,
     GenerationContext* context,
-    Core::Editor::GlobalState* global_state) {
+    Core::Editor::GlobalState* global_state,
+    const std::vector<AxiomInput>* axioms) {
     if (ShouldAbort(context)) {
         return {};
     }
@@ -1577,6 +1590,57 @@ fva::Container<Road> CityGenerator::traceRoads(
             road_cfg.tracing.max_flood_level = 0u;
         } else if (profile != nullptr && profile->mode == GenerationMode::HillTown) {
             road_cfg.tracing.max_slope_degrees = 34.0;
+        }
+    }
+
+    // =========================================================================
+    // TENSOR ALIGNMENT CONFIGURATION (P1.3 - Road-Tensor Alignment Hardening)
+    // =========================================================================
+    // Scan axioms for alignment-demanding terminal features. When features like
+    // AxisAlignmentLock or HoneycombStrictness are active, we enable continuous
+    // alignment correction to keep roads aligned with the tensor field.
+    //
+    // WHY: These terminal features express user intent for strict alignment.
+    // Without continuous correction, roads can drift in complex tensor fields.
+    // =========================================================================
+    if (axioms != nullptr && !axioms->empty()) {
+        bool has_strong_alignment = false;
+        bool has_grid_corrective = false;
+
+        for (const auto& axiom : *axioms) {
+            if (axiom.terminal_features.empty()) {
+                continue;
+            }
+
+            // Features that demand strict alignment
+            if (axiom.terminal_features.has(TerminalFeature::Grid_AxisAlignmentLock) ||
+                axiom.terminal_features.has(TerminalFeature::Hex_HoneycombStrictness) ||
+                axiom.terminal_features.has(TerminalFeature::LooseGrid_TJunctionForcing)) {
+                has_strong_alignment = true;
+            }
+
+            // GridCorrective features explicitly request alignment
+            if (axiom.terminal_features.has(TerminalFeature::GridCorrective_MagneticAlignment) ||
+                axiom.terminal_features.has(TerminalFeature::GridCorrective_AbsoluteOverride)) {
+                has_grid_corrective = true;
+            }
+        }
+
+        if (has_strong_alignment || has_grid_corrective) {
+            // Enable continuous tensor alignment correction
+            road_cfg.tracing.tensor_alignment_strength = has_grid_corrective ? 0.45 : 0.35;
+            road_cfg.tracing.tensor_alignment_tolerance_degrees = has_grid_corrective ? 10.0 : 12.0;
+            road_cfg.tracing.alignment_check_interval = 4;
+            road_cfg.tracing.min_tensor_confidence = 0.15;
+
+#ifndef NDEBUG
+            std::cerr << "[AlignmentConfig] Enabled tensor alignment correction"
+                      << " strength=" << road_cfg.tracing.tensor_alignment_strength
+                      << " tolerance=" << road_cfg.tracing.tensor_alignment_tolerance_degrees << "deg"
+                      << " (has_strong=" << has_strong_alignment
+                      << " has_grid_corrective=" << has_grid_corrective << ")"
+                      << std::endl;
+#endif
         }
     }
 

@@ -242,6 +242,85 @@ namespace RogueCity::Generators {
         return interpolateTensor(world_pos);
     }
 
+    // =========================================================================
+    // TENSOR FIELD CONFIDENCE SAMPLING (P1.2 - Road-Tensor Alignment Hardening)
+    // =========================================================================
+    // Computes a confidence value [0.0, 1.0] indicating how well-defined the
+    // tensor field is at the given position.
+    //
+    // WHY: Complex tensor fields from multiple features can have weak or
+    // conflicting regions. Road tracing should stop in low-confidence areas
+    // to avoid unpredictable road geometry.
+    //
+    // Confidence factors:
+    // - Override field active: high confidence (override fields dominate)
+    // - Multiple additive fields with similar weights: lower confidence (potential conflicts)
+    // - Single strong field: good confidence
+    // - No fields: zero confidence
+    // =========================================================================
+    double TensorFieldGenerator::sampleTensorConfidence(const Vec2& world_pos) const {
+        // Check for override fields first - they provide high confidence
+        double best_override_weight = 0.0;
+        int override_count = 0;
+        for (const auto& field : override_fields_) {
+            const double weight = field->getWeight(world_pos);
+            if (weight > 1e-6) {
+                ++override_count;
+                best_override_weight = std::max(best_override_weight, weight);
+            }
+        }
+
+        // If an override field is active, confidence is high
+        if (override_count > 0 && best_override_weight > 0.5) {
+            return 0.9 + 0.1 * best_override_weight; // [0.9, 1.0]
+        }
+
+        // Count contributing additive fields and their weights
+        std::vector<double> weights;
+        double total_weight = 0.0;
+        for (const auto& field : additive_fields_) {
+            const double weight = field->getWeight(world_pos);
+            if (weight > 1e-6) {
+                weights.push_back(weight);
+                total_weight += weight;
+            }
+        }
+
+        // No fields contributing = no confidence
+        if (weights.empty() || total_weight < 1e-6) {
+            return 0.0;
+        }
+
+        // Single field = good confidence based on its weight
+        if (weights.size() == 1) {
+            return 0.5 + 0.5 * weights[0]; // [0.5, 1.0]
+        }
+
+        // Multiple fields: confidence decreases with weight variance
+        // (similar weights suggest potential conflicts)
+        const double mean_weight = total_weight / static_cast<double>(weights.size());
+        double variance = 0.0;
+        for (const double w : weights) {
+            const double diff = w - mean_weight;
+            variance += diff * diff;
+        }
+        variance /= static_cast<double>(weights.size());
+
+        // Normalize variance relative to mean
+        const double normalized_variance = variance / std::max(1e-6, mean_weight * mean_weight);
+
+        // High variance = one field dominates = good confidence
+        // Low variance = fields conflict = lower confidence
+        // More fields = slightly lower confidence (more complexity)
+        const double dominance_factor = std::min(1.0, normalized_variance);
+        const double count_penalty = std::min(0.2, static_cast<double>(weights.size() - 1) * 0.05);
+
+        double confidence = 0.4 + 0.4 * dominance_factor + 0.2 * mean_weight - count_penalty;
+
+        // Clamp to valid range
+        return std::clamp(confidence, 0.0, 1.0);
+    }
+
     // Writes tensor major-eigenvector directions into texture-space tensor layer.
     // Used to expose solver output to editor tools and downstream systems.
     void TensorFieldGenerator::writeToTextureSpace(Core::Data::TextureSpace& texture_space) const {

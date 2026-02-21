@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <numbers>
 
 namespace RogueCity::Generators {
@@ -81,6 +82,78 @@ void pushPostOp(
     plan.post_ops.push_back(op);
 }
 
+// ============================================================================
+// TERMINAL FEATURE CONFLICT DETECTION
+// ============================================================================
+// Some terminal features have opposing effects on the tensor field. When both
+// are enabled, they can produce chaotic or undefined results. This table
+// documents known conflicts and their resolution strategies.
+//
+// WHY: Conflict detection prevents users from creating axioms with mutually
+// exclusive features, which would produce unpredictable road networks.
+// ============================================================================
+
+struct FeatureConflict {
+    TerminalFeature a;
+    TerminalFeature b;
+    const char* reason;
+    int priority_a;
+    int priority_b;
+};
+
+static const FeatureConflict kFeatureConflicts[] = {
+    { TerminalFeature::Grid_AxisAlignmentLock, TerminalFeature::Grid_DiagonalSlicing,
+      "AxisAlignmentLock and DiagonalSlicing fight over axis orientation", 1, 0 },
+    { TerminalFeature::Grid_AxisAlignmentLock, TerminalFeature::LooseGrid_TJunctionForcing,
+      "AxisAlignmentLock and TJunctionForcing have conflicting alignment goals", 1, 0 },
+    { TerminalFeature::Radial_CoreVoiding, TerminalFeature::LooseGrid_CenterWeightedDensity,
+      "CoreVoiding removes center influence while CenterWeightedDensity strengthens it", 1, 0 },
+    { TerminalFeature::Stem_DirectionalFlowBias, TerminalFeature::Linear_PerpendicularRungs,
+      "DirectionalFlowBias enforces parallel flow while PerpendicularRungs adds cross-directions", 0, 1 },
+    { TerminalFeature::Hex_HoneycombStrictness, TerminalFeature::Hex_OrganicEdgeBleed,
+      "HoneycombStrictness enforces strict angles while OrganicEdgeBleed softens them", 1, 0 },
+    { TerminalFeature::GridCorrective_AbsoluteOverride, TerminalFeature::GridCorrective_MagneticAlignment,
+      "AbsoluteOverride fully replaces tensors while MagneticAlignment blends - override wins", 1, 0 },
+    { TerminalFeature::Superblock_CourtyardVoid, TerminalFeature::Superblock_PedestrianMicroField,
+      "CourtyardVoid zeros center while PedestrianMicroField adds interior guidance", 1, 0 },
+};
+
+[[nodiscard]] bool hasFeatureConflict(
+    TerminalFeature a, TerminalFeature b, const FeatureConflict** out_conflict) {
+    for (const auto& conflict : kFeatureConflicts) {
+        if ((conflict.a == a && conflict.b == b) || (conflict.a == b && conflict.b == a)) {
+            if (out_conflict) {
+                *out_conflict = &conflict;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] TerminalFeature resolveConflict(const FeatureConflict& conflict, TerminalFeature a, TerminalFeature b) {
+    if (conflict.a == a) {
+        return (conflict.priority_a >= conflict.priority_b) ? a : b;
+    }
+    return (conflict.priority_b >= conflict.priority_a) ? b : a;
+}
+
+// Approximate magnitude contribution for different basis field types.
+// Used to track cumulative field strength and prevent overwhelming the base tensor.
+[[nodiscard]] double estimateBasisFieldMagnitude(const BasisField* field) {
+    if (!field) return 0.0;
+
+    if (dynamic_cast<const StrongLinearCorridorField*>(field)) return 0.25;
+    if (dynamic_cast<const CenterVoidOverrideField*>(field)) return 0.35;
+    if (dynamic_cast<const BoundarySeamField*>(field)) return 0.15;
+    if (dynamic_cast<const NoisePatchField*>(field)) return 0.12;
+    if (dynamic_cast<const ParallelLinearFieldBundle*>(field)) return 0.18;
+    if (dynamic_cast<const PeriodicRungField*>(field)) return 0.10;
+    if (dynamic_cast<const ShearPlaneField*>(field)) return 0.08;
+
+    return 0.10;
+}
+
 } // namespace
 
 FeaturePlan buildFeaturePlanRaw(
@@ -93,18 +166,90 @@ FeaturePlan buildFeaturePlanRaw(
         return plan;
     }
 
+    // ===========================================================================
+    // PHASE 1: COLLECT ENABLED FEATURES
+    // ===========================================================================
+    // We first gather all enabled features to detect conflicts before applying.
+    // This prevents partial application when conflicts exist.
+    
+    std::vector<TerminalFeature> enabled_features;
     const auto allowed = featuresForAxiomTypeRaw(axiom_type_raw);
     for (const TerminalFeature feature : allowed) {
-        if (!features.has(feature)) {
+        if (features.has(feature)) {
+            enabled_features.push_back(feature);
+        }
+    }
+
+    // ===========================================================================
+    // PHASE 2: CONFLICT DETECTION
+    // ===========================================================================
+    // Check for mutually exclusive feature combinations. When detected:
+    // - Log a warning for diagnostics
+    // - Skip the lower-priority feature (soft resolution)
+    
+    TerminalFeatureSet features_to_skip{};
+    for (size_t i = 0; i < enabled_features.size(); ++i) {
+        for (size_t j = i + 1; j < enabled_features.size(); ++j) {
+            const TerminalFeature a = enabled_features[i];
+            const TerminalFeature b = enabled_features[j];
+            const FeatureConflict* conflict = nullptr;
+            
+            if (hasFeatureConflict(a, b, &conflict)) {
+                const TerminalFeature loser = resolveConflict(*conflict, a, b);
+                features_to_skip.set(loser, true);
+                
+                // Build warning message
+                std::string warning = "Feature conflict: ";
+                warning += terminalFeatureShortName(a);
+                warning += " vs ";
+                warning += terminalFeatureShortName(b);
+                warning += " - ";
+                warning += conflict->reason;
+                warning += " (dropping ";
+                warning += terminalFeatureShortName(loser);
+                warning += ")";
+                plan.warnings.push_back(warning);
+            }
+        }
+    }
+
+    // ===========================================================================
+    // PHASE 3: APPLY NON-CONFLICTING FEATURES
+    // ===========================================================================
+    // Each feature contributes basis fields and/or post-ops. We track cumulative
+    // magnitude to prevent overwhelming the base tensor field.
+    
+    for (const TerminalFeature feature : enabled_features) {
+        // Skip features that lost conflict resolution
+        if (features_to_skip.has(feature)) {
             continue;
         }
 
         const uint32_t op_seed = seed ^ static_cast<uint32_t>(feature) * 2654435761u;
         const double jitter = hashToUnit(op_seed, 17u) * 2.0 - 1.0;
 
+        // Helper to add basis field with magnitude tracking
+        auto add_additive = [&](std::unique_ptr<BasisField> field) {
+            const double mag = estimateBasisFieldMagnitude(field.get());
+            if (plan.current_magnitude_total + mag <= plan.additive_magnitude_budget) {
+                plan.current_magnitude_total += mag;
+                plan.additive_basis_fields.push_back(std::move(field));
+            } else {
+#ifndef NDEBUG
+                plan.warnings.push_back("Magnitude budget exceeded, dropping field for " + 
+                    std::string(terminalFeatureShortName(feature)));
+#endif
+            }
+        };
+
+        auto add_override = [&](std::unique_ptr<BasisField> field) {
+            // Override fields don't count toward additive budget
+            plan.override_basis_fields.push_back(std::move(field));
+        };
+
         switch (feature) {
             case TerminalFeature::Organic_TopologicalFlowConstraint:
-                plan.additive_basis_fields.push_back(std::make_unique<NoisePatchField>(
+                add_additive(std::make_unique<NoisePatchField>(
                     params.center, params.radius, params.theta + jitter * 0.12, 0.0045, 0.35, params.decay + 0.25));
                 break;
             case TerminalFeature::Organic_MeanderBias:
@@ -122,17 +267,17 @@ FeaturePlan buildFeaturePlanRaw(
                 pushPostOp(plan, TensorPostOp::Kind::AxisLock, feature, params, 0.9f, 0.0f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Grid_DiagonalSlicing:
-                plan.additive_basis_fields.push_back(std::make_unique<StrongLinearCorridorField>(
+                add_additive(std::make_unique<StrongLinearCorridorField>(
                     params.center, params.radius, params.theta + std::numbers::pi * 0.25, params.radius * 0.2, params.decay));
                 break;
             case TerminalFeature::Grid_AlleywayBisection:
-                plan.additive_basis_fields.push_back(std::make_unique<StrongLinearCorridorField>(
+                add_additive(std::make_unique<StrongLinearCorridorField>(
                     params.center, params.radius * 0.95, params.theta, params.radius * 0.11, params.decay + 0.5));
-                plan.additive_basis_fields.push_back(std::make_unique<StrongLinearCorridorField>(
+                add_additive(std::make_unique<StrongLinearCorridorField>(
                     params.center, params.radius * 0.95, params.theta + std::numbers::pi * 0.5, params.radius * 0.11, params.decay + 0.5));
                 break;
             case TerminalFeature::Grid_BlockFusion:
-                plan.additive_basis_fields.push_back(std::make_unique<NoisePatchField>(
+                add_additive(std::make_unique<NoisePatchField>(
                     params.center, params.radius, params.theta, 0.013, 0.45, params.decay + 0.3));
                 break;
 
@@ -140,7 +285,7 @@ FeaturePlan buildFeaturePlanRaw(
                 pushPostOp(plan, TensorPostOp::Kind::SpiralWarp, feature, params, 0.28f, 0.0f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Radial_CoreVoiding:
-                plan.override_basis_fields.push_back(std::make_unique<CenterVoidOverrideField>(
+                add_override(std::make_unique<CenterVoidOverrideField>(
                     params.center, params.radius, params.theta, 0.34, params.decay + 0.1));
                 break;
             case TerminalFeature::Radial_SpokePruning:
@@ -157,11 +302,11 @@ FeaturePlan buildFeaturePlanRaw(
                     static_cast<float>(std::numbers::pi / 3.0), 0.85f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Hex_TriangularSubdivision:
-                plan.additive_basis_fields.push_back(std::make_unique<StrongLinearCorridorField>(
+                add_additive(std::make_unique<StrongLinearCorridorField>(
                     params.center, params.radius, params.theta + std::numbers::pi / 6.0, params.radius * 0.17, params.decay + 0.2));
                 break;
             case TerminalFeature::Hex_OffsetStagger:
-                plan.additive_basis_fields.push_back(std::make_unique<ShearPlaneField>(
+                add_additive(std::make_unique<ShearPlaneField>(
                     params.center, params.radius, params.theta, std::numbers::pi / 10.0, params.decay));
                 break;
             case TerminalFeature::Hex_OrganicEdgeBleed:
@@ -169,7 +314,7 @@ FeaturePlan buildFeaturePlanRaw(
                 break;
 
             case TerminalFeature::Stem_FractalRecursion:
-                plan.additive_basis_fields.push_back(std::make_unique<ParallelLinearFieldBundle>(
+                add_additive(std::make_unique<ParallelLinearFieldBundle>(
                     params.center, params.radius, params.theta, params.radius * 0.18, 2, params.decay + 0.4));
                 break;
             case TerminalFeature::Stem_DirectionalFlowBias:
@@ -179,12 +324,12 @@ FeaturePlan buildFeaturePlanRaw(
                 pushPostOp(plan, TensorPostOp::Kind::SinusoidalAxisWarp, feature, params, 0.23f, 0.008f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Stem_TerminalLoops:
-                plan.additive_basis_fields.push_back(std::make_unique<NoisePatchField>(
+                add_additive(std::make_unique<NoisePatchField>(
                     params.center, params.radius, params.theta + std::numbers::pi * 0.5, 0.0105, 0.62, params.decay + 0.4));
                 break;
 
             case TerminalFeature::LooseGrid_HistoricalFaultLines:
-                plan.additive_basis_fields.push_back(std::make_unique<ShearPlaneField>(
+                add_additive(std::make_unique<ShearPlaneField>(
                     params.center, params.radius, params.theta, std::numbers::pi / 9.0, params.decay));
                 break;
             case TerminalFeature::LooseGrid_JitterPersistence:
@@ -201,7 +346,7 @@ FeaturePlan buildFeaturePlanRaw(
                 pushPostOp(plan, TensorPostOp::Kind::SpiralWarp, feature, params, 0.12f, 0.0f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Suburban_ArterialIsolation:
-                plan.additive_basis_fields.push_back(std::make_unique<BoundarySeamField>(
+                add_additive(std::make_unique<BoundarySeamField>(
                     params.center, params.radius, params.theta, 0.2, params.decay));
                 break;
             case TerminalFeature::Suburban_TerrainAvoidance:
@@ -212,16 +357,16 @@ FeaturePlan buildFeaturePlanRaw(
                 break;
 
             case TerminalFeature::Superblock_PedestrianMicroField:
-                plan.additive_basis_fields.push_back(std::make_unique<NoisePatchField>(
+                add_additive(std::make_unique<NoisePatchField>(
                     params.center, params.radius, params.theta + std::numbers::pi * 0.25, 0.019, 0.52, params.decay + 0.5));
                 break;
             case TerminalFeature::Superblock_ArterialTrenching:
-                plan.additive_basis_fields.push_back(std::make_unique<BoundarySeamField>(
+                add_additive(std::make_unique<BoundarySeamField>(
                     params.center, params.radius, params.theta, 0.15, params.decay));
                 pushPostOp(plan, TensorPostOp::Kind::EndTaper, feature, params, 0.65f, 0.0f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Superblock_CourtyardVoid:
-                plan.override_basis_fields.push_back(std::make_unique<CenterVoidOverrideField>(
+                add_override(std::make_unique<CenterVoidOverrideField>(
                     params.center, params.radius, params.theta, 0.30, params.decay + 0.2));
                 break;
             case TerminalFeature::Superblock_PermeableEdges:
@@ -232,11 +377,11 @@ FeaturePlan buildFeaturePlanRaw(
                 pushPostOp(plan, TensorPostOp::Kind::SinusoidalAxisWarp, feature, params, 0.34f, 0.01f, 0.0f, op_seed);
                 break;
             case TerminalFeature::Linear_ParallelCascading:
-                plan.additive_basis_fields.push_back(std::make_unique<ParallelLinearFieldBundle>(
+                add_additive(std::make_unique<ParallelLinearFieldBundle>(
                     params.center, params.radius, params.theta, params.radius * 0.17, 3, params.decay));
                 break;
             case TerminalFeature::Linear_PerpendicularRungs:
-                plan.additive_basis_fields.push_back(std::make_unique<PeriodicRungField>(
+                add_additive(std::make_unique<PeriodicRungField>(
                     params.center, params.radius, params.theta, params.radius * 0.2, 0.22, params.decay));
                 break;
             case TerminalFeature::Linear_TaperedTerminals:
@@ -244,7 +389,7 @@ FeaturePlan buildFeaturePlanRaw(
                 break;
 
             case TerminalFeature::GridCorrective_AbsoluteOverride:
-                plan.override_basis_fields.push_back(std::make_unique<StrongLinearCorridorField>(
+                add_override(std::make_unique<StrongLinearCorridorField>(
                     params.center, params.radius, params.theta, params.radius * 0.55, params.decay + 0.2));
                 break;
             case TerminalFeature::GridCorrective_MagneticAlignment:
@@ -255,11 +400,56 @@ FeaturePlan buildFeaturePlanRaw(
                     static_cast<float>(std::numbers::pi / 10.0), 0.0f, 0.0f, op_seed);
                 break;
             case TerminalFeature::GridCorrective_BoundaryStitching:
-                plan.additive_basis_fields.push_back(std::make_unique<BoundarySeamField>(
+                add_additive(std::make_unique<BoundarySeamField>(
                     params.center, params.radius, params.theta, 0.18, params.decay + 0.1));
                 break;
         }
     }
+
+    // ===========================================================================
+    // PHASE 4: SORT POST-OPS BY EXECUTION PRIORITY
+    // ===========================================================================
+    // Post-ops must execute in a specific order to produce predictable results:
+    // 1. Noise/warp operations (perturb raw angles)
+    // 2. Snap/lock operations (discretize angles)
+    // 3. Blend operations (smooth alignment)
+    // 4. Filter operations (cull outliers)
+    // 5. Edge effects (taper, pulse)
+    
+    plan.sortPostOps();
+
+#ifndef NDEBUG
+    // ===========================================================================
+    // DIAGNOSTIC LOGGING (P2.3 - Debug Output for Feature Application)
+    // ===========================================================================
+    // Log feature plan details for debugging tensor field generation.
+    // This helps diagnose why certain tensor fields produce specific results.
+    // ===========================================================================
+    if (!plan.additive_basis_fields.empty() || !plan.override_basis_fields.empty() || !plan.post_ops.empty()) {
+        std::cerr << "[FeaturePlan] Built plan with "
+                  << plan.additive_basis_fields.size() << " additive fields, "
+                  << plan.override_basis_fields.size() << " override fields, "
+                  << plan.post_ops.size() << " post-ops"
+                  << " (magnitude=" << plan.current_magnitude_total << "/" << plan.additive_magnitude_budget << ")"
+                  << std::endl;
+
+        if (!plan.warnings.empty()) {
+            std::cerr << "[FeaturePlan] Warnings:" << std::endl;
+            for (const auto& warning : plan.warnings) {
+                std::cerr << "  - " << warning << std::endl;
+            }
+        }
+
+        if (!plan.post_ops.empty()) {
+            std::cerr << "[FeaturePlan] Post-op execution order:" << std::endl;
+            for (const auto& op : plan.post_ops) {
+                std::cerr << "  - " << terminalFeatureShortName(op.feature)
+                          << " (priority=" << TensorPostOp::executionPriority(op.kind) << ")"
+                          << std::endl;
+            }
+        }
+    }
+#endif
 
     return plan;
 }
@@ -356,6 +546,51 @@ void applyTensorPostOps(
 
     tensor = Core::Tensor2D::fromAngle(angle);
     tensor.scale(magnitude);
+}
+
+// ============================================================================
+// FEATURE CONFLICT VALIDATION FOR EXTERNAL USE
+// ============================================================================
+// Validates a set of terminal features for internal conflicts.
+// Called by CityGenerator::ValidateAxioms to provide early error feedback
+// before tensor field generation.
+// ============================================================================
+std::vector<std::string> validateFeatureConflicts(const TerminalFeatureSet& features) {
+    std::vector<std::string> conflicts;
+    if (features.empty()) {
+        return conflicts;
+    }
+
+    // Collect enabled features
+    std::vector<TerminalFeature> enabled;
+    // Check all possible terminal features (40 total based on kTerminalFeatureCount)
+    for (uint8_t i = 0; i < kTerminalFeatureCount; ++i) {
+        const TerminalFeature feature = static_cast<TerminalFeature>(i);
+        if (features.has(feature)) {
+            enabled.push_back(feature);
+        }
+    }
+
+    // Check each pair against conflict table
+    for (size_t i = 0; i < enabled.size(); ++i) {
+        for (size_t j = i + 1; j < enabled.size(); ++j) {
+            const TerminalFeature a = enabled[i];
+            const TerminalFeature b = enabled[j];
+            const FeatureConflict* conflict = nullptr;
+
+            if (hasFeatureConflict(a, b, &conflict)) {
+                std::string msg = "Feature conflict: ";
+                msg += terminalFeatureShortName(a);
+                msg += " and ";
+                msg += terminalFeatureShortName(b);
+                msg += " - ";
+                msg += conflict->reason;
+                conflicts.push_back(msg);
+            }
+        }
+    }
+
+    return conflicts;
 }
 
 } // namespace RogueCity::Generators

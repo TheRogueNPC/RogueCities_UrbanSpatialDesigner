@@ -56,6 +56,24 @@ namespace RogueCity::Generators {
         /// Sample tensor at world position (interpolated from grid)
         [[nodiscard]] Tensor2D sampleTensor(const Vec2& world_pos) const;
 
+        /// =====================================================================
+        /// TENSOR FIELD CONFIDENCE (P1.2 - Road-Tensor Alignment Hardening)
+        /// =====================================================================
+        /// Returns a confidence value [0.0, 1.0] indicating how well-defined the
+        /// tensor field is at the given position.
+        ///
+        /// WHY: Complex tensor fields from multiple features can have weak or
+        /// conflicting regions. Road tracing should stop in low-confidence areas
+        /// to avoid unpredictable road geometry.
+        ///
+        /// Confidence factors:
+        /// - Override field active: high confidence (0.9-1.0)
+        /// - Multiple additive fields: medium confidence (0.5-0.8)
+        /// - Single field with strong weight: good confidence (0.6-0.9)
+        /// - No fields or conflicting weights: low confidence (<0.3)
+        /// =====================================================================
+        [[nodiscard]] double sampleTensorConfidence(const Vec2& world_pos) const;
+
         /// Generate field by evaluating all basis fields at grid points
         void generateField();
 

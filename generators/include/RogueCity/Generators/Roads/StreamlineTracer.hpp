@@ -37,10 +37,46 @@ namespace RogueCity::Generators {
             uint8_t max_flood_level{ 1u };
             float min_soil_strength{ 0.15f };
             bool stop_at_no_build{ true };
+
             // Major-road tensor-alignment tolerance (degrees). If a traced major
             // candidate deviates from the sampled tensor major-eigenvector by
             // more than this angle it may be rejected by higher-level filters.
             double major_tensor_tolerance_degrees{ 25.0 };
+
+            // =====================================================================
+            // CONTINUOUS TENSOR ALIGNMENT (P1.1 - Road-Tensor Alignment Hardening)
+            // =====================================================================
+            // These parameters control ongoing alignment correction during tracing.
+            // When terminal features like AxisAlignmentLock or HoneycombStrictness
+            // are active, the tracer should continuously nudge the polyline toward
+            // the tensor field direction rather than only checking at the seed.
+            //
+            // WHY: Complex tensor fields from multiple features can cause traced
+            // roads to drift from the intended direction. Continuous correction
+            // keeps roads aligned with the dominant tensor eigenvector.
+            // =====================================================================
+
+            // Strength of alignment correction [0.0, 1.0].
+            // 0.0 = no correction (pure RK4 integration)
+            // 1.0 = strong correction toward tensor eigenvector
+            // Typical values: 0.2-0.4 for subtle guidance, 0.5+ for strict alignment
+            double tensor_alignment_strength{ 0.0 };
+
+            // Maximum deviation (degrees) before correction kicks in.
+            // When the traced direction deviates more than this from the tensor
+            // eigenvector, the correction is applied proportionally.
+            double tensor_alignment_tolerance_degrees{ 15.0 };
+
+            // How often to check and apply alignment correction (in integration steps).
+            // Lower values = more frequent correction (smoother but slower).
+            // Higher values = less frequent (faster but may overshoot).
+            int alignment_check_interval{ 5 };
+
+            // Minimum tensor field confidence required to continue tracing.
+            // When the tensor field confidence drops below this threshold,
+            // tracing stops to avoid roads in weak/undefined tensor regions.
+            // See TensorFieldGenerator::sampleTensorConfidence().
+            double min_tensor_confidence{ 0.1 };
         };
 
         StreamlineTracer() = default;

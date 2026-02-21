@@ -241,7 +241,8 @@ private:
         const SiteProfile* profile,
         const Core::Data::TextureSpace* texture_space,
         GenerationContext* context,
-        Core::Editor::GlobalState* global_state = nullptr);
+        Core::Editor::GlobalState* global_state = nullptr,
+        const std::vector<AxiomInput>* axioms = nullptr);
 
     std::vector<District> classifyDistricts(
         const fva::Container<Road>& roads,
