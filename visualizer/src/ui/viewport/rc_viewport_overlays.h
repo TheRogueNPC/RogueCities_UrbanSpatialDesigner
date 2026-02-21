@@ -50,6 +50,9 @@ struct OverlayConfig {
     AESPComponent aesp_component = AESPComponent::Combined;
     bool show_scale_ruler = true;
     bool show_compass_gimbal = true;
+    bool compass_parented = false;
+    ImVec2 compass_center{ 0.0f, 0.0f };
+    float compass_radius = 36.0f;
 };
 
 // Color scheme for districts (Y2K palette)
@@ -112,7 +115,7 @@ public:
     void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs);
 
     void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderCompassGimbalHUD();
+    void RenderCompassGimbalHUD(bool parented, const ImVec2& center, float radius);
     std::optional<float> requested_yaw_{};
 
     void SetViewTransform(const ViewTransform& transform) { view_transform_ = transform; }
@@ -149,6 +152,7 @@ public:
 private:
     ViewTransform view_transform_{};
     HighlightState highlights_{};
+    bool compass_drag_active_{ false };
 };
 
 // Singleton accessor

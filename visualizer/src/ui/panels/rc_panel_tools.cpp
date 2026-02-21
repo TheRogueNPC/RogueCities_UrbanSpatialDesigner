@@ -572,6 +572,7 @@ void DrawContent(float dt)
         gs.texture_space_dirty = true;
         gs.dirty_layers.MarkDirty(DirtyLayer::Tensor);
         gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+        gs.EnsureTextureSpaceUpToDate();
     }
     ImGui::SameLine();
     if (ImGui::SmallButton("?")) ImGui::OpenPopup("ScalePolicyHelp");

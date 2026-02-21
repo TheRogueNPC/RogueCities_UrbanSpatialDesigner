@@ -203,6 +203,25 @@ void RealTimePreview::cancel_generation() {
     cancel_inflight_generation();
 }
 
+void RealTimePreview::clear_output() {
+    cancel_inflight_generation();
+    regeneration_pending_ = false;
+    init_pending_start_ = false;
+    pending_axioms_.clear();
+    pending_incremental_ = false;
+    pending_dirty_stages_ = Generators::FullStageMask();
+    pending_depth_ = GenerationDepth::FullPipeline;
+    current_output_.reset();
+    {
+        std::lock_guard<std::mutex> lock(completed_mutex_);
+        completed_output_.reset();
+        completed_output_ready_ = false;
+    }
+    generation_progress_.store(0.0f, std::memory_order_relaxed);
+    phase_ = GenerationPhase::Idle;
+    phase_elapsed_seconds_ = 0.0f;
+}
+
 void RealTimePreview::start_generation() {
     if (is_generating_.exchange(true, std::memory_order_relaxed)) {
         return;

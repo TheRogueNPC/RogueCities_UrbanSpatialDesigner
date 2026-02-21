@@ -602,35 +602,45 @@ bool CityGenerator::ValidateAxioms(
             local_errors.push_back(prefix + "invalid ring schema ratios");
         }
 
-        if (axiom.warp_lattice.topology_type < 0 || axiom.warp_lattice.topology_type > 3) {
-            local_errors.push_back(prefix + "warp_lattice.topology_type out of range");
-        }
-        if (axiom.warp_lattice.zone_inner_uv <= 0.0f ||
-            axiom.warp_lattice.zone_middle_uv < axiom.warp_lattice.zone_inner_uv ||
-            axiom.warp_lattice.zone_outer_uv < axiom.warp_lattice.zone_middle_uv ||
-            axiom.warp_lattice.zone_outer_uv > 1.5f) {
-            local_errors.push_back(prefix + "invalid warp_lattice zone bounds");
-        }
-        for (size_t v = 0; v < axiom.warp_lattice.vertices.size(); ++v) {
-            const auto& point = axiom.warp_lattice.vertices[v];
-            if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
-                local_errors.push_back(prefix + "warp_lattice vertex[" + std::to_string(v) + "] is not finite");
-                break;
+        // Keep backward compatibility with legacy/test/spec inputs that do not yet
+        // provide a lattice payload. Once any lattice field is populated, enforce
+        // full structural validation.
+        const bool has_warp_payload =
+            !axiom.warp_lattice.vertices.empty() ||
+            axiom.warp_lattice.rows > 0 ||
+            axiom.warp_lattice.cols > 0 ||
+            axiom.warp_lattice.topology_type != 0;
+        if (has_warp_payload) {
+            if (axiom.warp_lattice.topology_type < 0 || axiom.warp_lattice.topology_type > 3) {
+                local_errors.push_back(prefix + "warp_lattice.topology_type out of range");
             }
-        }
-        if (axiom.warp_lattice.topology_type == 0) {
-            if (axiom.warp_lattice.rows <= 0 || axiom.warp_lattice.cols <= 0) {
-                local_errors.push_back(prefix + "bezier warp_lattice requires rows/cols > 0");
-            } else if (axiom.warp_lattice.vertices.size() !=
-                static_cast<size_t>(axiom.warp_lattice.rows * axiom.warp_lattice.cols)) {
-                local_errors.push_back(prefix + "bezier warp_lattice vertex count mismatch");
+            if (axiom.warp_lattice.zone_inner_uv <= 0.0f ||
+                axiom.warp_lattice.zone_middle_uv < axiom.warp_lattice.zone_inner_uv ||
+                axiom.warp_lattice.zone_outer_uv < axiom.warp_lattice.zone_middle_uv ||
+                axiom.warp_lattice.zone_outer_uv > 1.5f) {
+                local_errors.push_back(prefix + "invalid warp_lattice zone bounds");
             }
-        } else if (axiom.warp_lattice.topology_type == 1 && axiom.warp_lattice.vertices.size() < 3) {
-            local_errors.push_back(prefix + "polygon warp_lattice requires >= 3 vertices");
-        } else if (axiom.warp_lattice.topology_type == 2 && axiom.warp_lattice.vertices.size() < 2) {
-            local_errors.push_back(prefix + "radial warp_lattice requires >= 2 vertices");
-        } else if (axiom.warp_lattice.topology_type == 3 && axiom.warp_lattice.vertices.size() < 2) {
-            local_errors.push_back(prefix + "linear warp_lattice requires >= 2 vertices");
+            for (size_t v = 0; v < axiom.warp_lattice.vertices.size(); ++v) {
+                const auto& point = axiom.warp_lattice.vertices[v];
+                if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+                    local_errors.push_back(prefix + "warp_lattice vertex[" + std::to_string(v) + "] is not finite");
+                    break;
+                }
+            }
+            if (axiom.warp_lattice.topology_type == 0) {
+                if (axiom.warp_lattice.rows <= 0 || axiom.warp_lattice.cols <= 0) {
+                    local_errors.push_back(prefix + "bezier warp_lattice requires rows/cols > 0");
+                } else if (axiom.warp_lattice.vertices.size() !=
+                    static_cast<size_t>(axiom.warp_lattice.rows * axiom.warp_lattice.cols)) {
+                    local_errors.push_back(prefix + "bezier warp_lattice vertex count mismatch");
+                }
+            } else if (axiom.warp_lattice.topology_type == 1 && axiom.warp_lattice.vertices.size() < 3) {
+                local_errors.push_back(prefix + "polygon warp_lattice requires >= 3 vertices");
+            } else if (axiom.warp_lattice.topology_type == 2 && axiom.warp_lattice.vertices.size() < 2) {
+                local_errors.push_back(prefix + "radial warp_lattice requires >= 2 vertices");
+            } else if (axiom.warp_lattice.topology_type == 3 && axiom.warp_lattice.vertices.size() < 2) {
+                local_errors.push_back(prefix + "linear warp_lattice requires >= 2 vertices");
+            }
         }
 
         // Ensure the theta value is finite.

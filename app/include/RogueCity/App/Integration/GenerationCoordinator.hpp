@@ -53,6 +53,7 @@ public:
         GenerationDepth depth = GenerationDepth::FullPipeline,
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
     void CancelGeneration();
+    void ClearOutput();
 //todo these status querys need to display to the event log and to the debug console for accurate tracking of whats doing what and why. 
     [[nodiscard]] bool IsGenerating() const; 
     [[nodiscard]] float GetProgress() const;

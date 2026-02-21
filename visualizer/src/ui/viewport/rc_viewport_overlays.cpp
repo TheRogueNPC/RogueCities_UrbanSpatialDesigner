@@ -297,7 +297,7 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
         RenderScaleRulerHUD(gs);
     }
     if (config.show_compass_gimbal) {
-        RenderCompassGimbalHUD();
+        RenderCompassGimbalHUD(config.compass_parented, config.compass_center, config.compass_radius);
     }
     RenderSelectionOutlines(gs);
     RenderHighlights();
@@ -364,46 +364,81 @@ void ViewportOverlays::RenderScaleRulerHUD(const RogueCity::Core::Editor::Global
     dl->AddText(ImVec2(a.x, a.y - 20.0f), col, buf);
 }
 
-void ViewportOverlays::RenderCompassGimbalHUD() {
+void ViewportOverlays::RenderCompassGimbalHUD(bool parented, const ImVec2& center, float radius) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float padding = 16.0f;
-    const float r = 36.0f;
-    const ImVec2 center = ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x - padding - r, view_transform_.viewport_pos.y + padding + r);
+    const float r = std::max(18.0f, radius);
+    const ImVec2 hud_center = parented
+        ? center
+        : ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x - padding - r, view_transform_.viewport_pos.y + padding + r);
     const ImU32 bg = IM_COL32(24,24,28,220);
     const ImU32 ring = IM_COL32(240,240,240,200);
-    dl->AddCircleFilled(center, r, bg);
-    dl->AddCircle(center, r, ring, 24, 2.0f);
+    dl->AddCircleFilled(hud_center, r, bg);
+    dl->AddCircle(hud_center, r, ring, 24, 2.0f);
 
     const float ang = -view_transform_.yaw;
     const float ca = std::cos(ang);
     const float sa = std::sin(ang);
+    auto rotate_dir = [ca, sa](const ImVec2& v) -> ImVec2 {
+        return ImVec2(v.x * ca - v.y * sa, v.x * sa + v.y * ca);
+    };
+
+    const ImVec2 dir_n = rotate_dir(ImVec2(0.0f, -1.0f));
+    const ImVec2 dir_e = rotate_dir(ImVec2(1.0f, 0.0f));
+    const ImVec2 dir_s = rotate_dir(ImVec2(0.0f, 1.0f));
+    const ImVec2 dir_w = rotate_dir(ImVec2(-1.0f, 0.0f));
+
+    const float label_radius = std::max(8.0f, r - 10.0f);
     const ImU32 label_col = IM_COL32(220,220,220,220);
-    const ImVec2 n = ImVec2(0.0f * ca - (-1.0f) * sa, 0.0f * sa + (-1.0f) * ca);
-    // N/E/S/W positions
-    const ImVec2 offsN = ImVec2(center.x + 0.0f, center.y - r + 8.0f);
-    const ImVec2 offsE = ImVec2(center.x + r - 8.0f, center.y + 0.0f);
-    const ImVec2 offsS = ImVec2(center.x + 0.0f, center.y + r - 8.0f);
-    const ImVec2 offsW = ImVec2(center.x - r + 8.0f, center.y + 0.0f);
-    dl->AddText(offsN, label_col, "N");
-    dl->AddText(offsE, label_col, "E");
-    dl->AddText(offsS, label_col, "S");
-    dl->AddText(offsW, label_col, "W");
+    auto draw_label = [&](const char* text, const ImVec2& dir) {
+        const ImVec2 text_size = ImGui::CalcTextSize(text);
+        const ImVec2 pos(
+            hud_center.x + dir.x * label_radius - text_size.x * 0.5f,
+            hud_center.y + dir.y * label_radius - text_size.y * 0.5f);
+        dl->AddText(pos, label_col, text);
+        return pos;
+    };
+    const ImVec2 north_label_pos = draw_label("N", dir_n);
+    draw_label("E", dir_e);
+    draw_label("S", dir_s);
+    draw_label("W", dir_w);
 
-    // North needle (red)
-    const ImVec2 needle_tip = ImVec2(center.x + (-sa) * (r - 10.0f), center.y + (-ca) * (r - 10.0f));
-    dl->AddLine(center, needle_tip, IM_COL32(220,60,60,240), 3.0f);
+    // North needle (red).
+    const ImVec2 needle_tip = ImVec2(
+        hud_center.x + dir_n.x * (r - 10.0f),
+        hud_center.y + dir_n.y * (r - 10.0f));
+    dl->AddLine(hud_center, needle_tip, IM_COL32(220,60,60,240), 3.0f);
 
-    // Interaction: detect clicks inside circle and set requested_yaw_
-    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        const ImVec2 mp = ImGui::GetIO().MousePos;
-        const float dx = mp.x - center.x;
-        const float dy = mp.y - center.y;
-        const float dist2 = dx * dx + dy * dy;
-        if (dist2 <= r * r) {
-            const float ang_click = std::atan2(dy, dx);
-            const float desired = ang_click + (3.14159265f * 0.5f);
-            requested_yaw_ = desired;
+    // Interaction: click + drag on compass ring to steer camera yaw.
+    const ImVec2 mp = ImGui::GetIO().MousePos;
+    const float dx = mp.x - hud_center.x;
+    const float dy = mp.y - hud_center.y;
+    const float dist2 = dx * dx + dy * dy;
+    const bool inside = dist2 <= r * r;
+
+    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && inside) {
+        const ImVec2 north_center = ImVec2(
+            north_label_pos.x + ImGui::CalcTextSize("N").x * 0.5f,
+            north_label_pos.y + ImGui::CalcTextSize("N").y * 0.5f);
+        const float ndx = mp.x - north_center.x;
+        const float ndy = mp.y - north_center.y;
+        const float near_n_dist2 = ndx * ndx + ndy * ndy;
+        const bool near_north = near_n_dist2 <= (10.0f * 10.0f);
+        if (near_north) {
+            requested_yaw_ = 0.0f;
+            compass_drag_active_ = false;
+        } else {
+            requested_yaw_ = std::atan2(dy, dx) + (3.14159265f * 0.5f);
+            compass_drag_active_ = true;
         }
+    }
+    if (compass_drag_active_ && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        compass_drag_active_ = false;
+    }
+    if (compass_drag_active_) {
+        const float ang_click = std::atan2(dy, dx);
+        const float desired = ang_click + (3.14159265f * 0.5f);
+        requested_yaw_ = desired;
     }
 }
 

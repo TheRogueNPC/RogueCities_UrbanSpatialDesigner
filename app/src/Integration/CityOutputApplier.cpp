@@ -377,9 +377,15 @@ void ApplyCityOutputToGlobalState(
         : 0u;
     gs.world_constraints = output.world_constraints;
     gs.city_boundary = output.city_boundary;
-    // Ensure city_boundary matches texture-space-based world bounds derived from texture size
-    const auto b = RogueCity::Core::Editor::ComputeWorldBounds(gs.city_texture_size, gs.city_meters_per_pixel);
-    gs.city_boundary = { {b.min.x,b.min.y},{b.max.x,b.min.y},{b.max.x,b.max.y},{b.min.x,b.max.y} };
+    // Preserve generator-provided city hull whenever available so the visible
+    // foundation stays aligned with axiom-derived output. Fall back only when
+    // no boundary was emitted.
+    const bool should_force_fallback_bounds = gs.city_boundary.empty();
+    if (should_force_fallback_bounds) {
+        const RogueCity::Core::Bounds b =
+            RogueCity::Core::Editor::ComputeWorldBounds(gs.city_texture_size, gs.city_meters_per_pixel);
+        gs.city_boundary = { {b.min.x,b.min.y},{b.max.x,b.min.y},{b.max.x,b.max.y},{b.min.x,b.max.y} };
+    }
     gs.connector_debug_edges = output.connector_debug_edges;
     gs.site_profile = output.site_profile;
     gs.plan_violations = output.plan_violations;

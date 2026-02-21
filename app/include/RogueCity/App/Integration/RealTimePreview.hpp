@@ -80,6 +80,7 @@ public:
     [[nodiscard]] GenerationPhase phase() const;
     [[nodiscard]] float phase_elapsed_seconds() const;
     void cancel_generation();
+    void clear_output();
 
 private:
     float debounce_delay_{ 0.5f };

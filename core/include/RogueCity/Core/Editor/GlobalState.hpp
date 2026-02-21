@@ -541,8 +541,8 @@ namespace RogueCity::Core::Editor {
     };
 
     inline Bounds ComputeWorldBounds(int tex_size, double meters_per_pixel) {
-        const double hw = (static_cast<double>(tex_size) * meters_per_pixel) * 0.5;
-        return { {-hw, -hw}, {+hw, +hw} };
+        const double extent = static_cast<double>(tex_size) * meters_per_pixel;
+        return { {0.0, 0.0}, {extent, extent} };
     }
 
     GlobalState& GetGlobalState();

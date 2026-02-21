@@ -474,20 +474,28 @@ void DrawTerminalFeatureGhost(
 
     const ImVec2 c = viewport.world_to_screen(center);
     const float r = std::max(8.0f, viewport.world_to_screen_scale(radius_world));
-    const ImU32 ghost = ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 190.0f, 32.0f, 255.0f)));
-    const ImU32 ghost_soft = ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 110.0f, 20.0f, 200.0f)));
+    // If alpha is near-1.0 treat as persistent (strong) overlay and draw with higher contrast/width.
+    const bool persistent = alpha >= 0.99f;
+    const ImU32 ghost = persistent
+        ? ColorWithAlpha(color, 255u)
+        : ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 230.0f, 48.0f, 255.0f)));
+    const ImU32 ghost_soft = persistent
+        ? ColorWithAlpha(color, 220u)
+        : ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 140.0f, 28.0f, 220.0f)));
 
     switch (PreviewStyleForFeature(feature)) {
         case PreviewGhostStyle::Axes: {
-            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), ghost, 2.0f);
-            draw_list->AddLine(ImVec2(c.x, c.y - r), ImVec2(c.x, c.y + r), ghost, 2.0f);
-            draw_list->AddCircle(c, r * 0.75f, ghost_soft, 48, 1.2f);
+            const float w = persistent ? 3.5f : 2.0f;
+            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), ghost, w);
+            draw_list->AddLine(ImVec2(c.x, c.y - r), ImVec2(c.x, c.y + r), ghost, w);
+            draw_list->AddCircle(c, r * 0.75f, ghost_soft, 48, persistent ? 2.0f : 1.2f);
             break;
         }
         case PreviewGhostStyle::Diagonal: {
-            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y - r * 0.9f), ImVec2(c.x + r * 0.9f, c.y + r * 0.9f), ghost, 2.0f);
-            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y + r * 0.9f), ImVec2(c.x + r * 0.9f, c.y - r * 0.9f), ghost_soft, 1.5f);
-            draw_list->AddRect(ImVec2(c.x - r * 0.6f, c.y - r * 0.6f), ImVec2(c.x + r * 0.6f, c.y + r * 0.6f), ghost_soft, 2.0f, 0, 1.0f);
+            const float w = persistent ? 3.0f : 2.0f;
+            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y - r * 0.9f), ImVec2(c.x + r * 0.9f, c.y + r * 0.9f), ghost, w);
+            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y + r * 0.9f), ImVec2(c.x + r * 0.9f, c.y - r * 0.9f), ghost_soft, persistent ? 2.2f : 1.5f);
+            draw_list->AddRect(ImVec2(c.x - r * 0.6f, c.y - r * 0.6f), ImVec2(c.x + r * 0.6f, c.y + r * 0.6f), ghost_soft, persistent ? 3.0f : 2.0f, 0, persistent ? 1.8f : 1.0f);
             break;
         }
         case PreviewGhostStyle::Spiral: {
@@ -501,27 +509,27 @@ void DrawTerminalFeatureGhost(
                     c.x + std::cos(angle) * rr,
                     c.y + std::sin(angle) * rr);
             }
-            draw_list->AddPolyline(points.data(), segments, ghost, ImDrawFlags_None, 1.8f);
+            draw_list->AddPolyline(points.data(), segments, ghost, ImDrawFlags_None, persistent ? 2.6f : 1.8f);
             break;
         }
         case PreviewGhostStyle::Rings: {
-            draw_list->AddCircle(c, r * 0.28f, ghost, 48, 1.8f);
-            draw_list->AddCircle(c, r * 0.56f, ghost_soft, 48, 1.4f);
-            draw_list->AddCircle(c, r * 0.85f, ghost_soft, 48, 1.1f);
+            draw_list->AddCircle(c, r * 0.28f, ghost, 48, persistent ? 3.0f : 1.8f);
+            draw_list->AddCircle(c, r * 0.56f, ghost_soft, 48, persistent ? 2.6f : 1.4f);
+            draw_list->AddCircle(c, r * 0.85f, ghost_soft, 48, persistent ? 2.2f : 1.1f);
             break;
         }
         case PreviewGhostStyle::Boundary: {
-            draw_list->AddCircle(c, r * 0.92f, ghost, 64, 2.0f);
-            draw_list->AddCircle(c, r * 0.74f, ghost_soft, 64, 1.2f);
-            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x - r * 0.6f, c.y), ghost_soft, 2.0f);
-            draw_list->AddLine(ImVec2(c.x + r * 0.6f, c.y), ImVec2(c.x + r, c.y), ghost_soft, 2.0f);
+            draw_list->AddCircle(c, r * 0.92f, ghost, 64, persistent ? 3.0f : 2.0f);
+            draw_list->AddCircle(c, r * 0.74f, ghost_soft, 64, persistent ? 2.6f : 1.2f);
+            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x - r * 0.6f, c.y), ghost_soft, persistent ? 2.8f : 2.0f);
+            draw_list->AddLine(ImVec2(c.x + r * 0.6f, c.y), ImVec2(c.x + r, c.y), ghost_soft, persistent ? 2.8f : 2.0f);
             break;
         }
         case PreviewGhostStyle::Bundle: {
-            draw_list->AddCircle(c, r * 0.80f, ghost_soft, 48, 1.2f);
-            draw_list->AddCircle(c, r * 0.48f, ghost_soft, 48, 1.0f);
-            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y - r * 0.2f), ImVec2(c.x + r * 0.95f, c.y - r * 0.2f), ghost, 1.6f);
-            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y + r * 0.2f), ImVec2(c.x + r * 0.95f, c.y + r * 0.2f), ghost, 1.6f);
+            draw_list->AddCircle(c, r * 0.80f, ghost_soft, 48, persistent ? 2.4f : 1.2f);
+            draw_list->AddCircle(c, r * 0.48f, ghost_soft, 48, persistent ? 2.0f : 1.0f);
+            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y - r * 0.2f), ImVec2(c.x + r * 0.95f, c.y - r * 0.2f), ghost, persistent ? 2.4f : 1.6f);
+            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y + r * 0.2f), ImVec2(c.x + r * 0.95f, c.y + r * 0.2f), ghost, persistent ? 2.4f : 1.6f);
             break;
         }
     }
@@ -697,6 +705,73 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
 
     const ImU32 type_color = GetAxiomTypeInfo(type_).primary_color;
     RenderLattice(draw_list, viewport, lattice_, type_, type_color, position_, lattice_animation_alpha_);
+    // Draw persistent terminal feature overlays for clarity when features are enabled on this axiom.
+    // Overlays should not be duplicated at each vertex; instead they are warped (scaled/rotated)
+    // to follow the axiom lattice as a whole so modifiers move with the axiom.
+    const auto allowed = RogueCity::Generators::featuresForAxiomType(type_);
+    for (const auto f : allowed) {
+        if (!terminal_features_.has(f)) {
+            continue;
+        }
+
+        // Draw the strong central ghost first.
+        DrawTerminalFeatureGhost(draw_list, viewport, position_, radius_, f, 1.0f, type_color);
+
+        // If the lattice is non-empty, draw a warped outline (ellipse-like) that follows
+        // the lattice scale and orientation so the modifier appears manipulated with the axiom.
+        if (!lattice_.vertices.empty()) {
+            // Compute animated vertex positions and bounding box in world space.
+            Core::Vec2 bbox_min = AnimatePoint(lattice_.vertices[0].world_pos, position_, lattice_animation_alpha_);
+            Core::Vec2 bbox_max = bbox_min;
+            Core::Vec2 avg_dir{0.0, 0.0};
+            for (const auto& v : lattice_.vertices) {
+                const Core::Vec2 p = AnimatePoint(v.world_pos, position_, lattice_animation_alpha_);
+                bbox_min.x = std::min(bbox_min.x, p.x);
+                bbox_min.y = std::min(bbox_min.y, p.y);
+                bbox_max.x = std::max(bbox_max.x, p.x);
+                bbox_max.y = std::max(bbox_max.y, p.y);
+                avg_dir.x += (p.x - position_.x);
+                avg_dir.y += (p.y - position_.y);
+            }
+            const double width_world = std::max(1.0, bbox_max.x - bbox_min.x);
+            const double height_world = std::max(1.0, bbox_max.y - bbox_min.y);
+
+            // Derive ellipse radii from bbox but keep a sensible minimum based on radius_.
+            const float rx = std::max(radius_ * 0.6f, static_cast<float>(width_world * 0.5));
+            const float ry = std::max(radius_ * 0.6f, static_cast<float>(height_world * 0.5));
+
+            // Orientation: prefer principal direction for Linear, otherwise average direction from center.
+            double angle = 0.0;
+            if (lattice_.topology == LatticeTopology::Linear && lattice_.vertices.size() >= 2) {
+                const Core::Vec2 a = AnimatePoint(lattice_.vertices[0].world_pos, position_, lattice_animation_alpha_);
+                const Core::Vec2 b = AnimatePoint(lattice_.vertices[1].world_pos, position_, lattice_animation_alpha_);
+                angle = std::atan2(b.y - a.y, b.x - a.x);
+            } else {
+                angle = std::atan2(avg_dir.y, avg_dir.x);
+            }
+
+            // Build rotated ellipse points in world space and draw as a single polyline.
+            constexpr int segs = 64;
+            std::vector<ImVec2> pts;
+            pts.reserve(segs);
+            const double ca = std::cos(angle);
+            const double sa = std::sin(angle);
+            for (int i = 0; i < segs; ++i) {
+                const double t = (2.0 * M_PI * static_cast<double>(i)) / static_cast<double>(segs);
+                const double xw = static_cast<double>(rx) * std::cos(t);
+                const double yw = static_cast<double>(ry) * std::sin(t);
+                // rotate
+                const double rxw = xw * ca - yw * sa;
+                const double ryw = xw * sa + yw * ca;
+                const Core::Vec2 world_pt = {position_.x + rxw, position_.y + ryw};
+                pts.push_back(viewport.world_to_screen(world_pt));
+            }
+
+            draw_list->AddPolyline(pts.data(), static_cast<int>(pts.size()), ColorWithAlpha(type_color, 220u), ImDrawFlags_Closed, /*thickness*/ 3.0f);
+        }
+    }
+
+    // Hover preview (transient) remains drawn with animated alpha.
     if (preview_feature_.has_value() && preview_alpha_ > 0.01f) {
         DrawTerminalFeatureGhost(draw_list, viewport, position_, radius_, *preview_feature_, preview_alpha_, type_color);
     }

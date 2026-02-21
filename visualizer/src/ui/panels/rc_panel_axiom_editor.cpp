@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <deque>
 #include <numeric>
@@ -777,6 +778,22 @@ void ClearLayer(uint32_t layer_mask, const char* description) {
     cmd->layers = layer_mask;
     cmd->description = description;
     s_axiom_tool->push_command(std::move(cmd));
+    if (layer_mask == ClearLayerCommand::All) {
+        auto& gs = RogueCity::Core::Editor::GetGlobalState();
+        const auto b = RogueCity::Core::Editor::ComputeWorldBounds(gs.city_texture_size, gs.city_meters_per_pixel);
+        gs.city_boundary = { {b.min.x,b.min.y},{b.max.x,b.min.y},{b.max.x,b.max.y},{b.min.x,b.max.y} };
+        gs.connector_debug_edges.clear();
+        gs.plan_violations.clear();
+        gs.plan_approved = true;
+        gs.tool_runtime.explicit_generation_pending = false;
+        gs.tool_runtime.last_viewport_status = "cleared-all-data";
+        gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+        s_validation_error.clear();
+        if (s_generation_coordinator) {
+            s_generation_coordinator->ClearOutput();
+        }
+    }
+    s_external_dirty = true;
 }
 
 void ClearAxioms() {
@@ -813,11 +830,25 @@ static bool BuildInputs(
     RogueCity::Generators::CityGenerator::Config& out_config) {
     if (!s_axiom_tool) return false;
 
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
     out_inputs = s_axiom_tool->get_axiom_inputs();
+    if (out_inputs.empty()) {
+        s_validation_error.clear();
+        return false;
+    }
 
     const auto& axioms = s_axiom_tool->axioms();
-    out_config.width = 2000;
-    out_config.height = 2000;
+    const auto world_bounds = RogueCity::Core::Editor::ComputeWorldBounds(
+        gs.city_texture_size, gs.city_meters_per_pixel);
+    const double world_extent_raw = std::max(
+        world_bounds.max.x - world_bounds.min.x,
+        world_bounds.max.y - world_bounds.min.y);
+    const int world_extent = std::clamp(
+        static_cast<int>(std::lround(world_extent_raw)),
+        500,
+        8192);
+    out_config.width = world_extent;
+    out_config.height = world_extent;
     out_config.cell_size = 10.0;
     out_config.seed = s_seed;
     out_config.num_seeds = std::max(10, static_cast<int>(axioms.size() * 6 * s_flow_rate));
@@ -1074,18 +1105,11 @@ static bool TryCityBoundaryBounds(
     const RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Vec2& out_min,
     RogueCity::Core::Vec2& out_max) {
-    if (gs.city_boundary.size() < 3) {
-        return false;
-    }
-    out_min = gs.city_boundary.front();
-    out_max = gs.city_boundary.front();
-    for (const auto& p : gs.city_boundary) {
-        out_min.x = std::min(out_min.x, p.x);
-        out_min.y = std::min(out_min.y, p.y);
-        out_max.x = std::max(out_max.x, p.x);
-        out_max.y = std::max(out_max.y, p.y);
-    }
-    return out_max.x > out_min.x && out_max.y > out_min.y;
+    const RogueCity::Core::Bounds b = RogueCity::Core::Editor::ComputeWorldBounds(
+        gs.city_texture_size, gs.city_meters_per_pixel);
+    out_min = b.min;
+    out_max = b.max;
+    return true;
 }
 
 static RogueCity::Core::Vec2 ClampMinimapCameraToConstraints(
@@ -1982,6 +2006,21 @@ void DrawContent(float dt) {
     const ImVec2 viewport_min = ImGui::GetItemRectMin();
     const ImVec2 viewport_max = ImGui::GetItemRectMax();
     draw_list->PushClipRect(viewport_min, viewport_max, true);
+
+    // Predict scene-stats HUD rect up-front so viewport input can ignore it.
+    const ImVec2 minimap_stats_anchor = ImVec2(
+        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+        viewport_pos.y + kMinimapPadding
+    );
+    const float scene_stats_width = 188.0f;
+    const float scene_stats_height = gs.tool_runtime.viewport_scene_stats_collapsed ? 30.0f : 84.0f;
+    const float scene_stats_x = (s_minimap_visible
+        ? (minimap_stats_anchor.x - scene_stats_width - 12.0f)
+        : (viewport_pos.x + viewport_size.x - scene_stats_width - 12.0f));
+    const ImVec2 scene_stats_min_pred(scene_stats_x, viewport_pos.y + 12.0f);
+    const ImVec2 scene_stats_max_pred(
+        scene_stats_min_pred.x + scene_stats_width,
+        scene_stats_min_pred.y + scene_stats_height);
     
     // Background (Y2K grid pattern)
     draw_list->AddRectFilled(
@@ -2033,12 +2072,16 @@ void DrawContent(float dt) {
     const bool minimap_hovered = s_minimap_visible &&
         (mouse_pos.x >= minimap_pos_bounds.x && mouse_pos.x <= minimap_max_bounds.x &&
          mouse_pos.y >= minimap_pos_bounds.y && mouse_pos.y <= minimap_max_bounds.y);
+    const bool scene_stats_hovered =
+        (mouse_pos.x >= scene_stats_min_pred.x && mouse_pos.x <= scene_stats_max_pred.x &&
+         mouse_pos.y >= scene_stats_min_pred.y && mouse_pos.y <= scene_stats_max_pred.y);
+    const bool overlay_blocked_hovered = minimap_hovered || scene_stats_hovered;
     const UiInputGateState input_gate = RC_UI::BuildUiInputGateState(
         editor_hovered,
         viewport_canvas_hovered,
         viewport_canvas_active,
         any_item_active,
-        minimap_hovered);
+        overlay_blocked_hovered);
     RC_UI::PublishUiInputGateState(input_gate);
     const bool allow_viewport_mouse_actions = RC_UI::AllowViewportMouseActions(input_gate);
     const bool allow_viewport_key_actions = RC_UI::AllowViewportKeyActions(input_gate);
@@ -2052,7 +2095,7 @@ void DrawContent(float dt) {
         RC_UI::Viewport::CommandInteractionParams{
             input_gate,
             in_viewport,
-            minimap_hovered,
+            overlay_blocked_hovered,
             mouse_pos,
             &gs.config,
         },
@@ -2174,7 +2217,7 @@ void DrawContent(float dt) {
         RC_UI::Viewport::NonAxiomInteractionParams{
             axiom_mode,
             in_viewport,
-            minimap_hovered,
+            overlay_blocked_hovered,
             allow_viewport_mouse_actions,
             allow_viewport_key_actions,
             mouse_pos,
@@ -2187,7 +2230,7 @@ void DrawContent(float dt) {
         gs.tool_runtime.explicit_generation_pending = true;
     }
 
-    if (!editor_hovered || !in_viewport || minimap_hovered || !allow_viewport_mouse_actions) {
+    if (!editor_hovered || !in_viewport || overlay_blocked_hovered || !allow_viewport_mouse_actions) {
         gs.hovered_entity.reset();
     }
     
@@ -2201,10 +2244,11 @@ void DrawContent(float dt) {
     const bool inputs_ok = BuildInputs(axiom_inputs, config);
     if (inputs_ok) {
         const bool domain_live_preview_enabled = gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
+        const bool live_preview_allowed = axiom_mode ? true : domain_live_preview_enabled;
         const bool axiom_inputs_dirty =
             ui_modified_axiom || s_external_dirty || s_axiom_tool->is_interacting() || s_axiom_tool->consume_dirty();
         const bool placement_dirty = gs.dirty_layers.AnyDirty();
-        if (s_generation_coordinator && s_live_preview && domain_live_preview_enabled &&
+        if (s_generation_coordinator && s_live_preview && live_preview_allowed &&
             (axiom_inputs_dirty || placement_dirty)) {
             if (axiom_inputs_dirty) {
                 s_generation_coordinator->RequestRegeneration(
@@ -2246,14 +2290,7 @@ void DrawContent(float dt) {
         : gs.tool_runtime.last_viewport_status.c_str();
     const char* active_domain = RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain);
     const size_t axiom_count = s_axiom_tool ? s_axiom_tool->axioms().size() : size_t{0};
-    const size_t road_count = (gs.show_layer_roads && s_generation_coordinator && s_generation_coordinator->GetOutput())
-        ? static_cast<size_t>(s_generation_coordinator->GetOutput()->roads.size())
-        : 0u;
-
-    const ImVec2 minimap_stats_anchor = ImVec2(
-        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
-        viewport_pos.y + kMinimapPadding
-    );
+    const size_t road_count = gs.show_layer_roads ? static_cast<size_t>(gs.roads.size()) : 0u;
 
     // Unified top-left chrome (mode + status + cue).
     if (gs.config.feature_ui_chrome_unification) {
@@ -2305,15 +2342,14 @@ void DrawContent(float dt) {
         }
     }
 
+    ImVec2 scene_stats_compass_center(0.0f, 0.0f);
+    float scene_stats_compass_radius = 0.0f;
+    bool scene_stats_compass_parented = false;
+
     // Scene stats card that reflows left of minimap.
     {
-        const float stats_width = 188.0f;
-        const float stats_height = gs.tool_runtime.viewport_scene_stats_collapsed ? 30.0f : 84.0f;
-        const float stats_x = (s_minimap_visible
-            ? (minimap_stats_anchor.x - stats_width - 12.0f)
-            : (viewport_pos.x + viewport_size.x - stats_width - 12.0f));
-        const ImVec2 stats_min(stats_x, viewport_pos.y + 12.0f);
-        const ImVec2 stats_max(stats_min.x + stats_width, stats_min.y + stats_height);
+        const ImVec2 stats_min = scene_stats_min_pred;
+        const ImVec2 stats_max = scene_stats_max_pred;
         draw_list->AddRectFilled(stats_min, stats_max, TokenColor(UITokens::BackgroundDark, 212u), 8.0f);
         draw_list->AddRect(stats_min, stats_max, TokenColor(UITokens::InfoBlue, 165u), 8.0f, 0, 1.4f);
 
@@ -2335,6 +2371,11 @@ void DrawContent(float dt) {
             ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 198u), "Roads: %zu", road_count);
             ImGui::SetCursorScreenPos(ImVec2(stats_min.x + 10.0f, stats_min.y + 68.0f));
             ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 190u), "Status: %s", viewport_status);
+
+            // Parent compass inside Scene Stats card so it travels with card layout.
+            scene_stats_compass_center = ImVec2(stats_max.x - 24.0f, stats_min.y + 22.0f);
+            scene_stats_compass_radius = 18.0f;
+            scene_stats_compass_parented = true;
         }
     }
 
@@ -2356,8 +2397,8 @@ void DrawContent(float dt) {
     }
     
     // Render generated city output (roads)
-    if (gs.show_layer_roads && s_generation_coordinator && s_generation_coordinator->GetOutput()) {
-        const auto& roads = s_generation_coordinator->GetOutput()->roads;
+    if (gs.show_layer_roads) {
+        const auto& roads = gs.roads;
         
         // Iterate using const iterators
         for (auto it = roads.begin(); it != roads.end(); ++it) {
@@ -2650,7 +2691,14 @@ void DrawContent(float dt) {
         gs.districts.size() != 0;
     overlay_config.show_validation_errors = gs.validation_overlay.enabled;
     overlay_config.show_gizmos = gs.gizmo.visible && gs.selection_manager.Count() > 0;
+    overlay_config.compass_parented = scene_stats_compass_parented;
+    overlay_config.compass_center = scene_stats_compass_center;
+    overlay_config.compass_radius = scene_stats_compass_radius;
     overlays.Render(gs, overlay_config);
+    if (overlays.requested_yaw_.has_value()) {
+        s_primary_viewport->set_camera_yaw(*overlays.requested_yaw_);
+        overlays.requested_yaw_.reset();
+    }
 
     if (s_non_axiom_interaction.selection_drag.box_active) {
         const ImVec2 a = s_primary_viewport->world_to_screen(s_non_axiom_interaction.selection_drag.box_start);

@@ -84,6 +84,19 @@ void GenerationCoordinator::CancelGeneration() {
     preview_.cancel_generation();
 }
 
+void GenerationCoordinator::ClearOutput() {
+    preview_.clear_output();
+    scheduled_serial_ = 0;
+    inflight_serial_ = 0;
+    completed_serial_ = 0;
+    scheduled_reason_ = GenerationRequestReason::Unknown;
+    inflight_reason_ = GenerationRequestReason::Unknown;
+    completed_reason_ = GenerationRequestReason::Unknown;
+    scheduled_depth_ = GenerationDepth::FullPipeline;
+    inflight_depth_ = GenerationDepth::FullPipeline;
+    completed_depth_ = GenerationDepth::FullPipeline;
+}
+
 bool GenerationCoordinator::IsGenerating() const {
     return preview_.is_generating();
 }
