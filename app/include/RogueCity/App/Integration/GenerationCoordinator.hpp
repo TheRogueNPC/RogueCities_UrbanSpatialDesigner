@@ -14,11 +14,6 @@ enum class GenerationRequestReason : uint8_t {
     ForceGenerate,
     ExternalRequest
 };
-// Represents the depth of generation to perform for a given request, allowing callers to specify whether they want to run the full pipeline or just specific stages.
-enum class GenerationDepth : uint8_t {
-    FullPipeline = 0,
-    PartialPipeline
-};
 // Coordinates city generation requests, manages their lifecycle, and provides status updates and results to the rest of the application. It handles debouncing of rapid requests, cancellation of in-flight generation, and ensures that callbacks are invoked with the correct context when generation completes.
 class GenerationCoordinator {
 public:

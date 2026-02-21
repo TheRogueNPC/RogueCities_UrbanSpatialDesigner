@@ -4,6 +4,7 @@
 
 namespace RogueCity::Generators {
 
+// Adapter layer from legacy/public scoring API into AESP classifier primitives.
 RogueProfiler::Scores RogueProfiler::computeScores(Core::RoadType primary, Core::RoadType secondary) {
     const AESPClassifier::AESPScores aesp = AESPClassifier::computeScores(primary, secondary);
     Scores scores{};
@@ -14,6 +15,7 @@ RogueProfiler::Scores RogueProfiler::computeScores(Core::RoadType primary, Core:
     return scores;
 }
 
+// Converts profiler score struct into classifier score struct and delegates classification.
 Core::DistrictType RogueProfiler::classifyDistrict(const Scores& scores) {
     AESPClassifier::AESPScores aesp{};
     aesp.A = scores.access;
@@ -23,10 +25,12 @@ Core::DistrictType RogueProfiler::classifyDistrict(const Scores& scores) {
     return AESPClassifier::classifyDistrict(aesp);
 }
 
+// Lot classification pass-through.
 Core::DistrictType RogueProfiler::classifyLot(const Core::LotToken& lot) {
     return AESPClassifier::classifyLot(lot);
 }
 
+// Axis extraction helpers delegated to AESP mapping tables.
 float RogueProfiler::roadTypeToAccess(Core::RoadType type) {
     return AESPClassifier::roadTypeToAccess(type);
 }

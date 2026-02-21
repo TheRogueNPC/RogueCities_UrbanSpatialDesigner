@@ -9,6 +9,7 @@ namespace RogueCity::Generators::Urban {
 
     namespace {
 
+        // Nearest-road query result used to map a candidate district cell to road context.
         struct NearestRoad {
             Core::RoadType type{ Core::RoadType::Street };
             Core::Vec2 direction{ 1.0, 0.0 };
@@ -16,6 +17,7 @@ namespace RogueCity::Generators::Urban {
             bool valid{ false };
         };
 
+        // Point-to-segment distance with returned segment direction unit vector.
         double distanceToSegment(
             const Core::Vec2& p,
             const Core::Vec2& a,
@@ -47,6 +49,7 @@ namespace RogueCity::Generators::Urban {
             return p.distanceTo(projection);
         }
 
+        // Brute-force nearest-road lookup over all road segments.
         NearestRoad findNearest(const fva::Container<Core::Road>& roads, const Core::Vec2& p) {
             NearestRoad best{};
             for (const auto& road : roads) {
@@ -67,6 +70,7 @@ namespace RogueCity::Generators::Urban {
             return best;
         }
 
+        // Derives bounds from road geometry if caller does not provide usable bounds.
         Core::Bounds deriveBounds(const fva::Container<Core::Road>& roads) {
             Core::Bounds b{};
             bool has_any = false;
@@ -92,12 +96,17 @@ namespace RogueCity::Generators::Urban {
 
     } // namespace
 
+    // Convenience overload with default configuration.
     std::vector<Core::District> DistrictGenerator::generate(
         const fva::Container<Core::Road>& roads,
         const Core::Bounds& bounds) {
         return generate(roads, bounds, Config{});
     }
 
+    // Grid-based district synthesis:
+    // - partition bounds into coarse cells
+    // - keep cells near road influence
+    // - classify district type via AESP-derived scores
     std::vector<Core::District> DistrictGenerator::generate(
         const fva::Container<Core::Road>& roads,
         const Core::Bounds& bounds,
@@ -132,6 +141,7 @@ namespace RogueCity::Generators::Urban {
                     continue;
                 }
 
+                // Use nearest road type as local context for district classification.
                 const auto scores = RogueProfiler::computeScores(nearest.type, nearest.type);
                 const Core::DistrictType type = RogueProfiler::classifyDistrict(scores);
 
@@ -140,6 +150,7 @@ namespace RogueCity::Generators::Urban {
                 district.type = type;
                 district.desirability = static_cast<float>(1.0 / (1.0 + nearest.distance));
                 district.orientation = nearest.direction;
+                // Emit axis-aligned cell rectangle as the district polygon footprint.
                 district.border = {
                     { b.min.x + gx * cell_w, b.min.y + gy * cell_h },
                     { b.min.x + (gx + 1) * cell_w, b.min.y + gy * cell_h },

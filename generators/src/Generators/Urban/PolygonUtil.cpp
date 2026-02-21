@@ -5,6 +5,7 @@
 
 namespace RogueCity::Generators::Urban::PolygonUtil {
 
+    // Signed area (shoelace formula). Positive/negative indicates winding.
     double area(const std::vector<Core::Vec2>& ring) {
         if (ring.size() < 3) {
             return 0.0;
@@ -18,6 +19,7 @@ namespace RogueCity::Generators::Urban::PolygonUtil {
         return 0.5 * a;
     }
 
+    // Polygon centroid. Falls back to arithmetic mean for degenerate rings.
     Core::Vec2 centroid(const std::vector<Core::Vec2>& ring) {
         if (ring.empty()) {
             return {};
@@ -46,6 +48,7 @@ namespace RogueCity::Generators::Urban::PolygonUtil {
         return { cx * factor, cy * factor };
     }
 
+    // Ray-casting point-in-polygon test.
     bool insidePolygon(const Core::Vec2& p, const std::vector<Core::Vec2>& ring) {
         if (ring.size() < 3) {
             return false;
@@ -64,6 +67,7 @@ namespace RogueCity::Generators::Urban::PolygonUtil {
         return inside;
     }
 
+    // Ensures ring is explicitly closed (first point repeated as last).
     std::vector<Core::Vec2> closed(const std::vector<Core::Vec2>& ring) {
         if (ring.empty()) {
             return ring;
@@ -75,6 +79,7 @@ namespace RogueCity::Generators::Urban::PolygonUtil {
         return out;
     }
 
+    // Axis-aligned bounding box of a polygon ring.
     Core::Bounds bounds(const std::vector<Core::Vec2>& ring) {
         Core::Bounds out{};
         if (ring.empty()) {
@@ -91,4 +96,3 @@ namespace RogueCity::Generators::Urban::PolygonUtil {
     }
 
 } // namespace RogueCity::Generators::Urban::PolygonUtil
-

@@ -2,6 +2,8 @@
 
 namespace RogueCity::Generators::Urban {
 
+    // Maps road hierarchy to frontage suitability profile:
+    // {access preference, commercial exposure, service bias, privacy bias}.
     RoadFrontageProfile FrontageProfiles::get(Core::RoadType type) {
         using Core::RoadType;
         switch (type) {
@@ -22,4 +24,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

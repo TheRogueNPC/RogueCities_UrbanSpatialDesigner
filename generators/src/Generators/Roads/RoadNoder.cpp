@@ -6,6 +6,7 @@
 
 namespace RogueCity::Generators::Roads {
 
+    // Initializes noder configuration and segment spatial index.
     RoadNoder::RoadNoder(NoderConfig cfg)
         : cfg_(std::move(cfg))
         , seg_index_(1, 1, 1.0f) {
@@ -14,6 +15,11 @@ namespace RogueCity::Generators::Roads {
         }
     }
 
+    // Builds a topological graph from polyline candidates by:
+    // - indexing raw segments
+    // - finding pairwise intersections
+    // - splitting segments at cut points
+    // - welding segment endpoints into graph vertices
     void RoadNoder::buildGraph(
         const std::vector<PolylineRoadCandidate>& candidates,
         Urban::Graph& out_graph) {
@@ -22,6 +28,7 @@ namespace RogueCity::Generators::Roads {
             return;
         }
 
+        // Compute spatial extent for segment grid sizing.
         Core::Vec2 max_p(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest());
         for (const auto& candidate : candidates) {
             for (const auto& p : candidate.pts) {
@@ -35,6 +42,7 @@ namespace RogueCity::Generators::Roads {
         const int grid_h = std::max(1, static_cast<int>(std::ceil(std::max(0.0, max_p.y) / grid_cell)) + 2);
         seg_index_ = SegmentGridStorage(grid_w, grid_h, grid_cell);
 
+        // Flatten candidate polylines into raw segment records.
         std::vector<RawSegment> segments;
         segments.reserve(candidates.size() * 8);
         uint32_t seg_id = 0;
@@ -68,6 +76,7 @@ namespace RogueCity::Generators::Roads {
             return;
         }
 
+        // Each segment starts with endpoints as mandatory split cuts.
         std::vector<std::vector<double>> cuts(segments.size());
         for (auto& c : cuts) {
             c.push_back(0.0);
@@ -80,6 +89,7 @@ namespace RogueCity::Generators::Roads {
         }
 
         constexpr float kTol = 1e-4f;
+        // Query nearby segments and collect geometric intersections as split parameters.
         for (size_t i = 0; i < segments.size(); ++i) {
             const auto& seg = segments[i];
             const Core::Vec2 mid = (seg.a + seg.b) * 0.5;
@@ -119,6 +129,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Materialize split edges and insert into graph with per-type defaults.
         for (size_t i = 0; i < segments.size(); ++i) {
             auto& split = cuts[i];
             std::sort(split.begin(), split.end());
@@ -166,6 +177,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Initialize vertex kind tags from final degree.
         for (Urban::VertexID vid = 0; vid < out_graph.vertices().size(); ++vid) {
             auto* v = out_graph.getVertexMutable(vid);
             if (v == nullptr) {
@@ -182,6 +194,7 @@ namespace RogueCity::Generators::Roads {
         }
     }
 
+    // Returns per-type noding parameters with fallback to first entry.
     const RoadTypeParams& RoadNoder::paramsForType(Core::RoadType type) const {
         const size_t idx = static_cast<size_t>(type);
         if (idx < cfg_.type_params.size()) {
@@ -190,6 +203,7 @@ namespace RogueCity::Generators::Roads {
         return cfg_.type_params.front();
     }
 
+    // Finds existing nearby same-layer vertex or creates a new one.
     Urban::VertexID RoadNoder::getOrCreateVertex(
         Urban::Graph& g,
         const Core::Vec2& p,
@@ -212,6 +226,7 @@ namespace RogueCity::Generators::Roads {
         return g.addVertex(v);
     }
 
+    // Segment-segment intersection test returning intersection point and normalized params.
     bool RoadNoder::segmentIntersect(
         const Core::Vec2& a0,
         const Core::Vec2& a1,
@@ -266,6 +281,7 @@ namespace RogueCity::Generators::Roads {
         return true;
     }
 
+    // Polyline arc length helper.
     float RoadNoder::polylineLength(const std::vector<Core::Vec2>& pts) const {
         if (pts.size() < 2) {
             return 0.0f;

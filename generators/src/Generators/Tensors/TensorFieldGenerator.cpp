@@ -9,15 +9,19 @@
 
 namespace RogueCity::Generators {
 
+    // Default constructor delegates to config-based constructor for one initialization path.
     TensorFieldGenerator::TensorFieldGenerator()
         : TensorFieldGenerator(Config{}) {}
 
+    // Allocates persistent grid storage sized to the configured tensor lattice.
     TensorFieldGenerator::TensorFieldGenerator(const Config& config)
         : config_(config) {
         // Allocate grid storage
         grid_.resize(config_.width * config_.height, Tensor2D::zero());
     }
 
+    // Copy construction intentionally copies resolved grid state but not basis-field ownership.
+    // Basis fields are mutable construction inputs and are rebuilt by caller as needed.
     TensorFieldGenerator::TensorFieldGenerator(const TensorFieldGenerator& other)
         : config_(other.config_)
         , grid_(other.grid_)
@@ -28,6 +32,7 @@ namespace RogueCity::Generators {
         , last_sample_used_fallback_(false)
         , texture_fallback_warned_(false) {}
 
+    // Assignment mirrors copy-ctor policy: copy solved grid/config, clear source basis recipe.
     TensorFieldGenerator& TensorFieldGenerator::operator=(const TensorFieldGenerator& other) {
         if (this == &other) {
             return *this;
@@ -44,6 +49,7 @@ namespace RogueCity::Generators {
         return *this;
     }
 
+    // Field registration helpers append basis primitives and invalidate cached solved grid.
     void TensorFieldGenerator::addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay) {
         basis_fields_.push_back(
             std::make_unique<OrganicField>(center, radius, theta, curviness, decay)
@@ -121,6 +127,8 @@ namespace RogueCity::Generators {
         field_generated_ = false;
     }
 
+    // Solves the tensor lattice by blending all active basis fields at each cell center.
+    // Work is partitioned by row groups and executed through RogueWorker.
     void TensorFieldGenerator::generateField() {
         const uint32_t thread_count = std::max(1u, std::thread::hardware_concurrency());
         const int max_group_size = std::max(1, std::min(16, config_.height)); // Cap chunking to 16 groups per generator spec.
@@ -171,9 +179,15 @@ namespace RogueCity::Generators {
 
         work.waitExecutionDone();
 
+        // Grid contents are now authoritative for fast interpolation-based sampling.
         field_generated_ = true;
     }
 
+    // Samples a tensor at an arbitrary world position.
+    // Sampling priority:
+    // 1) bound texture-space tensor layer (if valid)
+    // 2) on-the-fly basis blending (if unsolved)
+    // 3) interpolated solved grid
     Tensor2D TensorFieldGenerator::sampleTensor(const Vec2& world_pos) const {
         last_sample_used_texture_ = false;
         last_sample_used_fallback_ = false;
@@ -222,6 +236,8 @@ namespace RogueCity::Generators {
         return interpolateTensor(world_pos);
     }
 
+    // Writes tensor major-eigenvector directions into texture-space tensor layer.
+    // Used to expose solver output to editor tools and downstream systems.
     void TensorFieldGenerator::writeToTextureSpace(Core::Data::TextureSpace& texture_space) const {
         auto& tensor_layer = texture_space.tensorLayer();
         if (tensor_layer.empty()) {
@@ -258,12 +274,14 @@ namespace RogueCity::Generators {
         }
     }
 
+    // Converts world-space coordinate to discrete grid index.
     bool TensorFieldGenerator::worldToGrid(const Vec2& world_pos, int& gx, int& gy) const {
         gx = static_cast<int>(world_pos.x / config_.cell_size);
         gy = static_cast<int>(world_pos.y / config_.cell_size);
         return (gx >= 0 && gx < config_.width && gy >= 0 && gy < config_.height);
     }
 
+    // Safe grid fetch helper with zero tensor fallback out-of-bounds.
     Tensor2D TensorFieldGenerator::getGridTensor(int gx, int gy) const {
         if (gx < 0 || gx >= config_.width || gy < 0 || gy >= config_.height) {
             return Tensor2D::zero();
@@ -272,6 +290,8 @@ namespace RogueCity::Generators {
         return grid_[idx];
     }
 
+    // Bilinearly interpolates solved grid tensors in world space.
+    // Weighting is done via scale-then-add to preserve tensor blend quality.
     Tensor2D TensorFieldGenerator::interpolateTensor(const Vec2& world_pos) const {
         if (config_.width <= 0 || config_.height <= 0 || grid_.empty()) {
             return Tensor2D::zero();
@@ -321,6 +341,7 @@ namespace RogueCity::Generators {
         return result;
     }
 
+    // Resets generator to empty basis set and cleared solved state.
     void TensorFieldGenerator::clear() {
         basis_fields_.clear();
         std::fill(grid_.begin(), grid_.end(), Tensor2D::zero());
@@ -330,6 +351,7 @@ namespace RogueCity::Generators {
         texture_fallback_warned_ = false;
     }
 
+    // Debug-only one-shot warning when texture-bound sampling falls back to local evaluation.
     void TensorFieldGenerator::markTextureFallback(const char* reason) const {
 #ifndef NDEBUG
         if (!texture_fallback_warned_) {

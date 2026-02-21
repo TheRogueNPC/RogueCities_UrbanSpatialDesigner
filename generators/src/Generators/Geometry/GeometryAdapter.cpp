@@ -8,6 +8,7 @@
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/geometries/linestring.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 #endif
@@ -18,6 +19,9 @@ namespace {
 
 using Ring = GeometryAdapter::Ring;
 
+// Normalizes polygon rings for internal legacy operations:
+// - removes duplicated closing point
+// - rejects degenerate rings (<3 unique points)
 [[nodiscard]] Ring normalizeRing(const Ring& ring) {
     if (ring.size() < 3) {
         return {};
@@ -32,6 +36,7 @@ using Ring = GeometryAdapter::Ring;
     return out;
 }
 
+// Axis-aligned bounding box of a ring.
 [[nodiscard]] Core::Bounds ringBounds(const Ring& ring) {
     Core::Bounds bounds{};
     if (ring.empty()) {
@@ -49,6 +54,7 @@ using Ring = GeometryAdapter::Ring;
     return bounds;
 }
 
+// Ray-casting point-in-ring test for legacy backend.
 [[nodiscard]] bool pointInsideRing(const Core::Vec2& p, const Ring& ring) {
     if (ring.size() < 3) {
         return false;
@@ -66,10 +72,12 @@ using Ring = GeometryAdapter::Ring;
     return inside;
 }
 
+// 2D orientation predicate (signed area of triangle abc * 2).
 [[nodiscard]] double orient2d(const Core::Vec2& a, const Core::Vec2& b, const Core::Vec2& c) {
     return (b - a).cross(c - a);
 }
 
+// Collinearity + bounds check for segment membership.
 [[nodiscard]] bool onSegment(const Core::Vec2& a, const Core::Vec2& b, const Core::Vec2& p) {
     constexpr double eps = 1e-9;
     if (std::abs(orient2d(a, b, p)) > eps) {
@@ -82,6 +90,7 @@ using Ring = GeometryAdapter::Ring;
     return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
 }
 
+// Robust segment intersection test with collinear overlap support.
 [[nodiscard]] bool segmentsIntersect(
     const Core::Vec2& a0,
     const Core::Vec2& a1,
@@ -105,6 +114,10 @@ using Ring = GeometryAdapter::Ring;
         onSegment(b0, b1, a1);
 }
 
+// Legacy polygon intersection:
+// 1) AABB reject
+// 2) edge-pair intersection
+// 3) containment fallback
 [[nodiscard]] bool legacyRingIntersects(const Ring& a, const Ring& b) {
     const Ring na = normalizeRing(a);
     const Ring nb = normalizeRing(b);
@@ -131,6 +144,7 @@ using Ring = GeometryAdapter::Ring;
     return pointInsideRing(na.front(), nb) || pointInsideRing(nb.front(), na);
 }
 
+// Legacy monotonic-chain convex hull implementation.
 [[nodiscard]] Ring legacyConvexHull(const Ring& points) {
     Ring sorted = points;
     if (sorted.size() < 3) {
@@ -174,6 +188,7 @@ using Ring = GeometryAdapter::Ring;
     return lower;
 }
 
+// Distance from point to segment, clamped to segment endpoints.
 [[nodiscard]] double distancePointToSegment(
     const Core::Vec2& point,
     const Core::Vec2& start,
@@ -189,6 +204,7 @@ using Ring = GeometryAdapter::Ring;
     return point.distanceTo(projection);
 }
 
+// Recursive Douglas-Peucker splitter.
 void simplifyDouglasPeucker(
     const Ring& points,
     size_t first,
@@ -216,6 +232,7 @@ void simplifyDouglasPeucker(
     }
 }
 
+// Legacy ring simplify wrapper around Douglas-Peucker.
 [[nodiscard]] Ring legacySimplify(const Ring& ring, double tolerance) {
     Ring normalized = normalizeRing(ring);
     if (normalized.size() < 3) {
@@ -249,7 +266,9 @@ void simplifyDouglasPeucker(
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostBox = boost::geometry::model::box<BoostPoint>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+using BoostLineString = boost::geometry::model::linestring<BoostPoint>;
 
+// Converts internal ring representation to corrected Boost polygon.
 [[nodiscard]] BoostPolygon toBoostPolygon(const Ring& ring) {
     BoostPolygon poly{};
     const Ring normalized = normalizeRing(ring);
@@ -271,6 +290,7 @@ using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 
 } // namespace
 
+// Reports active geometry backend selected at compile time.
 Backend GeometryAdapter::backend() noexcept {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     return Backend::BoostGeometry;
@@ -279,6 +299,7 @@ Backend GeometryAdapter::backend() noexcept {
 #endif
 }
 
+// Human-readable backend name for diagnostics.
 const char* GeometryAdapter::backendName() noexcept {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     return "Boost.Geometry";
@@ -287,6 +308,7 @@ const char* GeometryAdapter::backendName() noexcept {
 #endif
 }
 
+// Point distance abstraction across backends.
 double GeometryAdapter::distance(const Core::Vec2& a, const Core::Vec2& b) noexcept {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     const BoostPoint pa(a.x, a.y);
@@ -297,6 +319,7 @@ double GeometryAdapter::distance(const Core::Vec2& a, const Core::Vec2& b) noexc
 #endif
 }
 
+// Axis-aligned bounds intersection abstraction.
 bool GeometryAdapter::intersects(const Core::Bounds& a, const Core::Bounds& b) noexcept {
     const double a_min_x = std::min(a.min.x, a.max.x);
     const double a_min_y = std::min(a.min.y, a.max.y);
@@ -319,6 +342,7 @@ bool GeometryAdapter::intersects(const Core::Bounds& a, const Core::Bounds& b) n
 #endif
 }
 
+// Polygon intersection abstraction.
 bool GeometryAdapter::intersects(const Ring& a, const Ring& b) {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     const BoostPolygon pa = toBoostPolygon(a);
@@ -332,6 +356,7 @@ bool GeometryAdapter::intersects(const Ring& a, const Ring& b) {
 #endif
 }
 
+// Convex hull abstraction.
 GeometryAdapter::Ring GeometryAdapter::convexHull(const Ring& points) {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     BoostPolygon source{};
@@ -360,11 +385,39 @@ GeometryAdapter::Ring GeometryAdapter::convexHull(const Ring& points) {
 #endif
 }
 
+// Polygon simplification abstraction.
 GeometryAdapter::Ring GeometryAdapter::simplify(const Ring& ring, double tolerance) {
 #if defined(ROGUECITY_USE_BOOST_GEOMETRY)
+    if (ring.size() < 2) {
+        return ring;
+    }
+
+    const bool is_closed = ring.front().equals(ring.back());
+    if (!is_closed) {
+        BoostLineString source{};
+        source.reserve(ring.size());
+        for (const auto& p : ring) {
+            source.emplace_back(p.x, p.y);
+        }
+
+        BoostLineString simplified{};
+        boost::geometry::simplify(source, simplified, std::max(0.0, tolerance));
+
+        Ring out;
+        out.reserve(simplified.size());
+        for (const auto& p : simplified) {
+            out.emplace_back(p.x(), p.y());
+        }
+
+        if (out.empty()) {
+            return ring;
+        }
+        return out;
+    }
+
     BoostPolygon poly = toBoostPolygon(ring);
     if (poly.outer().size() < 4) {
-        return {};
+        return ring;
     }
 
     BoostPolygon simplified{};
@@ -375,6 +428,9 @@ GeometryAdapter::Ring GeometryAdapter::simplify(const Ring& ring, double toleran
     }
     if (!out.empty() && out.front().equals(out.back())) {
         out.pop_back();
+    }
+    if (out.empty()) {
+        return ring;
     }
     return out;
 #else

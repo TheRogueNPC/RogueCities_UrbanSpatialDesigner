@@ -35,6 +35,8 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/LotGenerator.cpp
     src/Generators/Urban/SiteGenerator.cpp
     src/Generators/Pipeline/CityGenerator.cpp
+    src/Generators/Pipeline/AxiomInteractionResolver.cpp
+    src/Generators/Pipeline/MajorConnectorGraph.cpp
     src/Generators/Pipeline/CitySpecAdapter.cpp
     src/Generators/Pipeline/ZoningGenerator.cpp
     src/Generators/Pipeline/TerrainConstraintGenerator.cpp
@@ -71,6 +73,8 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/LotGenerator.hpp
     include/RogueCity/Generators/Urban/SiteGenerator.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
+    include/RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp
+    include/RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp
     include/RogueCity/Generators/Pipeline/GenerationContext.hpp
     include/RogueCity/Generators/Pipeline/GenerationStage.hpp
     include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp

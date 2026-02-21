@@ -5,12 +5,18 @@
 
 namespace RogueCity::Generators::Urban {
 
+    // Convenience overload with default road generation config.
     fva::Container<Core::Road> RoadGenerator::generate(
         const std::vector<Core::Vec2>& seeds,
         const TensorFieldGenerator& field) {
         return generate(seeds, field, Config{});
     }
 
+    // Road pipeline:
+    // 1) trace streamlines
+    // 2) build graph via noding
+    // 3) simplify/classify/enrich graph
+    // 4) emit final road polylines
     fva::Container<Core::Road> RoadGenerator::generate(
         const std::vector<Core::Vec2>& seeds,
         const TensorFieldGenerator& field,
@@ -22,6 +28,7 @@ namespace RogueCity::Generators::Urban {
             return output;
         }
 
+        // Convert traced polylines into noder candidates.
         std::vector<Roads::PolylineRoadCandidate> candidates;
         candidates.reserve(traced.size());
         int seed_id = 0;
@@ -44,6 +51,7 @@ namespace RogueCity::Generators::Urban {
             return output;
         }
 
+        // Build and post-process topology graph.
         Roads::RoadNoder noder(config.noder);
         Graph graph;
         noder.buildGraph(candidates, graph);
@@ -57,6 +65,7 @@ namespace RogueCity::Generators::Urban {
         const auto template_output = Roads::emitIntersectionTemplates(graph, Roads::TemplateConfig{});
         (void)template_output;
 
+        // Export graph edges back into road records expected by downstream stages.
         uint32_t next_id = 0;
         for (const auto& edge : graph.edges()) {
             if (edge.shape.size() < 2) {

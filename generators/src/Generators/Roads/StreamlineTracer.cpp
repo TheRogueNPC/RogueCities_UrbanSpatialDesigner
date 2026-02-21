@@ -11,12 +11,14 @@ namespace RogueCity::Generators {
     namespace {
         constexpr double kPi = 3.14159265358979323846;
 
+        // Samples packed material texture at world position and converts to byte value.
         [[nodiscard]] uint8_t SampleTextureMaterial(const Core::Data::TextureSpace& texture_space, const Vec2& world) {
             const Vec2 uv = texture_space.coordinateSystem().worldToUV(world);
             const float sample = texture_space.materialLayer().sampleBilinearU8(uv);
             return static_cast<uint8_t>(std::clamp(static_cast<int>(std::lround(sample)), 0, 255));
         }
 
+        // Minimal spatial hash grid for point-separation checks during network tracing.
         class SpatialPointGrid {
         public:
             explicit SpatialPointGrid(double cell_size)
@@ -80,6 +82,7 @@ namespace RogueCity::Generators {
         };
     } // namespace
 
+    // Traces a major-eigenvector streamline from seed, optionally both directions.
     std::vector<Vec2> StreamlineTracer::traceMajor(
         const Vec2& seed,
         const TensorFieldGenerator& field,
@@ -115,6 +118,7 @@ namespace RogueCity::Generators {
         return result;
     }
 
+    // Traces a minor-eigenvector streamline from seed, optionally both directions.
     std::vector<Vec2> StreamlineTracer::traceMinor(
         const Vec2& seed,
         const TensorFieldGenerator& field,
@@ -148,6 +152,7 @@ namespace RogueCity::Generators {
         return result;
     }
 
+    // Traces major+minor roads for each seed and enforces optional inter-road separation.
     fva::Container<Road> StreamlineTracer::traceNetwork(
         const std::vector<Vec2>& seeds,
         const TensorFieldGenerator& field,
@@ -160,6 +165,7 @@ namespace RogueCity::Generators {
             params.separation_cell_size > 0.0 ? params.separation_cell_size : params.min_separation;
         SpatialPointGrid network_index(separation_cell);
 
+        // Rejects polylines that violate minimum spacing against already accepted points.
         auto polyline_conflicts = [&](const std::vector<Vec2>& points) {
             if (!params.enforce_network_separation || params.min_separation <= 0.0) {
                 return false;
@@ -172,6 +178,7 @@ namespace RogueCity::Generators {
             return false;
         };
 
+        // Registers accepted polylines for subsequent separation checks.
         auto register_polyline = [&](const std::vector<Vec2>& points) {
             if (params.enforce_network_separation && params.min_separation > 0.0) {
                 network_index.InsertPolyline(points);
@@ -207,6 +214,7 @@ namespace RogueCity::Generators {
         return roads;
     }
 
+    // Single RK4 integration step along selected tensor eigenvector field.
     Vec2 StreamlineTracer::integrateRK4(
         const Vec2& pos,
         const TensorFieldGenerator& field,
@@ -237,6 +245,7 @@ namespace RogueCity::Generators {
         return pos + velocity * dt;
     }
 
+    // Unidirectional streamline tracing with adaptive step-size and constraint gating.
     std::vector<Vec2> StreamlineTracer::traceDirection(
         const Vec2& seed,
         const TensorFieldGenerator& field,
@@ -244,6 +253,7 @@ namespace RogueCity::Generators {
         const Params& params,
         bool forward
     ) {
+        // Centralized terrain/material feasibility gate.
         auto failsConstraintCheck = [&](const Vec2& world) {
             if (params.texture_space != nullptr) {
                 const float slope = params.texture_space->distanceLayer().sampleBilinear(
@@ -279,6 +289,7 @@ namespace RogueCity::Generators {
             return false;
         };
 
+        // Abort immediately if seed itself is invalid.
         if (failsConstraintCheck(seed)) {
             return {};
         }
@@ -337,6 +348,7 @@ namespace RogueCity::Generators {
 
             polyline.push_back(next);
             if (params.adaptive_step_size) {
+                // Curvature-adaptive stepping: tighten in high curvature, relax in straighter runs.
                 Vec2 direction = next - current;
                 direction.normalize();
                 if (has_previous_direction) {
@@ -356,6 +368,7 @@ namespace RogueCity::Generators {
         return polyline;
     }
 
+    // Brute-force fallback proximity test used by optional legacy separation checks.
     bool StreamlineTracer::tooCloseToExisting(
         const Vec2& p,
         const std::vector<Vec2>& existing,

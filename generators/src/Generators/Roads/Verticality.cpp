@@ -6,6 +6,7 @@ namespace RogueCity::Generators::Roads {
 
     namespace {
 
+        // Hierarchy rank helper for deciding which corridors justify grade separation.
         [[nodiscard]] int roadRank(Core::RoadType type) {
             switch (type) {
                 case Core::RoadType::Highway: return 9;
@@ -17,6 +18,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // True if any adjacent vertex is already a portal.
         [[nodiscard]] bool hasPortalNeighbor(const Urban::Graph& g, Urban::VertexID vid) {
             const auto* v = g.getVertex(vid);
             if (v == nullptr) {
@@ -38,6 +40,9 @@ namespace RogueCity::Generators::Roads {
 
     } // namespace
 
+    // Applies verticality heuristics:
+    // - normalizes edge layer assignment
+    // - optionally inserts portal+ramp structures at high-pressure junctions
     void applyVerticality(Urban::Graph& g, const VerticalityConfig& cfg) {
         if (cfg.max_layers <= 1 || g.vertices().empty()) {
             return;
@@ -108,6 +113,7 @@ namespace RogueCity::Generators::Roads {
                 continue;
             }
 
+            // Upgrade node control and create elevated portal connection.
             v->control = (v->control == Urban::ControlType::Interchange)
                 ? Urban::ControlType::Interchange
                 : Urban::ControlType::GradeSep;

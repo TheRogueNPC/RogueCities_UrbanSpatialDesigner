@@ -79,6 +79,7 @@ namespace RogueCity::Core::Validation {
         void HashRoad(const Road& road, uint64_t& hash) {
             HashScalar(road.id, hash);
             HashScalar(static_cast<uint8_t>(road.type), hash);
+            HashScalar(road.source_axiom_id, hash);
             HashBool(road.is_user_created, hash);
             HashScalar(static_cast<uint8_t>(road.generation_tag), hash);
             HashBool(road.generation_locked, hash);

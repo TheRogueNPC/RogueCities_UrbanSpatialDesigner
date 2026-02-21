@@ -6,6 +6,7 @@ namespace RogueCity::Generators {
 
 namespace {
 
+// Computes weighted A/E/S/P score for a given district archetype weight profile.
 [[nodiscard]] float ScoreWithWeights(
     const AESPClassifier::AESPScores& scores,
     const DistrictScoreWeights& weights) {
@@ -17,6 +18,7 @@ namespace {
 
 } // namespace
 
+// Builds normalized AESP scores from road hierarchy pair.
 AESPClassifier::AESPScores AESPClassifier::computeScores(
     RoadType primary,
     RoadType secondary) {
@@ -28,6 +30,7 @@ AESPClassifier::AESPScores AESPClassifier::computeScores(
     return scores;
 }
 
+// Chooses the district type whose weighted AESP projection is highest.
 DistrictType AESPClassifier::classifyDistrict(
     const AESPScores& scores,
     const ScoringProfile& profile) {
@@ -54,6 +57,7 @@ DistrictType AESPClassifier::classifyDistrict(
     return best.type;
 }
 
+// Convenience path for lot tokens that already carry AESP-like scalar features.
 DistrictType AESPClassifier::classifyLot(
     const LotToken& lot,
     const ScoringProfile& profile) {
@@ -65,10 +69,12 @@ DistrictType AESPClassifier::classifyLot(
     return classifyDistrict(scores, profile);
 }
 
+// Deterministically picks a scoring profile variant from seed.
 ScoringProfile AESPClassifier::selectProfileForSeed(uint32_t seed) {
     return ScoringProfile::FromSeed(seed);
 }
 
+// Table lookups for mapping road type into AESP axes, with neutral fallback on invalid enum.
 float AESPClassifier::roadTypeToAccess(RoadType type) {
     size_t idx = static_cast<size_t>(type);
     if (idx >= road_type_count) {

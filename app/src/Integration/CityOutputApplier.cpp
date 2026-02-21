@@ -151,16 +151,28 @@ void ApplyCityOutputToGlobalState(
     const bool apply_lots_buildings = options.scope == GenerationScope::FullCity;
 
     std::vector<RogueCity::Core::Road> locked_user_roads;
+    std::vector<RogueCity::Core::Road> locked_source_roads;
     std::vector<RogueCity::Core::District> locked_user_districts;
     std::vector<RogueCity::Core::LotToken> locked_user_lots;
     std::vector<RogueCity::Core::BuildingSite> locked_user_buildings;
+    std::unordered_set<int> active_axiom_ids;
+    active_axiom_ids.reserve(gs.axioms.size());
+    for (const auto& axiom : gs.axioms) {
+        active_axiom_ids.insert(static_cast<int>(axiom.id));
+    }
 
     if (options.preserve_locked_user_entities) {
         locked_user_roads.reserve(gs.roads.size());
+        locked_source_roads.reserve(gs.roads.size());
         for (auto& road : gs.roads) {
             NormalizeUserMetadata(road);
             if (road.generation_tag == RogueCity::Core::GenerationTag::M_user && road.generation_locked) {
                 locked_user_roads.push_back(road);
+            } else if (road.generation_tag == RogueCity::Core::GenerationTag::Generated &&
+                       road.generation_locked &&
+                       road.source_axiom_id >= 0 &&
+                       active_axiom_ids.find(road.source_axiom_id) != active_axiom_ids.end()) {
+                locked_source_roads.push_back(road);
             }
         }
 
@@ -230,6 +242,12 @@ void ApplyCityOutputToGlobalState(
     std::unordered_set<uint32_t> used_road_ids;
     uint32_t next_road_id = 1u;
     for (const auto& road : locked_user_roads) {
+        if (road.id > 0u) {
+            used_road_ids.insert(road.id);
+            next_road_id = std::max(next_road_id, road.id + 1u);
+        }
+    }
+    for (const auto& road : locked_source_roads) {
         if (road.id > 0u) {
             used_road_ids.insert(road.id);
             next_road_id = std::max(next_road_id, road.id + 1u);
@@ -306,6 +324,9 @@ void ApplyCityOutputToGlobalState(
     for (const auto& road : locked_user_roads) {
         gs.roads.add(road);
     }
+    for (const auto& road : locked_source_roads) {
+        gs.roads.add(road);
+    }
 
     gs.districts.clear();
     if (apply_district_bounds) {
@@ -355,6 +376,8 @@ void ApplyCityOutputToGlobalState(
         ? static_cast<uint32_t>(generated_buildings.size())
         : 0u;
     gs.world_constraints = output.world_constraints;
+    gs.city_boundary = output.city_boundary;
+    gs.connector_debug_edges = output.connector_debug_edges;
     gs.site_profile = output.site_profile;
     gs.plan_violations = output.plan_violations;
     gs.plan_approved = output.plan_approved;

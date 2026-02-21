@@ -105,6 +105,7 @@ namespace RogueCity::Core {
         std::vector<Vec2> points;
         RoadType type{ RoadType::Street };
         uint32_t id{ 0 };
+        int source_axiom_id{ -1 };
         bool is_user_created{ false };  // True for M_Major/M_Minor
         GenerationTag generation_tag{ GenerationTag::Generated };
         bool generation_locked{ false };

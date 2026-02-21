@@ -42,6 +42,15 @@ namespace RogueCity::Core::Editor {
         bool viewport_hotkey_grave_enabled{ true };  ///< Grave/Tilde opens Pie while viewport has focus.
         bool viewport_hotkey_p_enabled{ true };  ///< P opens global command palette while viewport has focus.
         bool viewport_hotkey_domain_context_enabled{ true };  ///< Hold domain keys (A/W/R/D/L/B) to open domain context menu/pie.
+
+        // Feature flags (default ON for forward behavior; allow runtime fallback).
+        bool feature_ui_chrome_unification{ true };
+        bool feature_tool_palette_slideout{ true };
+        bool feature_camera_bounce_clamp{ true };
+        bool feature_per_type_ring_schema{ true };
+        bool feature_axiom_overlap_resolution{ true };
+        bool feature_major_connector_graph{ true };
+        bool feature_city_boundary_hull{ true };
     };
 
     struct EditorParameters {
@@ -307,6 +316,17 @@ namespace RogueCity::Core::Editor {
         std::string last_viewport_status{};
         uint64_t last_viewport_status_frame{ 0 };
         bool explicit_generation_pending{ false };
+
+        // Viewport chrome/runtime UI state.
+        bool viewport_scene_stats_collapsed{ false };
+        bool viewport_global_palette_visible{ false };
+        std::string viewport_warning_text{};
+        float viewport_warning_ttl_seconds{ 0.0f };
+
+        // Camera clamp spring state.
+        Vec2 viewport_clamp_overscroll{};
+        Vec2 viewport_clamp_velocity{};
+        bool viewport_clamp_active{ false };
     };
 
     struct GenerationPolicyState {
@@ -420,6 +440,8 @@ namespace RogueCity::Core::Editor {
         GenerationPolicyState generation_policy{};
         std::optional<CitySpec> active_city_spec{};
         WorldConstraintField world_constraints{};
+        std::vector<Vec2> city_boundary{};
+        std::vector<Polyline> connector_debug_edges{};
         SiteProfile site_profile{};
         std::vector<PlanViolation> plan_violations{};
         bool plan_approved{ true };

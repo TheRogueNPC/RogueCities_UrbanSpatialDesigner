@@ -68,6 +68,15 @@ public:
     };
 
     struct AxiomInput {
+        struct RingSchema {
+            double core_ratio{ 0.33 };
+            double falloff_ratio{ 0.67 };
+            double outskirts_ratio{ 1.0 };
+            // Width near outskirts where merges are preferred.
+            double merge_band_ratio{ 0.12 };
+            bool strict_core{ true };
+        };
+
         enum class Type : uint8_t {
             Organic = 0,
             Grid = 1,
@@ -82,11 +91,14 @@ public:
             COUNT = 10
         };
 
+        int id{ 0 };
         Type type{ Type::Grid };
         Vec2 position{};
         double radius{ 250.0 };
         double theta{ 0.0 };
         double decay{ 2.0 };
+        RingSchema ring_schema{};
+        bool lock_generated_roads{ false };
 
         float organic_curviness{ 0.5f };
         int radial_spokes{ 8 };
@@ -102,6 +114,8 @@ public:
         std::vector<BlockPolygon> blocks;
         std::vector<LotToken> lots;
         siv::Vector<BuildingSite> buildings;
+        std::vector<Vec2> city_boundary;
+        std::vector<Polyline> connector_debug_edges;
         TensorFieldGenerator tensor_field;
         WorldConstraintField world_constraints;
         SiteProfile site_profile;
@@ -174,6 +188,8 @@ private:
         std::vector<BlockPolygon> blocks{};
         std::vector<LotToken> lots{};
         siv::Vector<BuildingSite> buildings{};
+        std::vector<Vec2> city_boundary{};
+        std::vector<Polyline> connector_debug_edges{};
         std::vector<PlanViolation> plan_violations{};
         bool plan_approved{ true };
 

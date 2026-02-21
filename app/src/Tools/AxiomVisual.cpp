@@ -8,6 +8,38 @@
 #include <numbers>
 
 namespace RogueCity::App {
+namespace {
+
+[[nodiscard]] Generators::CityGenerator::AxiomInput::RingSchema RingSchemaForType(AxiomVisual::AxiomType type) {
+    using RingSchema = Generators::CityGenerator::AxiomInput::RingSchema;
+    switch (type) {
+        case AxiomVisual::AxiomType::Organic:
+            return RingSchema{0.30, 0.62, 1.0, 0.14, true};
+        case AxiomVisual::AxiomType::Grid:
+            return RingSchema{0.34, 0.70, 1.0, 0.10, true};
+        case AxiomVisual::AxiomType::Radial:
+            return RingSchema{0.33, 0.67, 1.0, 0.12, true};
+        case AxiomVisual::AxiomType::Hexagonal:
+            return RingSchema{0.32, 0.66, 1.0, 0.12, true};
+        case AxiomVisual::AxiomType::Stem:
+            return RingSchema{0.28, 0.64, 1.0, 0.16, true};
+        case AxiomVisual::AxiomType::LooseGrid:
+            return RingSchema{0.26, 0.60, 1.0, 0.18, true};
+        case AxiomVisual::AxiomType::Suburban:
+            return RingSchema{0.25, 0.58, 1.0, 0.20, true};
+        case AxiomVisual::AxiomType::Superblock:
+            return RingSchema{0.38, 0.74, 1.0, 0.10, true};
+        case AxiomVisual::AxiomType::Linear:
+            return RingSchema{0.27, 0.60, 1.0, 0.16, true};
+        case AxiomVisual::AxiomType::GridCorrective:
+            return RingSchema{0.30, 0.65, 1.0, 0.14, true};
+        case AxiomVisual::AxiomType::COUNT:
+        default:
+            return RingSchema{};
+    }
+}
+
+} // namespace
 
 // AxiomVisual Implementation
 AxiomVisual::AxiomVisual(int id, AxiomType type)
@@ -104,7 +136,9 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
     // Render center marker (Y2K capsule design)
     {
         const ImVec2 screen_center = viewport.world_to_screen(position_);
-        const float marker_size = hovered_ ? 10.0f : 8.0f;
+        const float base_marker = hovered_ ? 10.0f : 8.0f;
+        const float core_ring_screen = std::max(0.0f, viewport.world_to_screen_scale(rings_[0].radius));
+        const float marker_size = std::max(base_marker, core_ring_screen * 0.5f);
         const ImU32 marker_color = selected_ ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255);
         
         // Capsule: circle with cross
@@ -217,11 +251,14 @@ void AxiomVisual::set_animation_enabled(bool enabled) {
 
 Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
     Generators::CityGenerator::AxiomInput input;
+    input.id = id_;
     input.type = type_;
     input.position = position_;
     input.radius = rings_[2].radius;  // Use outer ring as primary radius
     input.theta = rotation_;
     input.decay = decay_;
+    input.ring_schema = RingSchemaForType(type_);
+    input.lock_generated_roads = false;
     input.organic_curviness = organic_curviness_;
     input.radial_spokes = radial_spokes_;
     input.loose_grid_jitter = loose_grid_jitter_;

@@ -11,6 +11,7 @@ namespace RogueCity::Generators::Roads {
 
     namespace {
 
+        // Converts road type to hierarchy rank for policy heuristics.
         [[nodiscard]] int roadRank(Core::RoadType type) {
             switch (type) {
                 case Core::RoadType::Highway: return 9;
@@ -29,6 +30,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Returns per-road-type flow defaults, preferring caller overrides with builtin fallback.
         [[nodiscard]] const RoadFlowDefaults& defaultsForType(
             const FlowControlConfig& cfg,
             Core::RoadType type) {
@@ -54,6 +56,7 @@ namespace RogueCity::Generators::Roads {
             return kBuiltin[std::min(idx, kBuiltin.size() - 1)];
         }
 
+        // Penalizes effective speed on highly curved edges.
         [[nodiscard]] float curvatureMultiplier(const Urban::Edge& e) {
             if (e.shape.size() < 3) {
                 return 1.0f;
@@ -82,6 +85,7 @@ namespace RogueCity::Generators::Roads {
             return std::clamp(1.0f - static_cast<float>(avg_turn * 0.35), 0.45f, 1.0f);
         }
 
+        // Penalizes edges connected to dense junctions.
         [[nodiscard]] float intersectionDensityMultiplier(const Urban::Graph& g, const Urban::Edge& e) {
             const auto* va = g.getVertex(e.a);
             const auto* vb = g.getVertex(e.b);
@@ -93,6 +97,7 @@ namespace RogueCity::Generators::Roads {
             return std::clamp(1.0f - penalty, 0.5f, 1.0f);
         }
 
+        // Nominal delay model per control type (seconds-like scalar).
         [[nodiscard]] float controlDelaySeconds(Urban::ControlType c) {
             switch (c) {
                 case Urban::ControlType::Uncontrolled: return 0.5f;
@@ -109,6 +114,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Junction conflict complexity proxy based on degree and approach geometry.
         [[nodiscard]] float nodeConflictComplexity(const Urban::Graph& g, Urban::VertexID vid) {
             const auto* v = g.getVertex(vid);
             if (v == nullptr) {
@@ -174,11 +180,14 @@ namespace RogueCity::Generators::Roads {
 
     } // namespace
 
+    // Annotates graph edges/vertices with flow, risk, and control decisions.
+    // Final edge flow is adjusted by selected control delays.
     void applyFlowAndControl(Urban::Graph& g, const FlowControlConfig& cfg) {
         if (g.edges().empty()) {
             return;
         }
 
+        // Approximate centrality used as demand importance signal.
         const auto centrality = Urban::GraphAlgorithms::sampledEdgeCentrality(
             g,
             std::max<size_t>(16, g.vertices().size() / 2),
@@ -190,6 +199,7 @@ namespace RogueCity::Generators::Roads {
         }
         max_len = std::max(1.0f, max_len);
 
+        // Edge-level baseline flow and effective speed synthesis.
         for (Urban::EdgeID eid = 0; eid < g.edges().size(); ++eid) {
             auto* e = g.getEdgeMutable(eid);
             if (e == nullptr) {
@@ -230,6 +240,7 @@ namespace RogueCity::Generators::Roads {
                 std::max(0.8f, defaults.cap_base * 0.5f);
         }
 
+        // Vertex-level demand/risk scoring and control assignment.
         for (Urban::VertexID vid = 0; vid < g.vertices().size(); ++vid) {
             auto* v = g.getVertexMutable(vid);
             if (v == nullptr) {

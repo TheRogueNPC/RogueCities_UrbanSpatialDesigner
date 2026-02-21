@@ -8,10 +8,13 @@ namespace RogueCity::Generators {
 
 namespace {
 
+// Utility clamp used to keep computed violation severities in [0, 1].
 [[nodiscard]] float Clamp01(float v) {
     return std::clamp(v, 0.0f, 1.0f);
 }
 
+// Appends one violation record and updates aggregate validation state.
+// "hard_fail" is elevated for violations considered non-negotiable, or for near-max severity.
 void PushViolation(
     PlanValidatorGenerator::Output& out,
     const Core::PlanViolationType type,
@@ -42,23 +45,33 @@ void PushViolation(
 
 } // namespace
 
+// Convenience overload that validates using default thresholds.
 PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
     const Input& input) const {
     return validate(input, Config{});
 }
 
+// Validates roads/lots/global policy against world constraints and policy config.
+// Strategy:
+// - inspect each entity at sampled points
+// - keep only the most severe issue per entity
+// - aggregate all violations and compute approval via hard-fail gates
 PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
     const Input& input,
     const Config& config) const {
     Output output{};
     bool hard_fail = false;
 
+    // Without a valid constraint field there is nothing authoritative to validate against.
+    // Return clean output rather than inventing synthetic failures.
     if (input.constraints == nullptr || !input.constraints->isValid()) {
         return output;
     }
 
     const Core::WorldConstraintField& constraints = *input.constraints;
 
+    // Road validation:
+    // evaluate each polyline point and retain the worst single violation per road.
     if (input.roads != nullptr) {
         for (const auto& road : *input.roads) {
             Core::PlanViolationType worst_type = Core::PlanViolationType::None;
@@ -67,6 +80,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
             const char* message = "";
 
             for (const auto& point : road.points) {
+                // No-build encroachment is a hard stop; no need to evaluate lower-priority checks.
                 if (constraints.sampleNoBuild(point)) {
                     worst_type = Core::PlanViolationType::NoBuildEncroachment;
                     worst_pos = point;
@@ -77,6 +91,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const uint8_t flood = constraints.sampleFloodMask(point);
                 if (flood > config.max_road_flood_level) {
+                    // Severity increases with excess flood band above allowed threshold.
                     const float severity = 0.75f + 0.15f * static_cast<float>(flood - config.max_road_flood_level);
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::FloodRisk;
@@ -88,6 +103,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const float slope = constraints.sampleSlopeDegrees(point);
                 if (slope > config.max_road_slope_deg) {
+                    // Linear overrun model: mild penalties near threshold, stronger as grade increases.
                     const float severity = 0.35f + (slope - config.max_road_slope_deg) / 20.0f;
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::SlopeTooHigh;
@@ -99,6 +115,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const float soil = constraints.sampleSoilStrength(point);
                 if (soil < config.min_soil_strength) {
+                    // Weak soil risk grows with deficit below minimum strength target.
                     const float severity = 0.4f + (config.min_soil_strength - soil) * 2.4f;
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::SoilTooWeak;
@@ -109,6 +126,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
                 }
             }
 
+            // Emit at most one violation per road: the strongest observed signal.
             if (worst_type != Core::PlanViolationType::None) {
                 PushViolation(
                     output,
@@ -123,6 +141,8 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
         }
     }
 
+    // Lot validation:
+    // sample the centroid plus boundary vertices to approximate lot footprint exposure.
     if (input.lots != nullptr) {
         for (const auto& lot : *input.lots) {
             std::vector<Core::Vec2> samples;
@@ -138,6 +158,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
             const char* message = "";
 
             for (const auto& point : samples) {
+                // As with roads, no-build overlap is decisive for this lot.
                 if (constraints.sampleNoBuild(point)) {
                     worst_type = Core::PlanViolationType::NoBuildEncroachment;
                     worst_pos = point;
@@ -148,6 +169,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const uint8_t flood = constraints.sampleFloodMask(point);
                 if (flood > config.max_lot_flood_level) {
+                    // Lots are penalized slightly more aggressively for flood exposure.
                     const float severity = 0.7f + 0.2f * static_cast<float>(flood - config.max_lot_flood_level);
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::FloodRisk;
@@ -159,6 +181,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const float slope = constraints.sampleSlopeDegrees(point);
                 if (slope > config.max_lot_slope_deg) {
+                    // Lot slope overrun weighting differs from roads to reflect siting sensitivity.
                     const float severity = 0.3f + (slope - config.max_lot_slope_deg) / 18.0f;
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::SlopeTooHigh;
@@ -170,6 +193,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
 
                 const float soil = constraints.sampleSoilStrength(point);
                 if (soil < config.min_soil_strength) {
+                    // Soil penalty tuned for static parcel stability risk.
                     const float severity = 0.45f + (config.min_soil_strength - soil) * 2.5f;
                     if (severity > worst_severity) {
                         worst_type = Core::PlanViolationType::SoilTooWeak;
@@ -180,6 +204,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
                 }
             }
 
+            // Emit only the dominant issue for each lot to keep reports actionable.
             if (worst_type != Core::PlanViolationType::None) {
                 PushViolation(
                     output,
@@ -194,6 +219,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
         }
     }
 
+    // Global policy-level validation not tied to a specific geometry entity.
     if (input.site_profile != nullptr && input.site_profile->policy_friction > config.max_policy_friction) {
         const float severity = Clamp01(
             0.55f + (input.site_profile->policy_friction - config.max_policy_friction) * 2.0f);
@@ -208,6 +234,7 @@ PlanValidatorGenerator::Output PlanValidatorGenerator::validate(
             hard_fail);
     }
 
+    // Approval is true only when no hard-fail condition has been triggered.
     output.approved = !hard_fail;
     return output;
 }

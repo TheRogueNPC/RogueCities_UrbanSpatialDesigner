@@ -1,5 +1,6 @@
 #include "ui/viewport/rc_viewport_interaction.h"
 #include "ui/viewport/handlers/rc_viewport_non_axiom_pipeline.h"
+#include "ui/viewport/rc_minimap_interaction_math.h"
 
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
@@ -45,6 +46,49 @@ namespace {
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 using BoostSegment = boost::geometry::model::segment<BoostPoint>;
+
+[[nodiscard]] bool TryCityBoundaryBounds(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::Core::Vec2& out_min,
+    RogueCity::Core::Vec2& out_max) {
+    if (gs.city_boundary.size() < 3) {
+        return false;
+    }
+    out_min = gs.city_boundary.front();
+    out_max = gs.city_boundary.front();
+    for (const auto& p : gs.city_boundary) {
+        out_min.x = std::min(out_min.x, p.x);
+        out_min.y = std::min(out_min.y, p.y);
+        out_max.x = std::max(out_max.x, p.x);
+        out_max.y = std::max(out_max.y, p.y);
+    }
+    return out_max.x > out_min.x && out_max.y > out_min.y;
+}
+
+[[nodiscard]] RogueCity::Core::Vec2 ApplyViewportClampWithSpring(
+    const RogueCity::Core::Vec2& desired,
+    RogueCity::Core::Editor::GlobalState& gs,
+    float dt) {
+    RogueCity::Core::Vec2 min_bound{};
+    RogueCity::Core::Vec2 max_bound{};
+    if (TryCityBoundaryBounds(gs, min_bound, max_bound)) {
+        return ClampToBoundsWithSpring(
+            desired,
+            min_bound,
+            max_bound,
+            static_cast<double>(dt),
+            gs.tool_runtime.viewport_clamp_overscroll,
+            gs.tool_runtime.viewport_clamp_velocity,
+            gs.tool_runtime.viewport_clamp_active);
+    }
+    return ClampToWorldConstraintsWithSpring(
+        desired,
+        gs.world_constraints,
+        static_cast<double>(dt),
+        gs.tool_runtime.viewport_clamp_overscroll,
+        gs.tool_runtime.viewport_clamp_velocity,
+        gs.tool_runtime.viewport_clamp_active);
+}
 
 void RequestDefaultContextCommandMenu(
     const RogueCity::Core::Editor::EditorConfig& config,
@@ -1300,7 +1344,17 @@ AxiomInteractionResult ProcessAxiomViewportInteraction(const AxiomInteractionPar
         auto cam = params.primary_viewport->get_camera_xy();
         cam.x -= delta_world.x;
         cam.y -= delta_world.y;
-        params.primary_viewport->set_camera_position(cam, z);
+
+        if (params.global_state != nullptr &&
+            params.global_state->config.feature_camera_bounce_clamp) {
+            const RogueCity::Core::Vec2 clamped = ApplyViewportClampWithSpring(
+                cam,
+                *params.global_state,
+                io.DeltaTime);
+            params.primary_viewport->set_camera_position(clamped, z);
+        } else {
+            params.primary_viewport->set_camera_position(cam, z);
+        }
     }
 
     if (zoom_drag) {
@@ -1308,6 +1362,23 @@ AxiomInteractionResult ProcessAxiomViewportInteraction(const AxiomInteractionPar
         const float factor = std::exp(io.MouseDelta.y * 0.01f);
         const float new_z = std::clamp(z * factor, 80.0f, 4000.0f);
         params.primary_viewport->set_camera_position(params.primary_viewport->get_camera_xy(), new_z);
+    }
+
+    if (!pan &&
+        params.global_state != nullptr &&
+        params.global_state->config.feature_camera_bounce_clamp) {
+        auto& runtime = params.global_state->tool_runtime;
+        if (runtime.viewport_clamp_active ||
+            runtime.viewport_clamp_overscroll.lengthSquared() > 1e-6 ||
+            runtime.viewport_clamp_velocity.lengthSquared() > 1e-6) {
+            const float z = params.primary_viewport->get_camera_z();
+            const RogueCity::Core::Vec2 cam = params.primary_viewport->get_camera_xy();
+            const RogueCity::Core::Vec2 settled = ApplyViewportClampWithSpring(
+                cam,
+                *params.global_state,
+                io.DeltaTime);
+            params.primary_viewport->set_camera_position(settled, z);
+        }
     }
 
     if (!result.nav_active) {

@@ -11,6 +11,7 @@ namespace RogueCity::Generators::Urban {
 
     namespace {
 
+        // Tracks nearest and second-nearest road types for AESP-style lot context.
         struct NearestRoads {
             Core::RoadType primary{ Core::RoadType::Street };
             Core::RoadType secondary{ Core::RoadType::Street };
@@ -19,6 +20,7 @@ namespace RogueCity::Generators::Urban {
             bool has_secondary{ false };
         };
 
+        // Standard point-to-segment distance helper.
         double distanceToSegment(const Core::Vec2& p, const Core::Vec2& a, const Core::Vec2& b) {
             const double vx = b.x - a.x;
             const double vy = b.y - a.y;
@@ -37,6 +39,7 @@ namespace RogueCity::Generators::Urban {
             return p.distanceTo(proj);
         }
 
+        // Returns nearest two road types to point p (by minimal segment distance).
         NearestRoads nearestRoadTypes(const fva::Container<Core::Road>& roads, const Core::Vec2& p) {
             NearestRoads out{};
             for (const auto& road : roads) {
@@ -61,6 +64,7 @@ namespace RogueCity::Generators::Urban {
             return out;
         }
 
+        // Maps district context + AESP features into concrete lot-use type.
         Core::LotType classifyLot(
             const Core::DistrictType district_type,
             const Generators::RogueProfiler::Scores& aesp) {
@@ -93,6 +97,8 @@ namespace RogueCity::Generators::Urban {
 
     } // namespace
 
+    // Generates lot tokens by packing candidate rectangles within block polygons.
+    // Each accepted lot is enriched with road-context features and typed accordingly.
     std::vector<Core::LotToken> LotGenerator::generate(
         const fva::Container<Core::Road>& roads,
         const std::vector<Core::District>& districts,
@@ -102,11 +108,13 @@ namespace RogueCity::Generators::Urban {
         std::vector<Core::LotToken> lots;
         lots.reserve(std::min<uint32_t>(config.max_lots, 8192));
 
+        // Build district-id -> district-type lookup for lot typing.
         std::unordered_map<uint32_t, Core::DistrictType> district_types;
         for (const auto& d : districts) {
             district_types[d.id] = d.type;
         }
 
+        // Current strategy uses midpoint dimensions as fixed tiling step.
         const double lot_w = std::clamp((config.min_lot_width + config.max_lot_width) * 0.5f, 4.0f, 200.0f);
         const double lot_d = std::clamp((config.min_lot_depth + config.max_lot_depth) * 0.5f, 4.0f, 200.0f);
 
@@ -122,6 +130,7 @@ namespace RogueCity::Generators::Urban {
                     if (lots.size() >= config.max_lots) {
                         break;
                     }
+                    // Reject candidate centers outside polygon shell or inside any hole.
                     const Core::Vec2 c{ x, y };
                     if (!PolygonUtil::insidePolygon(c, block.outer)) {
                         continue;
@@ -137,6 +146,7 @@ namespace RogueCity::Generators::Urban {
                         continue;
                     }
 
+                    // Compute road-context features and classify lot type.
                     const NearestRoads near_roads = nearestRoadTypes(roads, c);
                     const auto aesp = Generators::RogueProfiler::computeScores(
                         near_roads.primary,
@@ -160,6 +170,7 @@ namespace RogueCity::Generators::Urban {
                         { c.x - lot_w * 0.5, c.y + lot_d * 0.5 },
                     };
 
+                    // Blend district archetype with AESP to pick final lot program.
                     auto it = district_types.find(lot.district_id);
                     const Core::DistrictType district_type =
                         (it != district_types.end()) ? it->second : Core::DistrictType::Mixed;

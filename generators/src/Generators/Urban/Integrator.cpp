@@ -2,6 +2,8 @@
 
 namespace RogueCity::Generators::Urban {
 
+    // Fourth-order Runge-Kutta streamline step through tensor field direction vectors.
+    // use_major selects major vs minor eigenvector guidance.
     Core::Vec2 Integrator::rk4Step(
         const Core::Vec2& pos,
         const TensorFieldGenerator& field,
@@ -25,4 +27,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

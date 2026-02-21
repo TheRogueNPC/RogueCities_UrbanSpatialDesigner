@@ -13,10 +13,12 @@ namespace RogueCity::Generators {
 
     namespace {
 
+        // Convenience length accessor.
         [[nodiscard]] float roadLength(const Road& road) {
             return static_cast<float>(road.length());
         }
 
+        // Road hierarchy ranking helper.
         [[nodiscard]] int roadRank(Core::RoadType type) {
             switch (type) {
                 case Core::RoadType::Highway: return 9;
@@ -35,6 +37,7 @@ namespace RogueCity::Generators {
             }
         }
 
+        // Chooses road type whose AESP access/exposure best matches requested targets.
         [[nodiscard]] Core::RoadType bestAespType(float access_target, float exposure_target) {
             static const std::array<Core::RoadType, 10> kTypes = {
                 Core::RoadType::Highway,
@@ -65,6 +68,7 @@ namespace RogueCity::Generators {
 
     } // namespace
 
+    // Legacy network classifier for standalone road lists.
     void RoadClassifier::classifyNetwork(fva::Container<Road>& roads) {
         if (roads.size() == 0) {
             return;
@@ -83,6 +87,7 @@ namespace RogueCity::Generators {
         }
     }
 
+    // Graph-aware classifier using centrality, edge length, endpoint degree, and AESP refinement.
     void RoadClassifier::classifyGraph(Urban::Graph& graph, uint32_t centrality_samples) {
         if (graph.edges().empty()) {
             return;
@@ -112,6 +117,7 @@ namespace RogueCity::Generators {
             const float score = (0.45f * cent) + (0.35f * length_norm) + (0.20f * degree_norm);
             const auto base_type = classifyScore(score, length_norm, cent, endpoint_degree);
 
+            // AESP-guided override to better align semantic frontage traits when close in rank.
             const float access_target = std::clamp(0.45f * cent + 0.35f * degree_norm + 0.20f * length_norm, 0.0f, 1.0f);
             const float exposure_target = std::clamp(0.60f * cent + 0.40f * length_norm, 0.0f, 1.0f);
             const auto aesp_type = bestAespType(access_target, exposure_target);
@@ -131,6 +137,7 @@ namespace RogueCity::Generators {
         }
     }
 
+    // Length-bucket fallback classifier.
     RoadType RoadClassifier::classifyRoad(const Road& road, double avg_length) {
         const double len = road.length();
         if (len >= avg_length * 2.2) {
@@ -145,6 +152,7 @@ namespace RogueCity::Generators {
         return RoadType::Lane;
     }
 
+    // Composite-score classifier used by graph pipeline.
     RoadType RoadClassifier::classifyScore(
         float score,
         float length_norm,

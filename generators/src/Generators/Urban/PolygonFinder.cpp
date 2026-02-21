@@ -3,6 +3,8 @@
 
 namespace RogueCity::Generators::Urban {
 
+    // Converts district borders into block polygons.
+    // Borders are normalized to closed rings for downstream polygon operations.
     std::vector<Core::BlockPolygon> PolygonFinder::fromDistricts(
         const std::vector<Core::District>& districts) {
         std::vector<Core::BlockPolygon> blocks;
@@ -19,6 +21,8 @@ namespace RogueCity::Generators::Urban {
         return blocks;
     }
 
+    // Graph-based cycle extraction is intentionally deferred.
+    // For now we rely on district polygons as a deterministic fallback.
     std::vector<Core::BlockPolygon> PolygonFinder::fromGraph(
         const Graph&,
         const std::vector<Core::District>& districts) {
@@ -28,4 +32,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

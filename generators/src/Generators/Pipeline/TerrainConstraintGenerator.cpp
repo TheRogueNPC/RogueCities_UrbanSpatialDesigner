@@ -8,9 +8,12 @@ namespace RogueCity::Generators {
 
 namespace {
 
+// Shared math constants for gradient/slope conversion.
 constexpr double kTwoPi = 6.28318530717958647692;
 constexpr double kRadToDeg = 57.2957795130823208768;
 
+// Deterministic integer hash mapped into [0,1].
+// Used as a reproducible pseudo-random source for terrain/noise synthesis.
 [[nodiscard]] float Hash01(int x, int y, uint32_t seed) {
     uint64_t v = static_cast<uint64_t>(static_cast<uint32_t>(x)) * 0x9E3779B185EBCA87ull;
     v ^= static_cast<uint64_t>(static_cast<uint32_t>(y)) * 0xC2B2AE3D27D4EB4Full;
@@ -23,6 +26,8 @@ constexpr double kRadToDeg = 57.2957795130823208768;
     return static_cast<float>(v & 0x00FFFFFFu) / static_cast<float>(0x00FFFFFFu);
 }
 
+// Lightweight multi-octave value-noise function.
+// This intentionally prioritizes determinism and speed over photorealism.
 [[nodiscard]] float FractalNoise(float x, float y, uint32_t seed) {
     const int ix = static_cast<int>(std::floor(x));
     const int iy = static_cast<int>(std::floor(y));
@@ -39,6 +44,7 @@ constexpr double kRadToDeg = 57.2957795130823208768;
     return std::clamp(sum, 0.0f, 1.0f);
 }
 
+// Clamped neighbor sample helper used by erosion and slope computation.
 [[nodiscard]] float HeightSampleClamped(
     const std::vector<float>& height,
     int width,
@@ -51,6 +57,8 @@ constexpr double kRadToDeg = 57.2957795130823208768;
     return height[idx];
 }
 
+// Applies a deterministic, local smoothing pass that approximates soft erosion.
+// The random blend term avoids obvious uniform blur artifacts while staying reproducible.
 void ApplyDeterministicErosion(
     std::vector<float>& height,
     int width,
@@ -80,6 +88,7 @@ void ApplyDeterministicErosion(
     }
 }
 
+// Chooses a downstream generation mode from summarized terrain/policy profile metrics.
 [[nodiscard]] Core::GenerationMode SelectMode(
     const Core::SiteProfile& profile,
     const float min_buildable_fraction) {
@@ -103,16 +112,23 @@ void ApplyDeterministicErosion(
 
 } // namespace
 
+// Convenience overload that uses default terrain generation config.
 TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
     const Input& input) const {
     return generate(input, Config{});
 }
 
+// Synthesizes a full WorldConstraintField and SiteProfile for the requested world extents.
+// Major phases:
+// 1) generate height field
+// 2) derive slope/flood/soil/nature/history/no-build masks
+// 3) aggregate profile metrics used by later pipeline stages
 TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
     const Input& input,
     const Config& config) const {
     Output output{};
 
+    // Convert world dimensions into a discrete analysis grid.
     const double cell_size = std::max(1.0, input.cell_size);
     const int cells_x = std::max(1, static_cast<int>(std::round(static_cast<double>(input.world_width) / cell_size)));
     const int cells_y = std::max(1, static_cast<int>(std::round(static_cast<double>(input.world_height) / cell_size)));
@@ -128,6 +144,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
     float buildable_slope_sum = 0.0f;
 
     // First pass: deterministic height synthesis.
+    // Compose ridge-like periodic structure with fractal noise and basin bias.
     for (int y = 0; y < cells_y; ++y) {
         for (int x = 0; x < cells_x; ++x) {
             const float nx = static_cast<float>(x) / static_cast<float>(denom_x);
@@ -147,6 +164,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         }
     }
 
+    // Optional smoothing/erosion for less noisy terrain transitions.
     ApplyDeterministicErosion(
         output.constraints.height_meters,
         cells_x,
@@ -163,6 +181,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
     const float height_range = std::max(1e-3f, max_height - min_height);
 
     // Second pass: derive slope and policy masks from authoritative height field.
+    // Every downstream layer is derived from this stabilized height raster.
     for (int y = 0; y < cells_y; ++y) {
         for (int x = 0; x < cells_x; ++x) {
             const size_t idx = static_cast<size_t>(output.constraints.toIndex(x, y));
@@ -174,6 +193,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
             const double dzdx = (static_cast<double>(h_r) - static_cast<double>(h_l)) / (2.0 * cell_size);
             const double dzdy = (static_cast<double>(h_u) - static_cast<double>(h_d)) / (2.0 * cell_size);
             const double grad = std::sqrt(dzdx * dzdx + dzdy * dzdy);
+            // Convert gradient magnitude to degrees for policy thresholds.
             const float slope = std::clamp(static_cast<float>(std::atan(grad) * kRadToDeg), 0.0f, 89.0f);
 
             const float elevation01 = std::clamp((output.constraints.height_meters[idx] - min_height) / height_range, 0.0f, 1.0f);
@@ -184,6 +204,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
                 0.66f * (1.0f - elevation01) + 0.34f * flood_noise - 0.12f * (slope / 45.0f),
                 0.0f,
                 1.0f);
+            // Coarsen continuous flood score into policy bands (0=safe, 1=warning, 2=high risk).
             const uint8_t flood_mask = (flood_score > 0.78f) ? 2u : ((flood_score > 0.56f) ? 1u : 0u);
 
             const float soil_noise = FractalNoise(nx * 72.0f - 5.0f, ny * 72.0f + 7.0f, input.seed + 133u);
@@ -195,6 +216,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
             const float nature_noise = FractalNoise(nx * 80.0f + 3.0f, ny * 80.0f - 2.0f, input.seed + 211u);
             const float nature_score = std::clamp(0.45f * (1.0f - elevation01) + 0.55f * nature_noise, 0.0f, 1.0f);
 
+            // Sparse deterministic historical tags enrich downstream district semantics.
             uint8_t history = 0u;
             const float tag_base = Hash01(x, y, input.seed + 307u);
             if (tag_base > 0.965f) {
@@ -210,6 +232,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
                 history |= Core::ToHistoryMask(Core::HistoryTag::UtilityLegacy);
             }
 
+            // Hard no-build gate combines topographic, flood, and sacred-history constraints.
             const bool no_build = slope > config.max_buildable_slope_deg ||
                 flood_mask >= 2u ||
                 Core::HasHistoryTag(history, Core::HistoryTag::SacredSite);
@@ -236,6 +259,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         }
     }
 
+    // Fragmentation metric: count boundary transitions in no-build mask adjacency graph.
     uint64_t transitions = 0;
     uint64_t adjacency = 0;
     for (int y = 0; y < cells_y; ++y) {
@@ -258,6 +282,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         }
     }
 
+    // Aggregate profile metrics consumed by later planner/validator logic.
     const float total_cells = static_cast<float>(std::max<size_t>(1u, output.constraints.cellCount()));
     const float buildable_fraction = static_cast<float>(buildable_cells) / total_cells;
     const float avg_buildable_slope = (buildable_cells > 0u)
@@ -270,6 +295,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         ? (static_cast<float>(steep_buildable_cells) / static_cast<float>(buildable_cells))
         : 1.0f;
 
+    // Estimate intended intensity from city-spec district densities when available.
     float target_density = 0.55f;
     if (input.city_spec.has_value() && !input.city_spec->districts.empty()) {
         float density_sum = 0.0f;
@@ -279,6 +305,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         target_density = density_sum / static_cast<float>(input.city_spec->districts.size());
     }
 
+    // Policy friction estimates planning tension between desired intensity and physical limits.
     const float policy_friction = std::clamp(
         (1.0f - buildable_fraction) * 0.45f +
         fragmentation * 0.32f +
@@ -287,6 +314,7 @@ TerrainConstraintGenerator::Output TerrainConstraintGenerator::generate(
         0.0f,
         1.0f);
 
+    // Final profile summary and high-level mode selection.
     output.profile.buildable_fraction = buildable_fraction;
     output.profile.average_buildable_slope = avg_buildable_slope;
     output.profile.buildable_fragmentation = fragmentation;

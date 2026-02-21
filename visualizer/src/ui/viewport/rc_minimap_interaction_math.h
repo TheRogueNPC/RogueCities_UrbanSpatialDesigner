@@ -27,4 +27,29 @@ namespace RC_UI::Viewport {
     const RogueCity::Core::Vec2& world_pos,
     const RogueCity::Core::WorldConstraintField& world_constraints);
 
+// Shared spring clamp used by viewport pan and minimap drag.
+// Allows limited overscroll while applying deterministic bounce-back.
+[[nodiscard]] RogueCity::Core::Vec2 ClampToWorldConstraintsWithSpring(
+    const RogueCity::Core::Vec2& desired_world_pos,
+    const RogueCity::Core::WorldConstraintField& world_constraints,
+    double delta_seconds,
+    RogueCity::Core::Vec2& inout_overscroll,
+    RogueCity::Core::Vec2& inout_velocity,
+    bool& out_active,
+    double max_overscroll = 140.0,
+    double spring_strength = 18.0,
+    double damping = 9.0);
+
+[[nodiscard]] RogueCity::Core::Vec2 ClampToBoundsWithSpring(
+    const RogueCity::Core::Vec2& desired_world_pos,
+    const RogueCity::Core::Vec2& min_bound,
+    const RogueCity::Core::Vec2& max_bound,
+    double delta_seconds,
+    RogueCity::Core::Vec2& inout_overscroll,
+    RogueCity::Core::Vec2& inout_velocity,
+    bool& out_active,
+    double max_overscroll = 140.0,
+    double spring_strength = 18.0,
+    double damping = 9.0);
+
 } // namespace RC_UI::Viewport

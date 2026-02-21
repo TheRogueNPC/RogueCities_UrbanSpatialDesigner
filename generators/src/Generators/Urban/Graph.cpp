@@ -6,6 +6,7 @@ namespace RogueCity::Generators::Urban {
 
     namespace {
 
+        // Computes polyline arc-length, used as default edge length when not provided.
         [[nodiscard]] float polylineLength(const std::vector<Core::Vec2>& pts) {
             if (pts.size() < 2) {
                 return 0.0f;
@@ -20,17 +21,20 @@ namespace RogueCity::Generators::Urban {
 
     } // namespace
 
+    // Clears vertex/edge storage.
     void Graph::clear() {
         vertices_.clear();
         edges_.clear();
     }
 
+    // Appends a vertex and returns its stable index ID.
     VertexID Graph::addVertex(const Vertex& v) {
         const VertexID id = static_cast<VertexID>(vertices_.size());
         vertices_.push_back(v);
         return id;
     }
 
+    // Inserts a validated edge and updates endpoint adjacency lists.
     EdgeID Graph::addEdge(const Edge& e) {
         if (!isVertexValid(e.a) || !isVertexValid(e.b) || e.a == e.b) {
             return std::numeric_limits<EdgeID>::max();
@@ -55,6 +59,7 @@ namespace RogueCity::Generators::Urban {
         return id;
     }
 
+    // Convenience edge creation from raw endpoints/type/layer.
     EdgeID Graph::addEdge(
         const Core::Vec2& a,
         const Core::Vec2& b,
@@ -83,6 +88,7 @@ namespace RogueCity::Generators::Urban {
         return addEdge(e);
     }
 
+    // Safe accessors.
     const Vertex* Graph::getVertex(VertexID id) const {
         if (!isVertexValid(id)) {
             return nullptr;
@@ -97,6 +103,7 @@ namespace RogueCity::Generators::Urban {
         return &edges_[id];
     }
 
+    // Mutable accessors.
     Vertex* Graph::getVertexMutable(VertexID id) {
         if (!isVertexValid(id)) {
             return nullptr;
@@ -111,6 +118,7 @@ namespace RogueCity::Generators::Urban {
         return &edges_[id];
     }
 
+    // Bounds checks for ID validity.
     bool Graph::isVertexValid(VertexID id) const {
         return id < vertices_.size();
     }

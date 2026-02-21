@@ -438,6 +438,8 @@ static RC_UI::Commands::PieMenuState s_pie_command_menu{};
 static RC_UI::Commands::CommandPaletteState s_command_palette{};
 
 static RC_UI::Viewport::NonAxiomInteractionState s_non_axiom_interaction{};
+static RC_UI::ToolLibrary s_global_palette_library = RC_UI::ToolLibrary::Axiom;
+static float s_global_palette_open_lerp = 0.0f;
 
 RogueCity::Core::Editor::EditorAxiom::Type ToEditorAxiomType(RogueCity::App::AxiomVisual::AxiomType type) {
     using RogueCity::App::AxiomVisual;
@@ -991,10 +993,58 @@ static RogueCity::Core::Vec2 MinimapPixelToWorld(const ImVec2& pixel_pos, const 
         s_minimap_zoom);
 }
 
+static bool TryCityBoundaryBounds(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    RogueCity::Core::Vec2& out_min,
+    RogueCity::Core::Vec2& out_max) {
+    if (gs.city_boundary.size() < 3) {
+        return false;
+    }
+    out_min = gs.city_boundary.front();
+    out_max = gs.city_boundary.front();
+    for (const auto& p : gs.city_boundary) {
+        out_min.x = std::min(out_min.x, p.x);
+        out_min.y = std::min(out_min.y, p.y);
+        out_max.x = std::max(out_max.x, p.x);
+        out_max.y = std::max(out_max.y, p.y);
+    }
+    return out_max.x > out_min.x && out_max.y > out_min.y;
+}
+
 static RogueCity::Core::Vec2 ClampMinimapCameraToConstraints(
     const RogueCity::Core::Vec2& camera_pos,
-    const RogueCity::Core::Editor::GlobalState& gs) {
-    return RC_UI::Viewport::ClampToWorldConstraints(camera_pos, gs.world_constraints);
+    RogueCity::Core::Editor::GlobalState& gs,
+    double delta_seconds) {
+    if (!gs.config.feature_camera_bounce_clamp) {
+        RogueCity::Core::Vec2 min_bound{};
+        RogueCity::Core::Vec2 max_bound{};
+        if (TryCityBoundaryBounds(gs, min_bound, max_bound)) {
+            return RogueCity::Core::Vec2(
+                std::clamp(camera_pos.x, min_bound.x, max_bound.x),
+                std::clamp(camera_pos.y, min_bound.y, max_bound.y));
+        }
+        return RC_UI::Viewport::ClampToWorldConstraints(camera_pos, gs.world_constraints);
+    }
+
+    RogueCity::Core::Vec2 min_bound{};
+    RogueCity::Core::Vec2 max_bound{};
+    if (TryCityBoundaryBounds(gs, min_bound, max_bound)) {
+        return RC_UI::Viewport::ClampToBoundsWithSpring(
+            camera_pos,
+            min_bound,
+            max_bound,
+            delta_seconds,
+            gs.tool_runtime.viewport_clamp_overscroll,
+            gs.tool_runtime.viewport_clamp_velocity,
+            gs.tool_runtime.viewport_clamp_active);
+    }
+    return RC_UI::Viewport::ClampToWorldConstraintsWithSpring(
+        camera_pos,
+        gs.world_constraints,
+        delta_seconds,
+        gs.tool_runtime.viewport_clamp_overscroll,
+        gs.tool_runtime.viewport_clamp_velocity,
+        gs.tool_runtime.viewport_clamp_active);
 }
 
 static int MinimapLODLevel(MinimapLOD lod) {
@@ -1823,6 +1873,90 @@ void DrawContent(float dt) {
             &s_command_palette,
         });
 
+    if (gs.config.feature_tool_palette_slideout &&
+        viewport_canvas_hovered &&
+        allow_viewport_key_actions &&
+        !ImGui::GetIO().KeyCtrl &&
+        ImGui::IsKeyPressed(ImGuiKey_G)) {
+        gs.tool_runtime.viewport_global_palette_visible = !gs.tool_runtime.viewport_global_palette_visible;
+    }
+    if (!gs.config.feature_tool_palette_slideout) {
+        gs.tool_runtime.viewport_global_palette_visible = false;
+    }
+
+    const float palette_target = gs.tool_runtime.viewport_global_palette_visible ? 1.0f : 0.0f;
+    const float palette_blend = 1.0f - std::exp(-10.0f * dt);
+    s_global_palette_open_lerp += (palette_target - s_global_palette_open_lerp) * palette_blend;
+    s_global_palette_open_lerp = std::clamp(s_global_palette_open_lerp, 0.0f, 1.0f);
+
+    if (gs.config.feature_tool_palette_slideout && s_global_palette_open_lerp > 0.02f) {
+        const float panel_max_width = 296.0f;
+        const float panel_width = panel_max_width * s_global_palette_open_lerp;
+        const ImVec2 panel_min(viewport_pos.x + 8.0f, viewport_pos.y + 126.0f);
+        const ImVec2 panel_max(panel_min.x + panel_width, viewport_pos.y + viewport_size.y - 12.0f);
+        draw_list->AddRectFilled(panel_min, panel_max, TokenColor(UITokens::BackgroundDark, 224u), 8.0f);
+        draw_list->AddRect(panel_min, panel_max, TokenColor(UITokens::CyanAccent, 150u), 8.0f, 0, 1.2f);
+
+        ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 10.0f, panel_min.y + 8.0f));
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 225u), "Global Tool Palette  [G]");
+
+        const float usable_w = std::max(100.0f, panel_width - 18.0f);
+        ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 8.0f, panel_min.y + 30.0f));
+        if (ImGui::BeginChild("##global_tool_palette_slideout",
+                              ImVec2(usable_w, std::max(100.0f, panel_max.y - panel_min.y - 38.0f)),
+                              false,
+                              ImGuiWindowFlags_NoScrollbar)) {
+            for (const auto library : RC_UI::kToolLibraryOrder) {
+                const bool is_active = library == s_global_palette_library;
+                const char* library_label = "Tool";
+                switch (library) {
+                    case RC_UI::ToolLibrary::Axiom: library_label = "Axiom"; break;
+                    case RC_UI::ToolLibrary::Water: library_label = "Water"; break;
+                    case RC_UI::ToolLibrary::Road: library_label = "Road"; break;
+                    case RC_UI::ToolLibrary::District: library_label = "District"; break;
+                    case RC_UI::ToolLibrary::Lot: library_label = "Lot"; break;
+                    case RC_UI::ToolLibrary::Building: library_label = "Building"; break;
+                }
+                if (is_active) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, TokenColorF(UITokens::InfoBlue, 178u));
+                }
+                if (ImGui::Button(library_label, ImVec2(usable_w / 2.0f - 6.0f, 0.0f))) {
+                    s_global_palette_library = library;
+                }
+                if (is_active) {
+                    ImGui::PopStyleColor();
+                }
+                if ((static_cast<int>(library) % 2) == 0) {
+                    ImGui::SameLine();
+                }
+            }
+
+            ImGui::Separator();
+            const auto actions = RC_UI::Tools::GetToolActionsForLibrary(s_global_palette_library);
+            for (const auto& action : actions) {
+                if (!RC_UI::Tools::IsToolActionEnabled(action)) {
+                    continue;
+                }
+                if (ImGui::Button(action.label, ImVec2(usable_w - 4.0f, 0.0f))) {
+                    RogueCity::App::AxiomType axiom_type = RogueCity::App::AxiomType::Grid;
+                    if (TryAxiomTypeFromActionId(action.id, axiom_type) && s_axiom_tool != nullptr) {
+                        if (ImGui::GetIO().KeyCtrl) {
+                            if (auto* selected = s_axiom_tool->get_selected_axiom()) {
+                                selected->set_type(axiom_type);
+                                s_library_modified = true;
+                            }
+                        } else {
+                            s_axiom_tool->set_default_axiom_type(axiom_type);
+                        }
+                    }
+                    std::string dispatch_status;
+                    (void)RC_UI::Tools::DispatchToolAction(action.id, command_dispatch, &dispatch_status);
+                }
+            }
+        }
+        ImGui::EndChild();
+    }
+
     const RC_UI::Viewport::AxiomInteractionResult axiom_interaction =
         RC_UI::Viewport::ProcessAxiomViewportInteraction(
             RC_UI::Viewport::AxiomInteractionParams{
@@ -1920,46 +2054,115 @@ void DrawContent(float dt) {
         ? "idle"
         : gs.tool_runtime.last_viewport_status.c_str();
     const char* active_domain = RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain);
+    const size_t axiom_count = s_axiom_tool ? s_axiom_tool->axioms().size() : size_t{0};
+    const size_t road_count = (gs.show_layer_roads && s_generation_coordinator && s_generation_coordinator->GetOutput())
+        ? static_cast<size_t>(s_generation_coordinator->GetOutput()->roads.size())
+        : 0u;
 
-    // Status text overlay (cockpit style) - moved down to avoid overlap with debug
-    if (axiom_mode && s_generation_coordinator) {
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 22));
-        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 235u), "MODE: AXIOM-EDIT");
-        DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
-        if (s_generation_coordinator->IsGenerating()) {
-            ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 98));
-            if (ImGui::Button("_STOP_SWEEP")) {
-                s_generation_coordinator->CancelGeneration();
-                gs.tool_runtime.last_viewport_status = "preview-cancelled";
-                gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+    const ImVec2 minimap_stats_anchor = ImVec2(
+        viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
+        viewport_pos.y + kMinimapPadding
+    );
+
+    // Unified top-left chrome (mode + status + cue).
+    if (gs.config.feature_ui_chrome_unification) {
+        const ImVec2 chrome_min(viewport_pos.x + 12.0f, viewport_pos.y + 12.0f);
+        const ImVec2 chrome_max(chrome_min.x + 460.0f, chrome_min.y + 98.0f);
+        draw_list->AddRectFilled(chrome_min, chrome_max, TokenColor(UITokens::BackgroundDark, 212u), 8.0f);
+        draw_list->AddRect(chrome_min, chrome_max, TokenColor(UITokens::TextSecondary, 160u), 8.0f, 0, 1.4f);
+
+        ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 8.0f));
+        if (axiom_mode && s_generation_coordinator) {
+            ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 235u), "MODE: AXIOM-EDIT");
+            DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(chrome_min.x + 10.0f, chrome_min.y + 30.0f));
+            ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 54.0f));
+            ImGui::TextColored(
+                TokenColorF(UITokens::TextSecondary, 235u),
+                "Click-drag to set radius | Edit type via palette");
+            if (s_generation_coordinator->IsGenerating()) {
+                ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 72.0f));
+                if (ImGui::Button("_STOP_SWEEP")) {
+                    s_generation_coordinator->CancelGeneration();
+                    gs.tool_runtime.last_viewport_status = "preview-cancelled";
+                    gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+                }
+            }
+        } else {
+            ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "MODE: %s", active_domain);
+            ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 30.0f));
+            ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 230u), "Viewport: %s", viewport_status);
+            ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 50.0f));
+            const std::string cue = BuildNonAxiomContextCue(gs);
+            ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 210u), "%s", cue.c_str());
+            if (gs.tool_runtime.explicit_generation_pending) {
+                ImGui::SetCursorScreenPos(ImVec2(chrome_min.x + 10.0f, chrome_min.y + 70.0f));
+                ImGui::TextColored(
+                    TokenColorF(UITokens::YellowWarning, 240u),
+                    "Generation pending (explicit trigger required)");
             }
         }
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
-        ImGui::TextColored(TokenColorF(UITokens::TextSecondary),
-            "Click-drag to set radius | Edit type via palette");
     } else {
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
-        ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "Mode: %s", active_domain);
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 78));
-        ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 230u), "Viewport: %s", viewport_status);
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 96));
-        const std::string cue = BuildNonAxiomContextCue(gs);
-        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 210u), "%s", cue.c_str());
+        if (axiom_mode && s_generation_coordinator) {
+            ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 22));
+            ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 235u), "MODE: AXIOM-EDIT");
+            DrawAxiomModeStatus(*s_generation_coordinator->Preview(), ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
+        } else {
+            ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 60));
+            ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 178u), "MODE: %s", active_domain);
+            ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 80));
+            ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 230u), "Viewport: %s", viewport_status);
+        }
     }
-    if (!axiom_mode && gs.tool_runtime.explicit_generation_pending) {
-        ImGui::SetCursorScreenPos(ImVec2(viewport_pos.x + 20, viewport_pos.y + 114));
-        ImGui::TextColored(
-            TokenColorF(UITokens::YellowWarning, 240u),
-            "Generation pending (explicit trigger required)");
+
+    // Scene stats card that reflows left of minimap.
+    {
+        const float stats_width = 188.0f;
+        const float stats_height = gs.tool_runtime.viewport_scene_stats_collapsed ? 30.0f : 84.0f;
+        const float stats_x = (s_minimap_visible
+            ? (minimap_stats_anchor.x - stats_width - 12.0f)
+            : (viewport_pos.x + viewport_size.x - stats_width - 12.0f));
+        const ImVec2 stats_min(stats_x, viewport_pos.y + 12.0f);
+        const ImVec2 stats_max(stats_min.x + stats_width, stats_min.y + stats_height);
+        draw_list->AddRectFilled(stats_min, stats_max, TokenColor(UITokens::BackgroundDark, 212u), 8.0f);
+        draw_list->AddRect(stats_min, stats_max, TokenColor(UITokens::InfoBlue, 165u), 8.0f, 0, 1.4f);
+
+        ImGui::SetCursorScreenPos(ImVec2(stats_min.x + 8.0f, stats_min.y + 6.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+        if (ImGui::Button(gs.tool_runtime.viewport_scene_stats_collapsed ? "[+]" : "[-]")) {
+            gs.tool_runtime.viewport_scene_stats_collapsed = !gs.tool_runtime.viewport_scene_stats_collapsed;
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 228u), "Scene Stats");
+
+        if (!gs.tool_runtime.viewport_scene_stats_collapsed) {
+            ImGui::SetCursorScreenPos(ImVec2(stats_min.x + 10.0f, stats_min.y + 30.0f));
+            ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 190u), "Axioms: %zu", axiom_count);
+            ImGui::SetCursorScreenPos(ImVec2(stats_min.x + 10.0f, stats_min.y + 50.0f));
+            ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 198u), "Roads: %zu", road_count);
+            ImGui::SetCursorScreenPos(ImVec2(stats_min.x + 10.0f, stats_min.y + 68.0f));
+            ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 190u), "Status: %s", viewport_status);
+        }
     }
-    
-    // Axiom count display
-    ImGui::SetCursorScreenPos(ImVec2(
-        viewport_pos.x + viewport_size.x - 120,
-        viewport_pos.y + 20
-    ));
-    ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 178u), 
-        "Axioms: %zu", s_axiom_tool ? s_axiom_tool->axioms().size() : size_t{0});
+
+    // Non-modal warning ribbon (short TTL, set by interaction systems).
+    if (gs.tool_runtime.viewport_warning_ttl_seconds > 0.0f) {
+        gs.tool_runtime.viewport_warning_ttl_seconds =
+            std::max(0.0f, gs.tool_runtime.viewport_warning_ttl_seconds - dt);
+    }
+    if (!gs.tool_runtime.viewport_warning_text.empty() &&
+        gs.tool_runtime.viewport_warning_ttl_seconds > 0.0f) {
+        const float alpha = std::clamp(gs.tool_runtime.viewport_warning_ttl_seconds / 1.8f, 0.15f, 1.0f);
+        const ImVec2 warn_min(viewport_pos.x + 14.0f, viewport_pos.y + viewport_size.y - 44.0f);
+        const ImVec2 warn_max(warn_min.x + 360.0f, warn_min.y + 30.0f);
+        draw_list->AddRectFilled(warn_min, warn_max, TokenColor(UITokens::AmberGlow, static_cast<uint8_t>(210.0f * alpha)), 6.0f);
+        draw_list->AddRect(warn_min, warn_max, TokenColor(UITokens::BackgroundDark, static_cast<uint8_t>(180.0f * alpha)), 6.0f);
+        ImGui::SetCursorScreenPos(ImVec2(warn_min.x + 8.0f, warn_min.y + 7.0f));
+        ImGui::TextColored(TokenColorF(UITokens::BackgroundDark, static_cast<uint8_t>(240.0f * alpha)), "%s",
+            gs.tool_runtime.viewport_warning_text.c_str());
+    }
     
     // Render generated city output (roads)
     if (gs.show_layer_roads && s_generation_coordinator && s_generation_coordinator->GetOutput()) {
@@ -1984,13 +2187,6 @@ void DrawContent(float dt) {
             }
         }
         
-        // Road count display
-        ImGui::SetCursorScreenPos(ImVec2(
-            viewport_pos.x + viewport_size.x - 120,
-            viewport_pos.y + 45
-        ));
-        ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 178u), 
-            "Roads: %llu", roads.size());
     }
 
     // Editor-local validation overlay payload.
@@ -2251,6 +2447,8 @@ void DrawContent(float dt) {
     overlay_config.show_districts = gs.show_layer_districts;
     overlay_config.show_lots = gs.show_layer_lots;
     overlay_config.show_building_sites = gs.show_layer_buildings;
+    overlay_config.show_city_boundary = !gs.city_boundary.empty();
+    overlay_config.show_connector_graph = !gs.connector_debug_edges.empty();
     
     overlay_config.show_aesp_heatmap =
         (current_state == RogueCity::Core::Editor::EditorState::Editing_Lots ||
@@ -2447,15 +2645,30 @@ void DrawContent(float dt) {
                 RogueCity::Core::Vec2 next_camera = camera_pos;
                 next_camera.x -= static_cast<double>(delta.x) * world_per_pixel;
                 next_camera.y -= static_cast<double>(delta.y) * world_per_pixel;
-                next_camera = ClampMinimapCameraToConstraints(next_camera, gs);
+                next_camera = ClampMinimapCameraToConstraints(
+                    next_camera,
+                    gs,
+                    static_cast<double>(io.DeltaTime));
                 s_primary_viewport->set_camera_position(next_camera, camera_z);
             } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 // Click to jump camera
                 const auto camera_pos = s_primary_viewport->get_camera_xy();
                 const auto camera_z = s_primary_viewport->get_camera_z();
                 auto world_pos = MinimapPixelToWorld(mouse_screen, minimap_interact_pos, camera_pos);
-                world_pos = ClampMinimapCameraToConstraints(world_pos, gs);
+                world_pos = ClampMinimapCameraToConstraints(
+                    world_pos,
+                    gs,
+                    static_cast<double>(io.DeltaTime));
                 s_primary_viewport->set_camera_position(world_pos, camera_z);
+            } else if (gs.config.feature_camera_bounce_clamp &&
+                       gs.tool_runtime.viewport_clamp_active) {
+                const auto camera_z = s_primary_viewport->get_camera_z();
+                const auto camera_pos = s_primary_viewport->get_camera_xy();
+                const auto settled = ClampMinimapCameraToConstraints(
+                    camera_pos,
+                    gs,
+                    static_cast<double>(io.DeltaTime));
+                s_primary_viewport->set_camera_position(settled, camera_z);
             }
         }
     }

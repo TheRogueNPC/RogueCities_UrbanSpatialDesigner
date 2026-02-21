@@ -1,3 +1,6 @@
+// This file defines the registry and execution logic for context-specific and global commands
+// used in the RogueCities visualizer. It includes filtering, execution, and utility functions.
+
 #include "ui/commands/rc_context_command_registry.h"
 
 #include "ui/panels/rc_panel_axiom_editor.h"
@@ -10,12 +13,14 @@
 namespace RC_UI::Commands {
 namespace {
 
+// Defines a list of global viewport commands available in the application.
 constexpr std::array<GlobalViewportCommandSpec, 3> kGlobalViewportCommands{{
     {GlobalViewportCommandId::ToggleMinimap, "Toggle Minimap", "Show or hide the RogueNav minimap overlay."},
     {GlobalViewportCommandId::ForceGenerate, "Force Generate", "Run immediate city regeneration from current axioms."},
     {GlobalViewportCommandId::ResetDockLayout, "Reset Dock Layout", "Rebuild the dock layout to the default contract."},
 }};
 
+// Converts a string to lowercase and returns a copy.
 std::string ToLowerCopy(std::string_view value) {
     std::string lowered;
     lowered.reserve(value.size());
@@ -25,6 +30,8 @@ std::string ToLowerCopy(std::string_view value) {
     return lowered;
 }
 
+// Performs a case-insensitive substring search.
+// Returns true if the needle is found in the haystack.
 bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle) {
     if (needle.empty()) {
         return true;
@@ -37,14 +44,17 @@ bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle)
 
 } // namespace
 
+// Retrieves the complete list of tool actions available in the application.
 std::span<const RC_UI::Tools::ToolActionSpec> GetCommandRegistry() {
     return RC_UI::Tools::GetToolActionCatalog();
 }
 
+// Retrieves the list of global viewport commands defined in the application.
 std::span<const GlobalViewportCommandSpec> GetGlobalViewportCommands() {
     return std::span<const GlobalViewportCommandSpec>(kGlobalViewportCommands.data(), kGlobalViewportCommands.size());
 }
 
+// Filters the command registry based on a search filter and whether disabled commands should be included.
 std::vector<const RC_UI::Tools::ToolActionSpec*> FilterCommandRegistry(
     std::string_view filter,
     bool include_disabled) {
@@ -72,6 +82,8 @@ std::vector<const RC_UI::Tools::ToolActionSpec*> FilterCommandRegistry(
     return filtered;
 }
 
+// Executes a tool action by its ID and updates the status string if provided.
+// Returns true if the action was successfully handled.
 bool ExecuteCommand(
     RC_UI::Tools::ToolActionId action_id,
     const RC_UI::Tools::DispatchContext& dispatch_context,
@@ -80,6 +92,8 @@ bool ExecuteCommand(
     return result == RC_UI::Tools::DispatchResult::Handled;
 }
 
+// Executes a global viewport command by its ID and updates the status string if provided.
+// Returns true if the command was successfully handled.
 bool ExecuteGlobalViewportCommand(
     GlobalViewportCommandId command_id,
     const RC_UI::Tools::DispatchContext& dispatch_context,
@@ -118,6 +132,7 @@ bool ExecuteGlobalViewportCommand(
     }
 }
 
+// Maps a tool domain to its corresponding library.
 ToolLibrary CommandLibraryForDomain(RogueCity::Core::Editor::ToolDomain domain) {
     using Domain = RogueCity::Core::Editor::ToolDomain;
     switch (domain) {
@@ -142,6 +157,7 @@ ToolLibrary CommandLibraryForDomain(RogueCity::Core::Editor::ToolDomain domain) 
     }
 }
 
+// Returns the name of a tool library as a string.
 const char* CommandLibraryName(ToolLibrary library) {
     switch (library) {
         case ToolLibrary::Axiom:

@@ -86,6 +86,7 @@ private:
 // === BUILT-IN THEME PRESETS ===
 namespace Themes {
     ThemeProfile Default();          // Rogue baseline preset (formerly Default)
+    ThemeProfile Soviet();           // Backward-compat alias -> DowntownCity
     ThemeProfile RedRetro();         // #D12128, #FAE3AC, #01344F
     ThemeProfile DowntownCity();     // #1B1B2F, #E94560, #0F3460
     ThemeProfile RedlightDistrict(); // #C70039, #FF5733, #900C3F

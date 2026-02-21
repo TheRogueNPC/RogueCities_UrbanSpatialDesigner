@@ -42,6 +42,16 @@ bool GeneratorBridge::validate_axioms(
         if (axiom.radius < 50.0 || axiom.radius > 1000.0) {
             return false;  // Invalid radius
         }
+
+        // Ring schema guardrails.
+        if (axiom.ring_schema.core_ratio <= 0.0 ||
+            axiom.ring_schema.falloff_ratio < axiom.ring_schema.core_ratio ||
+            axiom.ring_schema.outskirts_ratio < axiom.ring_schema.falloff_ratio ||
+            axiom.ring_schema.outskirts_ratio > 1.5 ||
+            axiom.ring_schema.merge_band_ratio < 0.0 ||
+            axiom.ring_schema.merge_band_ratio > 0.5) {
+            return false;
+        }
     }
     
     // Check for extreme overlaps

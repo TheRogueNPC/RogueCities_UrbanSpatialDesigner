@@ -8,6 +8,7 @@ namespace RogueCity::Generators::Roads {
 
     namespace {
 
+        // Polygon approximation of a circle, used for template footprints.
         [[nodiscard]] Core::Polygon makeCircle(
             const Core::Vec2& c,
             float radius,
@@ -25,6 +26,7 @@ namespace RogueCity::Generators::Roads {
             return poly;
         }
 
+        // Expands template radii for more complex control regimes.
         [[nodiscard]] float controlRadiusBoost(Urban::ControlType control) {
             switch (control) {
                 case Urban::ControlType::Roundabout: return 1.7f;
@@ -35,6 +37,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Scores intersection-adjacent greenspace opportunity from flow/visibility/intrusion.
         [[nodiscard]] float greenspaceScore(
             const Urban::Graph& g,
             Urban::VertexID vid,
@@ -63,6 +66,7 @@ namespace RogueCity::Generators::Roads {
             return std::max(0.0f, score);
         }
 
+        // Estimates dominant orientation from first incident edge direction.
         [[nodiscard]] float edgeRotationRadians(const Urban::Graph& g, Urban::VertexID vid) {
             const auto* v = g.getVertex(vid);
             if (v == nullptr || v->edges.empty()) {
@@ -81,6 +85,7 @@ namespace RogueCity::Generators::Roads {
             return static_cast<float>(std::atan2(dir.y, dir.x));
         }
 
+        // Picks interchange template archetype from degree and access-control characteristics.
         [[nodiscard]] JunctionArchetype chooseInterchangeArchetype(const Urban::Graph& g, Urban::VertexID vid) {
             const auto* v = g.getVertex(vid);
             if (v == nullptr) {
@@ -104,6 +109,8 @@ namespace RogueCity::Generators::Roads {
 
     } // namespace
 
+    // Emits geometric template primitives around controlled intersections:
+    // paved area, keep-out islands, supports, greenspace candidates, and interchange records.
     TemplateOutput emitIntersectionTemplates(const Urban::Graph& g, const TemplateConfig& cfg) {
         TemplateOutput out;
         if (g.vertices().empty()) {
@@ -122,6 +129,7 @@ namespace RogueCity::Generators::Roads {
                 continue;
             }
 
+            // Base circular footprints scaled by control complexity.
             const float boost = controlRadiusBoost(v->control);
             const float paved_r = cfg.paved_radius_base * boost;
             const float keep_out_r = cfg.keep_out_radius_base * boost;
@@ -130,6 +138,7 @@ namespace RogueCity::Generators::Roads {
             out.paved_areas.push_back(makeCircle(v->pos, paved_r, cfg.circle_segments));
             out.keep_out_islands.push_back(makeCircle(v->pos, keep_out_r, cfg.circle_segments));
 
+            // Grade-separated nodes emit support footprints (e.g., bridge supports).
             if (v->control == Urban::ControlType::Interchange || v->control == Urban::ControlType::GradeSep) {
                 constexpr std::array<double, 4> offsets{ 0.0, 1.57079632679, 3.14159265359, 4.71238898038 };
                 for (const double theta : offsets) {
@@ -140,11 +149,13 @@ namespace RogueCity::Generators::Roads {
                 }
             }
 
+            // Candidate landscape buffer around the junction.
             GreenspaceCandidate green{};
             green.polygon = makeCircle(v->pos, buffer_r, cfg.circle_segments);
             green.score = greenspaceScore(g, vid, 1.0f + 0.25f * boost);
             out.greenspace_candidates.push_back(std::move(green));
 
+            // Interchange metadata for downstream template instancing.
             if (v->control == Urban::ControlType::Interchange || v->control == Urban::ControlType::GradeSep) {
                 InterchangeTemplate templ{};
                 templ.archetype = chooseInterchangeArchetype(g, vid);

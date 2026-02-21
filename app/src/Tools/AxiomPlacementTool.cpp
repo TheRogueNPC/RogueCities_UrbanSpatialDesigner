@@ -1,6 +1,7 @@
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/App/Tools/ContextWindowPopup.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -86,6 +87,15 @@ static bool SnapshotsEqual(const AxiomPlacementTool::AxiomSnapshot& a,
         a.superblock_block_size == b.superblock_block_size;
 }
 
+constexpr float kAxiomMinRadius = 50.0f;
+constexpr float kAxiomMaxRadius = 1000.0f;
+constexpr double kCoreRingRatio = 0.33;
+constexpr double kAxiomPickRadiusMeters = 24.0;
+
+[[nodiscard]] double CoreRingRadius(const AxiomVisual& axiom) {
+    return std::max(8.0, static_cast<double>(axiom.radius()) * kCoreRingRatio);
+}
+
 } // namespace
 
 AxiomPlacementTool::AxiomPlacementTool() = default;
@@ -107,12 +117,8 @@ void AxiomPlacementTool::update(float delta_time, PrimaryViewport& viewport) {
         const Core::Vec2 mouse_world = viewport.screen_to_world(ImGui::GetMousePos());
         hovered_axiom_id_ = -1;
 
-        // Check for axiom hover (reverse order for top-most)
-        for (auto it = axioms_.rbegin(); it != axioms_.rend(); ++it) {
-            if ((*it)->is_hovered(mouse_world, 15.0f)) {  // 15m interaction radius
-                hovered_axiom_id_ = (*it)->id();
-                break;
-            }
+        if (AxiomVisual* hovered = find_best_axiom_for_interaction(mouse_world)) {
+            hovered_axiom_id_ = hovered->id();
         }
 
         for (auto& axiom : axioms_) {
@@ -199,14 +205,12 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
         }
 
         // If clicking an existing axiom, select (and drag to move).
-        for (auto it = axioms_.rbegin(); it != axioms_.rend(); ++it) {
-            if ((*it)->is_hovered(world_pos, 15.0f)) {
-                selected_axiom_id_ = (*it)->id();
-                axiom_drag_offset_ = world_pos - (*it)->position();
-                mode_ = Mode::DraggingAxiom;
-                drag_start_snapshot_ = snapshot_axiom(*(*it));
-                return;
-            }
+        if (AxiomVisual* picked = find_best_axiom_for_interaction(world_pos)) {
+            selected_axiom_id_ = picked->id();
+            axiom_drag_offset_ = world_pos - picked->position();
+            mode_ = Mode::DraggingAxiom;
+            drag_start_snapshot_ = snapshot_axiom(*picked);
+            return;
         }
 
         // Otherwise, start placing a new axiom.
@@ -228,6 +232,9 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
         selected_axiom_id_ = axiom->id();
         const auto snapshot = snapshot_axiom(*axiom);
         axioms_.push_back(std::move(axiom));
+        if (auto* placed = get_selected_axiom(); placed != nullptr) {
+            resolve_core_overlap_for_axiom(placed);
+        }
         dirty_ = true;
         auto place_cmd = std::make_unique<PlaceAxiomCommand>();
         place_cmd->tool = this;
@@ -287,11 +294,12 @@ void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
         const double dx = world_pos.x - placement_start_pos_.x;
         const double dy = world_pos.y - placement_start_pos_.y;
         ghost_radius_ = static_cast<float>(std::sqrt(dx * dx + dy * dy));
-        ghost_radius_ = std::max(50.0f, std::min(ghost_radius_, 1000.0f));
+        ghost_radius_ = std::max(kAxiomMinRadius, std::min(ghost_radius_, kAxiomMaxRadius));
     } else if (mode_ == Mode::DraggingAxiom) {
         auto* axiom = get_selected_axiom();
         if (axiom) {
             axiom->set_position(world_pos - axiom_drag_offset_);
+            resolve_core_overlap_for_axiom(axiom);
         }
     } else if (mode_ == Mode::DraggingKnob && dragging_knob_) {
         // Update ring radius via knob drag
@@ -302,25 +310,22 @@ void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
             const float new_radius = static_cast<float>(std::sqrt(dx * dx + dy * dy));
             
             // Update ring radius (clamped)
-            const float clamped_radius = std::max(50.0f, std::min(new_radius, 1000.0f));
+            const float clamped_radius = std::max(kAxiomMinRadius, std::min(new_radius, kAxiomMaxRadius));
             axiom->set_radius(clamped_radius);
+            resolve_core_overlap_for_axiom(axiom);
         }
     }
 }
 
 void AxiomPlacementTool::on_right_click(const Core::Vec2& world_pos) {
-    // Delete top-most axiom under cursor
-    for (auto it = axioms_.rbegin(); it != axioms_.rend(); ++it) {
-        if ((*it)->is_hovered(world_pos, 15.0f)) {
-            const auto snapshot = snapshot_axiom(*(*it));
-            remove_axiom((*it)->id());
-            auto delete_cmd = std::make_unique<DeleteAxiomCommand>();
-            delete_cmd->tool = this;
-            delete_cmd->snapshot = snapshot;
-            delete_cmd->desc = "Delete Axiom";
-            history_.Commit(std::move(delete_cmd));
-            break;
-        }
+    if (AxiomVisual* picked = find_best_axiom_for_interaction(world_pos)) {
+        const auto snapshot = snapshot_axiom(*picked);
+        remove_axiom(picked->id());
+        auto delete_cmd = std::make_unique<DeleteAxiomCommand>();
+        delete_cmd->tool = this;
+        delete_cmd->snapshot = snapshot;
+        delete_cmd->desc = "Delete Axiom";
+        history_.Commit(std::move(delete_cmd));
     }
 }
 
@@ -460,6 +465,102 @@ AxiomVisual* AxiomPlacementTool::find_axiom(int axiom_id) {
         }
     }
     return nullptr;
+}
+
+AxiomVisual* AxiomPlacementTool::find_best_axiom_for_interaction(const Core::Vec2& world_pos) {
+    AxiomVisual* best = nullptr;
+    double best_score = std::numeric_limits<double>::max();
+
+    for (auto it = axioms_.rbegin(); it != axioms_.rend(); ++it) {
+        AxiomVisual* candidate = it->get();
+        const Core::Vec2 delta = world_pos - candidate->position();
+        const double dist = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+        const double candidate_core = CoreRingRadius(*candidate);
+        const double pick_radius = std::max(
+            kAxiomPickRadiusMeters,
+            std::min(
+                candidate_core * 0.9,
+                std::max(24.0, static_cast<double>(candidate->radius()) * 0.5)));
+        if (dist > pick_radius) {
+            continue;
+        }
+
+        const double radius = std::max(1.0, static_cast<double>(candidate->radius()));
+        const double radial_bias = dist / radius;
+        const double selected_bias = (candidate->id() == selected_axiom_id_) ? 24.0 : 0.0;
+        const double score = dist * 0.90 + radial_bias * 10.0 - selected_bias;
+        if (score < best_score) {
+            best_score = score;
+            best = candidate;
+        }
+    }
+
+    return best;
+}
+
+bool AxiomPlacementTool::resolve_core_overlap_for_axiom(AxiomVisual* edited_axiom) {
+    if (edited_axiom == nullptr) {
+        return false;
+    }
+
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    if (!gs.config.feature_axiom_overlap_resolution) {
+        return true;
+    }
+
+    bool adjusted = false;
+    for (int pass = 0; pass < 8; ++pass) {
+        bool changed_this_pass = false;
+        const Core::Vec2 edited_pos = edited_axiom->position();
+        const double edited_core = CoreRingRadius(*edited_axiom);
+
+        for (const auto& other_ptr : axioms_) {
+            AxiomVisual* other = other_ptr.get();
+            if (other == nullptr || other == edited_axiom) {
+                continue;
+            }
+
+            const double other_core = CoreRingRadius(*other);
+            const double min_dist = edited_core + other_core + 1.0;
+            Core::Vec2 diff = edited_pos - other->position();
+            double dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+            if (dist >= min_dist) {
+                continue;
+            }
+
+            changed_this_pass = true;
+            adjusted = true;
+
+            if (mode_ == Mode::DraggingKnob || mode_ == Mode::DraggingSize) {
+                const double max_radius = (dist - other_core - 1.0) / kCoreRingRatio;
+                const float clamped = static_cast<float>(std::clamp(max_radius, static_cast<double>(kAxiomMinRadius), static_cast<double>(kAxiomMaxRadius)));
+                edited_axiom->set_radius(std::min(edited_axiom->radius(), clamped));
+            } else {
+                if (dist < 1e-6) {
+                    diff = Core::Vec2(1.0, 0.0);
+                    dist = 1.0;
+                }
+                diff /= dist;
+                const Core::Vec2 corrected = other->position() + diff * min_dist;
+                edited_axiom->set_position(corrected);
+            }
+        }
+
+        if (!changed_this_pass) {
+            break;
+        }
+    }
+
+    if (adjusted) {
+        push_non_intrusive_warning("Core ring overlap auto-resolved.");
+    }
+    return true;
+}
+
+void AxiomPlacementTool::push_non_intrusive_warning(const char* message) const {
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    gs.tool_runtime.viewport_warning_text = message != nullptr ? message : "";
+    gs.tool_runtime.viewport_warning_ttl_seconds = 1.8f;
 }
 
 bool AxiomPlacementTool::can_undo() const {

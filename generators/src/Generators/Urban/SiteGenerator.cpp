@@ -6,6 +6,7 @@ namespace RogueCity::Generators::Urban {
 
     namespace {
 
+        // Maps lot program to primary building archetype.
         Core::BuildingType mapBuildingType(Core::LotType lot_type) {
             switch (lot_type) {
                 case Core::LotType::Residential: return Core::BuildingType::Residential;
@@ -20,6 +21,7 @@ namespace RogueCity::Generators::Urban {
             }
         }
 
+        // Coarse cost model per building archetype.
         float estimateCost(Core::BuildingType type) {
             switch (type) {
                 case Core::BuildingType::Industrial: return 3.0f;
@@ -36,6 +38,7 @@ namespace RogueCity::Generators::Urban {
             }
         }
 
+        // Deterministic per-lot building count heuristic.
         int buildingsPerLot(const Core::LotToken& lot, Core::RNG& rng) {
             switch (lot.lot_type) {
                 case Core::LotType::RowhomeCompact: return rng.uniformInt(2, 5);
@@ -48,6 +51,8 @@ namespace RogueCity::Generators::Urban {
 
     } // namespace
 
+    // Emits building sites for lots with deterministic RNG seeded by lot ID.
+    // Positions are centroid-based with optional jitter constrained by lot boundary extents.
     siv::Vector<Core::BuildingSite> SiteGenerator::generate(
         const std::vector<Core::LotToken>& lots,
         const Config& config,
@@ -68,6 +73,7 @@ namespace RogueCity::Generators::Urban {
                 continue;
             }
 
+            // Emit one or more sites for this lot depending on archetype.
             for (int i = 0; i < n && id <= config.max_buildings; ++i) {
                 Core::BuildingSite site;
                 site.id = id++;
@@ -95,4 +101,3 @@ namespace RogueCity::Generators::Urban {
     }
 
 } // namespace RogueCity::Generators::Urban
-

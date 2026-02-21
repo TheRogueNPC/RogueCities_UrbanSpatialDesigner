@@ -2,7 +2,8 @@
 
 namespace RogueCity::Generators {
 
-    // BasisFields.cpp is header-only - all implementations are inline
-    // This file exists for CMake consistency and future expansion
+    // Basis-field implementations are currently header-inline for performance and template visibility.
+    // This translation unit intentionally remains lightweight so build systems still have a concrete
+    // source file to compile/link under this module, and to provide a stable future expansion point.
 
 } // namespace RogueCity::Generators

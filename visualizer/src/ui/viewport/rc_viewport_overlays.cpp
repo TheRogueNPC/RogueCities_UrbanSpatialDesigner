@@ -279,6 +279,12 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_building_sites) {
         RenderBuildingSites(gs);
     }
+    if (config.show_connector_graph) {
+        RenderConnectorGraph(gs);
+    }
+    if (config.show_city_boundary) {
+        RenderCityBoundary(gs);
+    }
 
     if (config.show_gizmos) {
         RenderGizmos(gs);
@@ -1155,6 +1161,41 @@ void ViewportOverlays::RenderLotBoundaries(const RogueCity::Core::Editor::Global
             1.0f
         );
     }
+}
+
+void ViewportOverlays::RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (gs.connector_debug_edges.empty()) {
+        return;
+    }
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImU32 connector_color = IM_COL32(255, 90, 90, 195);
+    for (const auto& edge : gs.connector_debug_edges) {
+        if (edge.points.size() < 2) {
+            continue;
+        }
+        const ImVec2 a = WorldToScreen(edge.points.front());
+        const ImVec2 b = WorldToScreen(edge.points.back());
+        draw_list->AddLine(a, b, connector_color, 2.6f);
+    }
+}
+
+void ViewportOverlays::RenderCityBoundary(const RogueCity::Core::Editor::GlobalState& gs) {
+    if (gs.city_boundary.size() < 3) {
+        return;
+    }
+    std::vector<ImVec2> screen_points;
+    screen_points.reserve(gs.city_boundary.size());
+    for (const auto& p : gs.city_boundary) {
+        screen_points.push_back(WorldToScreen(p));
+    }
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddPolyline(
+        screen_points.data(),
+        static_cast<int>(screen_points.size()),
+        IM_COL32(35, 90, 255, 240),
+        true,
+        3.0f);
 }
 
 // Y2K Grid Overlay - 50px grid with themed color

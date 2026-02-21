@@ -11,6 +11,7 @@ namespace RogueCity::Generators {
 
 namespace {
 
+// Normalizes free-form spec text for case-insensitive comparisons and tag generation.
 std::string ToLower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -18,10 +19,13 @@ std::string ToLower(std::string value) {
     return value;
 }
 
+// Lightweight token matcher over already-lowercased text.
 bool ContainsToken(const std::string& haystackLower, const char* tokenLower) {
     return haystackLower.find(tokenLower) != std::string::npos;
 }
 
+// Deterministic fallback seed built from meaningful spec content.
+// This keeps generation repeatable even when the caller omits an explicit seed.
 uint32_t FallbackSeedFromSpec(const Core::CitySpec& spec) {
     std::string key = spec.intent.description + "|" + spec.intent.scale + "|" + spec.intent.climate;
     for (const auto& tag : spec.intent.styleTags) {
@@ -36,6 +40,8 @@ uint32_t FallbackSeedFromSpec(const Core::CitySpec& spec) {
     return folded == 0u ? 1u : folded;
 }
 
+// Applies coarse scale presets that define world size and expected network complexity.
+// The returned footprint/seed values are later refined by road-density and district hints.
 void ApplyScaleDefaults(
     const std::string& scaleLower,
     CityGenerator::Config& config,
@@ -70,6 +76,11 @@ void ApplyScaleDefaults(
     baseSeedCount = 22;
 }
 
+// Converts a semantic district hint into one concrete generation axiom.
+// Placement strategy:
+// - districts are arranged around the city center on radial rings
+// - density controls influence radius/decay and pattern-specific parameters
+// - district type drives the selected axiom family (grid/radial/suburban/etc.)
 CityGenerator::AxiomInput BuildDistrictAxiom(
     const Core::DistrictHint& district,
     const Core::Vec2& center,
@@ -82,7 +93,7 @@ CityGenerator::AxiomInput BuildDistrictAxiom(
     constexpr double kPi = 3.14159265358979323846;
     const double angle = (count == 0) ? 0.0 : (2.0 * kPi * static_cast<double>(index) / static_cast<double>(count));
     const float ring = (160.0f + static_cast<float>(index % 3) * 120.0f) * footprintScale;
-
+//todo need to check if this is calling the entire pipeling from singular axiom input to final city output
     CityGenerator::AxiomInput axiom;
     axiom.position = Core::Vec2(
         center.x + std::cos(angle) * ring,
@@ -111,12 +122,16 @@ CityGenerator::AxiomInput BuildDistrictAxiom(
 
 } // namespace
 
+// Attempts to translate a high-level CitySpec into a generator-ready request.
+// Returns false only when produced data is structurally invalid (currently: out-of-bounds axioms).
 bool CitySpecAdapter::TryBuildRequest(
     const Core::CitySpec& spec,
     CitySpecGenerationRequest& outRequest,
     std::string* outError) {
+    // Always start from a clean request object so partial work cannot leak across calls.
     outRequest = CitySpecGenerationRequest{};
 
+    // Resolve scale first; this anchors map dimensions and baseline seed counts.
     const std::string scaleLower = ToLower(spec.intent.scale.empty() ? "city" : spec.intent.scale);
     float footprintScale = 1.0f;
     int baseSeedCount = 20;
@@ -124,10 +139,13 @@ bool CitySpecAdapter::TryBuildRequest(
     ApplyScaleDefaults(scaleLower, outRequest.config, footprintScale, baseSeedCount);
     outRequest.config.cell_size = 10.0;
 
+    // Road density expands or contracts seed count while retaining lower bounds for viability.
     const float roadDensity = std::clamp(spec.roadDensity, 0.05f, 1.0f);
     outRequest.config.num_seeds = std::max(8, static_cast<int>(std::round(baseSeedCount * (0.5f + roadDensity))));
+    // Honor explicit seed if present; otherwise derive deterministic fallback from spec text/structure.
     outRequest.config.seed = spec.seed == 0 ? FallbackSeedFromSpec(spec) : spec.seed;
 
+    // Build searchable provenance tags used by downstream tooling/inspection.
     outRequest.tags.reserve(spec.intent.styleTags.size() + spec.districts.size() + 2);
     outRequest.tags.push_back("scale:" + scaleLower);
     outRequest.tags.push_back("climate:" + ToLower(spec.intent.climate));
@@ -139,6 +157,7 @@ bool CitySpecAdapter::TryBuildRequest(
         static_cast<double>(outRequest.config.width) * 0.5,
         static_cast<double>(outRequest.config.height) * 0.5);
 
+    // Add optional coastal scaffold axiom when intent text strongly suggests shoreline geometry.
     const std::string descLower = ToLower(spec.intent.description);
     if (ContainsToken(descLower, "coastal") || ContainsToken(descLower, "harbor") || ContainsToken(descLower, "waterfront")) {
         CityGenerator::AxiomInput shoreline;
@@ -151,6 +170,7 @@ bool CitySpecAdapter::TryBuildRequest(
         outRequest.tags.push_back("hint:coastal");
     }
 
+    // Translate each district hint into one axiom and emit normalized district tags.
     const size_t districtCount = spec.districts.size();
     for (size_t i = 0; i < districtCount; ++i) {
         const auto& district = spec.districts[i];
@@ -158,6 +178,8 @@ bool CitySpecAdapter::TryBuildRequest(
         outRequest.tags.push_back("district:" + ToLower(district.type));
     }
 
+    // Ensure generator input is never empty; fallback to a central grid influence.
+    //todo this is a bit of a blunt instrument; we should consider more targeted fallbacks based on what the spec is missing (e.g. if no districts, add a single mild downtown axiom)
     if (outRequest.axioms.empty()) {
         CityGenerator::AxiomInput fallback;
         fallback.type = CityGenerator::AxiomInput::Type::Grid;
@@ -169,6 +191,9 @@ bool CitySpecAdapter::TryBuildRequest(
         outRequest.tags.push_back("fallback:grid");
     }
 
+    // Final structural validation: every axiom center must lie within world bounds.
+    // This keeps downstream generation validation failures easier to diagnose.
+    //todo consider expanding this to cover other invalid parameter combinations that could cause generation failures or crashes (e.g. negative/zero radius or decay); would need to ensure error messages are specific enough to be actionable for spec authors
     for (const auto& axiom : outRequest.axioms) {
         const bool inBounds = axiom.position.x >= 0.0 &&
                               axiom.position.y >= 0.0 &&
@@ -185,6 +210,9 @@ bool CitySpecAdapter::TryBuildRequest(
     return true;
 }
 
+// Convenience wrapper that returns an empty request on failure.
+// Callers that need diagnostics should use TryBuildRequest directly.
+//todo consider whether this pattern is helpful or if it could lead to silent failures that are hard to debug; if we keep it, we should ensure that any logging around generation failures includes guidance to check for empty requests as a potential root cause
 CitySpecGenerationRequest CitySpecAdapter::BuildRequest(const Core::CitySpec& spec) {
     CitySpecGenerationRequest request;
     std::string error;

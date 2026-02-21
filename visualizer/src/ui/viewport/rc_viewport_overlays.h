@@ -36,6 +36,8 @@ struct OverlayConfig {
     bool show_building_sites = true;
     bool show_lot_boundaries = true;
     bool show_height_indicators = true;
+    bool show_city_boundary = true;
+    bool show_connector_graph = true;
     
     // AESP component selection (for heatmap)
     enum class AESPComponent {
@@ -104,6 +106,8 @@ public:
     void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderBuildingSites(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs);
 
     void SetViewTransform(const ViewTransform& transform) { view_transform_ = transform; }
     const ViewTransform& GetViewTransform() const { return view_transform_; }

@@ -11,10 +11,12 @@ namespace RogueCity::Generators::Urban {
 
     namespace {
 
+        // Returns the opposite endpoint of an undirected edge relative to vertex v.
         [[nodiscard]] VertexID neighborOf(const Edge& e, VertexID v) {
             return (e.a == v) ? e.b : e.a;
         }
 
+        // Finds the first edge connecting vertices a and b, or invalid ID if none.
         [[nodiscard]] EdgeID findEdgeBetween(const Graph& g, VertexID a, VertexID b) {
             const auto* va = g.getVertex(a);
             if (va == nullptr) {
@@ -32,6 +34,7 @@ namespace RogueCity::Generators::Urban {
             return std::numeric_limits<EdgeID>::max();
         }
 
+        // Single-source/single-target Dijkstra with pluggable edge-weight callback.
         [[nodiscard]] PathResult dijkstra(
             const Graph& g,
             VertexID src,
@@ -105,6 +108,7 @@ namespace RogueCity::Generators::Urban {
             return out;
         }
 
+        // Single-source/all-targets Dijkstra variant that keeps predecessor maps.
         struct DijkstraAllResult {
             std::vector<double> dist;
             std::vector<VertexID> prev_vertex;
@@ -165,6 +169,7 @@ namespace RogueCity::Generators::Urban {
 
     } // namespace
 
+    // Pure geometric shortest path (edge-length weighted).
     PathResult GraphAlgorithms::shortestPath(
         const Graph& g,
         VertexID src,
@@ -178,6 +183,7 @@ namespace RogueCity::Generators::Urban {
             });
     }
 
+    // "Simplicity" path: shortest path plus turn-angle penalty at junctions.
     PathResult GraphAlgorithms::simplestPath(
         const Graph& g,
         VertexID src,
@@ -222,6 +228,8 @@ namespace RogueCity::Generators::Urban {
             });
     }
 
+    // Approximate edge betweenness centrality by repeated randomized SSSP sampling.
+    // Output is normalized to [0,1] by maximum observed edge count.
     std::vector<float> GraphAlgorithms::sampledEdgeCentrality(
         const Graph& g,
         size_t sample_count,

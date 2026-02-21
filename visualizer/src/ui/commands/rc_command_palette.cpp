@@ -1,3 +1,6 @@
+// This file implements the Command Palette UI for the RogueCities visualizer.
+// It provides functionality to display a searchable list of commands and execute them.
+
 #include "ui/commands/rc_command_palette.h"
 
 #include <imgui.h>
@@ -8,6 +11,8 @@
 
 namespace {
 
+// Helper function to perform a case-insensitive substring search.
+// Converts both the haystack and needle to lowercase before searching.
 bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle) {
     if (needle.empty()) {
         return true;
@@ -31,10 +36,13 @@ bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle)
 
 namespace RC_UI::Commands {
 
+// Marks the Command Palette as open, so it will be displayed in the next frame.
 void RequestOpenCommandPalette(CommandPaletteState& state) {
     state.open_requested = true;
 }
 
+// Draws the Command Palette modal window.
+// Displays a list of commands filtered by the user's input and allows execution of selected commands.
 void DrawCommandPalette(
     CommandPaletteState& state,
     const RC_UI::Tools::DispatchContext& dispatch_context,
@@ -44,6 +52,7 @@ void DrawCommandPalette(
         state.open_requested = false;
     }
 
+    // Center the popup window on the main viewport.
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     if (viewport != nullptr) {
         const ImVec2 center(viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + viewport->Size.y * 0.5f);
@@ -51,28 +60,34 @@ void DrawCommandPalette(
     }
     ImGui::SetNextWindowSize(ImVec2(640.0f, 420.0f), ImGuiCond_Appearing);
 
+    // Begin the modal popup window.
     if (!ImGui::BeginPopupModal(popup_id, nullptr, ImGuiWindowFlags_NoResize)) {
         return;
     }
 
+    // Close the popup if the Escape key is pressed.
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
         return;
     }
 
+    // Display the title and a separator.
     ImGui::TextUnformatted("Global Command Palette");
     ImGui::Separator();
 
+    // Input field for filtering commands.
     ImGui::InputTextWithHint("##CommandFilter", "Search commands...", state.filter, sizeof(state.filter));
     const std::vector<const RC_UI::Tools::ToolActionSpec*> filtered = FilterCommandRegistry(state.filter, true);
 
+    // Display the list of filtered commands.
     ImGui::BeginChild("##CommandPaletteList", ImVec2(0.0f, -36.0f), true);
     for (const auto* action : filtered) {
         if (action == nullptr) {
             continue;
         }
 
+        // Check if the command is enabled and display it accordingly.
         const bool enabled = RC_UI::Tools::IsToolActionEnabled(*action);
         if (!enabled) {
             ImGui::BeginDisabled(true);
@@ -83,11 +98,13 @@ void DrawCommandPalette(
             ImGui::EndDisabled();
         }
 
+        // Show a tooltip if the item is hovered.
         if (ImGui::IsItemHovered()) {
             const char* tooltip = action->tooltip != nullptr ? action->tooltip : "";
             ImGui::SetTooltip("%s", tooltip);
         }
 
+        // Execute the selected command and close the popup.
         if (selected) {
             std::string status;
             const bool executed = ExecuteCommand(action->id, dispatch_context, &status);
@@ -97,6 +114,7 @@ void DrawCommandPalette(
         }
     }
 
+    // Display global viewport commands that match the filter.
     const std::string_view filter_text(state.filter);
     for (const auto& command : GetGlobalViewportCommands()) {
         const bool matches_filter = ContainsCaseInsensitive(command.label, filter_text) ||
@@ -119,6 +137,7 @@ void DrawCommandPalette(
     }
     ImGui::EndChild();
 
+    // Close button to dismiss the popup.
     if (ImGui::Button("Close", ImVec2(120.0f, 0.0f))) {
         ImGui::CloseCurrentPopup();
     }

@@ -8,6 +8,7 @@ namespace RogueCity::Generators::Roads {
 
     namespace {
 
+        // Squared point-to-segment distance used for fast radius filtering.
         [[nodiscard]] double pointSegmentDistanceSquared(
             const Core::Vec2& p,
             const Core::Vec2& a,
@@ -24,6 +25,7 @@ namespace RogueCity::Generators::Roads {
 
     } // namespace
 
+    // Initializes uniform grid for segment references.
     SegmentGridStorage::SegmentGridStorage(int w, int h, float cell_size)
         : w_(std::max(1, w))
         , h_(std::max(1, h))
@@ -31,12 +33,14 @@ namespace RogueCity::Generators::Roads {
         , cells_(static_cast<size_t>(w_ * h_)) {
     }
 
+    // Clears all per-cell segment lists.
     void SegmentGridStorage::clear() {
         for (auto& cell : cells_) {
             cell.clear();
         }
     }
 
+    // Inserts a segment reference into all cells overlapped by its AABB.
     void SegmentGridStorage::insert(const SegmentRef& seg) {
         const float min_x = static_cast<float>(std::min(seg.a.x, seg.b.x));
         const float min_y = static_cast<float>(std::min(seg.a.y, seg.b.y));
@@ -55,6 +59,8 @@ namespace RogueCity::Generators::Roads {
         }
     }
 
+    // Radius query around point p constrained to requested layer.
+    // Uses cell-range prefilter + exact point-to-segment distance test.
     void SegmentGridStorage::queryRadius(
         const Core::Vec2& p,
         float r,
@@ -92,6 +98,7 @@ namespace RogueCity::Generators::Roads {
         }
     }
 
+    // Coordinate-to-cell helpers.
     int SegmentGridStorage::cellX(float x) const {
         return static_cast<int>(std::floor(x / cell_size_));
     }

@@ -9,6 +9,8 @@ namespace RogueCity::Generators {
     using namespace Core;
     namespace {
 
+    // Applies optional CitySpec overrides onto runtime zoning config.
+    // All values are clamped/sanitized to preserve valid operating ranges.
     ZoningGenerator::Config ApplyCitySpecOverrides(
         ZoningGenerator::Config config,
         const std::optional<CitySpec>& city_spec) {
@@ -66,6 +68,11 @@ namespace RogueCity::Generators {
 
     } // namespace
 
+    // End-to-end zoning/materialization pass:
+    // 1) resolve config overrides
+    // 2) lot subdivision + classification
+    // 3) budget allocation + building placement
+    // 4) population rollup and performance metrics
     ZoningGenerator::ZoningOutput ZoningGenerator::generate(
         const ZoningInput& input,
         const Config& config
@@ -78,6 +85,7 @@ namespace RogueCity::Generators {
         ZoningOutput output{};
         
         // Decide if we should use parallelization based on workload
+        // (currently advisory metadata; actual heavy work paths may still be sequential).
         const uint32_t axiomCount = input.citySpec.has_value() 
             ? static_cast<uint32_t>(input.citySpec->districts.size()) 
             : 0;
@@ -110,6 +118,7 @@ namespace RogueCity::Generators {
         return output;
     }
 
+    // Heuristic workload estimate used for deciding whether parallel execution is worthwhile.
     bool ZoningGenerator::shouldUseParallelization(
         uint32_t axiomCount,
         uint32_t districtCount,
@@ -121,6 +130,8 @@ namespace RogueCity::Generators {
         return workload > static_cast<uint64_t>(config_.parallelizationThreshold);
     }
 
+    // Subdivides districts into lots using existing blocks when available.
+    // If block input is absent, blocks are generated on-the-fly from district geometry.
     std::vector<LotToken> ZoningGenerator::subdivideDistricts(
         const std::vector<District>& districts,
         const std::vector<BlockPolygon>& blocks,
@@ -145,6 +156,7 @@ namespace RogueCity::Generators {
         return Urban::LotGenerator::generate(roads, districts, effective_blocks, lot_cfg, config_.seed);
     }
 
+    // Assigns lot types via AESP-style district classification unless the lot is user-locked.
     void ZoningGenerator::classifyLots(std::vector<LotToken>& lots) {
         for (auto& lot : lots) {
             if (lot.locked_type) {
@@ -177,6 +189,8 @@ namespace RogueCity::Generators {
         }
     }
 
+    // Allocates available city budget across generated lots with type-dependent multipliers.
+    // Returns capped total spend (never above requested total budget).
     float ZoningGenerator::allocateBudget(
         std::vector<LotToken>& lots,
         float totalBudget
@@ -221,6 +235,7 @@ namespace RogueCity::Generators {
         return std::min(budgetUsed, totalBudget);
     }
 
+    // Generates building sites from lots with deterministic seed and configured caps.
     siv::Vector<BuildingSite> ZoningGenerator::placeBuildings(
         const std::vector<LotToken>& lots,
         RNG& rng
@@ -232,6 +247,8 @@ namespace RogueCity::Generators {
         return Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
     }
 
+    // Converts building inventory into aggregate residents/workers counts.
+    // Population factors come directly from zoning config density knobs.
     void ZoningGenerator::calculatePopulation(
         const siv::Vector<BuildingSite>& buildings,
         uint32_t& outResidents,
@@ -275,6 +292,7 @@ namespace RogueCity::Generators {
         outWorkers = static_cast<uint32_t>(totalWorkers);
     }
 
+    // Maps building type to normalized budget multiplier.
     float ZoningGenerator::getBuildingCost(BuildingType type) const {
         switch (type) {
             case BuildingType::Luxury: return config_.luxuryCost;
@@ -288,6 +306,8 @@ namespace RogueCity::Generators {
         }
     }
 
+    // Returns per-building population/workforce contribution based on type and mode.
+    // isResidential toggles resident densities vs worker densities.
     float ZoningGenerator::getPopulationDensity(BuildingType type, bool isResidential) const {
         if (isResidential) {
             switch (type) {

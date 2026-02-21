@@ -10,6 +10,7 @@ namespace RogueCity::Generators::Roads {
 
     namespace {
 
+        // Computes edge length from cached length, shape polyline, or endpoint distance.
         [[nodiscard]] float edgeLength(const Urban::Edge& e, const Urban::Graph& g) {
             if (e.length > 0.0f) {
                 return e.length;
@@ -30,6 +31,7 @@ namespace RogueCity::Generators::Roads {
             return static_cast<float>(a->pos.distanceTo(b->pos));
         }
 
+        // Hierarchy rank helper for retaining strongest class during merges.
         [[nodiscard]] int roadRank(Core::RoadType type) {
             switch (type) {
                 case Core::RoadType::Highway: return 9;
@@ -48,10 +50,12 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Keeps the higher-ranked road class when collapsing edges.
         [[nodiscard]] Core::RoadType maxRoadClass(Core::RoadType a, Core::RoadType b) {
             return roadRank(a) >= roadRank(b) ? a : b;
         }
 
+        // Recomputes vertex kind tags from current adjacency degree.
         void refreshVertexKinds(Urban::Graph& g) {
             for (Urban::VertexID vid = 0; vid < g.vertices().size(); ++vid) {
                 auto* v = g.getVertexMutable(vid);
@@ -71,6 +75,7 @@ namespace RogueCity::Generators::Roads {
             }
         }
 
+        // Vertex welding pass: merges close same-layer vertices and remaps edges.
         Urban::Graph weldVertices(const Urban::Graph& in, const SimplifyConfig& cfg) {
             Urban::Graph out;
             if (in.vertices().empty()) {
@@ -141,6 +146,8 @@ namespace RogueCity::Generators::Roads {
             return out;
         }
 
+        // Degree-2 collapse pass:
+        // remove nearly-collinear intermediate vertex and replace by merged edge.
         bool collapseDegreeTwo(Urban::Graph& g, const SimplifyConfig& cfg) {
             struct PendingEdge {
                 Urban::Edge e;
@@ -270,6 +277,7 @@ namespace RogueCity::Generators::Roads {
             return true;
         }
 
+        // Drops very short edges and compacts resulting graph.
         void pruneMicroEdges(Urban::Graph& g, float min_edge_length) {
             Urban::Graph compact;
             std::vector<Urban::VertexID> remap(g.vertices().size(), std::numeric_limits<Urban::VertexID>::max());
@@ -303,6 +311,7 @@ namespace RogueCity::Generators::Roads {
 
     } // namespace
 
+    // Simplification pipeline: weld -> collapse (iterative) -> prune -> refresh.
     void simplifyGraph(Urban::Graph& g, const SimplifyConfig& cfg) {
         g = weldVertices(g, cfg);
         for (int i = 0; i < 3; ++i) {
