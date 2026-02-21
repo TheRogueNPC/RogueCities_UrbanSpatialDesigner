@@ -377,6 +377,9 @@ void ApplyCityOutputToGlobalState(
         : 0u;
     gs.world_constraints = output.world_constraints;
     gs.city_boundary = output.city_boundary;
+    // Ensure city_boundary matches texture-space-based world bounds derived from texture size
+    const auto b = RogueCity::Core::Editor::ComputeWorldBounds(gs.city_texture_size, gs.city_meters_per_pixel);
+    gs.city_boundary = { {b.min.x,b.min.y},{b.max.x,b.min.y},{b.max.x,b.max.y},{b.min.x,b.max.y} };
     gs.connector_debug_edges = output.connector_debug_edges;
     gs.site_profile = output.site_profile;
     gs.plan_violations = output.plan_violations;

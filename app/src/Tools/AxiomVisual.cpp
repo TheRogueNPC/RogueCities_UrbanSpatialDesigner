@@ -978,6 +978,17 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
         input.warp_lattice.vertices.push_back(vertex.world_pos);
     }
 
+    // If this lattice is a linear spine, expose its world-space control
+    // points as the axiom's main road axis so tensor generation can align
+    // to editor-provided centerlines.
+    if (lattice_.topology == LatticeTopology::Linear) {
+        input.main_road_points.clear();
+        input.main_road_points.reserve(lattice_.vertices.size());
+        for (const auto& vertex : lattice_.vertices) {
+            input.main_road_points.push_back(vertex.world_pos);
+        }
+    }
+
     return input;
 }
 

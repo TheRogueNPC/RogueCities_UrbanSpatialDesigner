@@ -293,6 +293,12 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     // Grid overlay (draw behind everything)
     RenderGridOverlay(gs);
 
+    if (config.show_scale_ruler) {
+        RenderScaleRulerHUD(gs);
+    }
+    if (config.show_compass_gimbal) {
+        RenderCompassGimbalHUD();
+    }
     RenderSelectionOutlines(gs);
     RenderHighlights();
 }
@@ -306,6 +312,98 @@ void ViewportOverlays::RenderZoneColors(const RogueCity::Core::Editor::GlobalSta
         glm::vec4 color = DistrictColorScheme::GetColorForType(district.type);
         color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::District, district.id);
         DrawPolygon(district.border, color);
+    }
+}
+
+namespace {
+float SnapNiceMeters(float meters) {
+    if (meters <= 0.0f) return 0.0f;
+    const float base = std::pow(10.0f, std::floor(std::log10(meters)));
+    const float mant = meters / base;
+    float nice = 1.0f;
+    if (mant < 1.5f) nice = 1.0f;
+    else if (mant < 3.5f) nice = 2.0f;
+    else if (mant < 7.5f) nice = 5.0f;
+    else nice = 10.0f;
+    return nice * base;
+}
+
+void FormatDistance(char* out, size_t out_sz, float meters) {
+    if (meters >= 1000.0f) {
+        const float km = meters / 1000.0f;
+        std::snprintf(out, out_sz, "%.2f km", km);
+    } else {
+        if (meters >= 100.0f) std::snprintf(out, out_sz, "%.0f m", meters);
+        else if (meters >= 10.0f) std::snprintf(out, out_sz, "%.1f m", meters);
+        else std::snprintf(out, out_sz, "%.2f m", meters);
+    }
+}
+} // namespace
+
+void ViewportOverlays::RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState& gs) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float padding = 16.0f;
+    const ImVec2 base_pt = ImVec2(view_transform_.viewport_pos.x + padding, view_transform_.viewport_pos.y + view_transform_.viewport_size.y - padding);
+
+    const double mpp = gs.HasTextureSpace() ? gs.TextureSpaceRef().coordinateSystem().metersPerPixel() : gs.city_meters_per_pixel;
+    const float ppm = std::max(1e-4f, view_transform_.zoom / static_cast<float>(mpp));
+    const float target_px = 140.0f;
+    const float meters = target_px / ppm;
+    const float nice_m = SnapNiceMeters(meters);
+    const float px_len = std::max(6.0f, nice_m * ppm);
+
+    const ImU32 col = IM_COL32(220,220,220,220);
+    const ImVec2 a = ImVec2(base_pt.x, base_pt.y - 6.0f);
+    const ImVec2 b = ImVec2(base_pt.x + px_len, base_pt.y - 6.0f);
+    dl->AddLine(a, b, col, 2.5f);
+    dl->AddLine(ImVec2(a.x, a.y - 6.0f), ImVec2(a.x, a.y + 6.0f), col, 2.0f);
+    dl->AddLine(ImVec2(b.x, b.y - 6.0f), ImVec2(b.x, b.y + 6.0f), col, 2.0f);
+
+    char buf[64];
+    FormatDistance(buf, sizeof(buf), nice_m);
+    dl->AddText(ImVec2(a.x, a.y - 20.0f), col, buf);
+}
+
+void ViewportOverlays::RenderCompassGimbalHUD() {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float padding = 16.0f;
+    const float r = 36.0f;
+    const ImVec2 center = ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x - padding - r, view_transform_.viewport_pos.y + padding + r);
+    const ImU32 bg = IM_COL32(24,24,28,220);
+    const ImU32 ring = IM_COL32(240,240,240,200);
+    dl->AddCircleFilled(center, r, bg);
+    dl->AddCircle(center, r, ring, 24, 2.0f);
+
+    const float ang = -view_transform_.yaw;
+    const float ca = std::cos(ang);
+    const float sa = std::sin(ang);
+    const ImU32 label_col = IM_COL32(220,220,220,220);
+    const ImVec2 n = ImVec2(0.0f * ca - (-1.0f) * sa, 0.0f * sa + (-1.0f) * ca);
+    // N/E/S/W positions
+    const ImVec2 offsN = ImVec2(center.x + 0.0f, center.y - r + 8.0f);
+    const ImVec2 offsE = ImVec2(center.x + r - 8.0f, center.y + 0.0f);
+    const ImVec2 offsS = ImVec2(center.x + 0.0f, center.y + r - 8.0f);
+    const ImVec2 offsW = ImVec2(center.x - r + 8.0f, center.y + 0.0f);
+    dl->AddText(offsN, label_col, "N");
+    dl->AddText(offsE, label_col, "E");
+    dl->AddText(offsS, label_col, "S");
+    dl->AddText(offsW, label_col, "W");
+
+    // North needle (red)
+    const ImVec2 needle_tip = ImVec2(center.x + (-sa) * (r - 10.0f), center.y + (-ca) * (r - 10.0f));
+    dl->AddLine(center, needle_tip, IM_COL32(220,60,60,240), 3.0f);
+
+    // Interaction: detect clicks inside circle and set requested_yaw_
+    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        const ImVec2 mp = ImGui::GetIO().MousePos;
+        const float dx = mp.x - center.x;
+        const float dy = mp.y - center.y;
+        const float dist2 = dx * dx + dy * dy;
+        if (dist2 <= r * r) {
+            const float ang_click = std::atan2(dy, dx);
+            const float desired = ang_click + (3.14159265f * 0.5f);
+            requested_yaw_ = desired;
+        }
     }
 }
 

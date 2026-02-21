@@ -28,6 +28,8 @@ namespace RogueCity::Core::Editor {
     };
 
     /// Editor configuration (persisted across sessions)
+    enum class ScalePolicy : uint8_t { FixedMetersPerPixel = 0, FixedWorldExtent = 1 };
+
     struct EditorConfig {
         bool dev_mode_enabled{ false };  ///< Unlocks feature-gated panels (AI, experimental)
         std::string active_theme{ "Rogue" };  ///< Active UI theme name
@@ -51,6 +53,7 @@ namespace RogueCity::Core::Editor {
         bool feature_axiom_overlap_resolution{ true };
         bool feature_major_connector_graph{ true };
         bool feature_city_boundary_hull{ true };
+        ScalePolicy scale_policy{ ScalePolicy::FixedMetersPerPixel };
     };
 
     struct EditorParameters {
@@ -389,6 +392,7 @@ namespace RogueCity::Core::Editor {
         double theta{ 0.0 }; // Grid/Linear/Stem/GridCorrective
         double decay{ 2.0 };
         bool is_user_placed{ true };
+        std::vector<Vec2> main_road_points{}; // optional editor-provided primary axis for Linear/Stem
     };
 
     struct GlobalState {
@@ -452,6 +456,10 @@ namespace RogueCity::Core::Editor {
 
         uint64_t frame_counter{ 0 };
 
+        int city_texture_size{ 2048 };
+        double city_meters_per_pixel{ 2.0 };
+        bool texture_space_dirty{ true };
+
         [[nodiscard]] static uint64_t MakeEntityKey(VpEntityKind kind, uint32_t id) {
             return (static_cast<uint64_t>(static_cast<uint8_t>(kind)) << 32ull) | static_cast<uint64_t>(id);
         }
@@ -487,6 +495,7 @@ namespace RogueCity::Core::Editor {
         }
 
         void InitializeTextureSpace(const Bounds& bounds, int resolution);
+        void EnsureTextureSpaceUpToDate();
         void initializeTextureSpace(const Bounds& bounds, int resolution) { InitializeTextureSpace(bounds, resolution); }
 
         [[nodiscard]] bool HasTextureSpace() const {
@@ -530,6 +539,11 @@ namespace RogueCity::Core::Editor {
                 (frame_counter - last_texture_edit_frame) <= frame_window;
         }
     };
+
+    inline Bounds ComputeWorldBounds(int tex_size, double meters_per_pixel) {
+        const double hw = (static_cast<double>(tex_size) * meters_per_pixel) * 0.5;
+        return { {-hw, -hw}, {+hw, +hw} };
+    }
 
     GlobalState& GetGlobalState();
 

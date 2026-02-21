@@ -469,6 +469,8 @@ namespace RogueCity::Core {
         uint32_t max_buildings{ 100000 };
 
         uint32_t rogueworker_threshold{ 100 };
+        // Runtime tuning for streamline tracing exposed to UI.
+        float streamline_major_tensor_tolerance_degrees{ 25.0f };
     };
 
     struct GenerationStats {

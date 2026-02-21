@@ -218,6 +218,17 @@ namespace RogueCity::Core::Editor {
         return true;
     }
 
+    void GlobalState::EnsureTextureSpaceUpToDate() {
+        if (!texture_space_dirty && HasTextureSpace() && texture_space_resolution == city_texture_size)
+            return;
+        const Bounds b = ComputeWorldBounds(city_texture_size, city_meters_per_pixel);
+        InitializeTextureSpace(b, city_texture_size);
+        texture_space_bounds = b;
+        texture_space_resolution = city_texture_size;
+        texture_space_dirty = false;
+        MarkAllTextureLayersDirty();
+    }
+
     GlobalState& GetGlobalState()
     {
         static GlobalState gs{};

@@ -20,6 +20,7 @@
 #include <imgui.h>
 
 namespace RC_UI::Panels::Tools {
+using ImGui::SliderFloat;
 
 namespace {
 
@@ -479,6 +480,18 @@ void DrawContent(float dt)
         same_line_if_room();
         ImGui::SetNextItemWidth(120.0f);
         ImGui::DragFloat("Brush Strength", &brush_strength, 0.05f, 0.05f, 10.0f, "%.2f");
+        
+        // Generation tuning: major-road tensor alignment tolerance (degrees)
+        ImGui::SetNextItemWidth(180.0f);
+        {
+            double tol_d = gs.generation.streamline_major_tensor_tolerance_degrees;
+            double minv = 5.0;
+            double maxv = 60.0;
+            if (ImGui::SliderScalar("Major Tensor Tolerance", ImGuiDataType_Double, &tol_d, &minv, &maxv, "%.1f deg")) {
+                gs.generation.streamline_major_tensor_tolerance_degrees = static_cast<decltype(gs.generation.streamline_major_tensor_tolerance_degrees)>(tol_d);
+            }
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Max angle deviation allowed for major roads from tensor field heading.");
 
         const RogueCity::Core::Vec2 brush_center = gs.TextureSpaceRef().bounds().center();
         if (ImGui::Button("Raise Height @ Center")) {
@@ -548,6 +561,30 @@ void DrawContent(float dt)
         same_line_if_room();
         ImGui::TextDisabled("Tip: Generate/Regenerate also clears successful rebuild layers.");
     }
+
+    // --- Texture Size + Scale Policy ---
+    static const char* kTexSizes[] = { "512", "1024", "2048", "4096", "8192" };
+    static const int kTexSizeVals[] = { 512, 1024, 2048, 4096, 8192 };
+    int tex_idx = 2; // default 2048
+    for (int i = 0; i < 5; ++i) { if (kTexSizeVals[i] == gs.city_texture_size) { tex_idx = i; break; } }
+    if (ImGui::Combo("Texture Size", &tex_idx, kTexSizes, 5)) {
+        gs.city_texture_size = kTexSizeVals[tex_idx];
+        gs.texture_space_dirty = true;
+        gs.dirty_layers.MarkDirty(DirtyLayer::Tensor);
+        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("?")) ImGui::OpenPopup("ScalePolicyHelp");
+    if (ImGui::BeginPopup("ScalePolicyHelp")) {
+        ImGui::TextUnformatted("Policy A (active): Fixed m/px. World grows with texture size.");
+        ImGui::TextUnformatted("Policy B (stub): Fixed world extent. Not yet active.");
+        ImGui::EndPopup();
+    }
+    using SP = RogueCity::Core::Editor::ScalePolicy;
+    int pol = gs.config.scale_policy == SP::FixedMetersPerPixel ? 0 : 1;
+    if (ImGui::RadioButton("Policy A", pol == 0)) gs.config.scale_policy = SP::FixedMetersPerPixel;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Policy B (stub)", pol == 1)) gs.config.scale_policy = SP::FixedWorldExtent;
 
     same_line_if_room();
     bool live_preview = AxiomEditor::IsLivePreviewEnabled();

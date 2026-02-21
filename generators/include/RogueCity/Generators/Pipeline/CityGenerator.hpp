@@ -109,6 +109,7 @@ public:
         double radius{ 250.0 };
         double theta{ 0.0 };
         double decay{ 2.0 };
+        std::vector<Vec2> main_road_points{}; // optional editor-provided primary axis points
         RingSchema ring_schema{};
         bool lock_generated_roads{ false };
 
@@ -239,7 +240,8 @@ private:
         const WorldConstraintField* constraints,
         const SiteProfile* profile,
         const Core::Data::TextureSpace* texture_space,
-        GenerationContext* context);
+        GenerationContext* context,
+        Core::Editor::GlobalState* global_state = nullptr);
 
     std::vector<District> classifyDistricts(
         const fva::Container<Road>& roads,

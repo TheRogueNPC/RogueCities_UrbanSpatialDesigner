@@ -51,18 +51,11 @@ using BoostSegment = boost::geometry::model::segment<BoostPoint>;
     const RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Vec2& out_min,
     RogueCity::Core::Vec2& out_max) {
-    if (gs.city_boundary.size() < 3) {
-        return false;
-    }
-    out_min = gs.city_boundary.front();
-    out_max = gs.city_boundary.front();
-    for (const auto& p : gs.city_boundary) {
-        out_min.x = std::min(out_min.x, p.x);
-        out_min.y = std::min(out_min.y, p.y);
-        out_max.x = std::max(out_max.x, p.x);
-        out_max.y = std::max(out_max.y, p.y);
-    }
-    return out_max.x > out_min.x && out_max.y > out_min.y;
+    const RogueCity::Core::Bounds b = RogueCity::Core::Editor::ComputeWorldBounds(
+        gs.city_texture_size, gs.city_meters_per_pixel);
+    out_min = b.min;
+    out_max = b.max;
+    return true;
 }
 
 [[nodiscard]] RogueCity::Core::Vec2 ApplyViewportClampWithSpring(

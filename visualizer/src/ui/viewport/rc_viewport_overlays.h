@@ -48,6 +48,8 @@ struct OverlayConfig {
         Combined
     };
     AESPComponent aesp_component = AESPComponent::Combined;
+    bool show_scale_ruler = true;
+    bool show_compass_gimbal = true;
 };
 
 // Color scheme for districts (Y2K palette)
@@ -108,6 +110,10 @@ public:
     void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs);
+
+    void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState& gs);
+    void RenderCompassGimbalHUD();
+    std::optional<float> requested_yaw_{};
 
     void SetViewTransform(const ViewTransform& transform) { view_transform_ = transform; }
     const ViewTransform& GetViewTransform() const { return view_transform_; }

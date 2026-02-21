@@ -783,6 +783,11 @@ uint64_t CityGenerator::HashAxioms(const std::vector<AxiomInput>& axioms) {
         for (const auto& point : axiom.warp_lattice.vertices) {
             HashVec2(point, hash);
         }
+        // Include optional editor-provided main road axis points in the hash
+        HashScalar(static_cast<uint64_t>(axiom.main_road_points.size()), hash);
+        for (const auto& p : axiom.main_road_points) {
+            HashVec2(p, hash);
+        }
     }
 
     return hash;
@@ -1093,7 +1098,8 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
             constraints,
             site_profile,
             texture_space,
-            context);
+            context,
+            global_state);
         if (options.constrain_roads_to_axiom_bounds) {
             cache_.roads = ClipRoadsToAxiomInfluence(cache_.roads, resolved_axioms);
         }
@@ -1284,13 +1290,25 @@ TensorFieldGenerator CityGenerator::generateTensorField(
             break;
         }
 
+        // Determine a theta to use for this axiom's tensor basis. If the axiom
+        // provides explicit main_road_points (editor-supplied), compute the
+        // heading from the first/last points for Linear/Stem types and prefer
+        // that over the authored theta.
+        double theta_to_use = axiom.theta;
+        if ((axiom.type == AxiomInput::Type::Linear || axiom.type == AxiomInput::Type::Stem) &&
+            axiom.main_road_points.size() >= 2) {
+            const auto& pa = axiom.main_road_points.front();
+            const auto& pb = axiom.main_road_points.back();
+            theta_to_use = std::atan2(pb.y - pa.y, pb.x - pa.x);
+        }
+
         // Add the axiom's influence to the tensor field based on its type.
         switch (axiom.type) {
             case AxiomInput::Type::Organic:
-                field.addOrganicField(axiom.position, axiom.radius, axiom.theta, axiom.organic_curviness, axiom.decay);
+                field.addOrganicField(axiom.position, axiom.radius, theta_to_use, axiom.organic_curviness, axiom.decay);
                 break;
             case AxiomInput::Type::Grid:
-                field.addGridField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
+                field.addGridField(axiom.position, axiom.radius, theta_to_use, axiom.decay);
                 break;
             case AxiomInput::Type::Radial:
                 field.addRadialField(
@@ -1305,7 +1323,7 @@ TensorFieldGenerator CityGenerator::generateTensorField(
                 field.addHexagonalField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
                 break;
             case AxiomInput::Type::Stem:
-                field.addStemField(axiom.position, axiom.radius, axiom.theta, axiom.stem_branch_angle, axiom.decay);
+                field.addStemField(axiom.position, axiom.radius, theta_to_use, axiom.stem_branch_angle, axiom.decay);
                 break;
             case AxiomInput::Type::LooseGrid:
                 field.addLooseGridField(axiom.position, axiom.radius, axiom.theta, axiom.loose_grid_jitter, axiom.decay);
@@ -1317,7 +1335,7 @@ TensorFieldGenerator CityGenerator::generateTensorField(
                 field.addSuperblockField(axiom.position, axiom.radius, axiom.theta, axiom.superblock_block_size, axiom.decay);
                 break;
             case AxiomInput::Type::Linear:
-                field.addLinearField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
+                field.addLinearField(axiom.position, axiom.radius, theta_to_use, axiom.decay);
                 break;
             case AxiomInput::Type::GridCorrective:
                 field.addGridCorrective(axiom.position, axiom.radius, axiom.theta, axiom.decay);
@@ -1329,7 +1347,7 @@ TensorFieldGenerator CityGenerator::generateTensorField(
         AxiomTensorParams tensor_params{};
         tensor_params.center = axiom.position;
         tensor_params.radius = axiom.radius;
-        tensor_params.theta = axiom.theta;
+        tensor_params.theta = theta_to_use;
         tensor_params.decay = axiom.decay;
         tensor_params.organic_curviness = axiom.organic_curviness;
         tensor_params.radial_spokes = axiom.radial_spokes;
@@ -1491,7 +1509,8 @@ fva::Container<Road> CityGenerator::traceRoads(
     const WorldConstraintField* constraints,
     const SiteProfile* profile,
     const Core::Data::TextureSpace* texture_space,
-    GenerationContext* context) {
+    GenerationContext* context,
+    Core::Editor::GlobalState* global_state) {
     if (ShouldAbort(context)) {
         return {};
     }
@@ -1528,6 +1547,14 @@ fva::Container<Road> CityGenerator::traceRoads(
     road_cfg.tracing.max_step_size = config_.max_trace_step_size;
     road_cfg.tracing.curvature_gain = config_.trace_curvature_gain;
     road_cfg.tracing.separation_cell_size = std::max(road_cfg.tracing.min_separation, road_cfg.tracing.step_size * 2.0);
+
+    // If an editor global state is provided (editor-driven run), copy live
+    // tuning values from the UI-backed generation params so the slider is
+    // actually effective at runtime without recompilation.
+    if (global_state != nullptr) {
+        road_cfg.tracing.major_tensor_tolerance_degrees =
+            global_state->generation.streamline_major_tensor_tolerance_degrees;
+    }
 
     // Terrain-aware overrides constrain road growth into feasible cells only.
     if (constraints != nullptr && constraints->isValid()) {

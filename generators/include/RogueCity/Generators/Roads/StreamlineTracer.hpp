@@ -37,6 +37,10 @@ namespace RogueCity::Generators {
             uint8_t max_flood_level{ 1u };
             float min_soil_strength{ 0.15f };
             bool stop_at_no_build{ true };
+            // Major-road tensor-alignment tolerance (degrees). If a traced major
+            // candidate deviates from the sampled tensor major-eigenvector by
+            // more than this angle it may be rejected by higher-level filters.
+            double major_tensor_tolerance_degrees{ 25.0 };
         };
 
         StreamlineTracer() = default;
