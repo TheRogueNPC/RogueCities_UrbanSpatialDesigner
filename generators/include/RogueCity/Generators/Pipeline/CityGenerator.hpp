@@ -77,6 +77,16 @@ public:
             bool strict_core{ true };
         };
 
+        struct LatticeData {
+            int topology_type{ 0 }; // Maps to App::LatticeTopology.
+            std::vector<Vec2> vertices{};
+            int rows{ 0 };
+            int cols{ 0 };
+            float zone_inner_uv{ 0.33f };
+            float zone_middle_uv{ 0.67f };
+            float zone_outer_uv{ 1.0f };
+        };
+
         enum class Type : uint8_t {
             Organic = 0,
             Grid = 1,
@@ -106,6 +116,7 @@ public:
         float suburban_loop_strength{ 0.7f };
         float stem_branch_angle{ 0.7f };
         float superblock_block_size{ 250.0f };
+        LatticeData warp_lattice{};
     };
 
     struct CityOutput {

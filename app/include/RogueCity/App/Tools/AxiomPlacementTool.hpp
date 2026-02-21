@@ -110,7 +110,7 @@ private:
     Core::Vec2 placement_start_pos_{ 0.0, 0.0 };
     float ghost_radius_{ 100.0f };
 
-    RingControlKnob* dragging_knob_{ nullptr };
+    ControlVertex* dragging_vertex_{ nullptr };
     Core::Vec2 knob_drag_start_{ 0.0, 0.0 };
     Core::Vec2 axiom_drag_offset_{ 0.0, 0.0 };
 
@@ -118,7 +118,7 @@ private:
     bool dirty_{ false };
     ContextWindowPopup knob_popup_;
     int popup_axiom_id_{ -1 };
-    int popup_ring_index_{ -1 };
+    int popup_vertex_id_{ -1 };
     std::optional<AxiomSnapshot> drag_start_snapshot_{};
     CommandHistory history_{};
 };

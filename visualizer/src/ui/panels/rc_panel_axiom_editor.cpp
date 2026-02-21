@@ -113,6 +113,72 @@ namespace {
         return false;
     }
 
+    [[nodiscard]] bool TryActionIdFromAxiomType(
+        RogueCity::App::AxiomType type,
+        RC_UI::Tools::ToolActionId& out_action) {
+        using RC_UI::Tools::ToolActionId;
+        switch (type) {
+            case RogueCity::App::AxiomType::Organic: out_action = ToolActionId::Axiom_Organic; return true;
+            case RogueCity::App::AxiomType::Grid: out_action = ToolActionId::Axiom_Grid; return true;
+            case RogueCity::App::AxiomType::Radial: out_action = ToolActionId::Axiom_Radial; return true;
+            case RogueCity::App::AxiomType::Hexagonal: out_action = ToolActionId::Axiom_Hexagonal; return true;
+            case RogueCity::App::AxiomType::Stem: out_action = ToolActionId::Axiom_Stem; return true;
+            case RogueCity::App::AxiomType::LooseGrid: out_action = ToolActionId::Axiom_LooseGrid; return true;
+            case RogueCity::App::AxiomType::Suburban: out_action = ToolActionId::Axiom_Suburban; return true;
+            case RogueCity::App::AxiomType::Superblock: out_action = ToolActionId::Axiom_Superblock; return true;
+            case RogueCity::App::AxiomType::Linear: out_action = ToolActionId::Axiom_Linear; return true;
+            case RogueCity::App::AxiomType::GridCorrective: out_action = ToolActionId::Axiom_GridCorrective; return true;
+            case RogueCity::App::AxiomType::COUNT:
+            default:
+                return false;
+        }
+    }
+
+    struct AxiomTerminalCue {
+        const char* cue;
+        std::array<RogueCity::App::AxiomType, 3> alternates;
+    };
+
+    [[nodiscard]] AxiomTerminalCue TerminalCueForAxiomType(RogueCity::App::AxiomType type) {
+        using RogueCity::App::AxiomType;
+        switch (type) {
+            case AxiomType::Organic:
+                return {"Terminal: soften flow or blend hierarchy in nearby cells.",
+                    {AxiomType::LooseGrid, AxiomType::Suburban, AxiomType::Stem}};
+            case AxiomType::Grid:
+                return {"Terminal: lock alignment, then escalate density only if needed.",
+                    {AxiomType::Superblock, AxiomType::Hexagonal, AxiomType::GridCorrective}};
+            case AxiomType::Radial:
+                return {"Terminal: radial hubs pair best with corrective or suburban buffers.",
+                    {AxiomType::GridCorrective, AxiomType::Suburban, AxiomType::Organic}};
+            case AxiomType::Hexagonal:
+                return {"Terminal: preserve angular continuity while tuning block regularity.",
+                    {AxiomType::Grid, AxiomType::Superblock, AxiomType::Radial}};
+            case AxiomType::Stem:
+                return {"Terminal: maintain trunk direction before widening network spread.",
+                    {AxiomType::Linear, AxiomType::Organic, AxiomType::Suburban}};
+            case AxiomType::LooseGrid:
+                return {"Terminal: tighten only the zones that need navigation regularity.",
+                    {AxiomType::Organic, AxiomType::Grid, AxiomType::Suburban}};
+            case AxiomType::Suburban:
+                return {"Terminal: transition between loop neighborhoods and arterial anchors.",
+                    {AxiomType::Radial, AxiomType::Organic, AxiomType::LooseGrid}};
+            case AxiomType::Superblock:
+                return {"Terminal: shift between macro parcels and local permeability layers.",
+                    {AxiomType::Grid, AxiomType::Hexagonal, AxiomType::Linear}};
+            case AxiomType::Linear:
+                return {"Terminal: tune corridor spine, then branch into local fabric.",
+                    {AxiomType::Stem, AxiomType::GridCorrective, AxiomType::Grid}};
+            case AxiomType::GridCorrective:
+                return {"Terminal: corrective overlays should resolve conflict, not dominate.",
+                    {AxiomType::Grid, AxiomType::Radial, AxiomType::Superblock}};
+            case AxiomType::COUNT:
+            default:
+                return {"Terminal: select a base axiom to reveal compatible alternates.",
+                    {AxiomType::Grid, AxiomType::Organic, AxiomType::Radial}};
+        }
+    }
+
     void DrawAxiomModeStatus(const Preview& preview, ImVec2 pos) {
         ImGui::SetCursorScreenPos(pos);
 
@@ -1394,6 +1460,8 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         ImVec2(minimap_pos.x + kMinimapSize - 3, minimap_pos.y + kMinimapSize - 3),
         TokenColor(UITokens::BackgroundDark, 200u)
     );
+    const ImVec2 minimap_clip_min(minimap_pos.x + 3.0f, minimap_pos.y + 3.0f);
+    const ImVec2 minimap_clip_max(minimap_pos.x + kMinimapSize - 3.0f, minimap_pos.y + kMinimapSize - 3.0f);
     
     // RogueNav label (top-left corner, inside border)
     ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8, minimap_pos.y + 8));
@@ -1467,6 +1535,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     // Shared scene frame (main viewport + minimap) is the authoritative render payload.
     const auto camera_pos = s_scene_frame.camera_xy;
     const auto* output = s_scene_frame.output;
+    draw_list->PushClipRect(minimap_clip_min, minimap_clip_max, true);
     
     // === PHASE 2: RENDER AXIOMS AS COLORED DOTS ===
     if (s_axiom_tool) {
@@ -1617,7 +1686,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
     }
 
     // Frustum rectangle from current primary viewport zoom.
-    // RC-0.09-Test P1 fix: Clamp frustum to minimap bounds
+    // Draw with minimap clip-rect instead of endpoint clamping to avoid edge artifacts.
     const double half_w_world = (static_cast<double>(viewport_size.x) * 0.5) / std::max(0.05f, viewport_zoom);
     const double half_h_world = (static_cast<double>(viewport_size.y) * 0.5) / std::max(0.05f, viewport_zoom);
     const std::array<RogueCity::Core::Vec2, 4> frustum_world = {
@@ -1626,22 +1695,13 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         RogueCity::Core::Vec2(camera_pos.x + half_w_world, camera_pos.y + half_h_world),
         RogueCity::Core::Vec2(camera_pos.x - half_w_world, camera_pos.y + half_h_world)
     };
-    const ImVec2 minimap_min = minimap_pos;
-    const ImVec2 minimap_max = ImVec2(minimap_pos.x + kMinimapSize, minimap_pos.y + kMinimapSize);
-    
+
     for (size_t i = 0; i < frustum_world.size(); ++i) {
         const size_t ni = (i + 1) % frustum_world.size();
         const ImVec2 uv1 = WorldToMinimapUV(frustum_world[i], camera_pos);
         const ImVec2 uv2 = WorldToMinimapUV(frustum_world[ni], camera_pos);
-        ImVec2 p1 = ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize);
-        ImVec2 p2 = ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize);
-        
-        // Clamp frustum line endpoints to minimap bounds
-        p1.x = std::clamp(p1.x, minimap_min.x, minimap_max.x);
-        p1.y = std::clamp(p1.y, minimap_min.y, minimap_max.y);
-        p2.x = std::clamp(p2.x, minimap_min.x, minimap_max.x);
-        p2.y = std::clamp(p2.y, minimap_min.y, minimap_max.y);
-        
+        const ImVec2 p1 = ImVec2(minimap_pos.x + uv1.x * kMinimapSize, minimap_pos.y + uv1.y * kMinimapSize);
+        const ImVec2 p2 = ImVec2(minimap_pos.x + uv2.x * kMinimapSize, minimap_pos.y + uv2.y * kMinimapSize);
         draw_list->AddLine(p1, p2, UITokens::YellowWarning, 1.5f);
     }
     
@@ -1661,6 +1721,7 @@ static void RenderMinimapOverlay(ImDrawList* draw_list, const ImVec2& viewport_p
         0.0f,
         0,
         1.0f);
+    draw_list->PopClipRect();
 
     const ImVec2 mouse = ImGui::GetMousePos();
     const bool mouse_in_minimap =
@@ -1698,6 +1759,31 @@ void DrawAxiomLibraryContent() {
 
     const auto default_type = s_axiom_tool->default_axiom_type();
     const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
+    auto* selected_axiom = s_axiom_tool->get_selected_axiom();
+
+    const auto apply_axiom_type = [&](RogueCity::App::AxiomType axiom_type) {
+        if (apply_to_selected) {
+            if (selected_axiom != nullptr) {
+                selected_axiom->set_type(axiom_type);
+                s_library_modified = true;
+            }
+        } else {
+            s_axiom_tool->set_default_axiom_type(axiom_type);
+        }
+
+        RC_UI::Tools::ToolActionId action_id{};
+        if (!TryActionIdFromAxiomType(axiom_type, action_id)) {
+            return;
+        }
+        std::string dispatch_status;
+        RC_UI::Tools::DispatchContext dispatch_context{
+            &hfsm,
+            &gs,
+            &uiint,
+            "Axiom Library"
+        };
+        (void)RC_UI::Tools::DispatchToolAction(action_id, dispatch_context, &dispatch_status);
+    };
 
     for (int i = 0; i < static_cast<int>(actions.size()); ++i) {
         const auto& action = actions[static_cast<size_t>(i)];
@@ -1713,24 +1799,7 @@ void DrawAxiomLibraryContent() {
 
         ImGui::PushID(i);
         if (ImGui::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
-            if (apply_to_selected) {
-                if (auto* selected = s_axiom_tool->get_selected_axiom()) {
-                    selected->set_type(axiom_type);
-                    s_library_modified = true;
-                }
-            } else {
-                s_axiom_tool->set_default_axiom_type(axiom_type);
-            }
-
-            std::string dispatch_status;
-            RC_UI::Tools::DispatchContext dispatch_context{
-                &hfsm,
-                &gs,
-                &uiint,
-                "Axiom Library"
-            };
-            const auto dispatch_result = RC_UI::Tools::DispatchToolAction(action.id, dispatch_context, &dispatch_status);
-            (void)dispatch_result;
+            apply_axiom_type(axiom_type);
         }
 
         const ImVec2 bmin = ImGui::GetItemRectMin();
@@ -1754,6 +1823,38 @@ void DrawAxiomLibraryContent() {
     }
 
     uiint.RegisterWidget({"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
+
+    const RogueCity::App::AxiomType focus_type =
+        (selected_axiom != nullptr) ? selected_axiom->type() : default_type;
+    const auto& focus_info = RogueCity::App::GetAxiomTypeInfo(focus_type);
+    const AxiomTerminalCue terminal = TerminalCueForAxiomType(focus_type);
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Terminal");
+    ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 230u), "Context Cue");
+    ImGui::TextWrapped("%s", terminal.cue);
+    ImGui::TextColored(
+        TokenColorF(UITokens::TextSecondary, 220u),
+        "Active: %s  (%s)",
+        focus_info.name,
+        apply_to_selected ? "Apply to Selection" : "Set Default");
+
+    for (size_t i = 0; i < terminal.alternates.size(); ++i) {
+        const auto alt_type = terminal.alternates[i];
+        const auto& alt_info = RogueCity::App::GetAxiomTypeInfo(alt_type);
+        if (i > 0) {
+            ImGui::SameLine();
+        }
+        ImGui::PushID(static_cast<int>(alt_type));
+        ImGui::PushStyleColor(ImGuiCol_Button, TokenColorF(alt_info.primary_color, 185u));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, TokenColorF(alt_info.primary_color, 225u));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, TokenColorF(alt_info.primary_color, 245u));
+        if (ImGui::Button(alt_info.name)) {
+            apply_axiom_type(alt_type);
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+    }
 }
 
 void DrawContent(float dt) {

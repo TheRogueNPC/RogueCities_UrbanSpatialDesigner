@@ -126,10 +126,10 @@ void AxiomPlacementTool::update(float delta_time, PrimaryViewport& viewport) {
             axiom->set_selected(axiom->id() == selected_axiom_id_);
         }
 
-        // Update knob hover state if axiom selected (interaction begins in on_mouse_down)
+        // Update lattice vertex hover state if axiom selected (interaction begins in on_mouse_down)
         if (selected_axiom_id_ != -1) {
             if (auto* selected = get_selected_axiom()) {
-                (void)selected->get_hovered_knob(mouse_world);
+                (void)selected->get_hovered_vertex(mouse_world);
             }
         }
     }
@@ -167,12 +167,12 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
         return;
     }
     if (mode_ == Mode::Idle) {
-        // If a knob is hovered on the selected axiom, drag radius.
+        // If a lattice vertex is hovered on the selected axiom, drag it.
         if (auto* selected = get_selected_axiom()) {
-            if (auto* knob = selected->get_hovered_knob(world_pos)) {
+            if (auto* vertex = selected->get_hovered_vertex(world_pos)) {
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     popup_axiom_id_ = selected->id();
-                    popup_ring_index_ = knob->ring_index;
+                    popup_vertex_id_ = vertex->id;
                     const auto before = snapshot_axiom(*selected);
                     knob_popup_.set_on_apply([this, before](float new_value) {
                         for (const auto& axiom : axioms_) {
@@ -195,9 +195,9 @@ void AxiomPlacementTool::on_mouse_down(const Core::Vec2& world_pos) {
                     knob_popup_.open(ImGui::GetMousePos(), selected->radius(), 50.0f, 1000.0f, "Radius (m)");
                     return;
                 }
-                dragging_knob_ = knob;
+                dragging_vertex_ = vertex;
                 knob_drag_start_ = world_pos;
-                knob->is_dragging = true;
+                vertex->is_dragging = true;
                 mode_ = Mode::DraggingKnob;
                 drag_start_snapshot_ = snapshot_axiom(*selected);
                 return;
@@ -262,9 +262,9 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
         }
         mode_ = Mode::Idle;
     } else if (mode_ == Mode::DraggingKnob) {
-        if (dragging_knob_) {
-            dragging_knob_->is_dragging = false;
-            dragging_knob_ = nullptr;
+        if (dragging_vertex_) {
+            dragging_vertex_->is_dragging = false;
+            dragging_vertex_ = nullptr;
         }
         dirty_ = true;
         if (drag_start_snapshot_) {
@@ -301,18 +301,13 @@ void AxiomPlacementTool::on_mouse_move(const Core::Vec2& world_pos) {
             axiom->set_position(world_pos - axiom_drag_offset_);
             resolve_core_overlap_for_axiom(axiom);
         }
-    } else if (mode_ == Mode::DraggingKnob && dragging_knob_) {
-        // Update ring radius via knob drag
+    } else if (mode_ == Mode::DraggingKnob && dragging_vertex_) {
+        // Update lattice by dragging an explicit control vertex.
         auto* axiom = get_selected_axiom();
         if (axiom) {
-            const double dx = world_pos.x - axiom->position().x;
-            const double dy = world_pos.y - axiom->position().y;
-            const float new_radius = static_cast<float>(std::sqrt(dx * dx + dy * dy));
-            
-            // Update ring radius (clamped)
-            const float clamped_radius = std::max(kAxiomMinRadius, std::min(new_radius, kAxiomMaxRadius));
-            axiom->set_radius(clamped_radius);
-            resolve_core_overlap_for_axiom(axiom);
+            if (axiom->update_vertex_world_position(dragging_vertex_->id, world_pos)) {
+                resolve_core_overlap_for_axiom(axiom);
+            }
         }
     }
 }

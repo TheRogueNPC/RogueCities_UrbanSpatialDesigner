@@ -2,13 +2,46 @@
 #include "RogueCity/App/Tools/AxiomAnimationController.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
+
 #include <imgui.h>
+
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <numbers>
+#include <vector>
 
 namespace RogueCity::App {
 namespace {
+
+constexpr float kMinRadius = 1.0f;
+constexpr float kVertexHoverRadiusMeters = 14.0f;
+
+[[nodiscard]] ImU32 ColorWithAlpha(ImU32 base, uint8_t alpha) {
+    return IM_COL32(
+        static_cast<int>((base >> IM_COL32_R_SHIFT) & 0xFF),
+        static_cast<int>((base >> IM_COL32_G_SHIFT) & 0xFF),
+        static_cast<int>((base >> IM_COL32_B_SHIFT) & 0xFF),
+        alpha);
+}
+
+[[nodiscard]] ImU32 ScaleMonochrome(ImU32 base, float rgb_scale, uint8_t alpha) {
+    const float clamped_scale = std::clamp(rgb_scale, 0.1f, 2.5f);
+    const int r = static_cast<int>(std::clamp(
+        static_cast<float>((base >> IM_COL32_R_SHIFT) & 0xFF) * clamped_scale,
+        0.0f,
+        255.0f));
+    const int g = static_cast<int>(std::clamp(
+        static_cast<float>((base >> IM_COL32_G_SHIFT) & 0xFF) * clamped_scale,
+        0.0f,
+        255.0f));
+    const int b = static_cast<int>(std::clamp(
+        static_cast<float>((base >> IM_COL32_B_SHIFT) & 0xFF) * clamped_scale,
+        0.0f,
+        255.0f));
+    return IM_COL32(r, g, b, alpha);
+}
 
 [[nodiscard]] Generators::CityGenerator::AxiomInput::RingSchema RingSchemaForType(AxiomVisual::AxiomType type) {
     using RingSchema = Generators::CityGenerator::AxiomInput::RingSchema;
@@ -39,132 +72,560 @@ namespace {
     }
 }
 
+[[nodiscard]] Core::Vec2 AnimatePoint(const Core::Vec2& point, const Core::Vec2& center, float alpha) {
+    const double clamped = std::clamp(static_cast<double>(alpha), 0.0, 1.0);
+    return Core::Vec2(
+        center.x + (point.x - center.x) * clamped,
+        center.y + (point.y - center.y) * clamped);
+}
+
+void DrawScaledBoundary(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const std::vector<Core::Vec2>& boundary,
+    const Core::Vec2& center,
+    float scale,
+    ImU32 color,
+    float thickness,
+    float alpha) {
+    if (boundary.size() < 3 || scale <= 0.0f) {
+        return;
+    }
+
+    std::vector<ImVec2> points;
+    points.reserve(boundary.size());
+    for (const auto& p : boundary) {
+        const Core::Vec2 scaled = center + (p - center) * static_cast<double>(scale);
+        points.push_back(viewport.world_to_screen(AnimatePoint(scaled, center, alpha)));
+    }
+    draw_list->AddPolyline(points.data(), static_cast<int>(points.size()), color, ImDrawFlags_Closed, thickness);
+}
+
+void DrawBezierPatch(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const ControlLattice& lattice,
+    const Core::Vec2& center,
+    float alpha,
+    ImU32 color,
+    ImU32 zone_inner_color,
+    ImU32 zone_middle_color) {
+    if (lattice.rows < 2 || lattice.cols < 2) {
+        return;
+    }
+
+    auto point_at = [&](int row, int col) -> Core::Vec2 {
+        const size_t idx = static_cast<size_t>(row * lattice.cols + col);
+        return AnimatePoint(lattice.vertices[idx].world_pos, center, alpha);
+    };
+
+    // Horizontal splines.
+    for (int row = 0; row < lattice.rows; ++row) {
+        for (int col = 0; col < lattice.cols - 1; ++col) {
+            const int prev_col = std::max(0, col - 1);
+            const int next_col = std::min(lattice.cols - 1, col + 2);
+
+            const Core::Vec2 p0 = point_at(row, col);
+            const Core::Vec2 p1 = point_at(row, col + 1);
+            const Core::Vec2 prev = point_at(row, prev_col);
+            const Core::Vec2 next = point_at(row, next_col);
+
+            const Core::Vec2 t0 = (p1 - prev) * 0.5;
+            const Core::Vec2 t1 = (next - p0) * 0.5;
+            const Core::Vec2 c0 = p0 + t0 / 3.0;
+            const Core::Vec2 c1 = p1 - t1 / 3.0;
+
+            draw_list->AddBezierCubic(
+                viewport.world_to_screen(p0),
+                viewport.world_to_screen(c0),
+                viewport.world_to_screen(c1),
+                viewport.world_to_screen(p1),
+                color,
+                1.6f,
+                18);
+        }
+    }
+
+    // Vertical splines.
+    for (int col = 0; col < lattice.cols; ++col) {
+        for (int row = 0; row < lattice.rows - 1; ++row) {
+            const int prev_row = std::max(0, row - 1);
+            const int next_row = std::min(lattice.rows - 1, row + 2);
+
+            const Core::Vec2 p0 = point_at(row, col);
+            const Core::Vec2 p1 = point_at(row + 1, col);
+            const Core::Vec2 prev = point_at(prev_row, col);
+            const Core::Vec2 next = point_at(next_row, col);
+
+            const Core::Vec2 t0 = (p1 - prev) * 0.5;
+            const Core::Vec2 t1 = (next - p0) * 0.5;
+            const Core::Vec2 c0 = p0 + t0 / 3.0;
+            const Core::Vec2 c1 = p1 - t1 / 3.0;
+
+            draw_list->AddBezierCubic(
+                viewport.world_to_screen(p0),
+                viewport.world_to_screen(c0),
+                viewport.world_to_screen(c1),
+                viewport.world_to_screen(p1),
+                color,
+                1.6f,
+                18);
+        }
+    }
+
+    std::vector<Core::Vec2> perimeter;
+    perimeter.reserve(static_cast<size_t>(2 * lattice.rows + 2 * lattice.cols));
+
+    for (int col = 0; col < lattice.cols; ++col) {
+        perimeter.push_back(point_at(0, col));
+    }
+    for (int row = 1; row < lattice.rows; ++row) {
+        perimeter.push_back(point_at(row, lattice.cols - 1));
+    }
+    for (int col = lattice.cols - 2; col >= 0; --col) {
+        perimeter.push_back(point_at(lattice.rows - 1, col));
+    }
+    for (int row = lattice.rows - 2; row > 0; --row) {
+        perimeter.push_back(point_at(row, 0));
+    }
+
+    DrawScaledBoundary(
+        draw_list,
+        viewport,
+        perimeter,
+        center,
+        lattice.zone_inner_uv,
+        zone_inner_color,
+        1.0f,
+        alpha);
+    DrawScaledBoundary(
+        draw_list,
+        viewport,
+        perimeter,
+        center,
+        lattice.zone_middle_uv,
+        zone_middle_color,
+        1.1f,
+        alpha);
+}
+
+void DrawPolygonWireframe(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const ControlLattice& lattice,
+    const Core::Vec2& center,
+    float alpha,
+    ImU32 color,
+    ImU32 zone_inner_color,
+    ImU32 zone_middle_color) {
+    if (lattice.vertices.size() < 3) {
+        return;
+    }
+
+    std::vector<ImVec2> polygon;
+    polygon.reserve(lattice.vertices.size());
+
+    std::vector<Core::Vec2> boundary;
+    boundary.reserve(lattice.vertices.size());
+
+    for (const auto& v : lattice.vertices) {
+        const Core::Vec2 p = AnimatePoint(v.world_pos, center, alpha);
+        boundary.push_back(p);
+        polygon.push_back(viewport.world_to_screen(p));
+    }
+
+    draw_list->AddPolyline(polygon.data(), static_cast<int>(polygon.size()), color, ImDrawFlags_Closed, 2.0f);
+
+    DrawScaledBoundary(
+        draw_list,
+        viewport,
+        boundary,
+        center,
+        lattice.zone_inner_uv,
+        zone_inner_color,
+        1.0f,
+        alpha);
+    DrawScaledBoundary(
+        draw_list,
+        viewport,
+        boundary,
+        center,
+        lattice.zone_middle_uv,
+        zone_middle_color,
+        1.1f,
+        alpha);
+}
+
+void DrawLinearWireframe(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const ControlLattice& lattice,
+    const Core::Vec2& center,
+    float alpha,
+    ImU32 color,
+    ImU32 auxiliary_color) {
+    if (lattice.vertices.size() < 2) {
+        return;
+    }
+
+    std::vector<ImVec2> spine;
+    spine.reserve(2);
+    spine.push_back(viewport.world_to_screen(AnimatePoint(lattice.vertices[0].world_pos, center, alpha)));
+    spine.push_back(viewport.world_to_screen(AnimatePoint(lattice.vertices[1].world_pos, center, alpha)));
+    draw_list->AddPolyline(spine.data(), static_cast<int>(spine.size()), color, ImDrawFlags_None, 2.0f);
+
+    if (lattice.vertices.size() >= 6) {
+        const std::array<std::pair<size_t, size_t>, 2> width_pairs{{{2, 3}, {4, 5}}};
+        for (const auto [a, b] : width_pairs) {
+            const ImVec2 p0 = viewport.world_to_screen(AnimatePoint(lattice.vertices[a].world_pos, center, alpha));
+            const ImVec2 p1 = viewport.world_to_screen(AnimatePoint(lattice.vertices[b].world_pos, center, alpha));
+            const ImVec2 pair[2] = {p0, p1};
+            draw_list->AddPolyline(pair, 2, auxiliary_color, ImDrawFlags_None, 1.5f);
+        }
+    }
+}
+
+void DrawRadialWireframe(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const ControlLattice& lattice,
+    const Core::Vec2& center,
+    float alpha,
+    ImU32 color,
+    ImU32 zone_inner_color,
+    ImU32 zone_middle_color,
+    ImU32 zone_outer_color,
+    bool draw_zone_circles) {
+    if (lattice.vertices.size() < 2) {
+        return;
+    }
+
+    const Core::Vec2 animated_center = AnimatePoint(lattice.vertices[0].world_pos, center, alpha);
+    const ImVec2 screen_center = viewport.world_to_screen(animated_center);
+
+    double max_radius = 0.0;
+    for (size_t i = 1; i < lattice.vertices.size(); ++i) {
+        const Core::Vec2 spoke = AnimatePoint(lattice.vertices[i].world_pos, center, alpha);
+        const ImVec2 screen_spoke = viewport.world_to_screen(spoke);
+        const ImVec2 line[2] = {screen_center, screen_spoke};
+        draw_list->AddPolyline(line, 2, color, ImDrawFlags_None, 1.6f);
+        max_radius = std::max(max_radius, animated_center.distanceTo(spoke));
+    }
+
+    std::vector<Core::Vec2> boundary;
+    boundary.reserve(lattice.vertices.size() - 1);
+    for (size_t i = 1; i < lattice.vertices.size(); ++i) {
+        boundary.push_back(AnimatePoint(lattice.vertices[i].world_pos, center, alpha));
+    }
+
+    if (draw_zone_circles) {
+        const float outer = viewport.world_to_screen_scale(static_cast<float>(max_radius));
+        const float inner = outer * std::clamp(lattice.zone_inner_uv, 0.05f, 1.0f);
+        const float middle = outer * std::clamp(lattice.zone_middle_uv, 0.05f, 1.0f);
+        draw_list->AddCircle(screen_center, inner, zone_inner_color, 64, 1.0f);
+        draw_list->AddCircle(screen_center, middle, zone_middle_color, 64, 1.1f);
+        draw_list->AddCircle(screen_center, outer, zone_outer_color, 64, 1.3f);
+    } else {
+        DrawScaledBoundary(
+            draw_list,
+            viewport,
+            boundary,
+            animated_center,
+            lattice.zone_inner_uv,
+            zone_inner_color,
+            1.0f,
+            alpha);
+        DrawScaledBoundary(
+            draw_list,
+            viewport,
+            boundary,
+            animated_center,
+            lattice.zone_middle_uv,
+            zone_middle_color,
+            1.1f,
+            alpha);
+        DrawScaledBoundary(
+            draw_list,
+            viewport,
+            boundary,
+            animated_center,
+            lattice.zone_outer_uv,
+            zone_outer_color,
+            1.3f,
+            alpha);
+    }
+}
+
+void RenderLattice(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const ControlLattice& lattice,
+    AxiomVisual::AxiomType type,
+    ImU32 base_color,
+    const Core::Vec2& center,
+    float alpha) {
+    if (draw_list == nullptr) {
+        return;
+    }
+
+    const ImU32 line_color = ColorWithAlpha(base_color, 175u);
+    const ImU32 zone_inner_color = ColorWithAlpha(base_color, 95u);
+    const ImU32 zone_middle_color = ColorWithAlpha(base_color, 130u);
+    const ImU32 zone_outer_color = ColorWithAlpha(base_color, 160u);
+    const ImU32 auxiliary_color = ColorWithAlpha(base_color, 145u);
+
+    switch (lattice.topology) {
+        case LatticeTopology::BezierPatch:
+            DrawBezierPatch(
+                draw_list,
+                viewport,
+                lattice,
+                center,
+                alpha,
+                line_color,
+                zone_inner_color,
+                zone_middle_color);
+            break;
+        case LatticeTopology::Polygon:
+            DrawPolygonWireframe(
+                draw_list,
+                viewport,
+                lattice,
+                center,
+                alpha,
+                line_color,
+                zone_inner_color,
+                zone_middle_color);
+            break;
+        case LatticeTopology::Radial:
+            DrawRadialWireframe(
+                draw_list,
+                viewport,
+                lattice,
+                center,
+                alpha,
+                line_color,
+                zone_inner_color,
+                zone_middle_color,
+                zone_outer_color,
+                type == AxiomVisual::AxiomType::Radial || type == AxiomVisual::AxiomType::GridCorrective);
+            break;
+        case LatticeTopology::Linear:
+            DrawLinearWireframe(draw_list, viewport, lattice, center, alpha, line_color, auxiliary_color);
+            break;
+    }
+}
+
+void InitializeLatticeForType(
+    AxiomVisual::AxiomType type,
+    ControlLattice& lattice,
+    const Core::Vec2& center,
+    float base_radius,
+    int radial_spokes) {
+    lattice.vertices.clear();
+    lattice.rows = 0;
+    lattice.cols = 0;
+
+    const float safe_radius = std::max(base_radius, kMinRadius);
+    int vertex_id = 0;
+
+    switch (type) {
+        case AxiomVisual::AxiomType::Organic:
+        case AxiomVisual::AxiomType::LooseGrid:
+            lattice.topology = LatticeTopology::BezierPatch;
+            lattice.rows = 4;
+            lattice.cols = 4;
+            for (int y = 0; y < lattice.rows; ++y) {
+                for (int x = 0; x < lattice.cols; ++x) {
+                    const double u = static_cast<double>(x) / static_cast<double>(lattice.cols - 1);
+                    const double v = static_cast<double>(y) / static_cast<double>(lattice.rows - 1);
+                    const Core::Vec2 w_pos = {
+                        center.x + (u - 0.5) * static_cast<double>(safe_radius * 2.0f),
+                        center.y + (v - 0.5) * static_cast<double>(safe_radius * 2.0f)
+                    };
+                    lattice.vertices.push_back({vertex_id++, w_pos, {u, v}});
+                }
+            }
+            break;
+
+        case AxiomVisual::AxiomType::Grid:
+        case AxiomVisual::AxiomType::Superblock:
+            lattice.topology = LatticeTopology::Polygon;
+            lattice.vertices = {
+                {vertex_id++, {center.x - safe_radius, center.y - safe_radius}, {0.0, 0.0}},
+                {vertex_id++, {center.x + safe_radius, center.y - safe_radius}, {1.0, 0.0}},
+                {vertex_id++, {center.x + safe_radius, center.y + safe_radius}, {1.0, 1.0}},
+                {vertex_id++, {center.x - safe_radius, center.y + safe_radius}, {0.0, 1.0}}
+            };
+            break;
+
+        case AxiomVisual::AxiomType::Hexagonal:
+            lattice.topology = LatticeTopology::Polygon;
+            for (int i = 0; i < 6; ++i) {
+                const float angle = (std::numbers::pi_v<float> / 3.0f) * static_cast<float>(i);
+                lattice.vertices.push_back({
+                    vertex_id++,
+                    {
+                        center.x + static_cast<double>(safe_radius * std::cos(angle)),
+                        center.y + static_cast<double>(safe_radius * std::sin(angle))
+                    },
+                    {
+                        0.5 + static_cast<double>(0.5f * std::cos(angle)),
+                        0.5 + static_cast<double>(0.5f * std::sin(angle))
+                    }
+                });
+            }
+            break;
+
+        case AxiomVisual::AxiomType::Radial:
+        case AxiomVisual::AxiomType::Suburban:
+        case AxiomVisual::AxiomType::GridCorrective: {
+            const int spokes = std::clamp(radial_spokes, 3, 24);
+            lattice.topology = LatticeTopology::Radial;
+            lattice.vertices.push_back({vertex_id++, center, {0.5, 0.5}});
+            for (int i = 0; i < spokes; ++i) {
+                const float angle = (2.0f * std::numbers::pi_v<float> * static_cast<float>(i)) / static_cast<float>(spokes);
+                const double cx = static_cast<double>(std::cos(angle));
+                const double sy = static_cast<double>(std::sin(angle));
+                lattice.vertices.push_back({
+                    vertex_id++,
+                    {center.x + safe_radius * cx, center.y + safe_radius * sy},
+                    {0.5 + 0.5 * cx, 0.5 + 0.5 * sy}
+                });
+            }
+            break;
+        }
+
+        case AxiomVisual::AxiomType::Stem:
+        case AxiomVisual::AxiomType::Linear:
+            lattice.topology = LatticeTopology::Linear;
+            lattice.vertices = {
+                {vertex_id++, {center.x - safe_radius, center.y}, {0.0, 0.5}},
+                {vertex_id++, {center.x + safe_radius, center.y}, {1.0, 0.5}},
+                {vertex_id++, {center.x - safe_radius * 0.4, center.y - safe_radius * 0.45}, {0.3, 0.2}},
+                {vertex_id++, {center.x + safe_radius * 0.4, center.y - safe_radius * 0.45}, {0.7, 0.2}},
+                {vertex_id++, {center.x - safe_radius * 0.4, center.y + safe_radius * 0.45}, {0.3, 0.8}},
+                {vertex_id++, {center.x + safe_radius * 0.4, center.y + safe_radius * 0.45}, {0.7, 0.8}}
+            };
+            break;
+
+        case AxiomVisual::AxiomType::COUNT:
+        default:
+            lattice.topology = LatticeTopology::Polygon;
+            lattice.vertices = {
+                {vertex_id++, {center.x - safe_radius, center.y - safe_radius}, {0.0, 0.0}},
+                {vertex_id++, {center.x + safe_radius, center.y - safe_radius}, {1.0, 0.0}},
+                {vertex_id++, {center.x + safe_radius, center.y + safe_radius}, {1.0, 1.0}},
+                {vertex_id++, {center.x - safe_radius, center.y + safe_radius}, {0.0, 1.0}}
+            };
+            break;
+    }
+}
+
 } // namespace
 
-// AxiomVisual Implementation
 AxiomVisual::AxiomVisual(int id, AxiomType type)
     : id_(id)
     , type_(type)
-    , animator_(std::make_unique<AxiomAnimationController>())
-{
-    // Initialize rings with default radii
-    rings_[0] = { 100.0f, 100.0f, 0.0f, false };  // Inner
-    rings_[1] = { 200.0f, 200.0f, 0.0f, false };  // Middle
-    rings_[2] = { 300.0f, 300.0f, 0.0f, false };  // Outer
-
-    // Create control knobs at 90° intervals for each ring
-    for (int ring_idx = 0; ring_idx < 3; ++ring_idx) {
-        for (int i = 0; i < 4; ++i) {
-            auto knob = std::make_unique<RingControlKnob>();
-            knob->ring_index = ring_idx;
-            knob->angle = (std::numbers::pi_v<float> / 2.0f) * static_cast<float>(i);  // 0°, 90°, 180°, 270°
-            knob->value = 1.0f;
-            knob->is_hovered = false;
-            knob->is_dragging = false;
-            knob->last_click_time = 0.0f;
-            knobs_.push_back(std::move(knob));
-        }
-    }
+    , animator_(std::make_unique<AxiomAnimationController>()) {
+    refresh_zone_defaults_from_type();
+    initialize_lattice_for_type();
 }
 
 AxiomVisual::~AxiomVisual() = default;
 
-void AxiomVisual::update(float delta_time) {
-    if (!animation_enabled_) return;
+void AxiomVisual::initialize_lattice_for_type() {
+    InitializeLatticeForType(type_, lattice_, position_, radius_, radial_spokes_);
+}
 
-    // Update ring animations
-    for (auto& ring : rings_) {
-        if (ring.is_animating) {
-            // Lerp radius towards target
-            const float blend_speed = 3.0f;
-            ring.radius += (ring.target_radius - ring.radius) * (1.0f - expf(-blend_speed * delta_time));
-            
-            // Fade in opacity during expansion
-            ring.opacity += 2.0f * delta_time;
-            if (ring.opacity >= 1.0f) {
-                ring.opacity = 1.0f;
-                ring.is_animating = false;
-            }
+void AxiomVisual::refresh_zone_defaults_from_type() {
+    const auto schema = RingSchemaForType(type_);
+    lattice_.zone_inner_uv = static_cast<float>(schema.core_ratio);
+    lattice_.zone_middle_uv = static_cast<float>(schema.falloff_ratio);
+    lattice_.zone_outer_uv = static_cast<float>(schema.outskirts_ratio);
+}
+
+void AxiomVisual::clear_vertex_interaction_flags() {
+    for (auto& vertex : lattice_.vertices) {
+        vertex.is_hovered = false;
+        if (!vertex.is_dragging) {
+            vertex.is_dragging = false;
         }
     }
+}
 
-    // Update knob positions based on ring radii
-    for (auto& knob : knobs_) {
-        const float ring_radius = rings_[knob->ring_index].radius;
-        knob->world_position.x = position_.x + ring_radius * cosf(knob->angle);
-        knob->world_position.y = position_.y + ring_radius * sinf(knob->angle);
+void AxiomVisual::recalculate_radius_from_lattice() {
+    double max_dist = 0.0;
+    for (const auto& vertex : lattice_.vertices) {
+        max_dist = std::max(max_dist, position_.distanceTo(vertex.world_pos));
+    }
+    radius_ = std::max(kMinRadius, static_cast<float>(max_dist));
+}
+
+void AxiomVisual::update(float delta_time) {
+    if (!animation_enabled_) {
+        lattice_animation_alpha_ = 1.0f;
+        return;
+    }
+
+    if (lattice_animation_alpha_ < 1.0f) {
+        const float blend_speed = 3.5f;
+        lattice_animation_alpha_ += (1.0f - lattice_animation_alpha_) * (1.0f - std::exp(-blend_speed * delta_time));
+        lattice_animation_alpha_ = std::clamp(lattice_animation_alpha_, 0.0f, 1.0f);
     }
 }
 
 void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
-    // Render rings (from outer to inner for proper layering)
-    const ImU32 ring_colors[] = {
-        IM_COL32(255, 200, 0, 255),   // Inner: Amber
-        IM_COL32(0, 255, 200, 255),   // Middle: Cyan
-        IM_COL32(255, 0, 200, 255)    // Outer: Magenta
-    };
-
-    for (int i = 2; i >= 0; --i) {
-        const auto& ring = rings_[i];
-        if (ring.opacity <= 0.0f) continue;
-
-        const ImVec2 screen_center = viewport.world_to_screen(position_);
-        const float screen_radius = viewport.world_to_screen_scale(ring.radius);
-        
-        const ImU32 color_with_alpha = IM_COL32(
-            (ring_colors[i] >> IM_COL32_R_SHIFT) & 0xFF,
-            (ring_colors[i] >> IM_COL32_G_SHIFT) & 0xFF,
-            (ring_colors[i] >> IM_COL32_B_SHIFT) & 0xFF,
-            static_cast<int>(ring.opacity * 200)  // Semi-transparent
-        );
-
-        // Y2K Style: Hard geometric circles, not soft gradients
-        draw_list->AddCircle(screen_center, screen_radius, color_with_alpha, 64, 2.0f);
-        
-        // Add subtle pulsing inner fill when animating
-        if (ring.is_animating) {
-            const ImU32 fill_color = IM_COL32(
-                (ring_colors[i] >> IM_COL32_R_SHIFT) & 0xFF,
-                (ring_colors[i] >> IM_COL32_G_SHIFT) & 0xFF,
-                (ring_colors[i] >> IM_COL32_B_SHIFT) & 0xFF,
-                static_cast<int>(ring.opacity * 40)  // Very subtle fill
-            );
-            draw_list->AddCircleFilled(screen_center, screen_radius, fill_color, 64);
-        }
+    if (draw_list == nullptr) {
+        return;
     }
 
-    // Render center marker (Y2K capsule design)
-    {
-        const ImVec2 screen_center = viewport.world_to_screen(position_);
-        const float base_marker = hovered_ ? 10.0f : 8.0f;
-        const float core_ring_screen = std::max(0.0f, viewport.world_to_screen_scale(rings_[0].radius));
-        const float marker_size = std::max(base_marker, core_ring_screen * 0.5f);
-        const ImU32 marker_color = selected_ ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255);
-        
-        // Capsule: circle with cross
-        draw_list->AddCircleFilled(screen_center, marker_size, IM_COL32(0, 0, 0, 180), 16);
-        draw_list->AddCircle(screen_center, marker_size, marker_color, 16, 2.0f);
-        
-        // Cross hairs
-        draw_list->AddLine(
-            ImVec2(screen_center.x - marker_size * 0.6f, screen_center.y),
-            ImVec2(screen_center.x + marker_size * 0.6f, screen_center.y),
-            marker_color, 1.5f
-        );
-        draw_list->AddLine(
-            ImVec2(screen_center.x, screen_center.y - marker_size * 0.6f),
-            ImVec2(screen_center.x, screen_center.y + marker_size * 0.6f),
-            marker_color, 1.5f
-        );
+    const ImU32 type_color = GetAxiomTypeInfo(type_).primary_color;
+    RenderLattice(draw_list, viewport, lattice_, type_, type_color, position_, lattice_animation_alpha_);
 
-        // Type glyph (SVG-inspired, ImDrawList-native)
-        const ImU32 icon_color = GetAxiomTypeInfo(type_).primary_color;
-        DrawAxiomIcon(draw_list, screen_center, marker_size * 0.70f, type_, icon_color);
-    }
+    // Center marker.
+    const ImVec2 screen_center = viewport.world_to_screen(position_);
+    const float marker_size = hovered_ ? 10.0f : 8.0f;
+    const ImU32 marker_color = selected_ ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255);
 
-    // Render control knobs
-    for (auto& knob : knobs_) {
-        knob->render(draw_list, viewport);
+    draw_list->AddRectFilled(
+        ImVec2(screen_center.x - marker_size, screen_center.y - marker_size),
+        ImVec2(screen_center.x + marker_size, screen_center.y + marker_size),
+        IM_COL32(0, 0, 0, 180),
+        3.0f);
+    draw_list->AddRect(
+        ImVec2(screen_center.x - marker_size, screen_center.y - marker_size),
+        ImVec2(screen_center.x + marker_size, screen_center.y + marker_size),
+        marker_color,
+        3.0f,
+        ImDrawFlags_None,
+        2.0f);
+    draw_list->AddLine(
+        ImVec2(screen_center.x - marker_size * 0.65f, screen_center.y),
+        ImVec2(screen_center.x + marker_size * 0.65f, screen_center.y),
+        marker_color,
+        1.5f);
+    draw_list->AddLine(
+        ImVec2(screen_center.x, screen_center.y - marker_size * 0.65f),
+        ImVec2(screen_center.x, screen_center.y + marker_size * 0.65f),
+        marker_color,
+        1.5f);
+
+    const ImU32 icon_color = type_color;
+    DrawAxiomIcon(draw_list, screen_center, marker_size * 0.70f, type_, icon_color);
+
+    for (const auto& vertex : lattice_.vertices) {
+        const Core::Vec2 animated_world = AnimatePoint(vertex.world_pos, position_, lattice_animation_alpha_);
+        const ImVec2 screen_pos = viewport.world_to_screen(animated_world);
+        const float radius = vertex.is_hovered ? 6.0f : 4.5f;
+        const ImU32 color = vertex.is_dragging
+            ? IM_COL32(255, 255, 0, 255)
+            : (vertex.is_hovered
+                ? ScaleMonochrome(type_color, 1.25f, 255u)
+                : ScaleMonochrome(type_color, 1.0f, 238u));
+
+        draw_list->AddCircleFilled(screen_pos, radius, color);
+        draw_list->AddCircle(screen_pos, radius, IM_COL32(0, 0, 0, 255), 0, 1.4f);
     }
 }
 
@@ -176,15 +637,54 @@ bool AxiomVisual::is_hovered(const Core::Vec2& world_pos, float world_radius) co
     return dist_sq <= radius_sq;
 }
 
-RingControlKnob* AxiomVisual::get_hovered_knob(const Core::Vec2& world_pos) {
-    const float knob_world_radius = 5.0f;  // 5 meters interaction radius
-    
-    for (auto& knob : knobs_) {
-        if (knob->check_hover(world_pos, knob_world_radius)) {
-            return knob.get();
+ControlVertex* AxiomVisual::get_hovered_vertex(const Core::Vec2& world_pos) {
+    clear_vertex_interaction_flags();
+
+    ControlVertex* hovered = nullptr;
+    double best_dist_sq = std::numeric_limits<double>::max();
+    const double snap = static_cast<double>(kVertexHoverRadiusMeters);
+    const double snap_sq = snap * snap;
+
+    for (auto& vertex : lattice_.vertices) {
+        const double dx = world_pos.x - vertex.world_pos.x;
+        const double dy = world_pos.y - vertex.world_pos.y;
+        const double dist_sq = dx * dx + dy * dy;
+        if (dist_sq <= snap_sq && dist_sq < best_dist_sq) {
+            best_dist_sq = dist_sq;
+            hovered = &vertex;
         }
     }
-    return nullptr;
+
+    if (hovered != nullptr) {
+        hovered->is_hovered = true;
+    }
+    return hovered;
+}
+
+const ControlLattice& AxiomVisual::lattice() const {
+    return lattice_;
+}
+
+ControlLattice& AxiomVisual::lattice() {
+    return lattice_;
+}
+
+bool AxiomVisual::update_vertex_world_position(int vertex_id, const Core::Vec2& world_pos) {
+    for (auto& vertex : lattice_.vertices) {
+        if (vertex.id != vertex_id) {
+            continue;
+        }
+        vertex.world_pos = world_pos;
+
+        const double safe_radius = std::max(1e-6, static_cast<double>(std::max(radius_, kMinRadius)));
+        const Core::Vec2 local = world_pos - position_;
+        vertex.uv.x = (local.x / (safe_radius * 2.0)) + 0.5;
+        vertex.uv.y = (local.y / (safe_radius * 2.0)) + 0.5;
+
+        recalculate_radius_from_lattice();
+        return true;
+    }
+    return false;
 }
 
 void AxiomVisual::set_hovered(bool hovered) {
@@ -196,18 +696,37 @@ void AxiomVisual::set_selected(bool selected) {
 }
 
 void AxiomVisual::set_position(const Core::Vec2& pos) {
+    const Core::Vec2 delta = pos - position_;
     position_ = pos;
+    for (auto& vertex : lattice_.vertices) {
+        vertex.world_pos += delta;
+    }
 }
 
 void AxiomVisual::set_radius(float radius) {
-    // Set all rings proportionally
-    rings_[0].radius = radius * 0.33f;
-    rings_[1].radius = radius * 0.67f;
-    rings_[2].radius = radius;
+    const float clamped = std::max(radius, kMinRadius);
+
+    if (lattice_.vertices.empty()) {
+        radius_ = clamped;
+        initialize_lattice_for_type();
+        return;
+    }
+
+    const double old_radius = std::max(static_cast<double>(radius_), static_cast<double>(kMinRadius));
+    const double scale = static_cast<double>(clamped) / old_radius;
+
+    for (auto& vertex : lattice_.vertices) {
+        const Core::Vec2 delta = vertex.world_pos - position_;
+        vertex.world_pos = position_ + delta * scale;
+    }
+
+    radius_ = clamped;
 }
 
 void AxiomVisual::set_type(AxiomType type) {
     type_ = type;
+    refresh_zone_defaults_from_type();
+    initialize_lattice_for_type();
 }
 
 void AxiomVisual::set_rotation(float theta) {
@@ -216,12 +735,17 @@ void AxiomVisual::set_rotation(float theta) {
 
 int AxiomVisual::id() const { return id_; }
 const Core::Vec2& AxiomVisual::position() const { return position_; }
-float AxiomVisual::radius() const { return rings_[2].radius; }
+float AxiomVisual::radius() const { return radius_; }
 AxiomVisual::AxiomType AxiomVisual::type() const { return type_; }
 float AxiomVisual::rotation() const { return rotation_; }
 
 void AxiomVisual::set_organic_curviness(float value) { organic_curviness_ = std::clamp(value, 0.0f, 1.0f); }
-void AxiomVisual::set_radial_spokes(int spokes) { radial_spokes_ = std::max(3, std::min(spokes, 24)); }
+void AxiomVisual::set_radial_spokes(int spokes) {
+    radial_spokes_ = std::clamp(spokes, 3, 24);
+    if (type_ == AxiomType::Radial || type_ == AxiomType::Suburban || type_ == AxiomType::GridCorrective) {
+        initialize_lattice_for_type();
+    }
+}
 void AxiomVisual::set_loose_grid_jitter(float value) { loose_grid_jitter_ = std::clamp(value, 0.0f, 1.0f); }
 void AxiomVisual::set_suburban_loop_strength(float value) { suburban_loop_strength_ = std::clamp(value, 0.0f, 1.0f); }
 void AxiomVisual::set_stem_branch_angle(float radians) { stem_branch_angle_ = std::clamp(radians, 0.0f, std::numbers::pi_v<float>); }
@@ -235,18 +759,18 @@ float AxiomVisual::stem_branch_angle() const { return stem_branch_angle_; }
 float AxiomVisual::superblock_block_size() const { return superblock_block_size_; }
 
 void AxiomVisual::trigger_placement_animation() {
-    if (!animation_enabled_) return;
-
-    // Start from zero and expand to target radii
-    for (auto& ring : rings_) {
-        ring.radius = 0.0f;
-        ring.opacity = 0.0f;
-        ring.is_animating = true;
+    if (!animation_enabled_) {
+        lattice_animation_alpha_ = 1.0f;
+        return;
     }
+    lattice_animation_alpha_ = 0.0f;
 }
 
 void AxiomVisual::set_animation_enabled(bool enabled) {
     animation_enabled_ = enabled;
+    if (!enabled) {
+        lattice_animation_alpha_ = 1.0f;
+    }
 }
 
 Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
@@ -254,10 +778,19 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
     input.id = id_;
     input.type = type_;
     input.position = position_;
-    input.radius = rings_[2].radius;  // Use outer ring as primary radius
+    input.radius = radius_;
     input.theta = rotation_;
     input.decay = decay_;
     input.ring_schema = RingSchemaForType(type_);
+    input.ring_schema.core_ratio = std::clamp(static_cast<double>(lattice_.zone_inner_uv), 0.05, 1.0);
+    input.ring_schema.falloff_ratio = std::clamp(
+        static_cast<double>(lattice_.zone_middle_uv),
+        input.ring_schema.core_ratio,
+        1.0);
+    input.ring_schema.outskirts_ratio = std::clamp(
+        static_cast<double>(lattice_.zone_outer_uv),
+        input.ring_schema.falloff_ratio,
+        1.5);
     input.lock_generated_roads = false;
     input.organic_curviness = organic_curviness_;
     input.radial_spokes = radial_spokes_;
@@ -265,60 +798,20 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
     input.suburban_loop_strength = suburban_loop_strength_;
     input.stem_branch_angle = stem_branch_angle_;
     input.superblock_block_size = superblock_block_size_;
-    return input;
-}
 
-// RingControlKnob Implementation
-void RingControlKnob::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
-    const ImVec2 screen_pos = viewport.world_to_screen(world_position);
-    
-    // RC-0.09-Test P1: Golden ratio sizing (30% icon, 60% spacing, 10% vignette)
-    const float ring_thickness = 10.0f;  // Visual ring thickness in screen space
-    const float icon_size = ring_thickness * 0.3f;  // 30% for icon
-    
-    // Pulsing hover effect with 1.5x snap radius
-    float pulse = 1.0f;
-    if (is_hovered || is_dragging) {
-        const float t = static_cast<float>(ImGui::GetTime());
-        pulse = 1.0f + 0.2f * sinf(t * 5.0f);  // Pulse at 5Hz
+    input.warp_lattice.topology_type = static_cast<int>(lattice_.topology);
+    input.warp_lattice.rows = lattice_.rows;
+    input.warp_lattice.cols = lattice_.cols;
+    input.warp_lattice.zone_inner_uv = lattice_.zone_inner_uv;
+    input.warp_lattice.zone_middle_uv = lattice_.zone_middle_uv;
+    input.warp_lattice.zone_outer_uv = lattice_.zone_outer_uv;
+    input.warp_lattice.vertices.clear();
+    input.warp_lattice.vertices.reserve(lattice_.vertices.size());
+    for (const auto& vertex : lattice_.vertices) {
+        input.warp_lattice.vertices.push_back(vertex.world_pos);
     }
-    const float knob_size = is_hovered ? icon_size * pulse * 1.5f : icon_size;
 
-    // Y2K color shift: bright yellow on hover, white on drag, gray default
-    const ImU32 knob_color = is_dragging ? IM_COL32(255, 255, 0, 255) : 
-                             is_hovered  ? IM_COL32(255, 200, 0, 255) :  // Amber glow
-                                           IM_COL32(180, 180, 180, 255);
-    
-    // Background capsule
-    draw_list->AddCircleFilled(screen_pos, knob_size, IM_COL32(0, 0, 0, 200), 12);
-    
-    // Outer ring
-    draw_list->AddCircle(screen_pos, knob_size, knob_color, 12, 2.0f);
-    
-    // Inner dot (affordance indicator)
-    draw_list->AddCircleFilled(screen_pos, knob_size * 0.4f, knob_color, 8);
-}
-
-bool RingControlKnob::check_hover(const Core::Vec2& world_pos, float world_radius) {
-    // RC-0.09-Test P1: 1.5x snap radius for easier interaction
-    const double snap_radius = static_cast<double>(world_radius) * 1.5;
-    const double dx = world_pos.x - world_position.x;
-    const double dy = world_pos.y - world_position.y;
-    const double dist_sq = dx * dx + dy * dy;
-    is_hovered = dist_sq <= (snap_radius * snap_radius);
-    return is_hovered;
-}
-
-void RingControlKnob::start_drag() {
-    is_dragging = true;
-}
-
-void RingControlKnob::end_drag() {
-    is_dragging = false;
-}
-
-void RingControlKnob::update_value(float new_value) {
-    value = std::clamp(new_value, 0.0f, 2.0f);  // 0-200% range
+    return input;
 }
 
 } // namespace RogueCity::App

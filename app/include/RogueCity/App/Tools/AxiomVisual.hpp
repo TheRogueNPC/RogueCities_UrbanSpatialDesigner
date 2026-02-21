@@ -9,21 +9,40 @@ struct ImDrawList;
 
 namespace RogueCity::App {
 
-struct RingControlKnob;
 class AxiomAnimationController;
+
+enum class LatticeTopology {
+    BezierPatch, // 4x4 Grid of control points (Organic, LooseGrid)
+    Polygon,     // N-sided shape (Grid, Hexagonal, Superblock)
+    Radial,      // Center + spoke points (Radial, Suburban)
+    Linear       // Spine points with width handles (Stem, Linear)
+};
+
+struct ControlVertex {
+    int id{ 0 };
+    Core::Vec2 world_pos{};
+    Core::Vec2 uv{}; // Normalized coordinate within the local axiom space.
+    bool is_hovered{ false };
+    bool is_dragging{ false };
+};
+
+struct ControlLattice {
+    LatticeTopology topology{ LatticeTopology::Polygon };
+    std::vector<ControlVertex> vertices{};
+    int rows{ 0 }; // Used by BezierPatch.
+    int cols{ 0 }; // Used by BezierPatch.
+
+    // Conceptual replacement for the former 3 rings.
+    float zone_inner_uv{ 0.33f };
+    float zone_middle_uv{ 0.67f };
+    float zone_outer_uv{ 1.0f };
+};
 
 /// Visual representation of an axiom using ImDesignManager ShapeItem
 /// Implements Cockpit Doctrine: reactive, affordance-rich control surface
 class AxiomVisual {
 public:
     using AxiomType = Generators::CityGenerator::AxiomInput::Type;
-
-    struct Ring {
-        float radius;          // Current radius (meters)
-        float target_radius;   // Target radius (for animation)
-        float opacity;         // Fade in/out
-        bool is_animating;     // Expansion animation active
-    };
 
     AxiomVisual(int id, AxiomType type);
     ~AxiomVisual();
@@ -36,7 +55,10 @@ public:
 
     /// Mouse interaction
     [[nodiscard]] bool is_hovered(const Core::Vec2& world_pos, float world_radius) const;
-    [[nodiscard]] RingControlKnob* get_hovered_knob(const Core::Vec2& world_pos);
+    [[nodiscard]] ControlVertex* get_hovered_vertex(const Core::Vec2& world_pos);
+    [[nodiscard]] const ControlLattice& lattice() const;
+    [[nodiscard]] ControlLattice& lattice();
+    [[nodiscard]] bool update_vertex_world_position(int vertex_id, const Core::Vec2& world_pos);
     void set_hovered(bool hovered);
     void set_selected(bool selected);
 
@@ -73,15 +95,18 @@ public:
 
     /// Convert to generator input
     [[nodiscard]] Generators::CityGenerator::AxiomInput to_axiom_input() const;
-
-    //this private helper function computes the current decay parameter based on the ring distribution (used for real-time preview generation) needs to be incorporated into the generator bridge if the bridge is responsible for this logic. 
-//todo check the usefulness of-> [[nodiscard]] double compute_decay() const;
 private:
+    void initialize_lattice_for_type();
+    void refresh_zone_defaults_from_type();
+    void clear_vertex_interaction_flags();
+    void recalculate_radius_from_lattice();
+
     int id_;
     AxiomType type_; // Determines how the axiom influences generation (radial, grid, etc.)
     Core::Vec2 position_{ 0.0, 0.0 }; // World coordinates (meters)
     float rotation_{ 0.0 }; // Radians, for directional axioms (e.g. stem branch angle)
-    float decay_{ 2.0 }; // Overall influence decay (computed from rings, affects generation)
+    float radius_{ 300.0f };
+    float decay_{ 2.0 }; // Overall influence decay (affects generation)
 
     float organic_curviness_{ 0.5f }; // For grid axioms: 0 = strict grid, 1 = fully organic 
 
@@ -94,36 +119,13 @@ private:
     float stem_branch_angle_{ 0.7f }; // For stem axioms: angle in radians between main stem and branches (e.g. 0.7 ~ 40 degrees)
 
     float superblock_block_size_{ 250.0f }; // For superblock axioms: size of each block in meters
-//todo consider if the ring parameters should be exposed for user editing or if they should be fixed and only used for internal decay computation. If exposed, we would need to add getters/setters for each ring radius to possibly allow independent control of each ring's influence on the decay calculation.
-    Ring rings_[3];  // Immediate, Medium, Far influence
-    std::vector<std::unique_ptr<RingControlKnob>> knobs_;
+    ControlLattice lattice_{};
     std::unique_ptr<AxiomAnimationController> animator_;
 
+    float lattice_animation_alpha_{ 1.0f };
     bool hovered_{ false };
     bool selected_{ false };
     bool animation_enabled_{ true };
-};
-
-/// Control knob for adjusting ring radius with double-click popup support
-struct RingControlKnob {
-    int ring_index;                  // 0, 1, 2
-    Core::Vec2 world_position;       // Position on ring
-    float angle;                     // Angle on ring (radians)
-    float value;                     // Ring radius multiplier [0.33, 0.67, 1.0]
-    bool is_hovered;
-    bool is_dragging;
-    float last_click_time;           // For double-click detection
-
-    /// Render knob to draw list
-    void render(ImDrawList* draw_list, const class PrimaryViewport& viewport);
-
-    /// Check if mouse is over knob
-    [[nodiscard]] bool check_hover(const Core::Vec2& world_pos, float world_radius);
-    
-    /// Drag state management
-    void start_drag();
-    void end_drag();
-    void update_value(float new_value);
 };
 
 } // namespace RogueCity::App

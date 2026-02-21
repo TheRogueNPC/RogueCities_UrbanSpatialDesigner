@@ -602,6 +602,37 @@ bool CityGenerator::ValidateAxioms(
             local_errors.push_back(prefix + "invalid ring schema ratios");
         }
 
+        if (axiom.warp_lattice.topology_type < 0 || axiom.warp_lattice.topology_type > 3) {
+            local_errors.push_back(prefix + "warp_lattice.topology_type out of range");
+        }
+        if (axiom.warp_lattice.zone_inner_uv <= 0.0f ||
+            axiom.warp_lattice.zone_middle_uv < axiom.warp_lattice.zone_inner_uv ||
+            axiom.warp_lattice.zone_outer_uv < axiom.warp_lattice.zone_middle_uv ||
+            axiom.warp_lattice.zone_outer_uv > 1.5f) {
+            local_errors.push_back(prefix + "invalid warp_lattice zone bounds");
+        }
+        for (size_t v = 0; v < axiom.warp_lattice.vertices.size(); ++v) {
+            const auto& point = axiom.warp_lattice.vertices[v];
+            if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+                local_errors.push_back(prefix + "warp_lattice vertex[" + std::to_string(v) + "] is not finite");
+                break;
+            }
+        }
+        if (axiom.warp_lattice.topology_type == 0) {
+            if (axiom.warp_lattice.rows <= 0 || axiom.warp_lattice.cols <= 0) {
+                local_errors.push_back(prefix + "bezier warp_lattice requires rows/cols > 0");
+            } else if (axiom.warp_lattice.vertices.size() !=
+                static_cast<size_t>(axiom.warp_lattice.rows * axiom.warp_lattice.cols)) {
+                local_errors.push_back(prefix + "bezier warp_lattice vertex count mismatch");
+            }
+        } else if (axiom.warp_lattice.topology_type == 1 && axiom.warp_lattice.vertices.size() < 3) {
+            local_errors.push_back(prefix + "polygon warp_lattice requires >= 3 vertices");
+        } else if (axiom.warp_lattice.topology_type == 2 && axiom.warp_lattice.vertices.size() < 2) {
+            local_errors.push_back(prefix + "radial warp_lattice requires >= 2 vertices");
+        } else if (axiom.warp_lattice.topology_type == 3 && axiom.warp_lattice.vertices.size() < 2) {
+            local_errors.push_back(prefix + "linear warp_lattice requires >= 2 vertices");
+        }
+
         // Ensure the theta value is finite.
         if (!std::isfinite(axiom.theta)) {
             local_errors.push_back(prefix + "theta must be finite");
@@ -645,12 +676,32 @@ bool CityGenerator::ValidateAxioms(
                     local_errors.push_back(prefix + "superblock_block_size must be finite and > 0");
                 }
                 break;
-                //todo - consider adding some validation for the grid/hex/linear types, such as ensuring the radius is above a certain threshold to prevent degenerate cases. For now we will allow any positive radius for these types since they can be used in creative ways and the existing bounds checks will prevent pathological cases.
-            case AxiomInput::Type::Grid: //todo needs implamentation. 
-            case AxiomInput::Type::Hexagonal: //todo needs implamentation. 
-            case AxiomInput::Type::Linear: //todo needs implamentation. 
-            case AxiomInput::Type::GridCorrective: //todo needs implamentation. 
-            case AxiomInput::Type::COUNT: //todo needs implamentation. 
+            case AxiomInput::Type::Grid:
+                // Grid fields need enough support area to avoid degenerate tensor cells.
+                if (axiom.radius < config.cell_size * 2.0) {
+                    local_errors.push_back(prefix + "grid radius must be >= 2 * cell_size");
+                }
+                break;
+            case AxiomInput::Type::Hexagonal:
+                // Hex fields collapse when the envelope is too small relative to sample spacing.
+                if (axiom.radius < config.cell_size * 2.0) {
+                    local_errors.push_back(prefix + "hexagonal radius must be >= 2 * cell_size");
+                }
+                break;
+            case AxiomInput::Type::Linear:
+                // Linear fields need a minimum reach so streamline tracing has directionality.
+                if (axiom.radius < config.cell_size) {
+                    local_errors.push_back(prefix + "linear radius must be >= cell_size");
+                }
+                break;
+            case AxiomInput::Type::GridCorrective:
+                // Corrective overlays still require a non-trivial footprint to be meaningful.
+                if (axiom.radius < config.cell_size) {
+                    local_errors.push_back(prefix + "grid-corrective radius must be >= cell_size");
+                }
+                break;
+            case AxiomInput::Type::COUNT:
+                local_errors.push_back(prefix + "invalid axiom type COUNT");
                 break;
         }
     }
@@ -691,6 +742,16 @@ uint64_t CityGenerator::HashAxioms(const std::vector<AxiomInput>& axioms) {
         HashFloat(axiom.suburban_loop_strength, hash);
         HashFloat(axiom.stem_branch_angle, hash);
         HashFloat(axiom.superblock_block_size, hash);
+        HashScalar(axiom.warp_lattice.topology_type, hash);
+        HashScalar(axiom.warp_lattice.rows, hash);
+        HashScalar(axiom.warp_lattice.cols, hash);
+        HashFloat(axiom.warp_lattice.zone_inner_uv, hash);
+        HashFloat(axiom.warp_lattice.zone_middle_uv, hash);
+        HashFloat(axiom.warp_lattice.zone_outer_uv, hash);
+        HashScalar(static_cast<uint64_t>(axiom.warp_lattice.vertices.size()), hash);
+        for (const auto& point : axiom.warp_lattice.vertices) {
+            HashVec2(point, hash);
+        }
     }
 
     return hash;

@@ -19,7 +19,22 @@ GeneratorBridge::convert_axioms(const std::vector<std::unique_ptr<AxiomVisual>>&
 
 Generators::CityGenerator::AxiomInput
 GeneratorBridge::convert_axiom(const AxiomVisual& visual) {
-    return visual.to_axiom_input();
+    auto input = visual.to_axiom_input();
+    const auto& lattice = visual.lattice();
+
+    input.warp_lattice.topology_type = static_cast<int>(lattice.topology);
+    input.warp_lattice.rows = lattice.rows;
+    input.warp_lattice.cols = lattice.cols;
+    input.warp_lattice.zone_inner_uv = lattice.zone_inner_uv;
+    input.warp_lattice.zone_middle_uv = lattice.zone_middle_uv;
+    input.warp_lattice.zone_outer_uv = lattice.zone_outer_uv;
+    input.warp_lattice.vertices.clear();
+    input.warp_lattice.vertices.reserve(lattice.vertices.size());
+    for (const auto& vertex : lattice.vertices) {
+        input.warp_lattice.vertices.push_back(vertex.world_pos);
+    }
+
+    return input;
 }
 
 bool GeneratorBridge::validate_axioms(
@@ -50,6 +65,39 @@ bool GeneratorBridge::validate_axioms(
             axiom.ring_schema.outskirts_ratio > 1.5 ||
             axiom.ring_schema.merge_band_ratio < 0.0 ||
             axiom.ring_schema.merge_band_ratio > 0.5) {
+            return false;
+        }
+
+        // Lattice guardrails.
+        if (axiom.warp_lattice.topology_type < 0 || axiom.warp_lattice.topology_type > 3) {
+            return false;
+        }
+        if (axiom.warp_lattice.zone_inner_uv <= 0.0f ||
+            axiom.warp_lattice.zone_middle_uv < axiom.warp_lattice.zone_inner_uv ||
+            axiom.warp_lattice.zone_outer_uv < axiom.warp_lattice.zone_middle_uv ||
+            axiom.warp_lattice.zone_outer_uv > 1.5f) {
+            return false;
+        }
+        for (const auto& point : axiom.warp_lattice.vertices) {
+            if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+                return false;
+            }
+        }
+
+        const size_t vertex_count = axiom.warp_lattice.vertices.size();
+        const int topology = axiom.warp_lattice.topology_type;
+        if (topology == 0) {
+            if (axiom.warp_lattice.rows <= 0 || axiom.warp_lattice.cols <= 0) {
+                return false;
+            }
+            if (vertex_count != static_cast<size_t>(axiom.warp_lattice.rows * axiom.warp_lattice.cols)) {
+                return false;
+            }
+        } else if (topology == 1 && vertex_count < 3) {
+            return false;
+        } else if (topology == 2 && vertex_count < 2) {
+            return false;
+        } else if (topology == 3 && vertex_count < 2) {
             return false;
         }
     }
