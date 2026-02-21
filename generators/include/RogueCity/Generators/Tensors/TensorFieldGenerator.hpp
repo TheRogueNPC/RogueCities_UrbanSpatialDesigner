@@ -2,6 +2,7 @@
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Data/TextureSpace.hpp"
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
+#include "RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp"
 #include <vector>
 #include <memory>
 
@@ -39,6 +40,18 @@ namespace RogueCity::Generators {
         void addSuperblockField(const Vec2& center, double radius, double theta, float block_size, double decay = 2.0);
         void addLinearField(const Vec2& center, double radius, double theta, double decay = 2.0);
         void addGridCorrective(const Vec2& center, double radius, double theta, double decay = 3.0);
+        void addRadialField(
+            const Vec2& center,
+            double radius,
+            int spokes,
+            double ring_rotation,
+            const std::array<std::array<float, 4>, 3>& ring_knob_weights,
+            double decay = 2.0);
+
+        void addOverrideField(std::unique_ptr<BasisField> field);
+        void addAdditiveField(std::unique_ptr<BasisField> field);
+        void addPostOp(const TensorPostOp& post_op);
+        void addPostOps(const std::vector<TensorPostOp>& post_ops);
 
         /// Sample tensor at world position (interpolated from grid)
         [[nodiscard]] Tensor2D sampleTensor(const Vec2& world_pos) const;
@@ -74,12 +87,15 @@ namespace RogueCity::Generators {
     private:
         Config config_;
         std::vector<Tensor2D> grid_;  // width * height tensor grid
-        std::vector<std::unique_ptr<BasisField>> basis_fields_;
+        std::vector<std::unique_ptr<BasisField>> override_fields_;
+        std::vector<std::unique_ptr<BasisField>> additive_fields_;
+        std::vector<TensorPostOp> post_ops_;
         bool field_generated_{ false };
         const Core::Data::TextureSpace* texture_space_{ nullptr };
         mutable bool last_sample_used_texture_{ false };
         mutable bool last_sample_used_fallback_{ false };
         mutable bool texture_fallback_warned_{ false };
+        [[nodiscard]] Tensor2D evaluateTensorAt(const Vec2& world_pos) const;
 
         /// Convert world position to grid indices
         [[nodiscard]] bool worldToGrid(const Vec2& world_pos, int& gx, int& gy) const;

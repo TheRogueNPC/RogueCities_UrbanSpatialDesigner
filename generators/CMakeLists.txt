@@ -12,6 +12,7 @@ set(GENERATOR_SOURCES
     src/Generators/Geometry/GeometryAdapter.cpp
     src/Generators/Tensors/TensorFieldGenerator.cpp
     src/Generators/Tensors/BasisFields.cpp
+    src/Generators/Tensors/TerminalFeatureApplier.cpp
     src/Generators/Roads/StreamlineTracer.cpp
     src/Generators/Roads/RoadClassifier.cpp
     src/Generators/Roads/SegmentGridStorage.cpp
@@ -48,6 +49,8 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Geometry/GeometryAdapter.hpp
     include/RogueCity/Generators/Tensors/TensorFieldGenerator.hpp
     include/RogueCity/Generators/Tensors/BasisFields.hpp
+    include/RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp
+    include/RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp
     include/RogueCity/Generators/Roads/StreamlineTracer.hpp
     include/RogueCity/Generators/Roads/RoadClassifier.hpp
     include/RogueCity/Generators/Roads/PolylineRoadCandidate.hpp

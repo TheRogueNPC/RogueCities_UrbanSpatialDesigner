@@ -84,7 +84,10 @@ static bool SnapshotsEqual(const AxiomPlacementTool::AxiomSnapshot& a,
         a.loose_grid_jitter == b.loose_grid_jitter &&
         a.suburban_loop_strength == b.suburban_loop_strength &&
         a.stem_branch_angle == b.stem_branch_angle &&
-        a.superblock_block_size == b.superblock_block_size;
+        a.superblock_block_size == b.superblock_block_size &&
+        a.radial_ring_rotation == b.radial_ring_rotation &&
+        a.radial_ring_knob_weights == b.radial_ring_knob_weights &&
+        a.terminal_features.bits == b.terminal_features.bits;
 }
 
 constexpr float kAxiomMinRadius = 50.0f;
@@ -94,6 +97,12 @@ constexpr double kAxiomPickRadiusMeters = 24.0;
 
 [[nodiscard]] double CoreRingRadius(const AxiomVisual& axiom) {
     return std::max(8.0, static_cast<double>(axiom.radius()) * kCoreRingRatio);
+}
+
+[[nodiscard]] size_t AxiomTypeIndex(AxiomVisual::AxiomType type) {
+    const size_t idx = static_cast<size_t>(type);
+    const size_t max_index = static_cast<size_t>(AxiomVisual::AxiomType::COUNT) - 1;
+    return std::min(idx, max_index);
 }
 
 } // namespace
@@ -226,6 +235,9 @@ void AxiomPlacementTool::on_mouse_up(const Core::Vec2& world_pos) {
         auto axiom = std::make_unique<AxiomVisual>(next_axiom_id_++, default_type_);
         axiom->set_position(placement_start_pos_);
         axiom->set_radius(ghost_radius_);
+        const size_t type_index = AxiomTypeIndex(default_type_);
+        axiom->set_terminal_features(default_terminal_features_[type_index]);
+        axiom->set_radial_ring_rotation(default_radial_ring_rotation_[type_index]);
         axiom->set_animation_enabled(animation_enabled_);
         axiom->trigger_placement_animation();
         
@@ -376,6 +388,24 @@ AxiomVisual::AxiomType AxiomPlacementTool::default_axiom_type() const {
     return default_type_;
 }
 
+void AxiomPlacementTool::set_default_terminal_features(
+    AxiomVisual::AxiomType type,
+    const Generators::TerminalFeatureSet& features) {
+    default_terminal_features_[AxiomTypeIndex(type)] = features;
+}
+
+Generators::TerminalFeatureSet AxiomPlacementTool::default_terminal_features(AxiomVisual::AxiomType type) const {
+    return default_terminal_features_[AxiomTypeIndex(type)];
+}
+
+void AxiomPlacementTool::set_default_radial_ring_rotation(AxiomVisual::AxiomType type, float radians) {
+    default_radial_ring_rotation_[AxiomTypeIndex(type)] = radians;
+}
+
+float AxiomPlacementTool::default_radial_ring_rotation(AxiomVisual::AxiomType type) const {
+    return default_radial_ring_rotation_[AxiomTypeIndex(type)];
+}
+
 void AxiomPlacementTool::set_animation_enabled(bool enabled) {
     animation_enabled_ = enabled;
 }
@@ -412,6 +442,13 @@ void AxiomPlacementTool::add_axiom_from_snapshot(const AxiomSnapshot& snapshot) 
     axiom->set_suburban_loop_strength(snapshot.suburban_loop_strength);
     axiom->set_stem_branch_angle(snapshot.stem_branch_angle);
     axiom->set_superblock_block_size(snapshot.superblock_block_size);
+    axiom->set_radial_ring_rotation(snapshot.radial_ring_rotation);
+    for (size_t r = 0; r < snapshot.radial_ring_knob_weights.size(); ++r) {
+        for (size_t k = 0; k < snapshot.radial_ring_knob_weights[r].size(); ++k) {
+            axiom->set_radial_ring_knob_weight(r, k, snapshot.radial_ring_knob_weights[r][k]);
+        }
+    }
+    axiom->set_terminal_features(snapshot.terminal_features);
     axiom->set_animation_enabled(animation_enabled_);
     axioms_.push_back(std::move(axiom));
     next_axiom_id_ = std::max(next_axiom_id_, snapshot.id + 1);
@@ -431,6 +468,13 @@ AxiomPlacementTool::AxiomSnapshot AxiomPlacementTool::snapshot_axiom(const Axiom
     snapshot.suburban_loop_strength = axiom.suburban_loop_strength();
     snapshot.stem_branch_angle = axiom.stem_branch_angle();
     snapshot.superblock_block_size = axiom.superblock_block_size();
+    snapshot.radial_ring_rotation = axiom.radial_ring_rotation();
+    snapshot.terminal_features = axiom.terminal_features();
+    for (size_t r = 0; r < snapshot.radial_ring_knob_weights.size(); ++r) {
+        for (size_t k = 0; k < snapshot.radial_ring_knob_weights[r].size(); ++k) {
+            snapshot.radial_ring_knob_weights[r][k] = axiom.radial_ring_knob_weight(r, k);
+        }
+    }
     return snapshot;
 }
 
@@ -450,6 +494,13 @@ void AxiomPlacementTool::apply_snapshot(const AxiomSnapshot& snapshot) {
     axiom->set_suburban_loop_strength(snapshot.suburban_loop_strength);
     axiom->set_stem_branch_angle(snapshot.stem_branch_angle);
     axiom->set_superblock_block_size(snapshot.superblock_block_size);
+    axiom->set_radial_ring_rotation(snapshot.radial_ring_rotation);
+    for (size_t r = 0; r < snapshot.radial_ring_knob_weights.size(); ++r) {
+        for (size_t k = 0; k < snapshot.radial_ring_knob_weights[r].size(); ++k) {
+            axiom->set_radial_ring_knob_weight(r, k, snapshot.radial_ring_knob_weights[r][k]);
+        }
+    }
+    axiom->set_terminal_features(snapshot.terminal_features);
     dirty_ = true;
 }
 

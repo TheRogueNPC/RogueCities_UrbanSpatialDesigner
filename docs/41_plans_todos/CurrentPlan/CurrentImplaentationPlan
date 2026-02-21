@@ -1,0 +1,435 @@
+json
+{
+  "operation": "implant_terminal_features_tensor_behavior",
+  "discovery_commands": [
+    "rg -n \"addOrganicField\\(|addGridField\\(|addRadialField\\(\" generators app core",
+    "rg -n \"AxiomType\" generators app",
+    "rg -n \"struct AxiomInput\" generators app",
+    "rg -n \"TensorFieldGenerator\" generators app",
+    "rg -n \"generateField\\(\" generators/src"
+  ],
+  "new_files": [
+    {
+      "path": "generators/include/RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp",
+      "contents": "TerminalFeature enum, TerminalFeatureSet, featureAllowedForType(...)"
+    },
+    {
+      "path": "generators/include/RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp",
+      "contents": "AxiomTensorParams, TensorPostOp, FeaturePlan, buildFeaturePlan(...)"
+    },
+    {
+      "path": "generators/src/Generators/Tensors/TerminalFeatureApplier.cpp",
+      "contents": "Per-feature plan construction; seeded randomness helpers"
+    }
+  ],
+  "modify_files": [
+    {
+      "path": "generators/include/RogueCity/Generators/Tensors/TensorFieldGenerator.hpp",
+      "do": [
+        "Add override_fields_ and additive_fields_ storage (keep existing basis_fields_ only if needed for backward compat).",
+        "Ensure existing add*Field methods still exist and push into additive list.",
+        "Add method addOverrideField(std::unique_ptr<BasisField>) (private or public as needed)."
+      ],
+      "dont": [
+        "Do not change existing public method signatures such as addOrganicField/addGridField/etc. These are used widely. [cite:12]"
+      ]
+    },
+    {
+      "path": "generators/src/Generators/Tensors/TensorFieldGenerator.cpp",
+      "do": [
+        "Update generateField() to evaluate override fields first (short-circuit on active override), else evaluate additive fields.",
+        "Add a post-op pass per cell after base evaluation (apply TensorPostOp list).",
+        "Keep sampleTensor() behavior identical; it should sample the produced grid or TextureSpace binding. [cite:12]"
+      ]
+    },
+    {
+      "path": "generators/include/RogueCity/Generators/Tensors/BasisFields.hpp",
+      "do": [
+        "Add new BasisField subclasses used by features (Mask/Void, BoundarySeam, ShearPlane, StrongLinearCorridor, GradientAligned, etc)."
+      ],
+      "note": "BasisFields is already included by TensorFieldGenerator.hpp. [cite:12]"
+    },
+    {
+      "path": "WHEREVER_AxiomInput_lives_(found_by_discovery)",
+      "do": [
+        "Add TerminalFeatureSet terminal_features; store per-axiom instance.",
+        "Add per-feature scalar params only if necessary; otherwise derive from existing axiom params."
+      ]
+    },
+    {
+      "path": "WHEREVER_axioms_are_converted_to_tensor_fields_(found_by_discovery)",
+      "do": [
+        "For each axiom: call existing add<Type>Field(...) first, then buildFeaturePlan(type, params, features), inject extra basis fields (some to override list), and register post-ops."
+      ]
+    },
+    {
+      "path": "app-side axiom editor + serialization bridge (found by discovery)",
+      "do": [
+        "Expose 4 toggles (checkboxes) per axiom type; store in a stable TerminalFeatureSet representation.",
+        "Serialize into generator input with explicit mapping (no implicit ordering)."
+      ]
+    }
+  ],
+  "validation": {
+    "unit_or_debug_checks": [
+      "Add a debug dump: for one axiom, print enabled TerminalFeature bits + derived params at generation time.",
+      "Render tensor direction texture before/after enabling each feature for a known seed."
+    ],
+    "acceptance": [
+      "Toggling a feature must change the tensor field deterministically for the same seed.",
+      "GridCorrective AbsoluteOverride must visibly dominate nearby fields."
+    ]
+  }
+}
+
+A clean insertion point: Generators::TensorFieldGenerator builds the tensor grid by accumulating “basis fields” via the add*Field(...) methods and then calling generateField() to evaluate them across the grid. The most robust way to “implant” Terminal Features is to treat each feature as either (a) an additional BasisField injected alongside the axiom’s base field(s), or (b) a post-process modifier applied during generateField() before the road tracer samples tensors.
+
+
+
+Target architecture
+Goal: make Terminal Features data-driven, type-safe, serializable, and enforceable (a Grid feature cannot accidentally be applied to Organic).
+
+New core types (Generators)
+Create a single global enum for all terminal features (40 total), plus helpers to validate by AxiomType.
+
+cpp
+// generators/include/.../AxiomTerminalFeatures.hpp (new)
+#pragma once
+#include <cstdint>
+#include <array>
+
+namespace RogueCity::Generators {
+
+enum class AxiomType : uint8_t; // use your existing AxiomType include instead
+
+enum class TerminalFeature : uint8_t {
+  // Organic (4)
+  Organic_TopologicalFlowConstraint,
+  Organic_MeanderBias,
+  Organic_VoronoiRelaxation,
+  Organic_CulDeSacPruning,
+
+  // Grid (4)
+  Grid_AxisAlignmentLock,
+  Grid_DiagonalSlicing,
+  Grid_AlleywayBisection,
+  Grid_BlockFusion,
+
+  // Radial (4)
+  Radial_SpiralDominance,
+  Radial_CoreVoiding,
+  Radial_SpokePruning,
+  Radial_ConcentricWaveDensity,
+
+  // Hexagon (4)
+  Hex_HoneycombStrictness,
+  Hex_TriangularSubdivision,
+  Hex_OffsetStagger,
+  Hex_OrganicEdgeBleed,
+
+  // Stem (4)
+  Stem_FractalRecursion,
+  Stem_DirectionalFlowBias,
+  Stem_CanopyWeave,
+  Stem_TerminalLoops,
+
+  // Loose Grid (4)
+  LooseGrid_HistoricalFaultLines,
+  LooseGrid_JitterPersistence,
+  LooseGrid_TJunctionForcing,
+  LooseGrid_CenterWeightedDensity,
+
+  // Suburban (4)
+  Suburban_LollipopTerminals,
+  Suburban_ArterialIsolation,
+  Suburban_TerrainAvoidance,
+  Suburban_HierarchicalStrictness,
+
+  // Superblock (4)
+  Superblock_PedestrianMicroField,
+  Superblock_ArterialTrenching,
+  Superblock_CourtyardVoid,
+  Superblock_PermeableEdges,
+
+  // Linear (4)
+  Linear_RibbonBraiding,
+  Linear_ParallelCascading,
+  Linear_PerpendicularRungs,
+  Linear_TaperedTerminals,
+
+  // Grid Corrective (4)
+  GridCorrective_AbsoluteOverride,
+  GridCorrective_MagneticAlignment,
+  GridCorrective_OrthogonalCull,
+  GridCorrective_BoundaryStitching,
+};
+
+struct TerminalFeatureSet {
+  // simplest: fixed-size bitset; 64 bits gives headroom
+  uint64_t bits = 0;
+  bool has(TerminalFeature f) const { return (bits & (1ull << uint8_t(f))) != 0; }
+  void set(TerminalFeature f, bool on) { on ? bits |= (1ull << uint8_t(f)) : bits &= ~(1ull << uint8_t(f)); }
+};
+
+bool featureAllowedForType(AxiomType type, TerminalFeature f);
+
+} // namespace
+Pipeline integration points (where/why)
+This is the minimal “one-go” chain you want:
+
+App Axiom model → add feature toggles
+
+Where: your axiom authoring/editor tool state (where AxiomType + radius/theta/curviness/etc are stored).
+
+Why: the editor must persist/serialize the selected 4 toggles for the current axiom instance.
+
+Bridge serialization → pass to generator input
+
+Where: the same place you already pass axiom parameters into generation (you previously referenced GeneratorBridge.cpp in your warp plan).
+
+Why: Terminal Features must be available when TensorFieldGenerator is being populated.
+
+Generator “axioms → tensor basis fields” stage → inject features
+
+Where: the code that calls TensorFieldGenerator::addOrganicField, addGridField, addRadialField, etc.
+
+Why: this is the canonical place to add additional basis fields/modifiers per axiom before generateField() runs.
+
+Tensor grid build (generateField) → optional post-process modifier pass
+
+Where: TensorFieldGenerator::generateField() implementation (in generators/src/.../TensorFieldGenerator.cpp).
+
+Why: some features are easiest as a grid-level operator (axis snap, angular clamp, masks/voids).
+
+Implementation strategy (no ambiguity)
+A) Make features “pluggable” via a Feature Applier
+Add a small orchestrator that converts (AxiomType, params, featureSet) into “extra basis fields” + “post ops”.
+
+cpp
+// generators/include/.../TerminalFeatureApplier.hpp (new)
+struct AxiomTensorParams {
+  Core::Vec2 center;
+  double radius;
+  double theta;
+  // include existing per-type params you already pass to add*Field
+  float curviness = 0.f;
+  float jitter = 0.f;
+  float branch_angle = 0.f;
+  float loop_strength = 0.f;
+  float block_size = 0.f;
+  int spokes = 0;
+  double decay = 2.0;
+};
+
+struct TensorPostOp {
+  enum class Kind { AngularSnap, AxisLock, MagnitudeMask, SpiralWarp /*...*/ } kind;
+  // fully parameterize, no hidden globals
+  AxiomTensorParams ax;
+  TerminalFeature feature;
+  float a = 0, b = 0, c = 0;
+};
+
+struct FeaturePlan {
+  std::vector<std::unique_ptr<BasisField>> extra_basis_fields;
+  std::vector<TensorPostOp> post_ops;
+};
+
+FeaturePlan buildFeaturePlan(AxiomType type, const AxiomTensorParams& ax, const TerminalFeatureSet& features);
+Do/Don’t rules for the AI implementing:
+
+DO keep TensorFieldGenerator’s public add*Field(...) API stable initially.
+
+DO add new BasisField subclasses in BasisFields.hpp/.cpp (or adjacent files) rather than hacking conditional math into existing fields.
+
+DON’T let UI code reference generator headers directly; the bridge should translate UI state into generator-facing TerminalFeatureSet.
+
+B) Extend TensorFieldGenerator to accept “feature fields”
+Right now it stores std::vector<std::unique_ptr<BasisField>> basis_fields_ and evaluates them during generateField(). Add two internal lists to support “override/mask” semantics (needed for GridCorrective features and voids):
+
+override_fields_ (evaluated first, highest priority wins)
+
+additive_fields_ (your existing accumulation behavior)
+
+Concrete change:
+
+cpp
+// inside TensorFieldGenerator (private)
+std::vector<std::unique_ptr<BasisField>> override_fields_;
+std::vector<std::unique_ptr<BasisField>> additive_fields_;
+Then:
+
+Change existing add*Field(...) to push into additive_fields_.
+
+Add a new internal method addOverrideField(std::unique_ptr<BasisField>).
+
+In generateField():
+
+Evaluate overrides for each cell; if an override returns “active”, take it and skip additive accumulation.
+
+Else accumulate additive fields as you do now.
+
+This is the clean way to implement:
+
+GridCorrective_AbsoluteOverride (mask/override)
+
+Superblock_CourtyardVoid (mask/override)
+
+Radial_CoreVoiding (inner mask blending)
+
+Feature-to-code mapping (what goes where)
+Below is the exact mapping method: each feature becomes either a BasisField or a TensorPostOp.
+
+Organic (4)
+Topological Flow Constraint → BasisField: GradientAlignedField (samples a scalar field gradient; if your TextureSpace has a height layer, use it; otherwise deterministic noise gradient).
+
+Meander Bias → TensorPostOp: AngleNoiseWarp (low-frequency rotation offset as function of world pos).
+
+Voronoi Relaxation → TensorPostOp: TriDirectionQuantize (quantize angles to 3 directions; strength falloff by radius).
+
+Cul-de-sac Pruning → TensorPostOp: MinorEigenvalueDecay (reduce minor eigenvalue with distance; encourages dead-ends by reducing lateral guidance).
+
+Grid (4)
+Axis Alignment Lock → TensorPostOp: AxisLock (snap theta to nearest 0/90 globally inside radius).
+
+Diagonal Slicing → BasisField: StrongLinearCorridorField (a high-strength linear field across the grid at user angle).
+
+Alleyway Bisection → BasisField: SecondaryFineGridField (same center/theta, but smaller “spacing proxy” via eigenvalue ratio; if spacing isn’t modeled, do it as weaker magnitude + higher decay so it only appears internally).
+
+Block Fusion → BasisField: FusionVoidPatchesField (randomized isotropic/low-magnitude patches; deterministic seeded by axiom id).
+
+Radial (4)
+Spiral Dominance → TensorPostOp: SpiralWarp (rotate tensor angle by 
+k
+⋅
+log
+⁡
+(
+r
+)
+k⋅log(r) or 
+k
+⋅
+r
+k⋅r inside radius).
+
+Core Voiding → BasisField: CoreVoidMaskField (inner radius forces tangential direction, suppress radial component).
+
+Spoke Pruning → parameterize your existing radial basis: use addRadialField(center, radius, spokes, decay) plus a pruning mask (keep every Nth spoke, seedable).
+
+Concentric Wave Density → TensorPostOp: RadialMagnitudeCurve (eigenvalue strength curve by normalized radius).
+
+Hexagon (4)
+Honeycomb Strictness → TensorPostOp: AngularSnap(60deg) (clamp to 60-degree increments).
+
+Triangular Subdivision → BasisField: HexDiagonalCrossField (add diagonal guidance inside radius).
+
+Offset Stagger → BasisField: StaggeredHexField (hex basis with alternating row offset).
+
+Organic Edge Bleed → TensorPostOp: EdgeBlend (blend toward neighbors by increasing decay near boundary, or reduce snap strength near boundary).
+
+Stem (4)
+Fractal Recursion → BasisField: MultiScaleStemField (spawn 2–3 nested stem fields with decreasing radius/eigenvalue).
+
+Directional Flow Bias → TensorPostOp: OneWayBias (add a “preferred” direction component along theta; suppress backward direction by eigenvalue skew).
+
+Canopy Weave → TensorPostOp: TipOutwardCurl (near tips, rotate field outward; deterministic by local noise).
+
+Terminal Loops → BasisField: TerminalLoopSeedsField (inject small radial fields with high tangential bias at branch endpoints; initial version can approximate endpoints by sampling along stem axis at fixed intervals).
+
+Loose Grid (4)
+Historical Fault Lines → BasisField: ShearPlaneField (rotate grid theta by ±δ on one side of a line).
+
+Jitter Persistence → use existing addLooseGridField(center, radius, theta, jitter, decay) plus a coherent phase so parallel lines “wave together”.
+
+T-Junction Forcing → TensorPostOp: CrossSuppression (reduce orthogonal strength at high-crossing likelihood; practically: lower minor eigenvalue).
+
+Center-Weighted Density → TensorPostOp: MagnitudeByRadius (stronger center guidance, weaker periphery).
+
+Suburban (4)
+Lollipop Terminals → use addSuburbanField(center, radius, loop_strength, decay) with loop_strength mapped to the feature toggle intensity.
+
+Arterial Isolation → BasisField: BoundaryRepulsionRingField (push minor directions inward except at “entry slots”).
+
+Terrain Avoidance → reuse Organic gradient field but rotate away from gradient instead of along it.
+
+Hierarchical Strictness → TensorPostOp: TieredMagnitude (3-tier eigenvalue curve by distance; actual “no local-to-arterial direct connect” remains road-graph logic later).
+
+Superblock (4)
+Pedestrian Micro-Field → BasisField: HighFreqInteriorField (very low magnitude unless your road tracer supports “pedestrian” later; keep it gated/optional).
+
+Arterial Trenching → BasisField: BoundaryHighMagnitudeField + TensorPostOp: InnerBufferVoid (reduce magnitude just inside boundary).
+
+Courtyard Void → BasisField: CenterVoidMaskField (override to zero tensor magnitude in center).
+
+Permeable Edges → TensorPostOp: EdgePenetrationClamp (allow outside fields to remain for 1 block depth, then damp).
+
+Linear (4)
+Ribbon Braiding → TensorPostOp: SinusoidalAngleWarp along the linear axis.
+
+Parallel Cascading → BasisField: ParallelLinearFieldBundle (multiple offset linear fields).
+
+Perpendicular Rungs → BasisField: PeriodicRungField (transverse guidance at intervals; if your tensor system has no “interval”, use a spatial sine threshold).
+
+Tapered Terminals → TensorPostOp: EndTaper (magnitude taper near endpoints).
+
+Grid Corrective (4)
+You already have addGridCorrective(center, radius, theta, decay = 3.0).
+
+Absolute Override → implement as override field with priority highest.
+
+Magnetic Alignment → TensorPostOp: SmoothAxisBlend (lerp angles over distance).
+
+Orthogonal Cull → TensorPostOp: AngleToleranceCull (if angle deviates > tol, reduce magnitude toward 0).
+
+Boundary Stitching → BasisField: BoundarySeamField (tangential guidance around boundary + entry funnels).
+
+AI “surgical orders” (JSON)
+This is intended to be executed verbatim by an AI implementer; it includes discovery steps so no file-path assumptions are required.
+
+
+One clarification (to avoid rework)
+Do you want Terminal Features to be exclusive (pick 1 of 4 per axiom type) or combinable (any subset of the 4 toggles can be enabled at once)?
+
+# answer
+
+We’ll implement (1) combinable Terminal Features with a hover-delay “what it influences” popup plus ghost-preview overlays, (2) a larger, more readable axiom center icon, and (3) a Radial axiom that keeps your existing ring/knob workflow but adds “rotate rings” as a first-class parameter that actually affects the shaped rings.
+
+Combinable + delayed popup + ghosts
+Your best hook points already exist in the UI layer: the visual entity is AxiomVisual (renders rings + center marker + type glyph) and the editor panel entry point exists in visualizer/src/ui/panels/rc_panel_axiom_editor.h.
+
+Plan:
+
+Add TerminalFeatureSet (bitset) to the axiom model/UI state (the same object that eventually becomes CityGenerator::AxiomInput via AxiomVisual::to_axiom_input()).
+
+In the editor panel, render the 4 checkboxes for the active axiom type, and attach a hover timer (e.g., 0.45s) that, once exceeded, sets AxiomVisual::preview_feature = <that feature> and opens a small context popup (you already have ContextWindowPopup.cpp as a likely shared pattern to reuse).
+
+In AxiomVisual::render(...), if preview_feature is active, draw “ghost outlines” using the same ImDrawList you already use for rings and icons (ghost ring, ghost corridor line, ghost boundary seam, etc.), then fade it out when the hover ends.
+
+Enlarge axiom icon size
+Right now the center marker size is driven by base_marker (8/10) and the core ring radius, and the glyph uses DrawAxiomIcon(..., marker_size * 0.70f, ...).
+
+Make it more viewer-friendly by:
+
+Increasing base_marker and/or clamping marker_size higher (e.g., 10/12 instead of 8/10), then bumping the glyph multiplier from 0.70f to ~0.85f so the type icon is legible before you zoom in.
+
+Optionally, add a single global “Axiom Visual Scale” config that affects both the marker and ring thickness so it’s consistent across tools (rings are currently drawn with fixed thickness 2.0f in screen space).
+
+Radial: keep old setup + rotate rings
+Your current Radial UI already has a ring schema per type and 3 rings with 4 knobs each at 0/90/180/270 degrees, but those knob angles are static and knob positions don’t incorporate rotation_. Also, the generator-side radial field API currently has no theta parameter (addRadialField(center, radius, decay) and addRadialField(center, radius, spokes, decay)), so any “ring rotation” must be expressed either via new radial parameters or via a post-op warp.
+
+Concrete “rotate rings” implementation (that actually changes shaped rings, not perfect circles):
+
+Extend CityGenerator::AxiomInput to include per-ring knob multipliers (3 rings × 4 floats) plus radial_ring_rotation (float radians).
+
+Update AxiomVisual so knob world positions use cos(angle + radial_ring_rotation) / sin(angle + radial_ring_rotation) for Radial type (and keep others unchanged), and serialize that into to_axiom_input().
+
+In the tensor field build step (where AxiomInput becomes calls into TensorFieldGenerator), use those knob multipliers to compute an angle-dependent “effective ring radius” / ring weight, then rotate the sampling angle by radial_ring_rotation before you look up which quadrant weights to blend.
+
+This preserves your existing ring+knob authoring model while making rotation a meaningful artistic control.
+
+Implementation order (minimal churn)
+UI first: add feature checkboxes + hover-delay preview state; add center icon scaling tweak in AxiomVisual::render.
+
+Data plumbing: carry TerminalFeatureSet + (Radial knob weights + ring rotation) through AxiomVisual::to_axiom_input() → GeneratorBridge.cpp.
+
+Generator: keep the existing addRadialField(...) signatures intact, but enhance the radial basis evaluation using the new per-axiom radial parameters (or add a non-breaking overload if you prefer), since the current API doesn’t accept theta.

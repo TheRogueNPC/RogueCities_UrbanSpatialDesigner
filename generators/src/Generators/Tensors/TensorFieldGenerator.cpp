@@ -25,7 +25,9 @@ namespace RogueCity::Generators {
     TensorFieldGenerator::TensorFieldGenerator(const TensorFieldGenerator& other)
         : config_(other.config_)
         , grid_(other.grid_)
-        , basis_fields_()
+        , override_fields_()
+        , additive_fields_()
+        , post_ops_(other.post_ops_)
         , field_generated_(other.field_generated_)
         , texture_space_(nullptr)
         , last_sample_used_texture_(false)
@@ -40,7 +42,9 @@ namespace RogueCity::Generators {
 
         config_ = other.config_;
         grid_ = other.grid_;
-        basis_fields_.clear(); // Basis fields are intentionally not cloned.
+        override_fields_.clear(); // Basis fields are intentionally not cloned.
+        additive_fields_.clear(); // Basis fields are intentionally not cloned.
+        post_ops_ = other.post_ops_;
         field_generated_ = other.field_generated_;
         texture_space_ = nullptr;
         last_sample_used_texture_ = false;
@@ -51,79 +55,118 @@ namespace RogueCity::Generators {
 
     // Field registration helpers append basis primitives and invalidate cached solved grid.
     void TensorFieldGenerator::addOrganicField(const Vec2& center, double radius, double theta, float curviness, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<OrganicField>(center, radius, theta, curviness, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addRadialField(const Vec2& center, double radius, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<RadialField>(center, radius, decay)
         );
         field_generated_ = false;  // Invalidate cached field
     }
 
     void TensorFieldGenerator::addRadialField(const Vec2& center, double radius, int spokes, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<RadialHubSpokeField>(center, radius, spokes, decay)
         );
         field_generated_ = false;
     }
 
+    void TensorFieldGenerator::addRadialField(
+        const Vec2& center,
+        double radius,
+        int spokes,
+        double ring_rotation,
+        const std::array<std::array<float, 4>, 3>& ring_knob_weights,
+        double decay) {
+        additive_fields_.push_back(
+            std::make_unique<RadialHubSpokeField>(center, radius, spokes, ring_rotation, ring_knob_weights, decay)
+        );
+        field_generated_ = false;
+    }
+
     void TensorFieldGenerator::addGridField(const Vec2& center, double radius, double theta, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<GridField>(center, radius, theta, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addHexagonalField(const Vec2& center, double radius, double theta, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<HexagonalField>(center, radius, theta, 120.0, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addStemField(const Vec2& center, double radius, double theta, float branch_angle, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<StemField>(center, radius, theta, branch_angle, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addLooseGridField(const Vec2& center, double radius, double theta, float jitter, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<LooseGridField>(center, radius, theta, jitter, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addSuburbanField(const Vec2& center, double radius, float loop_strength, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<SuburbanField>(center, radius, loop_strength, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addSuperblockField(const Vec2& center, double radius, double theta, float block_size, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<SuperblockField>(center, radius, theta, block_size, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addLinearField(const Vec2& center, double radius, double theta, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<LinearField>(center, radius, theta, decay)
         );
         field_generated_ = false;
     }
 
     void TensorFieldGenerator::addGridCorrective(const Vec2& center, double radius, double theta, double decay) {
-        basis_fields_.push_back(
+        additive_fields_.push_back(
             std::make_unique<GridCorrectiveField>(center, radius, theta, decay)
         );
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addOverrideField(std::unique_ptr<BasisField> field) {
+        if (field == nullptr) {
+            return;
+        }
+        override_fields_.push_back(std::move(field));
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addAdditiveField(std::unique_ptr<BasisField> field) {
+        if (field == nullptr) {
+            return;
+        }
+        additive_fields_.push_back(std::move(field));
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addPostOp(const TensorPostOp& post_op) {
+        post_ops_.push_back(post_op);
+        field_generated_ = false;
+    }
+
+    void TensorFieldGenerator::addPostOps(const std::vector<TensorPostOp>& post_ops) {
+        post_ops_.insert(post_ops_.end(), post_ops.begin(), post_ops.end());
         field_generated_ = false;
     }
 
@@ -149,26 +192,7 @@ namespace RogueCity::Generators {
                             (gy + 0.5) * config_.cell_size
                         );
 
-                        // Blend all basis fields
-                        Tensor2D result = Tensor2D::zero();
-                        double total_weight = 0.0;
-
-                        for (const auto& field : basis_fields_) {
-                            double weight = field->getWeight(world_pos);
-                            if (weight > 1e-6) {
-                                Tensor2D tensor = field->sample(world_pos);
-                                tensor.scale(weight);
-                                result.add(tensor, true);  // Smooth blending
-                                total_weight += weight;
-                            }
-                        }
-
-                        // Normalize by total weight
-                        if (total_weight > 1e-6) {
-                            result.scale(1.0 / total_weight);
-                        }
-
-                        // Store in grid
+                        Tensor2D result = evaluateTensorAt(world_pos);
                         int idx = gy * config_.width + gx;
                         grid_[idx] = result;
                     }
@@ -211,25 +235,7 @@ namespace RogueCity::Generators {
 
         last_sample_used_fallback_ = true;
         if (!field_generated_) {
-            // Fallback: Real-time sampling (slower but works if generateField() not called)
-            Tensor2D result = Tensor2D::zero();
-            double total_weight = 0.0;
-
-            for (const auto& field : basis_fields_) {
-                double weight = field->getWeight(world_pos);
-                if (weight > 1e-6) {
-                    Tensor2D tensor = field->sample(world_pos);
-                    tensor.scale(weight);
-                    result.add(tensor, true);
-                    total_weight += weight;
-                }
-            }
-
-            if (total_weight > 1e-6) {
-                result.scale(1.0 / total_weight);
-            }
-
-            return result;
+            return evaluateTensorAt(world_pos);
         }
 
         // Fast path: Interpolate from pre-generated grid
@@ -253,20 +259,7 @@ namespace RogueCity::Generators {
                 if (field_generated_) {
                     tensor = interpolateTensor(world);
                 } else {
-                    double total_weight = 0.0;
-                    for (const auto& field : basis_fields_) {
-                        const double weight = field->getWeight(world);
-                        if (weight <= 1e-6) {
-                            continue;
-                        }
-                        Tensor2D sample = field->sample(world);
-                        sample.scale(weight);
-                        tensor.add(sample, true);
-                        total_weight += weight;
-                    }
-                    if (total_weight > 1e-6) {
-                        tensor.scale(1.0 / total_weight);
-                    }
+                    tensor = evaluateTensorAt(world);
                 }
 
                 tensor_layer.at(x, y) = tensor.majorEigenvector();
@@ -343,7 +336,9 @@ namespace RogueCity::Generators {
 
     // Resets generator to empty basis set and cleared solved state.
     void TensorFieldGenerator::clear() {
-        basis_fields_.clear();
+        override_fields_.clear();
+        additive_fields_.clear();
+        post_ops_.clear();
         std::fill(grid_.begin(), grid_.end(), Tensor2D::zero());
         field_generated_ = false;
         last_sample_used_texture_ = false;
@@ -361,6 +356,48 @@ namespace RogueCity::Generators {
 #else
         (void)reason;
 #endif
+    }
+
+    Tensor2D TensorFieldGenerator::evaluateTensorAt(const Vec2& world_pos) const {
+        // Highest-priority pass: if any override field is active, select the strongest one.
+        double best_override_weight = 0.0;
+        Tensor2D override_tensor = Tensor2D::zero();
+        for (const auto& field : override_fields_) {
+            const double weight = field->getWeight(world_pos);
+            if (weight <= best_override_weight || weight <= 1e-6) {
+                continue;
+            }
+            best_override_weight = weight;
+            override_tensor = field->sample(world_pos);
+            override_tensor.scale(weight);
+        }
+
+        Tensor2D result = Tensor2D::zero();
+        if (best_override_weight > 1e-6) {
+            result = override_tensor;
+            result.scale(1.0 / best_override_weight);
+        } else {
+            // Default pass: weighted additive accumulation.
+            double total_weight = 0.0;
+            for (const auto& field : additive_fields_) {
+                const double weight = field->getWeight(world_pos);
+                if (weight <= 1e-6) {
+                    continue;
+                }
+                Tensor2D sample = field->sample(world_pos);
+                sample.scale(weight);
+                result.add(sample, true);
+                total_weight += weight;
+            }
+            if (total_weight > 1e-6) {
+                result.scale(1.0 / total_weight);
+            }
+        }
+
+        if (!post_ops_.empty()) {
+            applyTensorPostOps(result, world_pos, post_ops_);
+        }
+        return result;
     }
 
 } // namespace RogueCity::Generators

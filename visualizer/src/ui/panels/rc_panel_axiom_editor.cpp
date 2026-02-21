@@ -40,6 +40,7 @@
 #include <cstring>
 #include <deque>
 #include <numeric>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <string>
@@ -353,6 +354,13 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
                     snapshot.suburban_loop_strength = axiom->suburban_loop_strength();
                     snapshot.stem_branch_angle = axiom->stem_branch_angle();
                     snapshot.superblock_block_size = axiom->superblock_block_size();
+                    snapshot.radial_ring_rotation = axiom->radial_ring_rotation();
+                    snapshot.terminal_features = axiom->terminal_features();
+                    for (size_t r = 0; r < snapshot.radial_ring_knob_weights.size(); ++r) {
+                        for (size_t k = 0; k < snapshot.radial_ring_knob_weights[r].size(); ++k) {
+                            snapshot.radial_ring_knob_weights[r][k] = axiom->radial_ring_knob_weight(r, k);
+                        }
+                    }
                     axioms_snapshot.push_back(snapshot);
                 }
             }
@@ -506,6 +514,9 @@ static RC_UI::Commands::CommandPaletteState s_command_palette{};
 static RC_UI::Viewport::NonAxiomInteractionState s_non_axiom_interaction{};
 static RC_UI::ToolLibrary s_global_palette_library = RC_UI::ToolLibrary::Axiom;
 static float s_global_palette_open_lerp = 0.0f;
+static std::optional<RogueCity::Generators::TerminalFeature> s_terminal_hover_feature{};
+static float s_terminal_hover_elapsed = 0.0f;
+static constexpr float kTerminalHoverDelaySeconds = 0.45f;
 
 RogueCity::Core::Editor::EditorAxiom::Type ToEditorAxiomType(RogueCity::App::AxiomVisual::AxiomType type) {
     using RogueCity::App::AxiomVisual;
@@ -1765,6 +1776,8 @@ void DrawAxiomLibraryContent() {
         if (apply_to_selected) {
             if (selected_axiom != nullptr) {
                 selected_axiom->set_type(axiom_type);
+                selected_axiom->set_terminal_features(s_axiom_tool->default_terminal_features(axiom_type));
+                selected_axiom->set_radial_ring_rotation(s_axiom_tool->default_radial_ring_rotation(axiom_type));
                 s_library_modified = true;
             }
         } else {
@@ -1826,6 +1839,12 @@ void DrawAxiomLibraryContent() {
 
     const RogueCity::App::AxiomType focus_type =
         (selected_axiom != nullptr) ? selected_axiom->type() : default_type;
+    for (const auto& axiom : s_axiom_tool->axioms()) {
+        if (axiom == nullptr || axiom.get() == selected_axiom) {
+            continue;
+        }
+        axiom->set_preview_feature(std::nullopt);
+    }
     const auto& focus_info = RogueCity::App::GetAxiomTypeInfo(focus_type);
     const AxiomTerminalCue terminal = TerminalCueForAxiomType(focus_type);
 
@@ -1837,7 +1856,76 @@ void DrawAxiomLibraryContent() {
         TokenColorF(UITokens::TextSecondary, 220u),
         "Active: %s  (%s)",
         focus_info.name,
-        apply_to_selected ? "Apply to Selection" : "Set Default");
+        (selected_axiom != nullptr) ? "Editing Selection" : "Editing Defaults");
+
+    ImGui::Spacing();
+    ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 230u), "Features");
+    RogueCity::Generators::TerminalFeatureSet feature_set =
+        (selected_axiom != nullptr)
+            ? selected_axiom->terminal_features()
+            : s_axiom_tool->default_terminal_features(focus_type);
+    const auto allowed_features = RogueCity::Generators::featuresForAxiomType(focus_type);
+
+    bool any_feature_hovered = false;
+    for (const auto feature : allowed_features) {
+        bool enabled = feature_set.has(feature);
+        const std::string label = std::string(RogueCity::Generators::terminalFeatureShortName(feature)) +
+            "##terminal_" + std::to_string(static_cast<int>(focus_type)) + "_" + std::to_string(static_cast<int>(feature));
+        if (ImGui::Checkbox(label.c_str(), &enabled)) {
+            feature_set.set(feature, enabled);
+            if (selected_axiom != nullptr) {
+                selected_axiom->set_terminal_feature(feature, enabled);
+                s_library_modified = true;
+            } else {
+                s_axiom_tool->set_default_terminal_features(focus_type, feature_set);
+            }
+        }
+
+        if (ImGui::IsItemHovered()) {
+            any_feature_hovered = true;
+            if (!s_terminal_hover_feature.has_value() || *s_terminal_hover_feature != feature) {
+                s_terminal_hover_feature = feature;
+                s_terminal_hover_elapsed = 0.0f;
+            } else {
+                s_terminal_hover_elapsed += ImGui::GetIO().DeltaTime;
+            }
+
+            if (selected_axiom != nullptr && s_terminal_hover_elapsed >= kTerminalHoverDelaySeconds) {
+                selected_axiom->set_preview_feature(feature);
+                if (ImGui::BeginTooltip()) {
+                    ImGui::TextColored(
+                        TokenColorF(UITokens::TextPrimary, 235u),
+                        "%s",
+                        RogueCity::Generators::terminalFeatureShortName(feature).data());
+                    ImGui::Separator();
+                    ImGui::TextWrapped("%s", RogueCity::Generators::terminalFeatureInfluenceHint(feature).data());
+                    ImGui::EndTooltip();
+                }
+            }
+        }
+    }
+
+    if (!any_feature_hovered) {
+        s_terminal_hover_feature.reset();
+        s_terminal_hover_elapsed = 0.0f;
+        if (selected_axiom != nullptr) {
+            selected_axiom->set_preview_feature(std::nullopt);
+        }
+    }
+
+    if (focus_type == RogueCity::App::AxiomType::Radial) {
+        float ring_rotation = (selected_axiom != nullptr)
+            ? selected_axiom->radial_ring_rotation()
+            : s_axiom_tool->default_radial_ring_rotation(focus_type);
+        if (ImGui::SliderAngle("Rotate Rings", &ring_rotation, -180.0f, 180.0f, "%.0f deg")) {
+            if (selected_axiom != nullptr) {
+                selected_axiom->set_radial_ring_rotation(ring_rotation);
+                s_library_modified = true;
+            } else {
+                s_axiom_tool->set_default_radial_ring_rotation(focus_type, ring_rotation);
+            }
+        }
+    }
 
     for (size_t i = 0; i < terminal.alternates.size(); ++i) {
         const auto alt_type = terminal.alternates[i];
@@ -2044,6 +2132,8 @@ void DrawContent(float dt) {
                         if (ImGui::GetIO().KeyCtrl) {
                             if (auto* selected = s_axiom_tool->get_selected_axiom()) {
                                 selected->set_type(axiom_type);
+                                selected->set_terminal_features(s_axiom_tool->default_terminal_features(axiom_type));
+                                selected->set_radial_ring_rotation(s_axiom_tool->default_radial_ring_rotation(axiom_type));
                                 s_library_modified = true;
                             }
                         } else {

@@ -1,5 +1,6 @@
 #pragma once
 #include "RogueCity/Core/Types.hpp"
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -26,7 +27,7 @@ namespace RogueCity::Generators {
 
         /// Compute influence weight at position.
         /// Contract: weight is 1.0 at center and falls to 0.0 exactly at radius.
-        [[nodiscard]] double getWeight(const Vec2& p) const {
+        [[nodiscard]] virtual double getWeight(const Vec2& p) const {
             const double safe_radius = std::max(1e-6, radius);
             const double dist = p.distanceTo(center);
             if (dist >= safe_radius) {
@@ -57,6 +58,22 @@ namespace RogueCity::Generators {
         [[nodiscard]] inline double smoothstep(double edge0, double edge1, double x) {
             const double t = std::clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
             return t * t * (3.0 - 2.0 * t);
+        }
+
+        [[nodiscard]] inline double wrap_angle_pi(double angle) {
+            constexpr double kPi = std::numbers::pi;
+            while (angle > kPi * 0.5) {
+                angle -= kPi;
+            }
+            while (angle < -kPi * 0.5) {
+                angle += kPi;
+            }
+            return angle;
+        }
+
+        [[nodiscard]] inline double lerp_angle_pi(double from, double to, double t) {
+            const double delta = wrap_angle_pi(to - from);
+            return from + delta * std::clamp(t, 0.0, 1.0);
         }
     } // namespace detail
 
@@ -111,26 +128,68 @@ namespace RogueCity::Generators {
     class RadialHubSpokeField : public BasisField {
     public:
         int spokes;
+        double ring_rotation;
+        std::array<std::array<float, 4>, 3> ring_knob_weights;
 
         RadialHubSpokeField(const Vec2& center, double radius, int spokes, double decay)
             : BasisField(center, radius, decay)
             , spokes(std::max(3, spokes))
+            , ring_rotation(0.0)
+            , ring_knob_weights{{
+                {{1.0f, 1.0f, 1.0f, 1.0f}},
+                {{1.0f, 1.0f, 1.0f, 1.0f}},
+                {{1.0f, 1.0f, 1.0f, 1.0f}}
+            }}
+        {}
+
+        RadialHubSpokeField(
+            const Vec2& center,
+            double radius,
+            int spokes,
+            double ring_rotation,
+            const std::array<std::array<float, 4>, 3>& ring_knob_weights,
+            double decay)
+            : BasisField(center, radius, decay)
+            , spokes(std::max(3, spokes))
+            , ring_rotation(ring_rotation)
+            , ring_knob_weights(ring_knob_weights)
         {}
 
         [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
             const Vec2 d = p - center;
             const double dist = std::max(1e-6, d.length());
             const double ang = std::atan2(d.y, d.x);
+            const double normalized_radius = std::clamp(dist / std::max(1e-6, radius), 0.0, 1.5);
+
+            const auto sampled_knob = [&](int ring_index, double angle) {
+                const double shifted = angle - ring_rotation;
+                const double wrapped = std::fmod(shifted + 2.0 * std::numbers::pi, 2.0 * std::numbers::pi);
+                const double sector = wrapped / (std::numbers::pi * 0.5);
+                const int i0 = static_cast<int>(std::floor(sector)) % 4;
+                const int i1 = (i0 + 1) % 4;
+                const double t = sector - std::floor(sector);
+                const double a = std::max(0.25, static_cast<double>(ring_knob_weights[ring_index][static_cast<size_t>(i0)]));
+                const double b = std::max(0.25, static_cast<double>(ring_knob_weights[ring_index][static_cast<size_t>(i1)]));
+                return a + (b - a) * t;
+            };
+
+            const double inner_t = detail::smoothstep(0.0, 0.5, normalized_radius);
+            const double outer_t = detail::smoothstep(0.5, 1.0, normalized_radius);
+            const double k0 = sampled_knob(0, ang);
+            const double k1 = sampled_knob(1, ang);
+            const double k2 = sampled_knob(2, ang);
+            const double ring_knob = (1.0 - inner_t) * k0 + inner_t * (1.0 - outer_t) * k1 + inner_t * outer_t * k2;
+            const double effective_radius = std::max(6.0, radius * ring_knob);
 
             // Create crisp spoke directions by snapping angle into spoke bins.
             const double bin = (2.0 * std::numbers::pi) / static_cast<double>(spokes);
             const double spoke_ang = std::round(ang / bin) * bin;
 
             // Near the hub: spokes (radial). Toward the outside: crescents (tangent).
-            const double t = detail::smoothstep(0.15, 0.85, dist / radius);
+            const double t = detail::smoothstep(0.15, 0.85, dist / effective_radius);
             const double radial = spoke_ang;
             const double tangent = ang + std::numbers::pi * 0.5;
-            const double angle = radial * (1.0 - t) + tangent * t;
+            const double angle = detail::lerp_angle_pi(radial, tangent, t);
 
             return Tensor2D::fromAngle(angle);
         }
@@ -318,6 +377,180 @@ namespace RogueCity::Generators {
         [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
             (void)p;
             return Tensor2D::fromAngle(theta);
+        }
+    };
+
+    // ===== FEATURE SUPPORT FIELDS =====
+
+    class StrongLinearCorridorField : public BasisField {
+    public:
+        double theta;
+        double corridor_half_width;
+
+        StrongLinearCorridorField(const Vec2& center, double radius, double theta, double corridor_half_width, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , corridor_half_width(std::max(6.0, corridor_half_width))
+        {}
+
+        [[nodiscard]] double getCorridorWeight(const Vec2& p) const {
+            const Vec2 dir(std::cos(theta), std::sin(theta));
+            const Vec2 normal = detail::perp(dir);
+            const double lateral = std::abs((p - center).dot(normal));
+            const double lane = 1.0 - std::clamp(lateral / corridor_half_width, 0.0, 1.0);
+            return lane * lane;
+        }
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            Tensor2D tensor = Tensor2D::fromAngle(theta);
+            const double w = getCorridorWeight(p);
+            tensor.scale(0.25 + w * 1.75);
+            return tensor;
+        }
+    };
+
+    class ShearPlaneField : public BasisField {
+    public:
+        double theta;
+        double shear_angle;
+
+        ShearPlaneField(const Vec2& center, double radius, double theta, double shear_angle, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , shear_angle(shear_angle)
+        {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const Vec2 dir(std::cos(theta), std::sin(theta));
+            const Vec2 normal = detail::perp(dir);
+            const double side = ((p - center).dot(normal) >= 0.0) ? 1.0 : -1.0;
+            return Tensor2D::fromAngle(theta + side * shear_angle);
+        }
+    };
+
+    class BoundarySeamField : public BasisField {
+    public:
+        double theta;
+        double seam_band_ratio;
+
+        BoundarySeamField(const Vec2& center, double radius, double theta, double seam_band_ratio, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , seam_band_ratio(std::clamp(seam_band_ratio, 0.05, 0.35))
+        {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const Vec2 rel = p - center;
+            const double dist = std::max(1e-6, rel.length());
+            const double rim_start = radius * (1.0 - seam_band_ratio);
+            const double seam_t = detail::smoothstep(rim_start, radius, dist);
+            const double tangent = std::atan2(rel.y, rel.x) + std::numbers::pi * 0.5;
+            const double angle = detail::lerp_angle_pi(theta, tangent, seam_t);
+            return Tensor2D::fromAngle(angle);
+        }
+    };
+
+    class CenterVoidOverrideField : public BasisField {
+    public:
+        double theta;
+        double void_ratio;
+
+        CenterVoidOverrideField(const Vec2& center, double radius, double theta, double void_ratio, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , void_ratio(std::clamp(void_ratio, 0.05, 0.8))
+        {}
+
+        [[nodiscard]] double getWeight(const Vec2& p) const override {
+            const double safe_radius = std::max(1e-6, radius * void_ratio);
+            const double dist = p.distanceTo(center);
+            if (dist >= safe_radius) {
+                return 0.0;
+            }
+            const double t = 1.0 - (dist / safe_radius);
+            return t * t;
+        }
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const Vec2 rel = p - center;
+            const double tangent = std::atan2(rel.y, rel.x) + std::numbers::pi * 0.5;
+            const double angle = detail::lerp_angle_pi(theta, tangent, 0.8);
+            return Tensor2D::fromAngle(angle);
+        }
+    };
+
+    class NoisePatchField : public BasisField {
+    public:
+        double theta;
+        double frequency;
+        double angle_strength;
+
+        NoisePatchField(const Vec2& center, double radius, double theta, double frequency, double angle_strength, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , frequency(std::max(1e-5, frequency))
+            , angle_strength(angle_strength)
+        {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const double n =
+                std::sin((p.x + center.y) * frequency) +
+                std::cos((p.y - center.x) * frequency * 1.31) +
+                0.5 * std::sin((p.x + p.y) * frequency * 0.71);
+            return Tensor2D::fromAngle(theta + angle_strength * (n / 2.5));
+        }
+    };
+
+    class ParallelLinearFieldBundle : public BasisField {
+    public:
+        double theta;
+        double spacing;
+        int lanes;
+
+        ParallelLinearFieldBundle(const Vec2& center, double radius, double theta, double spacing, int lanes, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , spacing(std::max(8.0, spacing))
+            , lanes(std::clamp(lanes, 2, 8))
+        {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const Vec2 dir(std::cos(theta), std::sin(theta));
+            const Vec2 normal = detail::perp(dir);
+            const double line_coord = (p - center).dot(normal);
+            const double lane_id = std::round(line_coord / spacing);
+            const double clamped_lane = std::clamp(lane_id, -static_cast<double>(lanes), static_cast<double>(lanes));
+            const double local = std::abs(line_coord - clamped_lane * spacing);
+            const double lane_weight = 1.0 - std::clamp(local / (spacing * 0.5), 0.0, 1.0);
+
+            Tensor2D tensor = Tensor2D::fromAngle(theta);
+            tensor.scale(0.2 + lane_weight * 1.8);
+            return tensor;
+        }
+    };
+
+    class PeriodicRungField : public BasisField {
+    public:
+        double theta;
+        double spacing;
+        double rung_width_ratio;
+
+        PeriodicRungField(const Vec2& center, double radius, double theta, double spacing, double rung_width_ratio, double decay)
+            : BasisField(center, radius, decay)
+            , theta(theta)
+            , spacing(std::max(8.0, spacing))
+            , rung_width_ratio(std::clamp(rung_width_ratio, 0.05, 0.45))
+        {}
+
+        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
+            const Vec2 dir(std::cos(theta), std::sin(theta));
+            const double axial = (p - center).dot(dir);
+            const double coord = axial / spacing;
+            const double line = detail::nearest_line_distance(coord);
+            const double threshold = 0.5 * rung_width_ratio;
+            const double rung = 1.0 - detail::smoothstep(threshold, threshold + 0.08, line);
+            const double angle = detail::lerp_angle_pi(theta, theta + std::numbers::pi * 0.5, rung);
+            return Tensor2D::fromAngle(angle);
         }
     };
 

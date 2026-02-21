@@ -57,6 +57,25 @@ bool GeneratorBridge::validate_axioms(
         if (axiom.radius < 50.0 || axiom.radius > 1000.0) {
             return false;  // Invalid radius
         }
+        if (!std::isfinite(axiom.radial_ring_rotation)) {
+            return false;
+        }
+        for (const auto& ring : axiom.radial_ring_knob_weights) {
+            for (const float knob : ring) {
+                if (!std::isfinite(knob) || knob < 0.1f || knob > 3.0f) {
+                    return false;
+                }
+            }
+        }
+
+        uint64_t allowed_bits = 0;
+        const auto allowed_features = Generators::featuresForAxiomType(axiom.type);
+        for (const auto feature : allowed_features) {
+            allowed_bits |= (1ull << static_cast<uint8_t>(feature));
+        }
+        if ((axiom.terminal_features.bits & ~allowed_bits) != 0ull) {
+            return false;
+        }
 
         // Ring schema guardrails.
         if (axiom.ring_schema.core_ratio <= 0.0 ||

@@ -6,6 +6,7 @@
 #include "RogueCity/Generators/Pipeline/GenerationStage.hpp"
 #include "RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp"
+#include "RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp"
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
 #include "RogueCity/Generators/Urban/BlockGenerator.hpp"
@@ -14,6 +15,7 @@
 #include "RogueCity/Generators/Urban/RoadGenerator.hpp"
 #include "RogueCity/Generators/Urban/SiteGenerator.hpp"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -116,6 +118,13 @@ public:
         float suburban_loop_strength{ 0.7f };
         float stem_branch_angle{ 0.7f };
         float superblock_block_size{ 250.0f };
+        TerminalFeatureSet terminal_features{};
+        double radial_ring_rotation{ 0.0 };
+        std::array<std::array<float, 4>, 3> radial_ring_knob_weights{{
+            {{1.0f, 1.0f, 1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f, 1.0f}}
+        }};
         LatticeData warp_lattice{};
     };
 

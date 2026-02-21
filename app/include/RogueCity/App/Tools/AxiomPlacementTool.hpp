@@ -5,6 +5,8 @@
 #include "AxiomVisual.hpp"
 #include "ContextWindowPopup.hpp"
 
+#include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -59,6 +61,10 @@ public:
     /// Configuration.
     void set_default_axiom_type(AxiomVisual::AxiomType type);
     [[nodiscard]] AxiomVisual::AxiomType default_axiom_type() const;
+    void set_default_terminal_features(AxiomVisual::AxiomType type, const Generators::TerminalFeatureSet& features);
+    [[nodiscard]] Generators::TerminalFeatureSet default_terminal_features(AxiomVisual::AxiomType type) const;
+    void set_default_radial_ring_rotation(AxiomVisual::AxiomType type, float radians);
+    [[nodiscard]] float default_radial_ring_rotation(AxiomVisual::AxiomType type) const;
     void set_animation_enabled(bool enabled);
 
     /// Convert all axioms to generator inputs.
@@ -91,6 +97,13 @@ public:
         float suburban_loop_strength{ 0.7f };
         float stem_branch_angle{ 0.7f };
         float superblock_block_size{ 250.0f };
+        float radial_ring_rotation{ 0.0f };
+        std::array<std::array<float, 4>, 3> radial_ring_knob_weights{{
+            {{1.15f, 0.90f, 1.05f, 0.85f}},
+            {{1.10f, 0.95f, 1.00f, 0.90f}},
+            {{1.05f, 1.00f, 0.95f, 0.92f}}
+        }};
+        Generators::TerminalFeatureSet terminal_features{};
     };
 
 private:
@@ -107,6 +120,8 @@ private:
 
     Mode mode_{ Mode::Idle };
     AxiomVisual::AxiomType default_type_{ AxiomVisual::AxiomType::Radial };
+    std::array<Generators::TerminalFeatureSet, static_cast<size_t>(AxiomVisual::AxiomType::COUNT)> default_terminal_features_{};
+    std::array<float, static_cast<size_t>(AxiomVisual::AxiomType::COUNT)> default_radial_ring_rotation_{};
     Core::Vec2 placement_start_pos_{ 0.0, 0.0 };
     float ghost_radius_{ 100.0f };
 

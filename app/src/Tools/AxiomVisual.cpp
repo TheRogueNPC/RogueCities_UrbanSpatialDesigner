@@ -416,12 +416,124 @@ void RenderLattice(
     }
 }
 
+enum class PreviewGhostStyle {
+    Axes,
+    Diagonal,
+    Spiral,
+    Rings,
+    Boundary,
+    Bundle
+};
+
+[[nodiscard]] PreviewGhostStyle PreviewStyleForFeature(Generators::TerminalFeature feature) {
+    using TF = Generators::TerminalFeature;
+    switch (feature) {
+        case TF::Grid_AxisAlignmentLock:
+        case TF::GridCorrective_AbsoluteOverride:
+        case TF::GridCorrective_MagneticAlignment:
+        case TF::GridCorrective_OrthogonalCull:
+        case TF::Hex_HoneycombStrictness:
+        case TF::Stem_DirectionalFlowBias:
+            return PreviewGhostStyle::Axes;
+        case TF::Grid_DiagonalSlicing:
+        case TF::Grid_AlleywayBisection:
+        case TF::Hex_TriangularSubdivision:
+        case TF::Linear_PerpendicularRungs:
+            return PreviewGhostStyle::Diagonal;
+        case TF::Organic_MeanderBias:
+        case TF::Radial_SpiralDominance:
+        case TF::Linear_RibbonBraiding:
+        case TF::Stem_CanopyWeave:
+            return PreviewGhostStyle::Spiral;
+        case TF::Radial_CoreVoiding:
+        case TF::Radial_ConcentricWaveDensity:
+        case TF::Superblock_CourtyardVoid:
+        case TF::Suburban_LollipopTerminals:
+            return PreviewGhostStyle::Rings;
+        case TF::Suburban_ArterialIsolation:
+        case TF::Superblock_PermeableEdges:
+        case TF::GridCorrective_BoundaryStitching:
+        case TF::Superblock_ArterialTrenching:
+            return PreviewGhostStyle::Boundary;
+        default:
+            return PreviewGhostStyle::Bundle;
+    }
+}
+
+void DrawTerminalFeatureGhost(
+    ImDrawList* draw_list,
+    const PrimaryViewport& viewport,
+    const Core::Vec2& center,
+    float radius_world,
+    Generators::TerminalFeature feature,
+    float alpha,
+    ImU32 color) {
+    if (draw_list == nullptr || alpha <= 0.01f || radius_world <= 1.0f) {
+        return;
+    }
+
+    const ImVec2 c = viewport.world_to_screen(center);
+    const float r = std::max(8.0f, viewport.world_to_screen_scale(radius_world));
+    const ImU32 ghost = ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 190.0f, 32.0f, 255.0f)));
+    const ImU32 ghost_soft = ColorWithAlpha(color, static_cast<uint8_t>(std::clamp(alpha * 110.0f, 20.0f, 200.0f)));
+
+    switch (PreviewStyleForFeature(feature)) {
+        case PreviewGhostStyle::Axes: {
+            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), ghost, 2.0f);
+            draw_list->AddLine(ImVec2(c.x, c.y - r), ImVec2(c.x, c.y + r), ghost, 2.0f);
+            draw_list->AddCircle(c, r * 0.75f, ghost_soft, 48, 1.2f);
+            break;
+        }
+        case PreviewGhostStyle::Diagonal: {
+            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y - r * 0.9f), ImVec2(c.x + r * 0.9f, c.y + r * 0.9f), ghost, 2.0f);
+            draw_list->AddLine(ImVec2(c.x - r * 0.9f, c.y + r * 0.9f), ImVec2(c.x + r * 0.9f, c.y - r * 0.9f), ghost_soft, 1.5f);
+            draw_list->AddRect(ImVec2(c.x - r * 0.6f, c.y - r * 0.6f), ImVec2(c.x + r * 0.6f, c.y + r * 0.6f), ghost_soft, 2.0f, 0, 1.0f);
+            break;
+        }
+        case PreviewGhostStyle::Spiral: {
+            constexpr int segments = 56;
+            std::array<ImVec2, segments> points{};
+            for (int i = 0; i < segments; ++i) {
+                const float t = static_cast<float>(i) / static_cast<float>(segments - 1);
+                const float angle = t * 7.0f;
+                const float rr = r * (0.08f + t * 0.86f);
+                points[static_cast<size_t>(i)] = ImVec2(
+                    c.x + std::cos(angle) * rr,
+                    c.y + std::sin(angle) * rr);
+            }
+            draw_list->AddPolyline(points.data(), segments, ghost, ImDrawFlags_None, 1.8f);
+            break;
+        }
+        case PreviewGhostStyle::Rings: {
+            draw_list->AddCircle(c, r * 0.28f, ghost, 48, 1.8f);
+            draw_list->AddCircle(c, r * 0.56f, ghost_soft, 48, 1.4f);
+            draw_list->AddCircle(c, r * 0.85f, ghost_soft, 48, 1.1f);
+            break;
+        }
+        case PreviewGhostStyle::Boundary: {
+            draw_list->AddCircle(c, r * 0.92f, ghost, 64, 2.0f);
+            draw_list->AddCircle(c, r * 0.74f, ghost_soft, 64, 1.2f);
+            draw_list->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x - r * 0.6f, c.y), ghost_soft, 2.0f);
+            draw_list->AddLine(ImVec2(c.x + r * 0.6f, c.y), ImVec2(c.x + r, c.y), ghost_soft, 2.0f);
+            break;
+        }
+        case PreviewGhostStyle::Bundle: {
+            draw_list->AddCircle(c, r * 0.80f, ghost_soft, 48, 1.2f);
+            draw_list->AddCircle(c, r * 0.48f, ghost_soft, 48, 1.0f);
+            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y - r * 0.2f), ImVec2(c.x + r * 0.95f, c.y - r * 0.2f), ghost, 1.6f);
+            draw_list->AddLine(ImVec2(c.x - r * 0.95f, c.y + r * 0.2f), ImVec2(c.x + r * 0.95f, c.y + r * 0.2f), ghost, 1.6f);
+            break;
+        }
+    }
+}
+
 void InitializeLatticeForType(
     AxiomVisual::AxiomType type,
     ControlLattice& lattice,
     const Core::Vec2& center,
     float base_radius,
-    int radial_spokes) {
+    int radial_spokes,
+    float radial_rotation) {
     lattice.vertices.clear();
     lattice.rows = 0;
     lattice.cols = 0;
@@ -484,7 +596,8 @@ void InitializeLatticeForType(
             lattice.topology = LatticeTopology::Radial;
             lattice.vertices.push_back({vertex_id++, center, {0.5, 0.5}});
             for (int i = 0; i < spokes; ++i) {
-                const float angle = (2.0f * std::numbers::pi_v<float> * static_cast<float>(i)) / static_cast<float>(spokes);
+                const float angle = radial_rotation +
+                    (2.0f * std::numbers::pi_v<float> * static_cast<float>(i)) / static_cast<float>(spokes);
                 const double cx = static_cast<double>(std::cos(angle));
                 const double sy = static_cast<double>(std::sin(angle));
                 lattice.vertices.push_back({
@@ -535,7 +648,7 @@ AxiomVisual::AxiomVisual(int id, AxiomType type)
 AxiomVisual::~AxiomVisual() = default;
 
 void AxiomVisual::initialize_lattice_for_type() {
-    InitializeLatticeForType(type_, lattice_, position_, radius_, radial_spokes_);
+    InitializeLatticeForType(type_, lattice_, position_, radius_, radial_spokes_, radial_ring_rotation_);
 }
 
 void AxiomVisual::refresh_zone_defaults_from_type() {
@@ -565,14 +678,16 @@ void AxiomVisual::recalculate_radius_from_lattice() {
 void AxiomVisual::update(float delta_time) {
     if (!animation_enabled_) {
         lattice_animation_alpha_ = 1.0f;
-        return;
-    }
-
-    if (lattice_animation_alpha_ < 1.0f) {
+    } else if (lattice_animation_alpha_ < 1.0f) {
         const float blend_speed = 3.5f;
         lattice_animation_alpha_ += (1.0f - lattice_animation_alpha_) * (1.0f - std::exp(-blend_speed * delta_time));
         lattice_animation_alpha_ = std::clamp(lattice_animation_alpha_, 0.0f, 1.0f);
     }
+
+    const float target_preview = preview_feature_.has_value() ? 1.0f : 0.0f;
+    const float preview_blend = 1.0f - std::exp(-8.0f * delta_time);
+    preview_alpha_ += (target_preview - preview_alpha_) * preview_blend;
+    preview_alpha_ = std::clamp(preview_alpha_, 0.0f, 1.0f);
 }
 
 void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport) {
@@ -582,10 +697,13 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
 
     const ImU32 type_color = GetAxiomTypeInfo(type_).primary_color;
     RenderLattice(draw_list, viewport, lattice_, type_, type_color, position_, lattice_animation_alpha_);
+    if (preview_feature_.has_value() && preview_alpha_ > 0.01f) {
+        DrawTerminalFeatureGhost(draw_list, viewport, position_, radius_, *preview_feature_, preview_alpha_, type_color);
+    }
 
     // Center marker.
     const ImVec2 screen_center = viewport.world_to_screen(position_);
-    const float marker_size = hovered_ ? 10.0f : 8.0f;
+    const float marker_size = hovered_ ? 12.0f : 10.0f;
     const ImU32 marker_color = selected_ ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255);
 
     draw_list->AddRectFilled(
@@ -612,7 +730,7 @@ void AxiomVisual::render(ImDrawList* draw_list, const PrimaryViewport& viewport)
         1.5f);
 
     const ImU32 icon_color = type_color;
-    DrawAxiomIcon(draw_list, screen_center, marker_size * 0.70f, type_, icon_color);
+    DrawAxiomIcon(draw_list, screen_center, marker_size * 0.85f, type_, icon_color);
 
     for (const auto& vertex : lattice_.vertices) {
         const Core::Vec2 animated_world = AnimatePoint(vertex.world_pos, position_, lattice_animation_alpha_);
@@ -725,6 +843,9 @@ void AxiomVisual::set_radius(float radius) {
 
 void AxiomVisual::set_type(AxiomType type) {
     type_ = type;
+    terminal_features_ = {};
+    preview_feature_.reset();
+    preview_alpha_ = 0.0f;
     refresh_zone_defaults_from_type();
     initialize_lattice_for_type();
 }
@@ -750,6 +871,38 @@ void AxiomVisual::set_loose_grid_jitter(float value) { loose_grid_jitter_ = std:
 void AxiomVisual::set_suburban_loop_strength(float value) { suburban_loop_strength_ = std::clamp(value, 0.0f, 1.0f); }
 void AxiomVisual::set_stem_branch_angle(float radians) { stem_branch_angle_ = std::clamp(radians, 0.0f, std::numbers::pi_v<float>); }
 void AxiomVisual::set_superblock_block_size(float meters) { superblock_block_size_ = std::max(50.0f, meters); }
+void AxiomVisual::set_radial_ring_rotation(float radians) {
+    radial_ring_rotation_ = radians;
+    if (type_ == AxiomType::Radial || type_ == AxiomType::Suburban || type_ == AxiomType::GridCorrective) {
+        initialize_lattice_for_type();
+    }
+}
+void AxiomVisual::set_radial_ring_knob_weight(size_t ring_index, size_t knob_index, float value) {
+    if (ring_index >= radial_ring_knob_weights_.size() || knob_index >= radial_ring_knob_weights_[ring_index].size()) {
+        return;
+    }
+    radial_ring_knob_weights_[ring_index][knob_index] = std::clamp(value, 0.25f, 2.5f);
+}
+void AxiomVisual::set_terminal_feature(Generators::TerminalFeature feature, bool enabled) {
+    if (!Generators::featureAllowedForType(type_, feature)) {
+        return;
+    }
+    terminal_features_.set(feature, enabled);
+}
+void AxiomVisual::set_terminal_features(const Generators::TerminalFeatureSet& features) {
+    terminal_features_ = {};
+    const auto allowed = Generators::featuresForAxiomType(type_);
+    for (const auto feature : allowed) {
+        terminal_features_.set(feature, features.has(feature));
+    }
+}
+void AxiomVisual::set_preview_feature(std::optional<Generators::TerminalFeature> feature) {
+    if (feature.has_value() && !Generators::featureAllowedForType(type_, *feature)) {
+        preview_feature_.reset();
+        return;
+    }
+    preview_feature_ = feature;
+}
 
 float AxiomVisual::organic_curviness() const { return organic_curviness_; }
 int AxiomVisual::radial_spokes() const { return radial_spokes_; }
@@ -757,6 +910,17 @@ float AxiomVisual::loose_grid_jitter() const { return loose_grid_jitter_; }
 float AxiomVisual::suburban_loop_strength() const { return suburban_loop_strength_; }
 float AxiomVisual::stem_branch_angle() const { return stem_branch_angle_; }
 float AxiomVisual::superblock_block_size() const { return superblock_block_size_; }
+float AxiomVisual::radial_ring_rotation() const { return radial_ring_rotation_; }
+float AxiomVisual::radial_ring_knob_weight(size_t ring_index, size_t knob_index) const {
+    if (ring_index >= radial_ring_knob_weights_.size() || knob_index >= radial_ring_knob_weights_[ring_index].size()) {
+        return 1.0f;
+    }
+    return radial_ring_knob_weights_[ring_index][knob_index];
+}
+Generators::TerminalFeatureSet AxiomVisual::terminal_features() const { return terminal_features_; }
+bool AxiomVisual::terminal_feature_enabled(Generators::TerminalFeature feature) const {
+    return terminal_features_.has(feature);
+}
 
 void AxiomVisual::trigger_placement_animation() {
     if (!animation_enabled_) {
@@ -798,6 +962,9 @@ Generators::CityGenerator::AxiomInput AxiomVisual::to_axiom_input() const {
     input.suburban_loop_strength = suburban_loop_strength_;
     input.stem_branch_angle = stem_branch_angle_;
     input.superblock_block_size = superblock_block_size_;
+    input.terminal_features = terminal_features_;
+    input.radial_ring_rotation = static_cast<double>(radial_ring_rotation_);
+    input.radial_ring_knob_weights = radial_ring_knob_weights_;
 
     input.warp_lattice.topology_type = static_cast<int>(lattice_.topology);
     input.warp_lattice.rows = lattice_.rows;

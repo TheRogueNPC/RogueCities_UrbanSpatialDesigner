@@ -637,6 +637,30 @@ bool CityGenerator::ValidateAxioms(
         if (!std::isfinite(axiom.theta)) {
             local_errors.push_back(prefix + "theta must be finite");
         }
+        if (!std::isfinite(axiom.radial_ring_rotation)) {
+            local_errors.push_back(prefix + "radial_ring_rotation must be finite");
+        }
+        for (size_t r = 0; r < axiom.radial_ring_knob_weights.size(); ++r) {
+            for (size_t k = 0; k < axiom.radial_ring_knob_weights[r].size(); ++k) {
+                const float knob = axiom.radial_ring_knob_weights[r][k];
+                if (!std::isfinite(knob) || knob < 0.1f || knob > 3.0f) {
+                    local_errors.push_back(
+                        prefix + "radial_ring_knob_weights[" + std::to_string(r) + "][" + std::to_string(k) +
+                        "] must be finite and in [0.1,3.0]");
+                    break;
+                }
+            }
+        }
+        {
+            uint64_t allowed_bits = 0;
+            const auto allowed_features = featuresForAxiomType(axiom.type);
+            for (const auto feature : allowed_features) {
+                allowed_bits |= (1ull << static_cast<uint8_t>(feature));
+            }
+            if ((axiom.terminal_features.bits & ~allowed_bits) != 0ull) {
+                local_errors.push_back(prefix + "terminal_features contains flags not supported by axiom type");
+            }
+        }
 
         // Perform type-specific validation for the axiom.
         switch (axiom.type) {
@@ -742,6 +766,13 @@ uint64_t CityGenerator::HashAxioms(const std::vector<AxiomInput>& axioms) {
         HashFloat(axiom.suburban_loop_strength, hash);
         HashFloat(axiom.stem_branch_angle, hash);
         HashFloat(axiom.superblock_block_size, hash);
+        HashScalar(axiom.terminal_features.bits, hash);
+        HashDouble(axiom.radial_ring_rotation, hash);
+        for (const auto& ring : axiom.radial_ring_knob_weights) {
+            for (const float knob : ring) {
+                HashFloat(knob, hash);
+            }
+        }
         HashScalar(axiom.warp_lattice.topology_type, hash);
         HashScalar(axiom.warp_lattice.rows, hash);
         HashScalar(axiom.warp_lattice.cols, hash);
@@ -1262,7 +1293,13 @@ TensorFieldGenerator CityGenerator::generateTensorField(
                 field.addGridField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
                 break;
             case AxiomInput::Type::Radial:
-                field.addRadialField(axiom.position, axiom.radius, axiom.radial_spokes, axiom.decay);
+                field.addRadialField(
+                    axiom.position,
+                    axiom.radius,
+                    axiom.radial_spokes,
+                    axiom.radial_ring_rotation,
+                    axiom.radial_ring_knob_weights,
+                    axiom.decay);
                 break;
             case AxiomInput::Type::Hexagonal:
                 field.addHexagonalField(axiom.position, axiom.radius, axiom.theta, axiom.decay);
@@ -1288,6 +1325,60 @@ TensorFieldGenerator CityGenerator::generateTensorField(
             case AxiomInput::Type::COUNT:
                 break; // No action for COUNT type.
         }
+
+        AxiomTensorParams tensor_params{};
+        tensor_params.center = axiom.position;
+        tensor_params.radius = axiom.radius;
+        tensor_params.theta = axiom.theta;
+        tensor_params.decay = axiom.decay;
+        tensor_params.organic_curviness = axiom.organic_curviness;
+        tensor_params.radial_spokes = axiom.radial_spokes;
+        tensor_params.loose_grid_jitter = axiom.loose_grid_jitter;
+        tensor_params.suburban_loop_strength = axiom.suburban_loop_strength;
+        tensor_params.stem_branch_angle = axiom.stem_branch_angle;
+        tensor_params.superblock_block_size = axiom.superblock_block_size;
+        tensor_params.radial_ring_rotation = axiom.radial_ring_rotation;
+        tensor_params.radial_ring_knob_weights = axiom.radial_ring_knob_weights;
+
+        FeaturePlan feature_plan = buildFeaturePlan(
+            axiom.type,
+            tensor_params,
+            axiom.terminal_features,
+            config_.seed ^ static_cast<uint32_t>(axiom.id));
+
+        for (auto& basis : feature_plan.additive_basis_fields) {
+            field.addAdditiveField(std::move(basis));
+        }
+        for (auto& basis : feature_plan.override_basis_fields) {
+            field.addOverrideField(std::move(basis));
+        }
+        if (!feature_plan.post_ops.empty()) {
+            field.addPostOps(feature_plan.post_ops);
+        }
+
+#ifndef NDEBUG
+        if (!axiom.terminal_features.empty()) {
+            std::cerr << "[TensorFeaturePlan] axiom_id=" << axiom.id
+                      << " type=" << static_cast<int>(axiom.type)
+                      << " features={";
+            const auto allowed_features = featuresForAxiomType(axiom.type);
+            bool first = true;
+            for (const TerminalFeature feature : allowed_features) {
+                if (!axiom.terminal_features.has(feature)) {
+                    continue;
+                }
+                if (!first) {
+                    std::cerr << ", ";
+                }
+                first = false;
+                std::cerr << terminalFeatureShortName(feature);
+            }
+            std::cerr << "} radius=" << axiom.radius
+                      << " theta=" << axiom.theta
+                      << " ring_rot=" << axiom.radial_ring_rotation
+                      << std::endl;
+        }
+#endif
 
         // Increment the iteration count in the context, if provided.
         if (context != nullptr) {

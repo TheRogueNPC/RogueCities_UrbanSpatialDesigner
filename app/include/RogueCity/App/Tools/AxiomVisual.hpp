@@ -2,6 +2,10 @@
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp"
+#include <array>
+#include <cstddef>
+#include <optional>
 #include <vector>
 #include <memory>
 
@@ -75,6 +79,11 @@ public:
     void set_suburban_loop_strength(float value);
     void set_stem_branch_angle(float radians);
     void set_superblock_block_size(float meters);
+    void set_radial_ring_rotation(float radians);
+    void set_radial_ring_knob_weight(size_t ring_index, size_t knob_index, float value);
+    void set_terminal_feature(Generators::TerminalFeature feature, bool enabled);
+    void set_terminal_features(const Generators::TerminalFeatureSet& features);
+    void set_preview_feature(std::optional<Generators::TerminalFeature> feature);
 
     [[nodiscard]] int id() const;
     [[nodiscard]] const Core::Vec2& position() const;
@@ -88,6 +97,10 @@ public:
     [[nodiscard]] float suburban_loop_strength() const;
     [[nodiscard]] float stem_branch_angle() const;
     [[nodiscard]] float superblock_block_size() const;
+    [[nodiscard]] float radial_ring_rotation() const;
+    [[nodiscard]] float radial_ring_knob_weight(size_t ring_index, size_t knob_index) const;
+    [[nodiscard]] Generators::TerminalFeatureSet terminal_features() const;
+    [[nodiscard]] bool terminal_feature_enabled(Generators::TerminalFeature feature) const;
 
     /// Animation control
     void trigger_placement_animation();  // Ring expansion on place
@@ -119,6 +132,15 @@ private:
     float stem_branch_angle_{ 0.7f }; // For stem axioms: angle in radians between main stem and branches (e.g. 0.7 ~ 40 degrees)
 
     float superblock_block_size_{ 250.0f }; // For superblock axioms: size of each block in meters
+    float radial_ring_rotation_{ 0.0f }; // Rotates cardinal radial ring profile controls.
+    std::array<std::array<float, 4>, 3> radial_ring_knob_weights_{{
+        {{1.15f, 0.90f, 1.05f, 0.85f}},
+        {{1.10f, 0.95f, 1.00f, 0.90f}},
+        {{1.05f, 1.00f, 0.95f, 0.92f}}
+    }};
+    Generators::TerminalFeatureSet terminal_features_{};
+    std::optional<Generators::TerminalFeature> preview_feature_{};
+    float preview_alpha_{ 0.0f };
     ControlLattice lattice_{};
     std::unique_ptr<AxiomAnimationController> animator_;
 
