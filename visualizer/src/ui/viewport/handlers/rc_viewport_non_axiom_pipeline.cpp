@@ -2,6 +2,8 @@
 
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
+#include "RogueCity/App/Tools/RoadTool.hpp"
+#include "RogueCity/App/Tools/WaterTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "ui/tools/rc_tool_geometry_policy.h"
@@ -152,7 +154,21 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
 
     bool consumed_interaction = navigation_pan_applied;
     if (!consumed_interaction) {
-        consumed_interaction = Handlers::HandleDomainPlacementStage(interaction_context, *interaction_state);
+        if (params.editor_state == RogueCity::Core::Editor::EditorState::Editing_Roads && params.road_tool) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) params.road_tool->on_mouse_down(result.world_pos);
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) params.road_tool->on_mouse_up(result.world_pos);
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) params.road_tool->on_mouse_move(result.world_pos);
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) params.road_tool->on_right_click(result.world_pos);
+            consumed_interaction = true; // Tools now handle internal consumption check
+        } else if (params.editor_state == RogueCity::Core::Editor::EditorState::Editing_Water && params.water_tool) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) params.water_tool->on_mouse_down(result.world_pos);
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) params.water_tool->on_mouse_up(result.world_pos);
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) params.water_tool->on_mouse_move(result.world_pos);
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) params.water_tool->on_right_click(result.world_pos);
+            consumed_interaction = true;
+        } else {
+            consumed_interaction = Handlers::HandleDomainPlacementStage(interaction_context, *interaction_state);
+        }
     }
 
     const auto& selected_items = gs.selection_manager.Items();

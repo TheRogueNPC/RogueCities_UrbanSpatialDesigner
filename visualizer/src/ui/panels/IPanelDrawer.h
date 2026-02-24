@@ -50,6 +50,7 @@ enum class PanelType : uint8_t {
     // Tools (2)
     AxiomBar,
     AxiomEditor,
+    RoadEditor,
     
     // System (7)
     Telemetry,

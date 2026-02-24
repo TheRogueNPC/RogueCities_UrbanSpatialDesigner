@@ -62,6 +62,49 @@ void DrawContent(float dt)
     Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED",
         gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed,
         true);
+
+    ImGui::Separator();
+    ImGui::TextColored(UITokens::CyanAccent, "Grid Quality Index");
+    
+    auto& gq = gs.grid_quality;
+    const float progress_w = ImGui::GetContentRegionAvail().x * 0.4f;
+    
+    ImGui::Text("Composite:"); ImGui::SameLine(progress_w);
+    ImGui::ProgressBar(gq.composite_index, ImVec2(-1, 0), (std::to_string(static_cast<int>(gq.composite_index * 100)) + "%").c_str());
+    
+    ImGui::Text("Straightness:"); ImGui::SameLine(progress_w);
+    ImGui::ProgressBar(gq.straightness, ImVec2(-1, 0));
+    
+    ImGui::Text("Orientation:"); ImGui::SameLine(progress_w);
+    ImGui::ProgressBar(gq.orientation_order, ImVec2(-1, 0));
+    
+    ImGui::Text("4-Way Prop:"); ImGui::SameLine(progress_w);
+    ImGui::ProgressBar(gq.four_way_proportion, ImVec2(-1, 0));
+
+    ImGui::Text("Strokes: %u", gq.total_strokes);
+    ImGui::SameLine();
+    ImGui::Text("Inters: %u", gq.total_intersections);
+
+    ImGui::Separator();
+    ImGui::TextColored(UITokens::YellowWarning, "Urban Hell Diagnostics");
+    
+    if (gq.island_count > 1) {
+        ImGui::TextColored(UITokens::ErrorRed, "Disconnected Islands: %u", gq.island_count);
+    } else {
+        ImGui::Text("Network Connectivity: Unified");
+    }
+
+    ImGui::Text("Dead Ends: %d%%", static_cast<int>(gq.dead_end_proportion * 100));
+    if (gq.dead_end_proportion > 0.4f) {
+        ImGui::SameLine(); ImGui::TextColored(UITokens::ErrorRed, "(HIGH SPRAWL)");
+    }
+
+    if (gq.micro_segment_count > 0) {
+        ImGui::TextColored(UITokens::YellowWarning, "Micro-Segments (<1m): %u", gq.micro_segment_count);
+    }
+    
+    ImGui::Text("Gamma Index: %.2f", gq.connectivity_index);
+
     uiint.RegisterWidget({"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
 
 }

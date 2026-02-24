@@ -1,11 +1,13 @@
 #pragma once
 
 #include "RogueCity/Core/Types.hpp"
+#include "RogueCity/Core/Analytics/GridMetrics.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Generators/Pipeline/GenerationContext.hpp"
 #include "RogueCity/Generators/Pipeline/GenerationStage.hpp"
 #include "RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp"
+#include "RogueCity/Generators/Scoring/GridAnalytics.hpp"
 #include "RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp"
 #include "RogueCity/Generators/Tensors/BasisFields.hpp"
 #include "RogueCity/Generators/Tensors/TensorFieldGenerator.hpp"
@@ -141,6 +143,7 @@ public:
         WorldConstraintField world_constraints;
         SiteProfile site_profile;
         std::vector<PlanViolation> plan_violations;
+        GridQualityReport grid_quality;
         bool plan_approved{ true };
     };
 
@@ -212,6 +215,7 @@ private:
         std::vector<Vec2> city_boundary{};
         std::vector<Polyline> connector_debug_edges{};
         std::vector<PlanViolation> plan_violations{};
+        GridQualityReport grid_quality{};
         bool plan_approved{ true };
 
         StageMask valid_stages{};
@@ -278,6 +282,8 @@ private:
     void initializeTextureSpaceIfNeeded(
         Core::Editor::GlobalState* global_state,
         const WorldConstraintField* constraints) const;
+
+    void updateGridAnalytics(const fva::Container<Road>& roads);
 
     Config config_{};
     RNG rng_{ 12345 };

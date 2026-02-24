@@ -13,6 +13,8 @@
 
 namespace RogueCity::App {
 class AxiomPlacementTool;
+class RoadTool;
+class WaterTool;
 class PrimaryViewport;
 }
 
@@ -115,6 +117,8 @@ struct NonAxiomInteractionParams {
     bool allow_viewport_key_actions{ false };
     ImVec2 mouse_pos{ 0.0f, 0.0f };
     RogueCity::App::PrimaryViewport* primary_viewport{ nullptr };
+    RogueCity::App::RoadTool* road_tool{ nullptr };
+    RogueCity::App::WaterTool* water_tool{ nullptr };
     RogueCity::Core::Editor::EditorState editor_state{ RogueCity::Core::Editor::EditorState::Idle };
     RogueCity::Core::Editor::GlobalState* global_state{ nullptr };
 };

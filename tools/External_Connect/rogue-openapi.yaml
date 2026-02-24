@@ -1,0 +1,1194 @@
+openapi: 3.1.0
+info:
+  title: RogueCities Senior Coder Agent
+  version: 2.0.0
+  description: |
+    Complete codebase access for AI assistants with Rogue Protocol awareness.
+    
+    ## Rogue Protocol (Strict Technical Directives)
+    
+    ### Performance Library Mandates
+    
+    - **RogueWorker (Threading)**: For heavy parallelizable tasks >10ms (Tensor generation, Road tracing, District subdivision). FORBIDDEN for UI updates or GPU-bound tasks.
+    - **FVA (FastVectorArray)**: Stable handles for Road Segments, Districts, UI Selection. Any entity needing stable ID for ImGui Inspector.
+    - **SIV (StableIndexVector)**: For Buildings, Agents, Props. High-churn entities where use-after-free bugs are fatal.
+    - **CIV (IndexVector)**: For internal calculations only (Pathfinding nodes, Meshing scratch). FORBIDDEN for Editor/User-exposed data.
+    
+    ### Architectural Layers
+    
+    - **Layer 0: Core (Data)**: Pure C++20, Math, Types. NO OpenGL/ImGui dependencies.
+    - **Layer 1: Generators (Logic)**: Algorithms (RK4, WFC, AESP). Depends on Core.
+    - **Layer 2: Visualizer (App)**: ImGui, OpenGL, User Input. Depends on Generators.
+    
+    ### AESP Zoning Standard
+    
+    - **Access (A)**: Ease of entry (High for Retail)
+    - **Exposure (E)**: Visibility (High for Commercial/Civic)
+    - **Service (S)**: Utility capacity (High for Industrial)
+    - **Privacy (P)**: Seclusion (High for Residential)
+    
+    ## Authentication
+    
+    All endpoints (except /health) require Bearer token:
+    ```
+    Authorization: Bearer <API_KEY>
+    ```
+
+servers:
+  - url: https://roguecities.share.zrok.io
+    description: zrok public tunnel
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key as Bearer token
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+          nullable: true
+      required:
+        - error
+
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        gatewayVersion:
+          type: string
+        roguefsVersion:
+          type: string
+        ollama:
+          type: object
+          properties:
+            baseUrl:
+              type: string
+            reachable:
+              type: boolean
+      required:
+        - status
+        - gatewayVersion
+
+    FileEntry:
+      type: object
+      properties:
+        path:
+          type: string
+        type:
+          type: string
+          enum: [file, dir]
+        size:
+          type: integer
+          nullable: true
+        modifiedTime:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - path
+        - type
+
+    ListFilesResponse:
+      type: object
+      properties:
+        root:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileEntry"
+        truncated:
+          type: boolean
+      required:
+        - root
+        - entries
+        - truncated
+
+    ReadFileResponse:
+      type: object
+      properties:
+        path:
+          type: string
+        encoding:
+          type: string
+          enum: [text, base64]
+        content:
+          type: string
+        truncated:
+          type: boolean
+      required:
+        - path
+        - encoding
+        - content
+        - truncated
+
+    WriteFileRequest:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+        encoding:
+          type: string
+          enum: [text, base64]
+          default: text
+        overwrite:
+          type: boolean
+          default: false
+        createDirs:
+          type: boolean
+          default: true
+      required:
+        - path
+        - content
+
+    OperationResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        path:
+          type: string
+        message:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - ok
+        - path
+
+    SearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        path:
+          type: string
+          default: ""
+        glob:
+          type: string
+          default: "*.py,*.cs,*.js,*.ts,*.json,*.yaml,*.md"
+        maxResults:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 500
+        contextLines:
+          type: integer
+          default: 2
+          minimum: 0
+          maximum: 10
+      required:
+        - query
+
+    SearchMatch:
+      type: object
+      properties:
+        path:
+          type: string
+        line:
+          type: integer
+        column:
+          type: integer
+          nullable: true
+        preview:
+          type: string
+        before:
+          type: array
+          items:
+            type: string
+        after:
+          type: array
+          items:
+            type: string
+      required:
+        - path
+        - line
+        - preview
+
+    SearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchMatch"
+        truncated:
+          type: boolean
+      required:
+        - query
+        - matches
+        - truncated
+
+    DiffHunk:
+      type: object
+      properties:
+        old_start:
+          type: integer
+        old_count:
+          type: integer
+        new_start:
+          type: integer
+        new_count:
+          type: integer
+        lines:
+          type: array
+          items:
+            type: string
+
+    DiffResult:
+      type: object
+      properties:
+        path:
+          type: string
+        old_path:
+          type: string
+        new_path:
+          type: string
+        hunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiffHunk"
+        binary:
+          type: boolean
+        added:
+          type: boolean
+        deleted:
+          type: boolean
+        raw:
+          type: string
+      required:
+        - path
+
+    DiffResponse:
+      type: object
+      properties:
+        diffs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiffResult"
+        message:
+          type: string
+          nullable: true
+      required:
+        - diffs
+
+    PatchRequest:
+      type: object
+      properties:
+        patch_text:
+          type: string
+          description: Unified diff format patch
+        path:
+          type: string
+          default: ""
+          description: Target path (extracted from patch if empty)
+        dry_run:
+          type: boolean
+          default: false
+          description: Test without applying
+      required:
+        - patch_text
+
+    PatchConflict:
+      type: object
+      properties:
+        hunk:
+          type: integer
+        line:
+          type: integer
+        expected:
+          type: array
+          items:
+            type: string
+        actual:
+          type: array
+          items:
+            type: string
+
+    PatchResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        path:
+          type: string
+        hunks_applied:
+          type: integer
+        hunks_total:
+          type: integer
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PatchConflict"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+        - path
+        - hunks_applied
+        - hunks_total
+
+    SnapshotInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+        description:
+          type: string
+        files:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - id
+        - timestamp
+        - files
+
+    CreateSnapshotRequest:
+      type: object
+      properties:
+        paths:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          default: ""
+      required:
+        - paths
+
+    SnapshotResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+        files:
+          type: object
+          additionalProperties:
+            type: string
+        description:
+          type: string
+      required:
+        - id
+        - timestamp
+        - files
+
+    VectorTypeSuggestion:
+      type: object
+      properties:
+        recommended:
+          type: string
+          enum: [FVA, SIV, CIV]
+        reason:
+          type: string
+        alternative:
+          type: string
+        use_cases:
+          type: array
+          items:
+            type: string
+      required:
+        - recommended
+        - reason
+
+    RogueProtocolInfo:
+      type: object
+      properties:
+        FVA:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            use_cases:
+              type: array
+              items:
+                type: string
+            stability:
+              type: string
+        SIV:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            use_cases:
+              type: array
+              items:
+                type: string
+            stability:
+              type: string
+        CIV:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            use_cases:
+              type: array
+              items:
+                type: string
+            stability:
+              type: string
+        RogueWorker:
+          type: object
+          properties:
+            threshold_ms:
+              type: integer
+            description:
+              type: string
+
+    AESPInfo:
+      type: object
+      properties:
+        Access:
+          type: object
+          properties:
+            description:
+              type: string
+            high_for:
+              type: string
+        Exposure:
+          type: object
+          properties:
+            description:
+              type: string
+            high_for:
+              type: string
+        Service:
+          type: object
+          properties:
+            description:
+              type: string
+            high_for:
+              type: string
+        Privacy:
+          type: object
+          properties:
+            description:
+              type: string
+            high_for:
+              type: string
+
+    LayerRule:
+      type: object
+      properties:
+        name:
+          type: string
+        owns:
+          type: array
+          items:
+            type: string
+        forbidden:
+          type: array
+          items:
+            type: string
+
+    ProjectContext:
+      type: object
+      properties:
+        project_root:
+          type: string
+        rogue_protocol:
+          $ref: "#/components/schemas/RogueProtocolInfo"
+        aesp:
+          $ref: "#/components/schemas/AESPInfo"
+        layers:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/LayerRule"
+        rules:
+          type: array
+          items:
+            type: string
+        agents_md:
+          type: string
+          nullable: true
+
+    ValidationViolation:
+      type: object
+      properties:
+        rule_id:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning, info]
+        line:
+          type: integer
+        message:
+          type: string
+        context:
+          type: string
+      required:
+        - rule_id
+        - severity
+        - line
+        - message
+
+    ValidateRequest:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+          description: File content (optional, read from path if not provided)
+      required:
+        - path
+
+    ValidateResponse:
+      type: object
+      properties:
+        path:
+          type: string
+        layer:
+          type: string
+          nullable: true
+        violations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationViolation"
+      required:
+        - path
+        - violations
+
+    OllamaChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    OllamaChatRequest:
+      type: object
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OllamaChatMessage"
+        stream:
+          type: boolean
+          default: false
+      required:
+        - model
+        - messages
+
+    OllamaChatResponseMessage:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    OllamaChatResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        message:
+          $ref: "#/components/schemas/OllamaChatResponseMessage"
+        done:
+          type: boolean
+        total_duration:
+          type: integer
+
+    OllamaModel:
+      type: object
+      properties:
+        name:
+          type: string
+        model:
+          type: string
+        size:
+          type: integer
+        digest:
+          type: string
+        modified_at:
+          type: string
+
+    OllamaTagsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/OllamaModel"
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Check gateway and all services health
+      security: []
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /files:
+    get:
+      operationId: listFiles
+      summary: List files and directories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: includeHidden
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: maxEntries
+          in: query
+          schema:
+            type: integer
+            default: 5000
+      responses:
+        "200":
+          description: File listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFilesResponse"
+
+  /file:
+    get:
+      operationId: readFile
+      summary: Read file contents
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxBytes
+          in: query
+          schema:
+            type: integer
+            default: 262144
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadFileResponse"
+
+  /write:
+    post:
+      operationId: writeFile
+      summary: Write content to a file
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteFileRequest"
+      responses:
+        "200":
+          description: File written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+
+  /search:
+    post:
+      operationId: searchCode
+      summary: Search codebase with ripgrep
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /diff:
+    get:
+      operationId: getDiff
+      summary: Get uncommitted git diff (includes untracked files)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+          description: File path (empty = all files)
+        - name: base
+          in: query
+          schema:
+            type: string
+            default: HEAD
+        - name: include_untracked
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include untracked files in diff
+      responses:
+        "200":
+          description: Git diff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiffResponse"
+
+  /patch:
+    post:
+      operationId: applyPatch
+      summary: Apply unified diff patch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchRequest"
+      responses:
+        "200":
+          description: Patch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchResult"
+
+  /snapshot:
+    post:
+      operationId: createSnapshot
+      summary: Create snapshot of files for rollback
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSnapshotRequest"
+      responses:
+        "200":
+          description: Snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotResponse"
+
+  /snapshot/{id}:
+    get:
+      operationId: restoreSnapshot
+      summary: Restore files from snapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Snapshot restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+    delete:
+      operationId: deleteSnapshot
+      summary: Delete a snapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Snapshot deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+
+  /snapshots:
+    get:
+      operationId: listSnapshots
+      summary: List all snapshots
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Snapshot list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SnapshotInfo"
+
+  /context:
+    get:
+      operationId: getProjectContext
+      summary: Get Rogue Protocol rules and project context
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Project context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectContext"
+
+  /context/suggest-vector:
+    get:
+      operationId: suggestVectorType
+      summary: Suggest appropriate vector type for an entity
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: entityType
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Type of entity (e.g., "building", "road_segment")
+        - name: useCase
+          in: query
+          schema:
+            type: string
+          description: How it will be used (e.g., "ui_selection", "internal_calc")
+      responses:
+        "200":
+          description: Vector type suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VectorTypeSuggestion"
+
+  /validate:
+    post:
+      operationId: validateFile
+      summary: Validate file against Rogue Protocol rules
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateResponse"
+
+  /ollama/tags:
+    get:
+      operationId: ollamaListModels
+      summary: List local Ollama models
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OllamaTagsResponse"
+
+  /ollama/chat:
+    post:
+      operationId: ollamaChat
+      summary: Chat via Ollama
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OllamaChatRequest"
+      responses:
+        "200":
+          description: Ollama response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OllamaChatResponse"
+
+  /listFiles:
+    get:
+      operationId: listFiles
+      summary: List files and directories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: recursive
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: includeHidden
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: maxEntries
+          in: query
+          schema:
+            type: integer
+            default: 5000
+      responses:
+        "200":
+          description: File listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFilesResponse"
+
+  /readFile:
+    get:
+      operationId: readFile
+      summary: Read file contents
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxBytes
+          in: query
+          schema:
+            type: integer
+            default: 262144
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadFileResponse"
+
+  /writeFile:
+    post:
+      operationId: writeFile
+      summary: Write content to a file
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteFileRequest"
+      responses:
+        "200":
+          description: File written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+
+  /searchCode:
+    post:
+      operationId: searchCode
+      summary: Search codebase
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /getDiff:
+    get:
+      operationId: getDiff
+      summary: Get uncommitted git diff (includes untracked files)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+          description: File path (empty = all files)
+        - name: base
+          in: query
+          schema:
+            type: string
+            default: HEAD
+        - name: include_untracked
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include untracked files in diff
+      responses:
+        "200":
+          description: Git diff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiffResponse"
+
+  /applyPatch:
+    post:
+      operationId: applyPatch
+      summary: Apply unified diff patch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchRequest"
+      responses:
+        "200":
+          description: Patch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchResult"
+
+  /createSnapshot:
+    post:
+      operationId: createSnapshot
+      summary: Create snapshot of files for rollback
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSnapshotRequest"
+      responses:
+        "200":
+          description: Snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotResponse"
+
+  /restoreSnapshot/{id}:
+    get:
+      operationId: restoreSnapshot
+      summary: Restore files from snapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Snapshot restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+
+  /deleteSnapshot/{id}:
+    delete:
+      operationId: deleteSnapshot
+      summary: Delete a snapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Snapshot deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"

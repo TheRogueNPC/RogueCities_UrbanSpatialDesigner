@@ -1,0 +1,555 @@
+openapi: 3.1.0
+info:
+  title: RogueFS Agent
+  version: 1.0.0
+  description: |
+    Secure filesystem gateway for AI assistant tools. Provides paged directory listings,
+    ranged file reads, and ripgrep-powered search with safety guardrails.
+    
+    ## Features
+    
+    - **Path traversal and symlink protection** - All paths validated against allowlist
+    - **Standard denylist** - Blocks .git, .env, credentials, keys, etc.
+    - **Deterministic ordering** - Lexicographic sort for stable results
+    - **Cursor-based pagination** - For large directory listings
+    - **Range reads** - Prevents huge payloads with offset/length
+    - **Ripgrep search** - Fast, indexed search with JSON output
+    
+    ## Authentication
+    
+    All endpoints (except /v1/health) require Bearer token authentication:
+    ```
+    Authorization: Bearer <API_KEY>
+    ```
+    
+    Or via header:
+    ```
+    X-API-Key: <API_KEY>
+    ```
+
+servers:
+  - url: https://placeholder.share.zrok.io
+    description: zrok public tunnel to RogueFS agent
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key as Bearer token
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+          nullable: true
+      required:
+        - error
+
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+        allowlistCount:
+          type: integer
+        denylistCount:
+          type: integer
+      required:
+        - status
+        - version
+
+    Root:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Absolute path to root directory
+        name:
+          type: string
+          description: Directory name
+        writable:
+          type: boolean
+          description: Whether root is writable
+      required:
+        - path
+        - name
+        - writable
+
+    RootsResponse:
+      type: object
+      properties:
+        roots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Root"
+        version:
+          type: string
+      required:
+        - roots
+        - version
+
+    EntryInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: File or directory name
+        type:
+          type: string
+          enum: [file, dir]
+        size:
+          type: integer
+          nullable: true
+          description: File size in bytes (null for directories)
+        modified_time:
+          type: string
+          nullable: true
+          description: ISO 8601 timestamp
+      required:
+        - name
+        - type
+
+    ListResponse:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Relative path listed
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntryInfo"
+        cursor:
+          type: string
+          nullable: true
+          description: Cursor for next page (null if no more)
+        has_more:
+          type: boolean
+          description: Whether more entries exist
+      required:
+        - path
+        - entries
+        - cursor
+        - has_more
+
+    ReadResponse:
+      type: object
+      properties:
+        path:
+          type: string
+        encoding:
+          type: string
+          enum: [text, base64]
+        content:
+          type: string
+          description: File content (text or base64 encoded)
+        offset:
+          type: integer
+          description: Byte offset of this chunk
+        length:
+          type: integer
+          description: Bytes read in this chunk
+        total_size:
+          type: integer
+          description: Total file size in bytes
+        eof:
+          type: boolean
+          description: True if end of file reached
+      required:
+        - path
+        - encoding
+        - content
+        - offset
+        - length
+        - total_size
+        - eof
+
+    StatResponse:
+      type: object
+      properties:
+        path:
+          type: string
+        exists:
+          type: boolean
+        type:
+          type: string
+          nullable: true
+          enum: [file, dir, other]
+        size:
+          type: integer
+          nullable: true
+        modified_time:
+          type: string
+          format: date-time
+          nullable: true
+        created_time:
+          type: string
+          format: date-time
+          nullable: true
+        is_readable:
+          type: boolean
+          nullable: true
+        is_writable:
+          type: boolean
+          nullable: true
+      required:
+        - path
+        - exists
+
+    SearchMatch:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Relative path to file
+        line:
+          type: integer
+          description: Line number (1-indexed)
+        column:
+          type: integer
+          nullable: true
+          description: Column number (1-indexed)
+        preview:
+          type: string
+          description: Matching line content (truncated)
+        context:
+          type: array
+          items:
+            type: string
+          description: Surrounding lines for context
+      required:
+        - path
+        - line
+        - preview
+        - context
+
+    SearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        root:
+          type: string
+          description: Root path searched
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchMatch"
+        truncated:
+          type: boolean
+          description: True if results were limited
+      required:
+        - query
+        - root
+        - matches
+        - truncated
+
+paths:
+  /v1/health:
+    get:
+      operationId: fsHealth
+      summary: Check RogueFS agent health
+      security: []
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /v1/roots:
+    get:
+      operationId: fsRoots
+      summary: List allowed root directories
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of allowed roots
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RootsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/list:
+    get:
+      operationId: fsList
+      summary: List directory contents with pagination
+      description: |
+        List files and directories in a path. Results are sorted deterministically:
+        all entries sorted lexicographically by name (case-insensitive).
+        
+        Use cursor-based pagination for large directories.
+        
+        **Denylist**: Paths matching .git, .vs, node_modules, credentials, *.key, etc.
+        are automatically filtered out.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ""
+          description: Relative path to list (empty for root)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 200
+            minimum: 1
+            maximum: 1000
+          description: Maximum entries per page
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Pagination cursor from previous response
+        - name: includeHidden
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include hidden files (starting with .)
+      responses:
+        "200":
+          description: Directory listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListResponse"
+        "400":
+          description: Not a directory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path denied by allowlist/denylist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/read:
+    get:
+      operationId: fsRead
+      summary: Read file content with range support
+      description: |
+        Read file content with optional offset and length for ranged reads.
+        Supports both text and binary files (returned as base64 for binary).
+        
+        Use offset + length for chunked reading of large files:
+        - Start with offset=0, length=65536
+        - Continue until eof=true
+        - Maximum chunk size is 512KB
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Relative path to file
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Byte offset to start reading from
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 65536
+            minimum: 1
+            maximum: 524288
+          description: Maximum bytes to read (max 512KB)
+      responses:
+        "200":
+          description: File content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadResponse"
+        "400":
+          description: Not a file or invalid offset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/stat:
+    get:
+      operationId: fsStat
+      summary: Get file or directory metadata
+      description: |
+        Returns metadata about a file or directory.
+        If path doesn't exist, returns exists=false (not 404).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Relative path to stat
+      responses:
+        "200":
+          description: Path metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/search:
+    get:
+      operationId: fsSearch
+      summary: Search for text in files
+      description: |
+        Search for text within files using ripgrep (rg).
+        
+        **Requirements**: ripgrep must be installed (`winget install BurntSushi.ripgrep.MSVC`)
+        
+        **Glob patterns**: Comma-separated list of file patterns to search.
+        Default: `*.py,*.js,*.ts,*.json,*.yaml,*.md,*.txt`
+        
+        **Results**: Limited to 100 matches by default. If truncated=true, more results exist.
+        
+        **Safety**: Paths matching denylist are automatically excluded from results.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Search query (literal text, case-insensitive)
+        - name: root
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ""
+          description: Relative root path to search within
+        - name: glob
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "*.py,*.js,*.ts,*.json,*.yaml,*.md,*.txt"
+          description: Comma-separated glob patterns to filter files
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+          description: Maximum results to return
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          description: Invalid query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Root path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: ripgrep not found or search failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Search timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

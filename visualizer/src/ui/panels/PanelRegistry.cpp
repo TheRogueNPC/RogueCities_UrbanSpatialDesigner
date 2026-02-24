@@ -88,7 +88,9 @@ namespace ZoningControl { IPanelDrawer* CreateDrawer(); }
 namespace LotControl { IPanelDrawer* CreateDrawer(); }
 namespace BuildingControl { IPanelDrawer* CreateDrawer(); }
 namespace WaterControl { IPanelDrawer* CreateDrawer(); }
+namespace AxiomBar { IPanelDrawer* CreateDrawer(); }
 namespace AxiomEditor { IPanelDrawer* CreateDrawer(); }
+namespace RoadEditor { IPanelDrawer* CreateDrawer(); }
 namespace Telemetry { IPanelDrawer* CreateDrawer(); }
 namespace Log { IPanelDrawer* CreateDrawer(); }
 namespace Tools { IPanelDrawer* CreateDrawer(); }
@@ -121,6 +123,9 @@ void InitializePanelRegistry() {
     
     // Register Tools
     registry.Register(std::unique_ptr<IPanelDrawer>(Tools::CreateDrawer()));
+    registry.Register(std::unique_ptr<IPanelDrawer>(AxiomBar::CreateDrawer()));
+    registry.Register(std::unique_ptr<IPanelDrawer>(AxiomEditor::CreateDrawer()));
+    registry.Register(std::unique_ptr<IPanelDrawer>(RoadEditor::CreateDrawer()));
 
     // Register System
     registry.Register(std::unique_ptr<IPanelDrawer>(Telemetry::CreateDrawer()));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RogueCity/Core/Analytics/GridMetrics.hpp"
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Core/Data/TextureSpace.hpp"
@@ -448,6 +449,7 @@ namespace RogueCity::Core::Editor {
         std::vector<Polyline> connector_debug_edges{};
         SiteProfile site_profile{};
         std::vector<PlanViolation> plan_violations{};
+        GridQualityReport grid_quality{};
         bool plan_approved{ true };
         std::unique_ptr<Data::TextureSpace> texture_space{};
         Bounds texture_space_bounds{};

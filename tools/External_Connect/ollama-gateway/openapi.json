@@ -1,0 +1,341 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Local Ollama + Codebase Gateway",
+    "description": "Gateway for Ollama LLM and codebase file operations",
+    "version": "1.0.1"
+  },
+  "servers": [
+    {
+      "url": "https://0yftqjad9paz.share.zrok.io",
+      "description": "zrok tunnel"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for gateway authentication"
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "gatewayVersion": { "type": "string" },
+          "ollama": {
+            "type": "object",
+            "properties": {
+              "baseUrl": { "type": "string" },
+              "reachable": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "OllamaTagsResponse": {
+        "type": "object",
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "size": { "type": "integer" },
+                "digest": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "GenerateRequest": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string", "description": "Model name to use" },
+          "prompt": { "type": "string", "description": "The prompt to generate from" },
+          "system": { "type": "string", "description": "System prompt" },
+          "stream": { "type": "boolean", "default": false },
+          "options": {
+            "type": "object",
+            "properties": {
+              "temperature": { "type": "number" },
+              "top_p": { "type": "number" },
+              "num_ctx": { "type": "integer" }
+            }
+          }
+        },
+        "required": ["model", "prompt"]
+      },
+      "GenerateResponse": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string" },
+          "response": { "type": "string" },
+          "done": { "type": "boolean" }
+        }
+      },
+      "ChatRequest": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string", "description": "Model name to use" },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+                "content": { "type": "string" }
+              },
+              "required": ["role", "content"]
+            }
+          },
+          "stream": { "type": "boolean", "default": false }
+        },
+        "required": ["model", "messages"]
+      },
+      "ChatResponse": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string" },
+          "message": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "content": { "type": "string" }
+            }
+          },
+          "done": { "type": "boolean" }
+        }
+      },
+      "FileListResponse": {
+        "type": "object",
+        "properties": {
+          "root": { "type": "string" },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "type": { "type": "string", "enum": ["file", "dir"] },
+                "size": { "type": "integer" },
+                "modifiedTime": { "type": "string" }
+              }
+            }
+          },
+          "truncated": { "type": "boolean" }
+        }
+      },
+      "FileResponse": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "encoding": { "type": "string", "enum": ["text", "base64"] },
+          "content": { "type": "string" },
+          "truncated": { "type": "boolean" }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "path": { "type": "string", "default": "" },
+          "glob": { "type": "string" },
+          "maxResults": { "type": "integer", "default": 100 },
+          "contextLines": { "type": "integer", "default": 2 },
+          "caseSensitive": { "type": "boolean", "default": false },
+          "useRegex": { "type": "boolean", "default": false }
+        },
+        "required": ["query"]
+      },
+      "SearchMatch": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "line": { "type": "integer" },
+          "column": { "type": "integer" },
+          "preview": { "type": "string" },
+          "before": { "type": "array", "items": { "type": "string" } },
+          "after": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "matches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SearchMatch" }
+          },
+          "truncated": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "ApiKeyAuth": [] }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Check gateway health",
+        "description": "Returns gateway status and Ollama connectivity",
+        "responses": {
+          "200": {
+            "description": "Health status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/ollama/tags": {
+      "get": {
+        "operationId": "listModels",
+        "summary": "List available Ollama models",
+        "description": "Returns list of locally available Ollama models",
+        "responses": {
+          "200": {
+            "description": "List of models",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OllamaTagsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ollama/generate": {
+      "post": {
+        "operationId": "generate",
+        "summary": "Generate text with Ollama",
+        "description": "Generate text completion using specified Ollama model",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GenerateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generated text",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GenerateResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ollama/chat": {
+      "post": {
+        "operationId": "chat",
+        "summary": "Chat with Ollama model",
+        "description": "Have a conversation with an Ollama model",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Chat response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files": {
+      "get": {
+        "operationId": "listFiles",
+        "summary": "List files in codebase",
+        "description": "List files and directories in the codebase",
+        "parameters": [
+          { "name": "path", "in": "query", "schema": { "type": "string" }, "description": "Relative path to list" },
+          { "name": "recursive", "in": "query", "schema": { "type": "boolean" }, "description": "List recursively" },
+          { "name": "includeHidden", "in": "query", "schema": { "type": "boolean" }, "description": "Include hidden files" }
+        ],
+        "responses": {
+          "200": {
+            "description": "File listing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FileListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/file": {
+      "get": {
+        "operationId": "readFile",
+        "summary": "Read a file from codebase",
+        "description": "Read contents of a file from the codebase",
+        "parameters": [
+          { "name": "path", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Relative path to file" },
+          { "name": "maxBytes", "in": "query", "schema": { "type": "integer", "default": 262144 }, "description": "Max bytes to read" }
+        ],
+        "responses": {
+          "200": {
+            "description": "File contents",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FileResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found"
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "operationId": "searchCode",
+        "summary": "Search codebase",
+        "description": "Search for text or patterns in the codebase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SearchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SearchResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,877 @@
+openapi: 3.1.0
+info:
+  title: Local Ollama + Codebase Gateway
+  version: 1.1.0
+  description: >
+    Read and write codebase access (list/read/search/write/delete) plus proxy endpoints to a local Ollama server.
+    Use a public HTTPS zrok tunnel URL as the server URL for Actions.
+    Write operations are protected by auth and include audit logging.
+servers:
+  - url: https://roguecities.share.zrok.io
+    description: zrok public tunnel to local gateway
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key as Bearer token
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error
+    Health:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        gatewayVersion:
+          type: string
+        ollama:
+          type: object
+          additionalProperties: false
+          properties:
+            baseUrl:
+              type: string
+            reachable:
+              type: boolean
+          required:
+            - baseUrl
+            - reachable
+      required:
+        - status
+        - gatewayVersion
+        - ollama
+    FileEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        type:
+          type: string
+          enum:
+            - file
+            - dir
+        size:
+          type: integer
+          minimum: 0
+        modifiedTime:
+          type: string
+          format: date-time
+      required:
+        - path
+        - type
+    ListFilesResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        root:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileEntry"
+        truncated:
+          type: boolean
+      required:
+        - root
+        - entries
+        - truncated
+    ReadFileResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        encoding:
+          type: string
+          enum:
+            - text
+            - base64
+        content:
+          type: string
+        truncated:
+          type: boolean
+      required:
+        - path
+        - encoding
+        - content
+        - truncated
+    SearchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        query:
+          type: string
+        path:
+          type: string
+          default: ""
+        glob:
+          type: string
+        maxResults:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        contextLines:
+          type: integer
+          minimum: 0
+          maximum: 20
+          default: 2
+        caseSensitive:
+          type: boolean
+          default: false
+        useRegex:
+          type: boolean
+          default: false
+      required:
+        - query
+    SearchMatch:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        line:
+          type: integer
+          minimum: 1
+        column:
+          type: integer
+          minimum: 1
+        preview:
+          type: string
+        before:
+          type: array
+          items:
+            type: string
+        after:
+          type: array
+          items:
+            type: string
+      required:
+        - path
+        - line
+        - column
+        - preview
+        - before
+        - after
+    SearchResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        query:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchMatch"
+        truncated:
+          type: boolean
+      required:
+        - query
+        - matches
+        - truncated
+    OperationResult:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        path:
+          type: string
+        message:
+          type: string
+        error:
+          type: string
+      required:
+        - ok
+        - path
+    StatResult:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        exists:
+          type: boolean
+        type:
+          type: string
+          nullable: true
+          description: "file, dir, or null if path doesn't exist"
+        size:
+          type: integer
+          minimum: 0
+          nullable: true
+        modifiedTime:
+          type: string
+          format: date-time
+          nullable: true
+        createdTime:
+          type: string
+          format: date-time
+          nullable: true
+        isWritable:
+          type: boolean
+          nullable: true
+      required:
+        - path
+        - exists
+    EnsureDirRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Relative path of directory to create
+      required:
+        - path
+    WriteFileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Relative path of file to write
+        content:
+          type: string
+          description: File content (text or base64)
+        encoding:
+          type: string
+          enum:
+            - text
+            - base64
+          default: text
+          description: Content encoding
+        overwrite:
+          type: boolean
+          default: false
+          description: Set true to overwrite existing file
+        createDirs:
+          type: boolean
+          default: true
+          description: Create parent directories if missing
+      required:
+        - path
+        - content
+    AppendFileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Relative path of file to append to
+        content:
+          type: string
+          description: Content to append (text or base64)
+        encoding:
+          type: string
+          enum:
+            - text
+            - base64
+          default: text
+          description: Content encoding
+        createIfMissing:
+          type: boolean
+          default: true
+          description: Create file if it doesn't exist
+      required:
+        - path
+        - content
+    DeletePathRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: Relative path to delete
+        recursive:
+          type: boolean
+          default: false
+          description: Delete non-empty directories recursively
+      required:
+        - path
+    MovePathRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        source:
+          type: string
+          description: Relative source path
+        destination:
+          type: string
+          description: Relative destination path
+        overwrite:
+          type: boolean
+          default: false
+          description: Overwrite destination if it exists
+      required:
+        - source
+        - destination
+    OllamaGenerateRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        system:
+          type: string
+        options:
+          type: object
+          properties: {}
+          additionalProperties: true
+        stream:
+          type: boolean
+          default: false
+      required:
+        - model
+        - prompt
+    OllamaChatRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            type: object
+            properties: {}
+            additionalProperties: true
+        options:
+          type: object
+          properties: {}
+          additionalProperties: true
+        stream:
+          type: boolean
+          default: false
+      required:
+        - model
+        - messages
+    OllamaTagsResponse:
+      type: object
+      properties: {}
+      additionalProperties: true
+    OllamaGenerateResponse:
+      type: object
+      properties: {}
+      additionalProperties: true
+    OllamaChatResponse:
+      type: object
+      properties: {}
+      additionalProperties: true
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Check gateway and Ollama reachability.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /files:
+    get:
+      operationId: listFiles
+      summary: List files/directories in the codebase.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: includeHidden
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: maxEntries
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20000
+            default: 5000
+      responses:
+        "200":
+          description: Listing returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFilesResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /file:
+    get:
+      operationId: readFile
+      summary: Read a file from the codebase.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: maxBytes
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5242880
+            default: 262144
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadFileResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /search:
+    post:
+      operationId: searchCode
+      summary: Search the codebase.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/stat:
+    get:
+      operationId: statPath
+      summary: Get file/directory information (exists, type, size, timestamps).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Relative path to stat
+      responses:
+        "200":
+          description: Path info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/ensureDir:
+    post:
+      operationId: ensureDir
+      summary: Create a directory (and all parents) if it doesn't exist. Idempotent.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnsureDirRequest"
+      responses:
+        "200":
+          description: Directory created or already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Path exists but is a file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path not in write allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/writeFile:
+    post:
+      operationId: writeFile
+      summary: Write content to a file. Atomic write. Requires overwrite=true for existing files.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteFileRequest"
+      responses:
+        "200":
+          description: File written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+        "400":
+          description: Bad request (invalid encoding, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path not in write allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: File exists (set overwrite=true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: Content too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/appendFile:
+    post:
+      operationId: appendFile
+      summary: Append content to a file. Creates file if missing and createIfMissing=true.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendFileRequest"
+      responses:
+        "200":
+          description: Content appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path not in write allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: File not found (set createIfMissing=true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Path exists but is not a file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: Content too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/deletePath:
+    post:
+      operationId: deletePath
+      summary: Delete a file or directory. Set recursive=true for non-empty directories.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeletePathRequest"
+      responses:
+        "200":
+          description: Path deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+        "400":
+          description: Bad request (non-empty dir without recursive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path not in write allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /fs/movePath:
+    post:
+      operationId: movePath
+      summary: Move or rename a file or directory.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovePathRequest"
+      responses:
+        "200":
+          description: Path moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Path not in write allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Source path not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Destination exists (set overwrite=true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /ollama/tags:
+    get:
+      operationId: ollamaListModels
+      summary: List local Ollama models (proxy to /api/tags).
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OllamaTagsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Ollama unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /ollama/generate:
+    post:
+      operationId: ollamaGenerate
+      summary: Generate via Ollama (proxy to /api/generate, stream=false).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OllamaGenerateRequest"
+      responses:
+        "200":
+          description: Ollama response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OllamaGenerateResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Ollama unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /ollama/chat:
+    post:
+      operationId: ollamaChat
+      summary: Chat via Ollama (proxy to /api/chat, stream=false).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OllamaChatRequest"
+      responses:
+        "200":
+          description: Ollama response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OllamaChatResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Ollama unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

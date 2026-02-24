@@ -26,6 +26,7 @@
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/panels/rc_panel_ui_settings.h"
+#include "ui/panels/rc_panel_road_editor.h"
 
 #if defined(ROGUE_AI_DLC_ENABLED)
 #include "ui/panels/rc_panel_ai_console.h"
@@ -244,6 +245,27 @@ namespace AxiomEditor {
     };
     
     IPanelDrawer*CreateDrawer() { return new Drawer(); }
+}
+
+namespace RoadEditor {
+    class Drawer : public IPanelDrawer {
+    public:
+        PanelType type() const override { return PanelType::RoadEditor; }
+        const char* display_name() const override { return "Road Editor"; }
+        PanelCategory category() const override { return PanelCategory::Tools; }
+        const char* source_file() const override { return "visualizer/src/ui/panels/rc_panel_road_editor.cpp"; }
+        std::vector<std::string> tags() const override { return {"tool", "road", "editor"}; }
+
+        bool is_visible(DrawContext& ctx) const override {
+            return ctx.hfsm.state() == RogueCity::Core::Editor::EditorState::Editing_Roads;
+        }
+
+        void draw(DrawContext& ctx) override {
+            RC_UI::Panels::RoadEditor::Draw(ctx.dt);
+        }
+    };
+
+    IPanelDrawer* CreateDrawer() { return new Drawer(); }
 }
 
 // ============================================================================

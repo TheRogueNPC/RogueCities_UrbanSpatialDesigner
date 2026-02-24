@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RogueCity/App/Tools/IViewportTool.hpp"
+#include "RogueCity/App/Tools/SplineManipulator.hpp"
 
 namespace RogueCity::App {
 
@@ -15,6 +16,13 @@ public:
     void on_mouse_up(const Core::Vec2& world_pos) override;
     void on_mouse_move(const Core::Vec2& world_pos) override;
     void on_right_click(const Core::Vec2& world_pos) override;
+
+    void on_activate(PrimaryViewport& viewport) override { viewport_ = &viewport; }
+    void on_deactivate(PrimaryViewport& viewport) override { viewport_ = nullptr; }
+
+private:
+    Tools::SplineInteractionState spline_state_{};
+    PrimaryViewport* viewport_{ nullptr };
 };
 
 } // namespace RogueCity::App

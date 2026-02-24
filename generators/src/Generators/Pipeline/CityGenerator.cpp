@@ -983,6 +983,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
         output.city_boundary = cache_.city_boundary;
         output.connector_debug_edges = cache_.connector_debug_edges;
         output.plan_violations = cache_.plan_violations;
+        output.grid_quality = cache_.grid_quality;
         output.plan_approved = cache_.plan_approved;
     };
 
@@ -1003,6 +1004,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
         if (!IsStageDirty(dirty, GenerationStage::Roads)) {
             output.roads.clear();
             output.connector_debug_edges.clear();
+            output.grid_quality = GridQualityReport{};
         }
         if (!IsStageDirty(dirty, GenerationStage::Districts)) {
             output.districts.clear();
@@ -1169,6 +1171,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
         }
 
         AssignRoadSourceAxiom(cache_.roads, resolved_axioms);
+        updateGridAnalytics(cache_.roads);
         cache_.valid_stages.set(StageIndex(GenerationStage::Roads), true);
     }
 
@@ -1941,6 +1944,34 @@ std::vector<BlockPolygon> CityGenerator::generateBlocks(
             global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Material);
             global_state->ClearTextureLayerDirty(Core::Data::TextureLayer::Distance);
             global_state->MarkTextureLayerDirty(Core::Data::TextureLayer::Tensor);
+        }
+    }
+
+    void CityGenerator::updateGridAnalytics(const fva::Container<Road>& roads) {
+        Urban::Graph temp_graph;
+        
+        // We use a temporary RoadNoder to build a graph from the current roads
+        // so we can perform topological analysis.
+        Urban::RoadNoder::NoderConfig noder_cfg{};
+        Urban::RoadNoder noder(noder_cfg);
+        
+        std::vector<Urban::PolylineRoadCandidate> candidates;
+        candidates.reserve(roads.size());
+        for (const auto& road : roads) {
+            Urban::PolylineRoadCandidate c{};
+            c.pts = road.points;
+            c.type_hint = road.type;
+            candidates.push_back(std::move(c));
+        }
+        
+        noder.buildGraph(candidates, temp_graph);
+        
+        // Evaluate metrics using the grid analytics module.
+        cache_.grid_quality = Scoring::GridAnalytics::Evaluate(temp_graph);
+        
+        // Add terrain adaptation from site profile if available.
+        if (cache_.world_constraints.isValid()) {
+            cache_.grid_quality.terrain_adaptation = cache_.site_profile.average_buildable_slope;
         }
     }
 } // namespace RogueCity::Generators

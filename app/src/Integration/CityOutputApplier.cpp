@@ -389,6 +389,7 @@ void ApplyCityOutputToGlobalState(
     gs.connector_debug_edges = output.connector_debug_edges;
     gs.site_profile = output.site_profile;
     gs.plan_violations = output.plan_violations;
+    gs.grid_quality = output.grid_quality;
     gs.plan_approved = output.plan_approved;
 
     RogueCity::Core::Bounds world_bounds{};
