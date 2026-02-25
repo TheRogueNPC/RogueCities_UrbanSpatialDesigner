@@ -46,6 +46,7 @@ struct UITokens {
     static constexpr ImU32 ToolActiveBorder = IM_COL32(0, 255, 255, 255);
     static constexpr ImU32 ToolDisabledFill = IM_COL32(30, 35, 45, 170);
     static constexpr ImU32 MUserTag         = IM_COL32(0, 255, 128, 255);
+    static constexpr ImU32 Transparent      = IM_COL32(0, 0, 0, 0);
     
     // ========================================================================
     // SPACING SYSTEM (8px base unit)

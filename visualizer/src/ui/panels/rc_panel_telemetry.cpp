@@ -64,7 +64,7 @@ void DrawContent(float dt)
         true);
 
     ImGui::Separator();
-    ImGui::TextColored(UITokens::CyanAccent, "Grid Quality Index");
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent), "Grid Quality Index");
     
     auto& gq = gs.grid_quality;
     const float progress_w = ImGui::GetContentRegionAvail().x * 0.4f;
@@ -86,21 +86,21 @@ void DrawContent(float dt)
     ImGui::Text("Inters: %u", gq.total_intersections);
 
     ImGui::Separator();
-    ImGui::TextColored(UITokens::YellowWarning, "Urban Hell Diagnostics");
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning), "Urban Hell Diagnostics");
     
     if (gq.island_count > 1) {
-        ImGui::TextColored(UITokens::ErrorRed, "Disconnected Islands: %u", gq.island_count);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "Disconnected Islands: %u", gq.island_count);
     } else {
         ImGui::Text("Network Connectivity: Unified");
     }
 
     ImGui::Text("Dead Ends: %d%%", static_cast<int>(gq.dead_end_proportion * 100));
     if (gq.dead_end_proportion > 0.4f) {
-        ImGui::SameLine(); ImGui::TextColored(UITokens::ErrorRed, "(HIGH SPRAWL)");
+        ImGui::SameLine(); ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "(HIGH SPRAWL)");
     }
 
     if (gq.micro_segment_count > 0) {
-        ImGui::TextColored(UITokens::YellowWarning, "Micro-Segments (<1m): %u", gq.micro_segment_count);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning), "Micro-Segments (<1m): %u", gq.micro_segment_count);
     }
     
     ImGui::Text("Gamma Index: %.2f", gq.connectivity_index);

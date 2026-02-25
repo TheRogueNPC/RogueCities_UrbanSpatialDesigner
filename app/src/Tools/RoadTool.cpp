@@ -1,6 +1,7 @@
 #include "RogueCity/App/Tools/RoadTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include <imgui.h>
 
 namespace RogueCity::App {

@@ -1,3 +1,22 @@
+/**
+ * @class CoordinateSystem
+ * @brief Handles conversion between world coordinates, UV coordinates, and pixel coordinates within a bounded region.
+ *
+ * The CoordinateSystem class provides methods to map between world-space coordinates, normalized UV coordinates,
+ * and pixel coordinates based on a specified bounding box and texture resolution. It supports reconfiguration
+ * of bounds and resolution, and ensures proper clamping and conversion for accurate spatial representation.
+ *
+ * @param world_bounds The spatial bounds of the world region.
+ * @param texture_resolution The resolution (number of pixels) for mapping.
+ *
+ * @method reconfigure Reinitializes the coordinate system with new bounds and resolution.
+ * @method worldToUV Converts world coordinates to normalized UV coordinates (range [0,1]).
+ * @method worldToPixel Converts world coordinates to pixel coordinates, clamped to valid range.
+ * @method uvToWorld Converts normalized UV coordinates to world coordinates.
+ * @method pixelToWorld Converts pixel coordinates to world coordinates, using pixel center.
+ * @method isInBounds Checks if a world coordinate is within the defined bounds.
+ */
+ 
 #include "RogueCity/Core/Data/CoordinateSystem.hpp"
 
 #include <algorithm>

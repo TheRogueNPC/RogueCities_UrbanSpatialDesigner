@@ -13,6 +13,7 @@
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/panels/rc_panel_telemetry.h"
 #include "ui/panels/rc_panel_log.h"
+#include "ui/panels/rc_panel_validation.h"
 #include "ui/panels/rc_panel_tools.h"
 #include "ui/panels/rc_panel_district_index.h"
 #include "ui/panels/rc_panel_road_index.h"
@@ -97,6 +98,16 @@ namespace {
     };
 
     static SharedLibraryFrameState s_library_frame_state{};
+
+    static IndicesTabs s_indices_tabs{
+        .district = true,
+        .road     = true,
+        .lot      = true,
+        .river    = true,
+        .building = true,
+    };
+
+    static std::vector<PanelLayout> s_layout_schema;
 
     struct WorkspacePresetStore {
         std::unordered_map<std::string, std::string> presets;
@@ -1236,6 +1247,7 @@ void DrawRoot(float dt)
 #endif
 
     // Tool deck is always visible and drives which library is active.
+    /*
     Panels::AxiomBar::Draw(dt);
 
     // Tool libraries (shared frame + optional popout clones)
@@ -1343,6 +1355,7 @@ void DrawRoot(float dt)
         true,
         &building_popout,
         [dt]() { Panels::BuildingControl::DrawContent(dt); });
+    */
 
     // MASTER PANEL SYSTEM (RC-0.10)
     // All panels now routed through unified drawer registry
@@ -1363,7 +1376,44 @@ void DrawRoot(float dt)
         std::max(480.0f, viewport->Size.x - left_width - 16.0f),
         std::max(360.0f, viewport->Size.y - 16.0f)), ImGuiCond_FirstUseEver);
 #endif
-    Panels::AxiomEditor::Draw(dt);
+    // Tool deck is always visible and drives which library is active.
+    Panels::AxiomBar::Draw(dt);
+
+    // ---[BEGIN: NEW LAYOUT-DRIVEN PANEL RENDERING]------------------------------
+    // WHY: All panels are now drawn by PanelType, not by direct function calls.
+    // WHERE: rc_ui_root.cpp (inside DrawRoot after DockSpace/UpdateDockLayout)
+
+    // Initial schema (you can later replace this with LoadWorkspacePreset).
+    if (s_layout_schema.empty()) {
+        using namespace Panels;
+        // Right column (tool deck)
+        s_layout_schema.push_back(PanelLayout{PanelType::Telemetry,      "Telemetry",      "Right"});
+        s_layout_schema.push_back(PanelLayout{PanelType::AxiomEditor,    "Axiom Editor",   "Right"});
+        s_layout_schema.push_back(PanelLayout{PanelType::AxiomBar,       "Axiom Bar",      "Top"});
+        s_layout_schema.push_back(PanelLayout{PanelType::ZoningControl,  "Zoning",         "ToolDeck"});
+        s_layout_schema.push_back(PanelLayout{PanelType::LotControl,     "Lot Control",    "ToolDeck"});
+        s_layout_schema.push_back(PanelLayout{PanelType::BuildingControl,"Building Control","ToolDeck"});
+        s_layout_schema.push_back(PanelLayout{PanelType::WaterControl,    "Water Control",   "ToolDeck"});
+        s_layout_schema.push_back(PanelLayout{PanelType::Inspector,      "Inspector",       "ToolDeck"});
+        s_layout_schema.push_back(PanelLayout{PanelType::Tools,          "Tools",           "ToolDeck"});
+
+        // Bottom row (tabs or docked)
+        s_layout_schema.push_back(PanelLayout{PanelType::Indices,        "Indices",         "Bottom"});
+        s_layout_schema.push_back(PanelLayout{PanelType::Log,            "Log",             "Bottom"});
+        s_layout_schema.push_back(PanelLayout{PanelType::Validation,     "Validation",      "Bottom"});
+
+        // Right-side AI / extra panels
+        s_layout_schema.push_back(PanelLayout{PanelType::AiConsole,      "AI Console",      "Right"});
+        s_layout_schema.push_back(PanelLayout{PanelType::UiAgent,        "UI Agent",        "Right"});
+        s_layout_schema.push_back(PanelLayout{PanelType::CitySpec,       "City Spec",       "Right"});
+        s_layout_schema.push_back(PanelLayout{PanelType::DevShell,       "Dev Shell",       "ToolDeck"});
+    }
+
+    // RENDER ALL PANELS BY TYPE (replaces scattered panel Draw(dt) calls)
+    for (const PanelLayout& layout : s_layout_schema) {
+        DrawPanelByType(layout.type, dt, layout.window_name);
+    }
+    // ---[END: NEW LAYOUT-DRIVEN PANEL RENDERING]--------------------------------
 
     // Single master panel hosts non-viewport drawers.
 #if !defined(IMGUI_HAS_DOCK)
@@ -1604,6 +1654,223 @@ void EndDockableWindow() {
     EndWindowContainer();
     ImGui::End();
 }
+
+// ---[BEGIN: DRAW PANEL BY TYPE]------------------------------------------------
+// WHY: All panel layout is now driven by PanelLayout entries, not scattered Draw() calls.
+//      This lets you:
+//        - change where a panel is docked without touching its Draw() code,
+//        - group panels into tab groups (e.g., Indices) more easily.
+// WHERE: rc_ui_root.cpp
+
+[[nodiscard]] static bool ShouldPanelBeVisible(RC_UI::Panels::PanelType type) {
+    // Optional: add filters (e.g., AI panels only when certain feature flags are on).
+    switch (type) {
+        case Panels::PanelType::LotControl:
+        case Panels::PanelType::BuildingControl:
+        case Panels::PanelType::WaterControl:
+            // AI_INTEGRATION_TAG: show only when related HFSM modes are active.
+            return true; // or insert your HFSM mode check here
+        default:
+            return true;
+    }
+}
+
+void DrawIndicesPanel(IndicesTabs& tabs, float dt) {
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
+
+    if (ImGui::BeginTabBar("IndicesTabs")) {
+        if (tabs.district && ImGui::BeginTabItem("District Index")) {
+            Panels::DistrictIndex::GetPanel().DrawContent(gs, uiint);
+            ImGui::EndTabItem();
+        }
+        if (tabs.road && ImGui::BeginTabItem("Road Index")) {
+            Panels::RoadIndex::GetPanel().DrawContent(gs, uiint);
+            ImGui::EndTabItem();
+        }
+        if (tabs.lot && ImGui::BeginTabItem("Lot Index")) {
+            Panels::LotIndex::GetPanel().DrawContent(gs, uiint);
+            ImGui::EndTabItem();
+        }
+        if (tabs.river && ImGui::BeginTabItem("River Index")) {
+            Panels::RiverIndex::DrawContent(dt);
+            ImGui::EndTabItem();
+        }
+        if (tabs.building && ImGui::BeginTabItem("Building Index")) {
+            Panels::BuildingIndex::GetPanel().DrawContent(gs, uiint);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+}
+
+void DrawPanelByType(RC_UI::Panels::PanelType type, float dt, std::string_view window_name) {
+    const char* label = window_name.data();
+
+    // Special case: Indices is a tab group panel (District, Road, Lot, River, Building).
+    if (type == RC_UI::Panels::PanelType::Indices) {
+        ImGui::Begin(label);
+        BeginWindowContainer();
+
+        DrawIndicesPanel(s_indices_tabs, dt);
+
+        EndWindowContainer();
+        ImGui::End();
+
+        // Tell our dock system this panel is associated with Indices.
+        NotifyDockedWindow(label, "Bottom");
+        QueueDockWindow(label, "Bottom");
+        return;
+    }
+
+    // Other panels are single windows.
+    if (!ShouldPanelBeVisible(type)) {
+        return;
+    }
+
+    // Use BeginWindowContainer so panel Draw()s all share the same layout policy.
+    ImGui::Begin(label);
+    BeginWindowContainer();
+
+    switch (type) {
+        case RC_UI::Panels::PanelType::Telemetry:
+            Panels::Telemetry::DrawContent(dt);
+            break;
+        case RC_UI::Panels::PanelType::AxiomEditor:
+            Panels::AxiomEditor::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::AxiomBar:
+            Panels::AxiomBar::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::ZoningControl:
+            Panels::ZoningControl::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::LotControl:
+            Panels::LotControl::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::BuildingControl:
+            Panels::BuildingControl::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::WaterControl:
+            Panels::WaterControl::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::Inspector:
+            Panels::Inspector::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::Tools:
+            Panels::Tools::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::Log:
+            Panels::Log::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::Validation:
+            Panels::Validation::Draw(dt);
+            break;
+        case RC_UI::Panels::PanelType::AiConsole:
+            {
+                static RogueCity::UI::AiConsolePanel console;
+                console.RenderContent();
+            }
+            break;
+        case RC_UI::Panels::PanelType::UiAgent:
+            {
+                static RogueCity::UI::UiAgentPanel agent;
+                agent.RenderContent();
+            }
+            break;
+        case RC_UI::Panels::PanelType::CitySpec:
+            {
+                static RogueCity::UI::CitySpecPanel spec;
+                spec.RenderContent();
+            }
+            break;
+        case RC_UI::Panels::PanelType::DevShell:
+            Panels::DevShell::Draw(dt);
+            break;
+        default:
+            break;
+    }
+
+    EndWindowContainer();
+    ImGui::End();
+
+    // REMEMBER last dock area for this window so it can be restored.
+    NotifyDockedWindow(label, "Bottom");
+    QueueDockWindow(label, "Bottom");
+}
+
+// ---[END: DRAW PANEL BY TYPE]--------------------------------------------------
+
+// ---[BEGIN: BUTTON DOCKED PANEL]-----------------------------------------------
+void DrawButtonDockedPanel(ButtonDockedPanel& panel, float dt) {
+    ImGui::PushID(panel.window_name.c_str());
+
+    // Button opens/closes the panel.
+    if (ImGui::Button(("▶ " + panel.window_name).c_str())) {
+        panel.m_open = !panel.m_open;
+    }
+    ImGui::SameLine();
+    ImGui::Text("%s", "Panel"); 
+
+    // Optional: hold Shift to toggle between docked/floating behavior.
+    if (ImGui::IsItemHovered() && ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            panel.m_docked = !panel.m_docked;
+            if (panel.m_docked) {
+                QueueDockWindow(panel.window_name.c_str(), panel.dock_area.c_str());
+            }
+            ImGui::SetTooltip(
+                "Shift-click to toggle docked/floating.\n"
+                "Now %s.",
+                panel.m_docked ? "Docked" : "Floating"
+            );
+        }
+    } else {
+        ImGui::SetTooltip(
+            "Click to show %s.\n"
+            "Shift-click to toggle docked/floating.",
+            panel.window_name.c_str()
+        );
+    }
+
+    if (!panel.m_open) {
+        ImGui::PopID();
+        return;
+    }
+
+    bool is_window_open = true;
+    if (panel.m_docked) {
+        // Docked in its default area.
+        ImGui::Begin(panel.window_name.c_str(), nullptr, ImGuiWindowFlags_NoCollapse);
+        BeginWindowContainer();
+    } else {
+        // Floating popout window.
+        ImGui::SetNextWindowPos(
+            ImGui::GetMousePos(),
+            ImGuiCond_FirstUseEver
+        );
+        ImGui::SetNextWindowSize(ImVec2(400, 500));
+        ImGui::SetNextWindowFocus();
+        ImGui::Begin(
+            panel.window_name.c_str(),
+            &is_window_open,
+            ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse
+        );
+        BeginWindowContainer();
+    }
+
+    DrawPanelByType(panel.type, dt, panel.window_name);
+
+    EndWindowContainer();
+    ImGui::End();
+
+    if (!is_window_open || !panel.m_open) {
+        panel.m_open = false;
+    }
+
+    ImGui::PopID();
+}
+// ---[END: BUTTON DOCKED PANEL]-------------------------------------------------
 
 void PublishUiInputGateState(const UiInputGateState& state) {
     s_last_input_gate = state;

@@ -3,10 +3,12 @@
 
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "RogueCity/App/UI/ThemeManager.h"
+#include "ui/rc_ui_tokens.h"
 #include <imgui.h>
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <unordered_map>
@@ -15,40 +17,178 @@ namespace RC_UI::Viewport {
 
 namespace {
 
-const RogueCity::Core::Road* FindRoadById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (const auto& road : gs.roads) {
-        if (road.id == id) {
-            return &road;
-        }
+enum class ViewportLOD : uint8_t {
+    Coarse = 0,
+    Medium,
+    Fine
+};
+
+enum class RoadDetailClass : uint8_t {
+    Arterial = 0,
+    Collector,
+    Local
+};
+
+[[nodiscard]] ViewportLOD ResolveViewportLOD(float zoom) {
+    if (zoom < 0.20f) {
+        return ViewportLOD::Coarse;
     }
-    return nullptr;
+    if (zoom < 0.80f) {
+        return ViewportLOD::Medium;
+    }
+    return ViewportLOD::Fine;
+}
+
+[[nodiscard]] RoadDetailClass ClassifyRoadDetail(RogueCity::Core::RoadType type) {
+    using RogueCity::Core::RoadType;
+    switch (type) {
+    case RoadType::Highway:
+    case RoadType::Arterial:
+    case RoadType::Avenue:
+    case RoadType::Boulevard:
+    case RoadType::M_Major:
+        return RoadDetailClass::Arterial;
+    case RoadType::Street:
+    case RoadType::M_Minor:
+        return RoadDetailClass::Collector;
+    case RoadType::Lane:
+    case RoadType::Alleyway:
+    case RoadType::CulDeSac:
+    case RoadType::Drive:
+    case RoadType::Driveway:
+    default:
+        return RoadDetailClass::Local;
+    }
+}
+
+[[nodiscard]] bool ShouldRenderRoadForLOD(RogueCity::Core::RoadType type, ViewportLOD lod) {
+    const RoadDetailClass detail = ClassifyRoadDetail(type);
+    if (lod == ViewportLOD::Fine) {
+        return true;
+    }
+    if (lod == ViewportLOD::Medium) {
+        return detail != RoadDetailClass::Local;
+    }
+    return detail == RoadDetailClass::Arterial;
+}
+
+struct RoadRenderStyle {
+    ImU32 color{ RC_UI::WithAlpha(RC_UI::UITokens::CyanAccent, 200u) };
+    float width{ 2.0f };
+};
+
+[[nodiscard]] RoadRenderStyle ResolveRoadRenderStyle(RogueCity::Core::RoadType type) {
+    using RogueCity::Core::RoadType;
+    switch (type) {
+    case RoadType::Highway:
+        return { RC_UI::WithAlpha(RC_UI::UITokens::AmberGlow, 230u), 4.6f };
+    case RoadType::Arterial:
+    case RoadType::Avenue:
+    case RoadType::Boulevard:
+    case RoadType::M_Major:
+        return { RC_UI::WithAlpha(RC_UI::UITokens::CyanAccent, 220u), 3.2f };
+    case RoadType::Street:
+    case RoadType::M_Minor:
+        return { RC_UI::WithAlpha(RC_UI::UITokens::InfoBlue, 210u), 2.2f };
+    case RoadType::Lane:
+    case RoadType::Alleyway:
+    case RoadType::CulDeSac:
+    case RoadType::Drive:
+    case RoadType::Driveway:
+    default:
+        return { RC_UI::WithAlpha(RC_UI::UITokens::TextSecondary, 180u), 1.6f };
+    }
+}
+
+[[nodiscard]] bool IsLotDomainActive(RogueCity::Core::Editor::ToolDomain domain) {
+    return domain == RogueCity::Core::Editor::ToolDomain::Lot;
+}
+
+[[nodiscard]] bool IsBuildingDomainActive(RogueCity::Core::Editor::ToolDomain domain) {
+    return domain == RogueCity::Core::Editor::ToolDomain::Building ||
+        domain == RogueCity::Core::Editor::ToolDomain::FloorPlan ||
+        domain == RogueCity::Core::Editor::ToolDomain::Furnature;
+}
+
+[[nodiscard]] bool IsRoadDomainActive(RogueCity::Core::Editor::ToolDomain domain) {
+    return domain == RogueCity::Core::Editor::ToolDomain::Road ||
+        domain == RogueCity::Core::Editor::ToolDomain::Paths;
+}
+
+[[nodiscard]] bool ShouldRenderLotsForLOD(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    ViewportLOD lod) {
+    return lod != ViewportLOD::Coarse || IsLotDomainActive(gs.tool_runtime.active_domain);
+}
+
+[[nodiscard]] bool ShouldRenderBuildingsForLOD(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    ViewportLOD lod) {
+    if (lod == ViewportLOD::Fine) {
+        return true;
+    }
+    return IsBuildingDomainActive(gs.tool_runtime.active_domain);
+}
+
+const RogueCity::Core::Road* FindRoadById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    const auto it = gs.road_handle_by_id.find(id);
+    if (it == gs.road_handle_by_id.end()) {
+        return nullptr;
+    }
+    const uint32_t handle = it->second;
+    if (!gs.roads.isValidIndex(handle)) {
+        return nullptr;
+    }
+    return &gs.roads[handle];
 }
 
 const RogueCity::Core::District* FindDistrictById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (const auto& district : gs.districts) {
-        if (district.id == id) {
-            return &district;
-        }
+    const auto it = gs.district_handle_by_id.find(id);
+    if (it == gs.district_handle_by_id.end()) {
+        return nullptr;
     }
-    return nullptr;
+    const uint32_t handle = it->second;
+    if (!gs.districts.isValidIndex(handle)) {
+        return nullptr;
+    }
+    return &gs.districts[handle];
 }
 
 const RogueCity::Core::LotToken* FindLotById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (const auto& lot : gs.lots) {
-        if (lot.id == id) {
-            return &lot;
-        }
+    const auto it = gs.lot_handle_by_id.find(id);
+    if (it == gs.lot_handle_by_id.end()) {
+        return nullptr;
     }
-    return nullptr;
+    const uint32_t handle = it->second;
+    if (!gs.lots.isValidIndex(handle)) {
+        return nullptr;
+    }
+    return &gs.lots[handle];
 }
 
 const RogueCity::Core::BuildingSite* FindBuildingById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (const auto& building : gs.buildings) {
-        if (building.id == id) {
-            return &building;
-        }
+    const auto it = gs.building_handle_by_id.find(id);
+    if (it == gs.building_handle_by_id.end()) {
+        return nullptr;
     }
-    return nullptr;
+    const uint32_t handle = it->second;
+    if (handle >= gs.buildings.size()) {
+        return nullptr;
+    }
+    const auto& building = gs.buildings.getData()[handle];
+    return building.id == id ? &building : nullptr;
+}
+
+const RogueCity::Core::WaterBody* FindWaterById(const RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
+    const auto it = gs.water_handle_by_id.find(id);
+    if (it == gs.water_handle_by_id.end()) {
+        return nullptr;
+    }
+    const uint32_t handle = it->second;
+    if (!gs.waterbodies.isValidIndex(handle)) {
+        return nullptr;
+    }
+    return &gs.waterbodies[handle];
 }
 
 float LayerOpacity(
@@ -98,6 +238,12 @@ bool ResolveAnchorForItem(
             return true;
         }
         return false;
+    case VpEntityKind::Water:
+        if (const auto* water = FindWaterById(gs, item.id); water && !water->boundary.empty()) {
+            out_anchor = water->boundary[water->boundary.size() / 2];
+            return true;
+        }
+        return false;
     default:
         return false;
     }
@@ -136,9 +282,11 @@ bool TriangulateSimplePolygon(const std::vector<ImVec2>& points, std::vector<uin
         return false;
     }
 
-    std::vector<uint32_t> vertices(points.size());
+    thread_local std::vector<uint32_t> vertices;
+    vertices.clear();
+    vertices.reserve(points.size());
     for (uint32_t i = 0; i < static_cast<uint32_t>(points.size()); ++i) {
-        vertices[i] = i;
+        vertices.push_back(i);
     }
 
     if (SignedArea2D(points) < 0.0) {
@@ -198,6 +346,53 @@ bool TriangulateSimplePolygon(const std::vector<ImVec2>& points, std::vector<uin
     return !out_indices.empty() && out_indices.size() % 3 == 0;
 }
 
+// Adaptive Bezier Tessellation for smooth spline rendering
+// Adds points to 'out_points' (excluding p0, which should be added by caller if needed)
+void TessellateBezierRecursive(
+    const ImVec2& p0, const ImVec2& p1, const ImVec2& p2, const ImVec2& p3,
+    std::vector<ImVec2>& out_points,
+    float tolerance_sq) {
+    
+    // Flatness test: check if control points p1, p2 are close enough to the line segment p0-p3
+    float dx = p3.x - p0.x;
+    float dy = p3.y - p0.y;
+    float d2 = dx*dx + dy*dy;
+    
+    bool flat = false;
+    if (d2 < 1e-6f) {
+        // Endpoints are coincident, check distance of control points to p0
+        float d1_sq = (p1.x - p0.x)*(p1.x - p0.x) + (p1.y - p0.y)*(p1.y - p0.y);
+        float d2_sq = (p2.x - p0.x)*(p2.x - p0.x) + (p2.y - p0.y)*(p2.y - p0.y);
+        flat = (d1_sq < tolerance_sq && d2_sq < tolerance_sq);
+    } else {
+        // Distance from p1/p2 to line p0-p3
+        // Area = 0.5 * |x1(y2 - y3) + x2(y3 - y1) + x3(y1 - y2)|
+        // Height = 2 * Area / Base
+        float s1 = (dy*p1.x - dx*p1.y + p3.x*p0.y - p3.y*p0.x);
+        float dist1_sq = (s1*s1) / d2;
+        
+        float s2 = (dy*p2.x - dx*p2.y + p3.x*p0.y - p3.y*p0.x);
+        float dist2_sq = (s2*s2) / d2;
+        
+        flat = (dist1_sq < tolerance_sq && dist2_sq < tolerance_sq);
+    }
+
+    if (flat) {
+        out_points.push_back(p3);
+    } else {
+        // De Casteljau subdivision
+        ImVec2 p01 = ImVec2((p0.x + p1.x)*0.5f, (p0.y + p1.y)*0.5f);
+        ImVec2 p12 = ImVec2((p1.x + p2.x)*0.5f, (p1.y + p2.y)*0.5f);
+        ImVec2 p23 = ImVec2((p2.x + p3.x)*0.5f, (p2.y + p3.y)*0.5f);
+        ImVec2 p012 = ImVec2((p01.x + p12.x)*0.5f, (p01.y + p12.y)*0.5f);
+        ImVec2 p123 = ImVec2((p12.x + p23.x)*0.5f, (p12.y + p23.y)*0.5f);
+        ImVec2 p0123 = ImVec2((p012.x + p123.x)*0.5f, (p012.y + p123.y)*0.5f);
+        
+        TessellateBezierRecursive(p0, p01, p012, p0123, out_points, tolerance_sq);
+        TessellateBezierRecursive(p0123, p123, p23, p3, out_points, tolerance_sq);
+    }
+}
+
 } // namespace
 
 glm::vec4 DistrictColorScheme::GetColorForType(RogueCity::Core::DistrictType type) {
@@ -222,6 +417,10 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     // Reset transient hover highlights each frame
     highlights_.has_hovered_lot = false;
     highlights_.has_hovered_building = false;
+
+    if (config.show_roads) {
+        RenderRoadNetwork(gs);
+    }
 
     if (config.show_zone_colors) {
         RenderZoneColors(gs);
@@ -299,19 +498,53 @@ void ViewportOverlays::Render(const RogueCity::Core::Editor::GlobalState& gs, co
     if (config.show_compass_gimbal) {
         RenderCompassGimbalHUD(config.compass_parented, config.compass_center, config.compass_radius);
     }
+    RenderFlightDeckHUD(gs);
     RenderSelectionOutlines(gs);
     RenderHighlights();
 }
 
 void ViewportOverlays::RenderZoneColors(const RogueCity::Core::Editor::GlobalState& gs) {
-    // Render color-coded district polygons
-    for (const auto& district : gs.districts) {
+    auto draw_district = [&](const RogueCity::Core::District& district) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::District, district.id)) {
-            continue;
+            return;
+        }
+        if (district.border.size() < 3) {
+            return;
         }
         glm::vec4 color = DistrictColorScheme::GetColorForType(district.type);
         color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::District, district.id);
         DrawPolygon(district.border, color);
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.districts.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.districts.offsets[cell];
+                const uint32_t end = spatial.districts.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.districts.handles[cursor];
+                    if (handle >= gs.districts.indexCount() || !gs.districts.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_district(gs.districts[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& district : gs.districts) {
+        draw_district(district);
     }
 }
 
@@ -362,6 +595,69 @@ void ViewportOverlays::RenderScaleRulerHUD(const RogueCity::Core::Editor::Global
     char buf[64];
     FormatDistance(buf, sizeof(buf), nice_m);
     dl->AddText(ImVec2(a.x, a.y - 20.0f), col, buf);
+}
+
+void ViewportOverlays::RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState& gs) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    
+    // Layout constants
+    const float bar_height = 32.0f;
+    const float margin_x = 12.0f;
+    const float margin_y = 12.0f;
+    
+    // Anchor to bottom of viewport
+    const ImVec2 vp_pos = view_transform_.viewport_pos;
+    const ImVec2 vp_size = view_transform_.viewport_size;
+    
+    const ImVec2 bar_pos = ImVec2(vp_pos.x + margin_x, vp_pos.y + vp_size.y - bar_height - margin_y);
+    const ImVec2 bar_size = ImVec2(vp_size.x - margin_x * 2.0f, bar_height);
+    const ImVec2 bar_end = ImVec2(bar_pos.x + bar_size.x, bar_pos.y + bar_size.y);
+    
+    // Glass-style background
+    dl->AddRectFilled(bar_pos, bar_end, IM_COL32(10, 12, 16, 220), 6.0f);
+    dl->AddRect(bar_pos, bar_end, IM_COL32(255, 255, 255, 30), 6.0f);
+    
+    // 1. Mode Indicator (Capsule)
+    const char* mode_str = "UNKNOWN";
+    using RogueCity::Core::Editor::ToolDomain;
+    switch (gs.tool_runtime.active_domain) {
+        case ToolDomain::Axiom: mode_str = "AXIOM"; break;
+        case ToolDomain::Water: mode_str = "WATER"; break;
+        case ToolDomain::Road: mode_str = "ROAD"; break;
+        case ToolDomain::District: mode_str = "DISTRICT"; break;
+        case ToolDomain::Lot: mode_str = "LOT"; break;
+        case ToolDomain::Building: mode_str = "BUILDING"; break;
+        default: mode_str = "VIEW"; break;
+    }
+    
+    const ImVec2 mode_pad(12.0f, 4.0f);
+    const ImVec2 mode_text_sz = ImGui::CalcTextSize(mode_str);
+    const float mode_w = mode_text_sz.x + mode_pad.x * 2.0f;
+    const ImVec2 mode_min(bar_pos.x + 4.0f, bar_pos.y + 4.0f);
+    const ImVec2 mode_max(mode_min.x + mode_w, bar_end.y - 4.0f);
+    
+    dl->AddRectFilled(mode_min, mode_max, IM_COL32(0, 180, 180, 200), 4.0f);
+    dl->AddText(ImVec2(mode_min.x + mode_pad.x, mode_min.y + mode_pad.y - 1.0f), IM_COL32(10, 10, 10, 255), mode_str);
+    
+    // 2. Context Cue
+    const char* cue_text = "Ready";
+    if (!gs.tool_runtime.last_action_status.empty()) {
+        cue_text = gs.tool_runtime.last_action_status.c_str();
+    } else if (!gs.tool_runtime.last_viewport_status.empty()) {
+        cue_text = gs.tool_runtime.last_viewport_status.c_str();
+    }
+    
+    const ImVec2 cue_pos(mode_max.x + 16.0f, bar_pos.y + 8.0f);
+    dl->AddText(cue_pos, IM_COL32(220, 220, 220, 255), cue_text);
+    
+    // 3. Coordinates (Right aligned)
+    char coord_buf[64];
+    std::snprintf(coord_buf, sizeof(coord_buf), "XYZ: %.1f, %.1f, %.1f", 
+        view_transform_.camera_xy.x, view_transform_.camera_xy.y, 0.0f); // Z is implicit in zoom
+    
+    const ImVec2 coord_sz = ImGui::CalcTextSize(coord_buf);
+    const ImVec2 coord_pos(bar_end.x - coord_sz.x - 16.0f, bar_pos.y + 8.0f);
+    dl->AddText(coord_pos, IM_COL32(255, 180, 0, 255), coord_buf);
 }
 
 void ViewportOverlays::RenderCompassGimbalHUD(bool parented, const ImVec2& center, float radius) {
@@ -443,28 +739,31 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented, const ImVec2& cente
 }
 
 void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState& gs, OverlayConfig::AESPComponent component) {
-    // Render AESP gradient overlays on lots
-    for (const auto& lot : gs.lots) {
+    const ViewportLOD lod = ResolveViewportLOD(view_transform_.zoom);
+    if (!ShouldRenderLotsForLOD(gs, lod)) {
+        return;
+    }
+
+    auto draw_lot = [&](const RogueCity::Core::LotToken& lot) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Lot, lot.id)) {
-            continue;
+            return;
         }
-        
-        // Select score component
+
         float score = 0.0f;
         switch (component) {
-            case OverlayConfig::AESPComponent::Access: score = lot.access; break;
-            case OverlayConfig::AESPComponent::Exposure: score = lot.exposure; break;
-            case OverlayConfig::AESPComponent::Service: score = lot.serviceability; break;
-            case OverlayConfig::AESPComponent::Privacy: score = lot.privacy; break;
-            case OverlayConfig::AESPComponent::Combined:
-            default: score = lot.aespScore(); break;
+        case OverlayConfig::AESPComponent::Access: score = lot.access; break;
+        case OverlayConfig::AESPComponent::Exposure: score = lot.exposure; break;
+        case OverlayConfig::AESPComponent::Service: score = lot.serviceability; break;
+        case OverlayConfig::AESPComponent::Privacy: score = lot.privacy; break;
+        case OverlayConfig::AESPComponent::Combined:
+        default: score = lot.aespScore(); break;
         }
-        
+
         glm::vec4 color = GetAESPGradientColor(score);
         color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Lot, lot.id);
         if (!lot.boundary.empty()) {
             DrawPolygon(lot.boundary, color);
-            continue;
+            return;
         }
 
         const ImVec2 pos = WorldToScreen(lot.centroid);
@@ -472,36 +771,170 @@ void ViewportOverlays::RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalSt
             pos,
             std::max(2.0f, 3.0f * view_transform_.zoom),
             ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, color.a)));
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.lots.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.lots.offsets[cell];
+                const uint32_t end = spatial.lots.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.lots.handles[cursor];
+                    if (handle >= gs.lots.indexCount() || !gs.lots.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_lot(gs.lots[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& lot : gs.lots) {
+        draw_lot(lot);
     }
 }
 
-void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs) {
-    // Render road classification labels
+void ViewportOverlays::RenderRoadNetwork(const RogueCity::Core::Editor::GlobalState& gs) {
+    const ViewportLOD lod = ResolveViewportLOD(view_transform_.zoom);
+    const bool force_roads_visible = IsRoadDomainActive(gs.tool_runtime.active_domain);
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    auto draw_road = [&](const RogueCity::Core::Road& road) {
+        if (road.points.size() < 2) {
+            return;
+        }
+        const RoadRenderStyle style = ResolveRoadRenderStyle(road.type);
+        scratch_screen_points_.clear();
+        scratch_screen_points_.reserve(road.points.size());
+        for (const auto& point : road.points) {
+            scratch_screen_points_.push_back(WorldToScreen(point));
+        }
+        draw_list->AddPolyline(
+            scratch_screen_points_.data(),
+            static_cast<int>(scratch_screen_points_.size()),
+            style.color,
+            false,
+            style.width);
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.roads.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.roads.offsets[cell];
+                const uint32_t end = spatial.roads.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.roads.handles[cursor];
+                    if (handle >= gs.roads.indexCount() || !gs.roads.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    const auto& road = gs.roads[handle];
+                    if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Road, road.id)) {
+                        continue;
+                    }
+                    if (!force_roads_visible && !ShouldRenderRoadForLOD(road.type, lod)) {
+                        continue;
+                    }
+                    draw_road(road);
+                }
+            }
+        }
+        return;
+    }
+
     for (const auto& road : gs.roads) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Road, road.id)) {
             continue;
         }
-        
-        // Calculate midpoint of road
-        if (road.points.empty()) continue;
-        RogueCity::Core::Vec2 midpoint = road.points[road.points.size() / 2];
-        
-        // Get road type name
+        if (!force_roads_visible && !ShouldRenderRoadForLOD(road.type, lod)) {
+            continue;
+        }
+        draw_road(road);
+    }
+}
+
+void ViewportOverlays::RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs) {
+    const ViewportLOD lod = ResolveViewportLOD(view_transform_.zoom);
+    const bool force_roads_visible = IsRoadDomainActive(gs.tool_runtime.active_domain);
+
+    auto draw_label = [&](const RogueCity::Core::Road& road) {
+        if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Road, road.id)) {
+            return;
+        }
+        if (road.points.empty()) {
+            return;
+        }
+        if (!force_roads_visible && !ShouldRenderRoadForLOD(road.type, lod)) {
+            return;
+        }
+
+        const RogueCity::Core::Vec2 midpoint = road.points[road.points.size() / 2];
         const char* type_name = "Road";
         using RogueCity::Core::RoadType;
         switch (road.type) {
-            case RoadType::Highway: type_name = "Highway"; break;
-            case RoadType::Arterial: type_name = "Arterial"; break;
-            case RoadType::Avenue: type_name = "Avenue"; break;
-            case RoadType::Boulevard: type_name = "Boulevard"; break;
-            case RoadType::Street: type_name = "Street"; break;
-            case RoadType::Lane: type_name = "Lane"; break;
-            case RoadType::Alleyway: type_name = "Alley"; break;
-            default: break;
+        case RoadType::Highway: type_name = "Highway"; break;
+        case RoadType::Arterial: type_name = "Arterial"; break;
+        case RoadType::Avenue: type_name = "Avenue"; break;
+        case RoadType::Boulevard: type_name = "Boulevard"; break;
+        case RoadType::Street: type_name = "Street"; break;
+        case RoadType::Lane: type_name = "Lane"; break;
+        case RoadType::Alleyway: type_name = "Alley"; break;
+        default: break;
         }
-        
+
         const float opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Road, road.id);
         DrawWorldText(midpoint, type_name, glm::vec4(1.0f, 1.0f, 1.0f, 0.8f * opacity));
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.roads.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.roads.offsets[cell];
+                const uint32_t end = spatial.roads.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.roads.handles[cursor];
+                    if (handle >= gs.roads.indexCount() || !gs.roads.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_label(gs.roads[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& road : gs.roads) {
+        draw_label(road);
     }
 }
 
@@ -803,26 +1236,34 @@ void ViewportOverlays::DrawPolygon(const std::vector<RogueCity::Core::Vec2>& poi
     }
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    std::vector<ImVec2> screen_points;
-    screen_points.reserve(points.size());
+    scratch_screen_points_.clear();
+    scratch_screen_points_.reserve(points.size());
     for (const auto& pt : points) {
-        screen_points.push_back(WorldToScreen(pt));
+        scratch_screen_points_.push_back(WorldToScreen(pt));
     }
 
     const ImU32 fill = ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, color.a));
     const ImU32 outline = ImGui::ColorConvertFloat4ToU32(ImVec4(color.r, color.g, color.b, std::min(color.a + 0.2f, 1.0f)));
-    std::vector<uint32_t> triangle_indices;
-    if (TriangulateSimplePolygon(screen_points, triangle_indices)) {
-        for (size_t i = 0; i + 2 < triangle_indices.size(); i += 3) {
-            const ImVec2& a = screen_points[triangle_indices[i]];
-            const ImVec2& b = screen_points[triangle_indices[i + 1]];
-            const ImVec2& c = screen_points[triangle_indices[i + 2]];
+    scratch_triangle_indices_.clear();
+    if (TriangulateSimplePolygon(scratch_screen_points_, scratch_triangle_indices_)) {
+        for (size_t i = 0; i + 2 < scratch_triangle_indices_.size(); i += 3) {
+            const ImVec2& a = scratch_screen_points_[scratch_triangle_indices_[i]];
+            const ImVec2& b = scratch_screen_points_[scratch_triangle_indices_[i + 1]];
+            const ImVec2& c = scratch_screen_points_[scratch_triangle_indices_[i + 2]];
             draw_list->AddTriangleFilled(a, b, c, fill);
         }
     } else {
-        draw_list->AddConvexPolyFilled(screen_points.data(), static_cast<int>(screen_points.size()), fill);
+        draw_list->AddConvexPolyFilled(
+            scratch_screen_points_.data(),
+            static_cast<int>(scratch_screen_points_.size()),
+            fill);
     }
-    draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), outline, true, 1.0f);
+    draw_list->AddPolyline(
+        scratch_screen_points_.data(),
+        static_cast<int>(scratch_screen_points_.size()),
+        outline,
+        true,
+        1.0f);
 }
 
 void ViewportOverlays::DrawWorldText(const RogueCity::Core::Vec2& pos, const char* text, const glm::vec4& color) {
@@ -881,6 +1322,115 @@ ImVec2 ViewportOverlays::WorldToScreen(const RogueCity::Core::Vec2& world_pos) c
     );
 }
 
+RogueCity::Core::Vec2 ViewportOverlays::ScreenToWorld(const ImVec2& screen_pos) const {
+    if (view_transform_.viewport_size.x <= 0.0f ||
+        view_transform_.viewport_size.y <= 0.0f ||
+        view_transform_.zoom <= 1e-6f) {
+        return view_transform_.camera_xy;
+    }
+
+    const ImVec2 viewport_min = view_transform_.viewport_pos;
+    const float nx = (screen_pos.x - viewport_min.x) / view_transform_.viewport_size.x - 0.5f;
+    const float ny = (screen_pos.y - viewport_min.y) / view_transform_.viewport_size.y - 0.5f;
+    const RogueCity::Core::Vec2 view(
+        static_cast<double>(nx * view_transform_.viewport_size.x / view_transform_.zoom),
+        static_cast<double>(ny * view_transform_.viewport_size.y / view_transform_.zoom));
+
+    const float c = std::cos(view_transform_.yaw);
+    const float s = std::sin(view_transform_.yaw);
+    const RogueCity::Core::Vec2 rel(
+        view.x * c - view.y * s,
+        view.x * s + view.y * c);
+    return RogueCity::Core::Vec2(
+        view_transform_.camera_xy.x + rel.x,
+        view_transform_.camera_xy.y + rel.y);
+}
+
+bool ViewportOverlays::ComputeVisibleCellRange(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    int& out_min_cell_x,
+    int& out_max_cell_x,
+    int& out_min_cell_y,
+    int& out_max_cell_y) const {
+    const auto& spatial = gs.render_spatial_grid;
+    if (!spatial.IsValid()) {
+        return false;
+    }
+
+    const ImVec2 viewport_min = view_transform_.viewport_pos;
+    const ImVec2 viewport_max = ImVec2(
+        viewport_min.x + view_transform_.viewport_size.x,
+        viewport_min.y + view_transform_.viewport_size.y);
+
+    const std::array<RogueCity::Core::Vec2, 4> corners{
+        ScreenToWorld(viewport_min),
+        ScreenToWorld(ImVec2(viewport_max.x, viewport_min.y)),
+        ScreenToWorld(viewport_max),
+        ScreenToWorld(ImVec2(viewport_min.x, viewport_max.y))
+    };
+
+    double world_min_x = corners[0].x;
+    double world_max_x = corners[0].x;
+    double world_min_y = corners[0].y;
+    double world_max_y = corners[0].y;
+    for (const auto& corner : corners) {
+        world_min_x = std::min(world_min_x, corner.x);
+        world_max_x = std::max(world_max_x, corner.x);
+        world_min_y = std::min(world_min_y, corner.y);
+        world_max_y = std::max(world_max_y, corner.y);
+    }
+
+    const bool overlaps_world =
+        !(world_max_x < spatial.world_bounds.min.x ||
+          world_min_x > spatial.world_bounds.max.x ||
+          world_max_y < spatial.world_bounds.min.y ||
+          world_min_y > spatial.world_bounds.max.y);
+    if (!overlaps_world) {
+        return false;
+    }
+
+    out_min_cell_x = std::clamp(
+        static_cast<int>(std::floor((world_min_x - spatial.world_bounds.min.x) / spatial.cell_size_x)),
+        0,
+        static_cast<int>(spatial.width) - 1);
+    out_max_cell_x = std::clamp(
+        static_cast<int>(std::floor((world_max_x - spatial.world_bounds.min.x) / spatial.cell_size_x)),
+        0,
+        static_cast<int>(spatial.width) - 1);
+    out_min_cell_y = std::clamp(
+        static_cast<int>(std::floor((world_min_y - spatial.world_bounds.min.y) / spatial.cell_size_y)),
+        0,
+        static_cast<int>(spatial.height) - 1);
+    out_max_cell_y = std::clamp(
+        static_cast<int>(std::floor((world_max_y - spatial.world_bounds.min.y) / spatial.cell_size_y)),
+        0,
+        static_cast<int>(spatial.height) - 1);
+    return true;
+}
+
+void ViewportOverlays::BeginDedupePass(size_t required_size) {
+    if (scratch_dedupe_stamps_.size() < required_size) {
+        scratch_dedupe_stamps_.resize(required_size, 0u);
+    }
+
+    scratch_dedupe_epoch_ += 1u;
+    if (scratch_dedupe_epoch_ == 0u) {
+        std::fill(scratch_dedupe_stamps_.begin(), scratch_dedupe_stamps_.end(), 0u);
+        scratch_dedupe_epoch_ = 1u;
+    }
+}
+
+bool ViewportOverlays::MarkHandleSeen(uint32_t handle) {
+    if (handle >= scratch_dedupe_stamps_.size()) {
+        return false;
+    }
+    if (scratch_dedupe_stamps_[handle] == scratch_dedupe_epoch_) {
+        return false;
+    }
+    scratch_dedupe_stamps_[handle] = scratch_dedupe_epoch_;
+    return true;
+}
+
 float ViewportOverlays::WorldToScreenScale(float world_distance) const {
     return world_distance * view_transform_.zoom;
 }
@@ -914,34 +1464,49 @@ void ViewportOverlays::RenderSelectionOutlines(const RogueCity::Core::Editor::Gl
         if (road.points.size() < 2) {
             return;
         }
-        std::vector<ImVec2> screen_points;
-        screen_points.reserve(road.points.size());
+        scratch_screen_points_.clear();
+        scratch_screen_points_.reserve(road.points.size());
         for (const auto& point : road.points) {
-            screen_points.push_back(WorldToScreen(point));
+            scratch_screen_points_.push_back(WorldToScreen(point));
         }
-        draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, false, thickness);
+        draw_list->AddPolyline(
+            scratch_screen_points_.data(),
+            static_cast<int>(scratch_screen_points_.size()),
+            color,
+            false,
+            thickness);
     };
 
     auto draw_district = [&](const RogueCity::Core::District& district, const ImU32 color) {
         if (district.border.size() < 3) {
             return;
         }
-        std::vector<ImVec2> screen_points;
-        screen_points.reserve(district.border.size());
+        scratch_screen_points_.clear();
+        scratch_screen_points_.reserve(district.border.size());
         for (const auto& point : district.border) {
-            screen_points.push_back(WorldToScreen(point));
+            scratch_screen_points_.push_back(WorldToScreen(point));
         }
-        draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, true, thickness);
+        draw_list->AddPolyline(
+            scratch_screen_points_.data(),
+            static_cast<int>(scratch_screen_points_.size()),
+            color,
+            true,
+            thickness);
     };
 
     auto draw_lot = [&](const RogueCity::Core::LotToken& lot, const ImU32 color) {
         if (lot.boundary.size() >= 3) {
-            std::vector<ImVec2> screen_points;
-            screen_points.reserve(lot.boundary.size());
+            scratch_screen_points_.clear();
+            scratch_screen_points_.reserve(lot.boundary.size());
             for (const auto& point : lot.boundary) {
-                screen_points.push_back(WorldToScreen(point));
+                scratch_screen_points_.push_back(WorldToScreen(point));
             }
-            draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), color, true, thickness);
+            draw_list->AddPolyline(
+                scratch_screen_points_.data(),
+                static_cast<int>(scratch_screen_points_.size()),
+                color,
+                true,
+                thickness);
             return;
         }
         draw_list->AddCircle(WorldToScreen(lot.centroid), 10.0f, color, 24, thickness);
@@ -1101,12 +1666,14 @@ void ViewportOverlays::RenderGizmos(const RogueCity::Core::Editor::GlobalState& 
 void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs) {
     using RogueCity::Core::WaterType;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    
-    for (const auto& water : gs.waterbodies) {
+
+    auto draw_water = [&](const RogueCity::Core::WaterBody& water) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Water, water.id)) {
-            continue;
+            return;
         }
-        if (water.boundary.empty()) continue;
+        if (water.boundary.empty()) {
+            return;
+        }
         const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Water, water.id);
         
         // Determine color based on water type
@@ -1130,15 +1697,20 @@ void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalSt
         // Render boundary polygon/polyline
         if (water.type == WaterType::River && water.boundary.size() >= 2) {
             // Rivers are rendered as polylines (flowing paths)
-            std::vector<ImVec2> screen_points;
-            screen_points.reserve(water.boundary.size());
+            scratch_screen_points_.clear();
+            scratch_screen_points_.reserve(water.boundary.size());
             for (const auto& pt : water.boundary) {
-                screen_points.push_back(WorldToScreen(pt));
+                scratch_screen_points_.push_back(WorldToScreen(pt));
             }
             
             ImU32 river_color = ImGui::ColorConvertFloat4ToU32(ImVec4(water_color.r, water_color.g, water_color.b, water_color.a));
             float line_width = 3.0f + water.depth * 0.5f; // Width based on depth
-            draw_list->AddPolyline(screen_points.data(), static_cast<int>(screen_points.size()), river_color, false, line_width);
+            draw_list->AddPolyline(
+                scratch_screen_points_.data(),
+                static_cast<int>(scratch_screen_points_.size()),
+                river_color,
+                false,
+                line_width);
             
             // Add direction arrows (optional, for visual clarity)
             for (size_t i = 0; i < water.boundary.size() - 1; ++i) {
@@ -1161,16 +1733,21 @@ void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalSt
             
             // Shore detail rendering (if enabled)
             if (water.generate_shore) {
-                std::vector<ImVec2> screen_shore;
-                screen_shore.reserve(water.boundary.size());
+                scratch_screen_points_.clear();
+                scratch_screen_points_.reserve(water.boundary.size());
                 for (const auto& pt : water.boundary) {
-                    screen_shore.push_back(WorldToScreen(pt));
+                    scratch_screen_points_.push_back(WorldToScreen(pt));
                 }
                 
                 // Draw shore outline with lighter color
                 glm::vec4 shore_color(0.78f, 0.71f, 0.55f, 0.8f); // Sandy color
                 ImU32 shore = ImGui::ColorConvertFloat4ToU32(ImVec4(shore_color.r, shore_color.g, shore_color.b, shore_color.a));
-                draw_list->AddPolyline(screen_shore.data(), static_cast<int>(screen_shore.size()), shore, true, 1.5f);
+                draw_list->AddPolyline(
+                    scratch_screen_points_.data(),
+                    static_cast<int>(scratch_screen_points_.size()),
+                    shore,
+                    true,
+                    1.5f);
             }
         }
         
@@ -1195,16 +1772,51 @@ void ViewportOverlays::RenderWaterBodies(const RogueCity::Core::Editor::GlobalSt
             
             DrawWorldText(centroid, type_name, glm::vec4(1.0f, 1.0f, 1.0f, 0.9f));
         }
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.waterbodies.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.water.offsets[cell];
+                const uint32_t end = spatial.water.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.water.handles[cursor];
+                    if (handle >= gs.waterbodies.indexCount() || !gs.waterbodies.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_water(gs.waterbodies[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& water : gs.waterbodies) {
+        draw_water(water);
     }
 }
 
 // AI_INTEGRATION_TAG: V1_PASS1_TASK5_BUILDING_OVERLAY
 void ViewportOverlays::RenderBuildingSites(const RogueCity::Core::Editor::GlobalState& gs) {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    
-    for (const auto& building : gs.buildings) {
+    const ViewportLOD lod = ResolveViewportLOD(view_transform_.zoom);
+    if (!ShouldRenderBuildingsForLOD(gs, lod)) {
+        return;
+    }
+
+    auto draw_building = [&](const RogueCity::Core::BuildingSite& building) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Building, building.id)) {
-            continue;
+            return;
         }
         const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Building, building.id);
         // Render building as a simple marker/circle for now
@@ -1260,39 +1872,107 @@ void ViewportOverlays::RenderBuildingSites(const RogueCity::Core::Editor::Global
         
         // Height indicator (vertical line) - only if enabled in config
         // For now, we'll skip this as it requires config check in Render()
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.buildings.size());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.buildings.offsets[cell];
+                const uint32_t end = spatial.buildings.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.buildings.handles[cursor];
+                    if (handle >= gs.buildings.size()) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_building(gs.buildings.getData()[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& building : gs.buildings) {
+        draw_building(building);
     }
 }
 
 // AI_INTEGRATION_TAG: V1_PASS1_TASK5_LOT_OVERLAY
 void ViewportOverlays::RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs) {
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    
-    for (const auto& lot : gs.lots) {
+    const ViewportLOD lod = ResolveViewportLOD(view_transform_.zoom);
+    if (!ShouldRenderLotsForLOD(gs, lod)) {
+        return;
+    }
+
+    auto draw_lot = [&](const RogueCity::Core::LotToken& lot) {
         if (!gs.IsEntityVisible(RogueCity::Core::Editor::VpEntityKind::Lot, lot.id)) {
-            continue;
+            return;
         }
-        if (lot.boundary.empty()) continue;
+        if (lot.boundary.empty()) {
+            return;
+        }
         const float layer_opacity = LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::Lot, lot.id);
         
         // Lot boundary color (subtle, so it doesn't overwhelm)
         glm::vec4 lot_color(0.8f, 0.8f, 0.8f, 0.3f * layer_opacity); // Light gray, semi-transparent
         
         // Convert to screen space
-        std::vector<ImVec2> screen_points;
-        screen_points.reserve(lot.boundary.size());
+        scratch_screen_points_.clear();
+        scratch_screen_points_.reserve(lot.boundary.size());
         for (const auto& pt : lot.boundary) {
-            screen_points.push_back(WorldToScreen(pt));
+            scratch_screen_points_.push_back(WorldToScreen(pt));
         }
         
         // Draw boundary lines
         ImU32 line_color = ImGui::ColorConvertFloat4ToU32(ImVec4(lot_color.r, lot_color.g, lot_color.b, lot_color.a));
         draw_list->AddPolyline(
-            screen_points.data(),
-            static_cast<int>(screen_points.size()),
+            scratch_screen_points_.data(),
+            static_cast<int>(scratch_screen_points_.size()),
             line_color,
             true, // Closed loop
             1.0f
         );
+    };
+
+    int min_cell_x = 0;
+    int max_cell_x = 0;
+    int min_cell_y = 0;
+    int max_cell_y = 0;
+    if (ComputeVisibleCellRange(gs, min_cell_x, max_cell_x, min_cell_y, max_cell_y)) {
+        const auto& spatial = gs.render_spatial_grid;
+        BeginDedupePass(gs.lots.indexCount());
+        for (int y = min_cell_y; y <= max_cell_y; ++y) {
+            for (int x = min_cell_x; x <= max_cell_x; ++x) {
+                const uint32_t cell = spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                const uint32_t begin = spatial.lots.offsets[cell];
+                const uint32_t end = spatial.lots.offsets[cell + 1u];
+                for (uint32_t cursor = begin; cursor < end; ++cursor) {
+                    const uint32_t handle = spatial.lots.handles[cursor];
+                    if (handle >= gs.lots.indexCount() || !gs.lots.isValidIndex(handle)) {
+                        continue;
+                    }
+                    if (!MarkHandleSeen(handle)) {
+                        continue;
+                    }
+                    draw_lot(gs.lots[handle]);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const auto& lot : gs.lots) {
+        draw_lot(lot);
     }
 }
 
@@ -1316,16 +1996,16 @@ void ViewportOverlays::RenderCityBoundary(const RogueCity::Core::Editor::GlobalS
     if (gs.city_boundary.size() < 3) {
         return;
     }
-    std::vector<ImVec2> screen_points;
-    screen_points.reserve(gs.city_boundary.size());
+    scratch_screen_points_.clear();
+    scratch_screen_points_.reserve(gs.city_boundary.size());
     for (const auto& p : gs.city_boundary) {
-        screen_points.push_back(WorldToScreen(p));
+        scratch_screen_points_.push_back(WorldToScreen(p));
     }
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     draw_list->AddPolyline(
-        screen_points.data(),
-        static_cast<int>(screen_points.size()),
+        scratch_screen_points_.data(),
+        static_cast<int>(scratch_screen_points_.size()),
         IM_COL32(35, 90, 255, 240),
         true,
         3.0f);
@@ -1361,27 +2041,11 @@ void ViewportOverlays::RenderGridOverlay(const RogueCity::Core::Editor::GlobalSt
         viewport_min.y + view_transform_.viewport_size.y
     );
 
-    const float c = std::cos(view_transform_.yaw);
-    const float s = std::sin(view_transform_.yaw);
-    const auto screen_to_world = [&](const ImVec2& screen_pos) -> RogueCity::Core::Vec2 {
-        const float nx = (screen_pos.x - viewport_min.x) / view_transform_.viewport_size.x - 0.5f;
-        const float ny = (screen_pos.y - viewport_min.y) / view_transform_.viewport_size.y - 0.5f;
-        const RogueCity::Core::Vec2 view(
-            static_cast<double>(nx * view_transform_.viewport_size.x / view_transform_.zoom),
-            static_cast<double>(ny * view_transform_.viewport_size.y / view_transform_.zoom));
-        const RogueCity::Core::Vec2 rel(
-            view.x * c - view.y * s,
-            view.x * s + view.y * c);
-        return RogueCity::Core::Vec2(
-            view_transform_.camera_xy.x + rel.x,
-            view_transform_.camera_xy.y + rel.y);
-    };
-
     const std::array<RogueCity::Core::Vec2, 4> corners{
-        screen_to_world(viewport_min),
-        screen_to_world(ImVec2(viewport_max.x, viewport_min.y)),
-        screen_to_world(viewport_max),
-        screen_to_world(ImVec2(viewport_min.x, viewport_max.y))
+        ScreenToWorld(viewport_min),
+        ScreenToWorld(ImVec2(viewport_max.x, viewport_min.y)),
+        ScreenToWorld(viewport_max),
+        ScreenToWorld(ImVec2(viewport_min.x, viewport_max.y))
     };
 
     double world_min_x = corners[0].x;

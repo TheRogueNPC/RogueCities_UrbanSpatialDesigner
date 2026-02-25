@@ -1,3 +1,36 @@
+/**
+ * @file StableIDRegistry.cpp
+ * @brief Implements the StableIDRegistry for mapping between viewport entity IDs and stable IDs.
+ *
+ * This file provides the implementation for the StableIDRegistry class, which manages the allocation,
+ * mapping, serialization, and deserialization of stable IDs for entities in the viewport. It ensures
+ * that entities retain consistent identifiers across sessions and supports migration via aliasing.
+ *
+ * Key Features:
+ * - Allocation of stable IDs for viewport entities.
+ * - Bidirectional mapping between viewport entity IDs and stable IDs.
+ * - Serialization and deserialization of registry state for persistence.
+ * - Support for aliasing legacy stable IDs to canonical IDs.
+ * - Utility functions for parsing and trimming input data.
+ *
+ * Internal Functions:
+ * - Trim: Removes leading and trailing whitespace from strings.
+ * - ParseU64/U32/U8: Safely parses unsigned integers from strings.
+ * - IsMappableKind: Determines if an entity kind is eligible for mapping.
+ *
+ * Main Methods:
+ * - AllocateStableID: Assigns a new stable ID to a viewport entity.
+ * - GetStableID: Retrieves the stable ID for a given viewport entity.
+ * - GetViewportID: Retrieves the viewport entity ID for a given stable ID.
+ * - RebuildMapping: Reconstructs the mapping based on active viewport IDs.
+ * - Serialize: Outputs the registry state as a string.
+ * - Deserialize: Loads the registry state from a string.
+ * - Clear: Resets the registry to its initial state.
+ *
+ * Singleton Access:
+ * - GetStableIDRegistry: Provides access to a singleton instance of the registry.
+ */
+ 
 #include "RogueCity/Core/Editor/StableIDRegistry.hpp"
 
 #include <algorithm>

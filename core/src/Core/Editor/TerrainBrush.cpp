@@ -1,3 +1,22 @@
+
+/**
+ * @file TerrainBrush.cpp
+ * @brief Implements a simple terrain editing brush for modifying heightmap textures based on user input strokes.
+ *
+ * The TerrainBrush class provides functionality to apply brush strokes to a heightmap texture,
+ * supporting multiple editing modes such as Raise, Lower, Flatten, and Smooth. The brush modifies
+ * the height values within a specified radius around the stroke's center, using configurable strength
+ * and optional flattening target height. The brush also computes and returns the region of the texture
+ * that was modified.
+ *
+ * Key Features:
+ * - Supports Raise, Lower, Flatten, and Smooth brush modes.
+ * - Applies falloff based on distance from stroke center for natural blending.
+ * - Handles edge cases and clamps values to valid ranges.
+ * - Tracks and reports the dirty region affected by the stroke.
+ *
+ * @namespace RogueCity::Core::Editor
+ */
 #include "RogueCity/Core/Editor/TerrainBrush.hpp"
 
 #include <algorithm>

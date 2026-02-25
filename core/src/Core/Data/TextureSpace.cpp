@@ -1,4 +1,30 @@
-#include "RogueCity/Core/Data/TextureSpace.hpp"
+/**
+ * @class TextureSpace
+ * @brief Manages spatial texture data for urban design, including height, material, zone, tensor, and distance layers.
+ *
+ * The TextureSpace class provides a grid-based representation of spatial data, supporting multiple layers
+ * (height, material, zone, tensor, distance) with configurable resolution and bounds. It tracks dirty regions
+ * for efficient updates and allows marking, clearing, and querying dirty states per layer.
+ *
+ * @param world_bounds The spatial bounds of the texture space.
+ * @param resolution The resolution (number of grid cells per dimension).
+ *
+ * @note
+ * - Dirty regions are used to optimize updates by tracking modified areas.
+ * - Layers are allocated and resized according to the specified resolution.
+ *
+ * @functions
+ * - initialize: Sets up the texture space with bounds and resolution.
+ * - markDirty: Marks a layer or region as dirty (modified).
+ * - isDirty: Checks if a layer is dirty.
+ * - dirtyRegion: Returns the dirty region for a layer.
+ * - clearDirty: Clears the dirty state for a layer.
+ * - markAllDirty: Marks all layers as dirty.
+ * - clearAllDirty: Clears dirty states for all layers.
+ * - allocateLayers: Allocates/resizes all texture layers.
+ */
+
+ #include "RogueCity/Core/Data/TextureSpace.hpp"
 
 #include <algorithm>
 

@@ -1,3 +1,42 @@
+/**
+ * @class SimulationPipeline
+ * @brief Manages the simulation step execution pipeline for RogueCity.
+ *
+ * The SimulationPipeline class is responsible for executing simulation steps,
+ * including physics, agent, and system updates, using a fixed timestep and
+ * configurable maximum substeps. It accumulates time and ensures simulation
+ * stages are executed in order, handling errors gracefully.
+ *
+ * @param config_ Simulation configuration parameters, including fixed timestep and max substeps.
+ * @param time_accumulator_ Accumulates time between simulation steps.
+ * @param frame_counter_ Tracks the number of simulation frames executed.
+ *
+ * @constructor
+ * SimulationPipeline(const SimulationConfig& config)
+ * Initializes the pipeline with the given configuration, setting sensible defaults if needed.
+ *
+ * @method
+ * StepResult ExecuteStep(Editor::GlobalState& gs, float dt_seconds)
+ * Executes simulation steps based on accumulated time and configuration.
+ * Handles errors and updates frame counters.
+ *
+ * @method
+ * void Reset() noexcept
+ * Resets the time accumulator and frame counter.
+ *
+ * @method
+ * bool StepPhysics(Editor::GlobalState& gs)
+ * Executes the physics simulation stage. Returns true if successful.
+ *
+ * @method
+ * bool StepAgents(Editor::GlobalState& gs)
+ * Executes the agent simulation stage. Returns true if successful.
+ *
+ * @method
+ * bool StepSystems(Editor::GlobalState& gs)
+ * Executes the system simulation stage. Returns true if successful.
+ */
+ 
 #include "RogueCity/Core/Simulation/SimulationPipeline.hpp"
 
 #include "RogueCity/Core/Editor/GlobalState.hpp"

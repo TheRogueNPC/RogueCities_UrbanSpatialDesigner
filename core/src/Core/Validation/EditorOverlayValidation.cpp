@@ -1,3 +1,29 @@
+/**
+ * @file EditorOverlayValidation.cpp
+ * @brief Implements validation routines for urban spatial entities in the editor overlay.
+ *
+ * Contains functions to validate plan entities such as lots, buildings, and roads,
+ * checking for issues like minimum lot area, building-lot relationships, and road intersections.
+ *
+ * Main functionalities:
+ * - Computes signed polygon area for lot boundaries.
+ * - Determines if a point lies within a polygon (lot boundary).
+ * - Checks for segment intersections (road overlaps).
+ * - Maps plan entity types to validation entity kinds.
+ * - Collects validation errors from the editor's global state, including:
+ *   - Plan violations
+ *   - Lots below minimum area
+ *   - Buildings outside their lots or referencing missing lots
+ *   - Road intersections requiring review
+ *
+ * @namespace RogueCity::Core::Validation
+ * @function CollectOverlayValidationErrors
+ *   Collects validation errors from the editor's global state.
+ *   @param gs Editor global state containing plan entities and violations.
+ *   @param min_lot_area Minimum allowed area for lots.
+ *   @return Vector of validation errors detected.
+ */
+ 
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 
 #include <cmath>

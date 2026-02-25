@@ -40,6 +40,7 @@ enum class PanelType : uint8_t {
     LotIndex,
     RiverIndex,
     BuildingIndex,
+    Indices,      // NEW: Tab group container for all indices
     
     // Controls (4)
     ZoningControl,
@@ -55,6 +56,7 @@ enum class PanelType : uint8_t {
     // System (7)
     Telemetry,
     Log,
+    Validation,   // NEW: Live validation status panel
     Tools,
     Inspector,
     SystemMap,

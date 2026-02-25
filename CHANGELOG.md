@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] - 2026-02-25
+
+### Done
+- Implemented viewport render spatial indexing in `GlobalState` with CSR layers (`roads`, `districts`, `lots`, `water`, `buildings`) and per-entity ID-to-handle maps.
+- Extended `fva::Container` API (`const operator[]`, `isValidIndex`, `indexCount`) to support safe render-time dereference from `const GlobalState`.
+- Updated `ViewportIndexBuilder::Build` to rebuild both legacy `viewport_index` and new render spatial index/ID maps in one deterministic pass.
+- Wired derived-index lifecycle through existing flows (`CityOutputApplier` and axiom editor viewport guard) without introducing manager classes.
+- Added viewport LOD policy and active-domain visibility override in overlay/panel rendering paths.
+- Refactored major overlay loops to visible-cell traversal with dedupe passes for roads/districts/lots/water/buildings.
+- Centralized base road rendering into `rc_viewport_overlays.cpp` (`RenderRoadNetwork`) so core geometry and overlay rendering share one viewport-local pipeline.
+- Added reusable scratch buffers in overlays to reduce per-frame allocations on static geometry draw paths.
+
+### Need To Do
+- Add missing tests `tests/test_viewport_spatial_grid.cpp` and `tests/test_viewport_lod_policy.cpp`, then register both in `CMakeLists.txt` with `add_test`.
+- Run and document telemetry/perf acceptance at metro scale, including `< 2 ms` zoomed-out target on baseline machine profile.
+- Decide and document whether minimap LOD policy remains intentionally separate or is unified with viewport LOD policy.
+- Complete pass-3 research items (grid occupancy tuning, pathological geometry behavior, and GPU-forward data-layout notes).
+
+### Verified
+- CMake reconfiguration succeeded with `-DCMAKE_TOOLCHAIN_FILE=C:/Users/teamc/vcpkg/scripts/buildsystems/vcpkg.cmake`, `-DVCPKG_TARGET_TRIPLET=x64-windows`, and `-DROGUECITY_BUILD_VISUALIZER=ON`.
+- Build succeeded for visualizer runtime target `RogueCityVisualizerHeadless`.
+- Smoke run succeeded (exit code `0`) for `./bin/RogueCityVisualizerHeadless.exe --help` (under timeout).
+- Full project build completed after integration changes with no new blocking compile/link errors in modified viewport and editor files.
+
 ## [0.11.0] - 2026-02-24
 
 ### Added
@@ -10,6 +34,14 @@
 - **Spline Tool Architecture (`SplineManipulator.cpp`)**: Centralized interactive spline logic into a reusable manipulator in the `app` layer for consistent road and river editing.
 - **Hydrated Viewport Tools**: Replaced `RoadTool` and `WaterTool` stubs with functional implementations that handle vertex dragging, pen-tool addition, and proportional editing.
 - **Telemetry UI Integration**: Enhanced the `Analytics` panel with real-time visual feedback for grid quality metrics and structural integrity warnings.
+
+### Build & UI Architecture Hardening
+- **Centralized Event System (`Infomatrix`)**: Created a decoupled event logging and telemetry backbone in the `core` layer to separate generator data from UI sinks.
+- **Type-Driven UI Layout**: Implemented a declarative panel schema in `rc_ui_root.cpp` that drives docking and visibility via `PanelType` routing, replacing scattered imperative calls.
+- **Button-to-Dock Popouts**: Introduced `ButtonDockedPanel` functionality, allowing UI components to toggle between docked states and floating windows with Shift-click overrides.
+- **Live Validation Panel**: Added a dedicated panel for real-time generator rule violations and constraint monitoring, powered by the new `Infomatrix` stream.
+- **Build System Hardening**: Fixed `vcpkg` toolchain integration, resolved cross-layer namespace ambiguities (`Urban` vs `Roads`), and corrected multiple header/source linkage issues.
+- **Core Utility Consolidation**: Centralized entity lookup helpers into `EditorUtils` to resolve unresolved external symbols and maintain strict layer boundaries.
 
 ### Changed
 - **Pipeline Integration**: Updated `CityGenerator` to compute and cache grid analytics at the end of the road tracing stage for zero-latency UI updates.

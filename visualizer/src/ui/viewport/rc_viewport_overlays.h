@@ -95,6 +95,7 @@ public:
     // Individual overlay renders
     void RenderZoneColors(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState& gs, OverlayConfig::AESPComponent component);
+    void RenderRoadNetwork(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
@@ -114,6 +115,7 @@ public:
     void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs);
 
+    void RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState& gs);
     void RenderCompassGimbalHUD(bool parented, const ImVec2& center, float radius);
     std::optional<float> requested_yaw_{};
@@ -150,8 +152,21 @@ public:
     void RenderSelectionOutlines(const RogueCity::Core::Editor::GlobalState& gs);
 
 private:
+    RogueCity::Core::Vec2 ScreenToWorld(const ImVec2& screen_pos) const;
+    bool ComputeVisibleCellRange(
+        const RogueCity::Core::Editor::GlobalState& gs,
+        int& out_min_cell_x,
+        int& out_max_cell_x,
+        int& out_min_cell_y,
+        int& out_max_cell_y) const;
+    void BeginDedupePass(size_t required_size);
+    bool MarkHandleSeen(uint32_t handle);
     ViewTransform view_transform_{};
     HighlightState highlights_{};
+    mutable std::vector<ImVec2> scratch_screen_points_{};
+    mutable std::vector<uint32_t> scratch_triangle_indices_{};
+    mutable std::vector<uint32_t> scratch_dedupe_stamps_{};
+    mutable uint32_t scratch_dedupe_epoch_{ 1u };
     bool compass_drag_active_{ false };
 };
 

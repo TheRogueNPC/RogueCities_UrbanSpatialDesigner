@@ -1,3 +1,20 @@
+/**
+ * @brief Applies a texture painting stroke to a color texture.
+ *
+ * This function modifies the specified texture layer (zone or material) within the given texture space,
+ * based on the parameters of the provided stroke. The stroke is applied as a circular brush with a
+ * configurable radius, opacity, and value. The affected region is optionally reported via out_dirty_region.
+ *
+ * The brush uses a linear falloff from the center to the edge, blending the stroke value with the existing
+ * texture values. Only pixels within the brush radius are affected, and blending is controlled by the stroke's
+ * opacity and the distance from the center.
+ *
+ * @param texture_space Reference to the texture space to be modified.
+ * @param stroke The stroke parameters, including center, radius, opacity, value, and layer.
+ * @param out_dirty_region Optional pointer to a DirtyRegion object to receive the affected region.
+ * @return true if any pixels were changed; false otherwise.
+ */
+ 
 #include "RogueCity/Core/Editor/TexturePainting.hpp"
 
 #include <algorithm>

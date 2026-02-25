@@ -1,3 +1,19 @@
+/**
+ * @file TextureProcessor.cpp
+ * @brief Implements texture processing operations such as box blur, gaussian blur, and gradient computation.
+ *
+ * Contains the following functions:
+ * - boxBlur: Applies a box blur filter to a 2D texture with a specified radius.
+ * - gaussianBlur: Applies a Gaussian blur filter to a 2D texture using a kernel of specified size.
+ * - computeGradient: Computes the gradient (dx, dy) for each pixel in a 2D texture.
+ * - buildGaussianKernel: Generates a normalized 1D Gaussian kernel for convolution.
+ *
+ * Utility:
+ * - ClampIndex: Ensures indices are within valid bounds for texture access.
+ *
+ * @namespace RogueCity::Core::Texture
+ */
+ 
 #include "RogueCity/Core/Texture/TextureProcessor.hpp"
 
 #include <algorithm>

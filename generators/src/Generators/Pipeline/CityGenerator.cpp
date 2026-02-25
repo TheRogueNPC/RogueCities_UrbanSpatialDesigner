@@ -3,6 +3,8 @@
 #include "RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp"
 #include "RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp"
 #include "RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp"
+#include "RogueCity/Generators/Roads/RoadNoder.hpp"
+#include "RogueCity/Generators/Roads/PolylineRoadCandidate.hpp"
 
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -1952,13 +1954,13 @@ std::vector<BlockPolygon> CityGenerator::generateBlocks(
         
         // We use a temporary RoadNoder to build a graph from the current roads
         // so we can perform topological analysis.
-        Urban::RoadNoder::NoderConfig noder_cfg{};
-        Urban::RoadNoder noder(noder_cfg);
+        Roads::NoderConfig noder_cfg{};
+        Roads::RoadNoder noder(noder_cfg);
         
-        std::vector<Urban::PolylineRoadCandidate> candidates;
+        std::vector<Roads::PolylineRoadCandidate> candidates;
         candidates.reserve(roads.size());
         for (const auto& road : roads) {
-            Urban::PolylineRoadCandidate c{};
+            Roads::PolylineRoadCandidate c{};
             c.pts = road.points;
             c.type_hint = road.type;
             candidates.push_back(std::move(c));

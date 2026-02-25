@@ -457,6 +457,15 @@ When adding a new generator system (e.g., `ZoningGenerator`, `BuildingPlacementG
 
 **Files**: `app/include/RogueCity/App/HFSM/HFSM.hpp`, `app/src/HFSM/HFSMStates.cpp`
 
+**UI Widget Pattern**:
+- **Do NOT create new panel files** for simple buttons. Use `visualizer/include/RogueCity/Visualizer/UI/RogueWidgets.hpp`.
+- **Bind to HFSM**: Buttons are projections of `GlobalState`. `is_active` must be derived from `EditorMode` comparison.
+- **Viewport Overlays**: HUDs and "Flight Decks" belong in `rc_viewport_renderer.cpp`, drawn as overlays on the active viewport.
+
+**Integration Pattern**:
+- **Do NOT create new files** for every state. Register new states in the central `HFSM.hpp` and implement logic in `HFSMStates.cpp`.
+- **Reuse States**: Prefer using context/sub-modes within existing states (e.g., `EditMode` with `ActiveTool::Zoning`) over creating `ZoningState` unless the viewport interaction model changes drastically.
+
 **Keep state transitions <10ms**; offload heavy work to RogueWorker
 
 **Agent Handoff Question**: "What UI panels and visual cues do you need for each state?"
@@ -521,5 +530,3 @@ Each agent asks the next agent what they need for success. Example questions:
 | 4 | Debug Manager | HFSM transition tests |
 | 8 | AI Integration | Pattern catalog metadata |
 | All | Resource Manager | Budget caps, performance thresholds |
-
-

@@ -122,12 +122,13 @@ std::vector<Core::RoadStroke> GridAnalytics::ExtractStrokes(
         stroke.points.push_back(graph.getVertex(next_v)->pos);
         for (auto seid : stroke_edges) {
             const auto* e = graph.getEdge(seid);
-            next_v = (e->a == next_v) ? e->b : e->a;
+            Urban::VertexID entry_v = next_v;
+            next_v = (e->a == entry_v) ? e->b : e->a;
             
             // Add internal shape points if they exist (preserving curvatures)
             if (e->shape.size() > 2) {
-                // If the edge direction is reversed, add shape points in reverse
-                if (e->a != stroke.points.back()) {
+                // If the edge direction is reversed (starts at b), add shape points in reverse
+                if (e->a != entry_v) {
                     for (int i = static_cast<int>(e->shape.size()) - 2; i >= 1; --i) {
                         stroke.points.push_back(e->shape[i]);
                     }

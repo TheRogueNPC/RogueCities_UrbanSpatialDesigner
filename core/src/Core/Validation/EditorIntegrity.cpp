@@ -1,3 +1,20 @@
+/**
+ * @file EditorIntegrity.cpp
+ * @brief Implements validation routines for editor entities in RogueCities Urban Spatial Designer.
+ *
+ * Contains functions to validate the integrity of roads, districts, lots, and buildings within the editor's global state.
+ * These checks are intentionally lightweight and non-fatal, allowing for incomplete geometry during editing.
+ * Future implementations may provide richer diagnostics and spatial integrity checks (such as overlaps, containment, and adjacency).
+ *
+ * Functions:
+ * - ValidateRoads: Validates the collection of roads for basic integrity.
+ * - ValidateDistricts: Validates the collection of districts.
+ * - ValidateLots: Validates the collection of lot tokens.
+ * - ValidateBuildings: Validates the collection of building sites.
+ * - ValidateAll: Runs all validation routines on the editor's global state.
+ * - SpatialCheckAll: Placeholder for spatial integrity checks on the editor's global state.
+ */
+ 
 #include "RogueCity/Core/Validation/EditorIntegrity.hpp"
 
 namespace RogueCity::Core::Validation {

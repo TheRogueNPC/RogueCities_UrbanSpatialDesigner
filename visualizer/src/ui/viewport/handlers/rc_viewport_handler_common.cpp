@@ -448,51 +448,6 @@ void PromoteEntityToUserLocked(
     }
 }
 
-RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& road : gs.roads) {
-        if (road.id == id) {
-            return &road;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& district : gs.districts) {
-        if (district.id == id) {
-            return &district;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& water : gs.waterbodies) {
-        if (water.id == id) {
-            return &water;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::LotToken* FindLotMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& lot : gs.lots) {
-        if (lot.id == id) {
-            return &lot;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::BuildingSite* FindBuildingMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& building : gs.buildings) {
-        if (building.id == id) {
-            return &building;
-        }
-    }
-    return nullptr;
-}
-
 uint32_t NextRoadId(const RogueCity::Core::Editor::GlobalState& gs) {
     uint32_t max_id = 0;
     for (const auto& road : gs.roads) {

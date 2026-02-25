@@ -1,5 +1,35 @@
+/**
+ * @file DeterminismHash.cpp
+ * @brief Implements deterministic hashing for urban spatial entities in RogueCities.
+ *
+ * Provides functions to compute, save, and validate determinism hashes for roads, districts, lots, buildings,
+ * and tensor layers within the editor's global state. Uses FNV-1a hashing and normalization of floating-point values
+ * to ensure consistent results across platforms and runs.
+ *
+ * Key features:
+ * - Hashing of scalar, boolean, float, double, and vector types.
+ * - Deterministic ordering of containers by entity ID before hashing.
+ * - Normalization of floating-point values to handle zero and NaN consistently.
+ * - Parsing and trimming of baseline hash files for validation.
+ * - Serialization of determinism hash values to string and file.
+ *
+ * Functions:
+ * - ComputeDeterminismHash: Computes determinism hash for the current editor state.
+ * - SaveBaselineHash: Saves determinism hash to a file in a standardized format.
+ * - ValidateAgainstBaseline: Validates current hash against a saved baseline.
+ * - DeterminismHash::to_string: Serializes hash values to a formatted string.
+ * - DeterminismHash::operator==: Compares two determinism hashes for equality.
+ *
+ * Internal helpers:
+ * - HashBytes, HashScalar, HashBool, HashFloat, HashDouble, HashVec2, HashRoad, HashDistrict, HashLot, HashBuilding
+ * - HashSortedByID: Hashes containers in deterministic order.
+ * - HashTensorLayer: Hashes tensor field layer if present.
+ * - Trim, ParseU64, ParseBaseline: String and file parsing utilities.
+ *
+ * @namespace RogueCity::Core::Validation
+ */
+ 
 #include "RogueCity/Core/Validation/DeterminismHash.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>

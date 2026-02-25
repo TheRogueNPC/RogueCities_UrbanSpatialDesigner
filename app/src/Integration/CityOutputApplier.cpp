@@ -25,7 +25,7 @@ void MarkDirtyLayersCleanForScope(
     using RogueCity::Core::Editor::DirtyLayer;
 
     auto clear_layer = [&](DirtyLayer layer) {
-        gs.dirty_layers.flags[static_cast<size_t>(layer)] = false;
+        gs.dirty_layers.MarkClean(layer);
     };
 
     clear_layer(DirtyLayer::Axioms);

@@ -1,4 +1,19 @@
-﻿#include "RogueCity/Core/Math/Vec2.hpp"
+﻿/**
+ * @file Vec2.cpp
+ * @brief Implementation of 2D vector operations for RogueCity::Core::Vec2.
+ *
+ * Provides methods for normalizing, setting length, rotating around a point,
+ * calculating distances, and comparing vectors with an epsilon tolerance.
+ *
+ * - normalize(): Normalizes the vector to unit length.
+ * - setLength(double len): Sets the vector's length to the specified value.
+ * - rotateAround(const Vec2& center, double angle_radians): Rotates the vector around a given center by a specified angle in radians.
+ * - distanceTo(const Vec2& v): Computes the Euclidean distance to another vector.
+ * - distanceToSquared(const Vec2& v): Computes the squared Euclidean distance to another vector.
+ * - equals(const Vec2& v, double epsilon): Checks if two vectors are equal within a given epsilon tolerance.
+ */
+
+#include "RogueCity/Core/Math/Vec2.hpp"
 #include <cmath>
 
 namespace RogueCity::Core {

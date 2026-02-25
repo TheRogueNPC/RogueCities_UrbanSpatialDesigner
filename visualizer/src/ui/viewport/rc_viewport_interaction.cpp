@@ -6,6 +6,7 @@
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
+#include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include "ui/tools/rc_tool_geometry_policy.h"
 #include "ui/tools/rc_tool_interaction_metrics.h"
 
@@ -27,6 +28,8 @@
 #include <vector>
 
 namespace RC_UI::Viewport {
+
+using namespace RogueCity::Core::Editor;
 
 const char* InteractionOutcomeString(InteractionOutcome outcome) {
     switch (outcome) {
@@ -438,51 +441,6 @@ void MarkDirtyForSelectionKind(
         break;
     }
     gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-}
-
-RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& road : gs.roads) {
-        if (road.id == id) {
-            return &road;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& district : gs.districts) {
-        if (district.id == id) {
-            return &district;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& water : gs.waterbodies) {
-        if (water.id == id) {
-            return &water;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::LotToken* FindLotMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& lot : gs.lots) {
-        if (lot.id == id) {
-            return &lot;
-        }
-    }
-    return nullptr;
-}
-
-RogueCity::Core::BuildingSite* FindBuildingMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& building : gs.buildings) {
-        if (building.id == id) {
-            return &building;
-        }
-    }
-    return nullptr;
 }
 
 uint32_t NextRoadId(const RogueCity::Core::Editor::GlobalState& gs) {

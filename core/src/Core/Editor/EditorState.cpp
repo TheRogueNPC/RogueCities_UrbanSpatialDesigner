@@ -1,3 +1,35 @@
+
+/**
+ * @file EditorState.cpp
+ * @brief Implements a hierarchical finite state machine (HFSM) for editor states in RogueCities Urban Spatial Designer.
+ *
+ * This file defines the logic for managing editor states, including transitions, validation hooks, and modal handling.
+ * The HFSM supports hierarchical state transitions, least common ancestor (LCA) calculations, and state-specific entry/exit actions.
+ *
+ * Key Features:
+ * - Hierarchical state management for editor modes (editing, simulating, playback, modal dialogs, etc.).
+ * - Utility functions for parent state lookup, leaf/tool mode detection, viewport interaction handling, and state chains.
+ * - Modal dialog handling with prioritized event processing.
+ * - State transition logic with validation hooks on entry/exit (e.g., domain switching, spatial checks, and entity validation).
+ * - Simulation step execution and error reporting.
+ * - Singleton accessor for the editor HFSM instance.
+ *
+ * Main Classes/Functions:
+ * - EditorHFSM: Main HFSM class managing state, transitions, and event handling.
+ * - handle_event: Processes editor events and triggers state transitions.
+ * - update: Performs per-frame updates, including simulation stepping.
+ * - transition_to: Handles hierarchical state transitions with entry/exit actions.
+ * - on_enter/on_exit: State-specific actions for validation and domain switching.
+ * - Utility functions: Parent, IsEditingLeaf, IsViewportState, ChainToRoot, FindLCA.
+ *
+ * Dependencies:
+ * - GlobalState: Editor runtime and simulation state.
+ * - SimulationPipeline: Simulation step execution.
+ * - EditorIntegrity: Validation functions for spatial and entity integrity.
+ *
+ * Namespace: RogueCity::Core::Editor
+ */
+ 
 #include "RogueCity/Core/Editor/EditorState.hpp"
 
 #include "RogueCity/Core/Editor/GlobalState.hpp"

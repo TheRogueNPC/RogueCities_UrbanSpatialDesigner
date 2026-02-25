@@ -62,6 +62,7 @@ endif()
 
     target_include_directories(RogueCityVisualizerFeaturePanels PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
         "${IMGUI_DIR}"
     )
@@ -106,6 +107,7 @@ endif()
         src/ui/panels/rc_system_map_query.cpp
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
+        src/ui/panels/rc_panel_validation.cpp
         src/ui/panels/rc_panel_inspector.cpp
         src/ui/panels/rc_panel_ui_settings.cpp
         src/ui/panels/rc_property_editor.cpp
@@ -154,6 +156,7 @@ endif()
     # Expose UI module headers.
     target_include_directories(RogueCityVisualizerHeadless PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
     )
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
@@ -212,6 +215,7 @@ endif()
                 src/ui/panels/rc_system_map_query.cpp
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
+                src/ui/panels/rc_panel_validation.cpp
                 src/ui/panels/rc_panel_inspector.cpp
                 src/ui/panels/rc_panel_ui_settings.cpp
                 src/ui/panels/rc_property_editor.cpp
@@ -260,6 +264,7 @@ endif()
 
             target_include_directories(RogueCityVisualizerGui PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"
+                "${CMAKE_CURRENT_SOURCE_DIR}/include"
                 "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
                 "${IMGUI_DIR}"
                 "${IMGUI_DIR}/backends"

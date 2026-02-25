@@ -1,3 +1,25 @@
+/**
+ * @file TextureReplayHash.cpp
+ * @brief Implements hashing and digest computation for texture layers in a TextureSpace.
+ *
+ * This file provides functions to compute FNV-1a hashes for various texture layers (float, uint8_t, Vec2)
+ * and combines them into a digest for replay and export purposes. The digest includes hashes for height,
+ * material, zone, tensor, and distance layers, as well as a combined hash incorporating texture space metadata.
+ *
+ * Key Functions:
+ * - hashBytes: Applies FNV-1a hashing to arbitrary byte data.
+ * - normalizedFloatBits: Normalizes float values and returns their bit representation.
+ * - hashFloatTexture: Hashes a Texture2D<float> layer.
+ * - hashU8Texture: Hashes a Texture2D<uint8_t> layer.
+ * - hashVec2Texture: Hashes a Texture2D<Vec2> layer.
+ * - combineDigests: Combines layer hashes and texture space metadata into a single digest.
+ * - TextureReplayHash::compute: Computes the digest for a given TextureSpace.
+ * - TextureReplayHash::toHex: Converts a hash value to a hexadecimal string.
+ * - TextureReplayHash::writeManifest: Writes the digest and metadata to a JSON manifest file.
+ *
+ * @namespace RogueCity::Core::Export
+ */
+ 
 #include "RogueCity/Core/Export/TextureReplayHash.hpp"
 
 #include <cmath>

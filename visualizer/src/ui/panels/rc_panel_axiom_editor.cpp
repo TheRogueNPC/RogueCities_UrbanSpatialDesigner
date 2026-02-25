@@ -15,15 +15,19 @@
 #include "RogueCity/App/Viewports/MinimapViewport.hpp"
 #include "RogueCity/App/Viewports/ViewportSyncManager.hpp"
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
+#include "RogueCity/App/Tools/RoadTool.hpp"
+#include "RogueCity/App/Tools/WaterTool.hpp"
 #include "RogueCity/App/Integration/CityOutputApplier.hpp"
 #include "RogueCity/App/Integration/GenerationCoordinator.hpp"
 #include "RogueCity/App/Integration/GeneratorBridge.hpp"
 #include "RogueCity/App/Integration/RealTimePreview.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
+#include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
+#include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "ui/viewport/rc_scene_frame.h"
 #include "ui/viewport/rc_minimap_renderer.h"
@@ -47,6 +51,8 @@
 #include <string>
 
 namespace RC_UI::Panels::AxiomEditor {
+
+using namespace RogueCity::Core::Editor;
 
 namespace {
     [[nodiscard]] ImU32 TokenColor(ImU32 base, uint8_t alpha = 255u) {
@@ -426,6 +432,9 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
             gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Lots);
             gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Buildings);
         }
+        if (layers & (Water | Roads | Districts | Lots | Buildings | Blocks)) {
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::ViewportIndex);
+        }
     }
 
     void Undo() override {
@@ -487,6 +496,9 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
             gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Lots);
             gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Buildings);
         }
+        if (layers & (Water | Roads | Districts | Lots | Buildings | Blocks)) {
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::ViewportIndex);
+        }
     }
 
     const char* GetDescription() const override {
@@ -498,6 +510,8 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
 static std::unique_ptr<RogueCity::App::PrimaryViewport> s_primary_viewport;
 static std::unique_ptr<RogueCity::App::ViewportSyncManager> s_sync_manager;
 static std::unique_ptr<RogueCity::App::AxiomPlacementTool> s_axiom_tool;
+static std::unique_ptr<RogueCity::App::RoadTool> s_road_tool;
+static std::unique_ptr<RogueCity::App::WaterTool> s_water_tool;
 static std::unique_ptr<RogueCity::App::GenerationCoordinator> s_generation_coordinator;
 static bool s_initialized = false;
 static bool s_live_preview = true;
@@ -623,31 +637,36 @@ bool ResolveSelectionAnchor(
     }
 }
 
-RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& road : gs.roads) {
-        if (road.id == id) {
-            return &road;
-        }
-    }
-    return nullptr;
-}
+void EnsureViewportDerivedIndices(RogueCity::Core::Editor::GlobalState& gs) {
+    using RogueCity::Core::Editor::DirtyLayer;
 
-RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& district : gs.districts) {
-        if (district.id == id) {
-            return &district;
-        }
-    }
-    return nullptr;
-}
+    const bool has_entities =
+        gs.roads.size() > 0 ||
+        gs.districts.size() > 0 ||
+        gs.lots.size() > 0 ||
+        gs.buildings.size() > 0 ||
+        gs.waterbodies.size() > 0;
 
-RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id) {
-    for (auto& water : gs.waterbodies) {
-        if (water.id == id) {
-            return &water;
-        }
+    const bool missing_viewport_index = has_entities && gs.viewport_index.empty();
+    const bool missing_spatial_grid = has_entities && !gs.render_spatial_grid.IsValid();
+    const bool stale_viewport_index = !has_entities && !gs.viewport_index.empty();
+    const bool stale_spatial_grid = !has_entities && gs.render_spatial_grid.IsValid();
+    const bool needs_rebuild =
+        gs.dirty_layers.IsDirty(DirtyLayer::ViewportIndex) ||
+        missing_viewport_index ||
+        missing_spatial_grid ||
+        stale_viewport_index ||
+        stale_spatial_grid;
+
+    if (!needs_rebuild) {
+        return;
     }
-    return nullptr;
+
+    RogueCity::App::ViewportIndexBuilder::Build(gs);
+    gs.dirty_layers.MarkClean(DirtyLayer::ViewportIndex);
+
+    // NOTE: selection currently keeps linear probe evaluation for correctness.
+    // Spatial picking acceleration can be layered in later without changing this API.
 }
 
 void Initialize() {
@@ -655,6 +674,8 @@ void Initialize() {
     
     s_primary_viewport = std::make_unique<RogueCity::App::PrimaryViewport>();
     s_axiom_tool = std::make_unique<RogueCity::App::AxiomPlacementTool>();
+    s_road_tool = std::make_unique<RogueCity::App::RoadTool>();
+    s_water_tool = std::make_unique<RogueCity::App::WaterTool>();
     s_generation_coordinator = std::make_unique<RogueCity::App::GenerationCoordinator>();
     s_generation_coordinator->SetDebounceDelay(s_debounce_seconds);
     
@@ -1332,34 +1353,6 @@ static bool ShouldRenderRoadForLOD(RogueCity::Core::RoadType type, MinimapLOD lo
     return detail == RoadDetailClass::Arterial; // Drop collector/local at LOD2.
 }
 
-struct ViewportRoadStyle {
-    ImU32 color{ TokenColor(UITokens::CyanAccent, 200u) };
-    float width{ 2.0f };
-};
-
-static ViewportRoadStyle ResolveViewportRoadStyle(RogueCity::Core::RoadType type) {
-    using RogueCity::Core::RoadType;
-    switch (type) {
-        case RoadType::Highway:
-            return {TokenColor(UITokens::AmberGlow, 230u), 4.6f};
-        case RoadType::Arterial:
-        case RoadType::Avenue:
-        case RoadType::Boulevard:
-        case RoadType::M_Major:
-            return {TokenColor(UITokens::CyanAccent, 220u), 3.2f};
-        case RoadType::Street:
-        case RoadType::M_Minor:
-            return {TokenColor(UITokens::InfoBlue, 210u), 2.2f};
-        case RoadType::Lane:
-        case RoadType::Alleyway:
-        case RoadType::CulDeSac:
-        case RoadType::Drive:
-        case RoadType::Driveway:
-        default:
-            return {TokenColor(UITokens::TextSecondary, 180u), 1.6f};
-    }
-}
-
 static const char* MinimapLODStatusText() {
     return s_minimap_lod_status_text.c_str();
 }
@@ -1992,6 +1985,7 @@ void DrawContent(float dt) {
             s_generation_coordinator.get(),
             RC_UI::GetMinimapViewport(),
         });
+    EnsureViewportDerivedIndices(gs);
     
     // Render primary viewport with axiom tool integration
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -2222,6 +2216,8 @@ void DrawContent(float dt) {
             allow_viewport_key_actions,
             mouse_pos,
             s_primary_viewport.get(),
+            s_road_tool.get(),
+            s_water_tool.get(),
             current_state,
             &gs,
         },
@@ -2229,6 +2225,7 @@ void DrawContent(float dt) {
     if (non_axiom_interaction.requires_explicit_generation) {
         gs.tool_runtime.explicit_generation_pending = true;
     }
+    EnsureViewportDerivedIndices(gs);
 
     if (!editor_hovered || !in_viewport || overlay_blocked_hovered || !allow_viewport_mouse_actions) {
         gs.hovered_entity.reset();
@@ -2396,31 +2393,6 @@ void DrawContent(float dt) {
             gs.tool_runtime.viewport_warning_text.c_str());
     }
     
-    // Render generated city output (roads)
-    if (gs.show_layer_roads) {
-        const auto& roads = gs.roads;
-        
-        // Iterate using const iterators
-        for (auto it = roads.begin(); it != roads.end(); ++it) {
-            const auto& road = *it;
-            
-            if (road.points.empty()) continue;
-            
-            // Convert road points to screen space and draw polyline
-            ImVec2 prev_screen = s_primary_viewport->world_to_screen(road.points[0]);
-            
-            for (size_t j = 1; j < road.points.size(); ++j) {
-                ImVec2 curr_screen = s_primary_viewport->world_to_screen(road.points[j]);
-
-                // Hierarchy-aware road styling (additive visual change only).
-                const ViewportRoadStyle road_style = ResolveViewportRoadStyle(road.type);
-                draw_list->AddLine(prev_screen, curr_screen, road_style.color, road_style.width);
-                prev_screen = curr_screen;
-            }
-        }
-        
-    }
-
     // Editor-local validation overlay payload.
     gs.validation_overlay.errors = RogueCity::Core::Validation::CollectOverlayValidationErrors(gs);
 

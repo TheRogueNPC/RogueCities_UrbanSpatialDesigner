@@ -21,9 +21,11 @@ set(GENERATOR_SOURCES
     src/Generators/Roads/FlowAndControl.cpp
     src/Generators/Roads/Verticality.cpp
     src/Generators/Roads/IntersectionTemplates.cpp
+    src/Generators/Roads/Policies.cpp
     src/Generators/Scoring/RogueProfiler.cpp
     src/Generators/Scoring/GridAnalytics.cpp
     src/Generators/Districts/AESPClassifier.cpp
+    src/Generators/Buildings/FrontageProfiler.cpp
     src/Generators/Urban/FrontageProfiles.cpp
     src/Generators/Urban/Integrator.cpp
     src/Generators/Urban/GridStorage.cpp
@@ -61,10 +63,12 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Roads/FlowAndControl.hpp
     include/RogueCity/Generators/Roads/Verticality.hpp
     include/RogueCity/Generators/Roads/IntersectionTemplates.hpp
+    include/RogueCity/Generators/Roads/Policies.hpp
     include/RogueCity/Generators/Scoring/RogueProfiler.hpp
     include/RogueCity/Generators/Scoring/ScoringProfile.hpp
     include/RogueCity/Generators/Scoring/GridAnalytics.hpp
     include/RogueCity/Generators/Districts/AESPClassifier.hpp
+    include/RogueCity/Generators/Buildings/FrontageProfiler.hpp
     include/RogueCity/Generators/Urban/FrontageProfiles.hpp
     include/RogueCity/Generators/Urban/Integrator.hpp
     include/RogueCity/Generators/Urban/GridStorage.hpp
@@ -170,11 +174,24 @@ if(ROGUECITY_ENABLE_SLTERRAIN)
     endif()
 endif()
 
+# find required vcpkg packages
+find_package(Clipper2 CONFIG REQUIRED)
+
+if(ROGUECITY_ENABLE_FASTNOISE2)
+    find_package(FastNoise2 CONFIG REQUIRED)
+endif()
+
 # Link dependencies
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
+        Clipper2::Clipper2
 )
+
+if(ROGUECITY_ENABLE_FASTNOISE2)
+    target_link_libraries(RogueCityGenerators PUBLIC FastNoise2::fastnoise2)
+    target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_HAS_FASTNOISE2=1)
+endif()
 
 # C++20 features
 target_compile_features(RogueCityGenerators PUBLIC cxx_std_20)

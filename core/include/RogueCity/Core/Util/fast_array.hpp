@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <queue>
 #include <functional>
@@ -142,7 +143,9 @@ namespace fva
 		void remove(ID index);
 
 		T& operator[](ID index);
+		const T& operator[](ID index) const;
 		T& operator[](const Handle<T>& handle);
+		const T& operator[](const Handle<T>& handle) const;
 
 		typename std::vector<T>::iterator begin();
 		typename std::vector<T>::iterator end();
@@ -151,6 +154,8 @@ namespace fva
 		typename std::vector<T>::const_iterator end() const;
 
 		uint64_t size() const;
+		uint64_t indexCount() const;
+		bool isValidIndex(ID index) const;
 		void     clear();
 		Handle<T> createHandleFromData(uint64_t data_index);
 		Handle<T> createHandle(ID index);
@@ -158,6 +163,7 @@ namespace fva
 	private:
 		std::vector<T>  m_data;
 		std::vector<ID> m_index;
+		std::vector<uint8_t> m_active_index;
 		std::vector<ID> m_reverse_index;
 		std::queue<ID>  m_free_indexes;
 	};
@@ -177,10 +183,12 @@ namespace fva
 			m_free_indexes.pop();
 			// And link it to the new object
 			m_index[index] = data_index;
+			m_active_index[index] = 1u;
 		}
 		else {
 			// Else create a new one
 			m_index.push_back(index);
+			m_active_index.push_back(1u);
 		}
 
 		// Add object and reverse index
@@ -193,6 +201,9 @@ namespace fva
 	template<class T>
 	inline void Container<T>::remove(uint64_t index)
 	{
+		if (!isValidIndex(index)) {
+			return;
+		}
 		ID index_remove = m_index[index];
 		// The object to remove
 		T& removed_object = m_data[index_remove];
@@ -209,6 +220,7 @@ namespace fva
 		}
 		// Add the free index in the list
 		m_free_indexes.push(index);
+		m_active_index[index] = 0u;
 		// Erase
 		m_reverse_index.pop_back();
 		m_data.pop_back();
@@ -229,7 +241,20 @@ namespace fva
 	}
 
 	template<class T>
+	inline const T& Container<T>::operator[](const Handle<T>& handle) const
+	{
+		return this->operator[](handle.m_index);
+	}
+
+	template<class T>
 	inline T& Container<T>::operator[](uint64_t index)
+	{
+		const ID data_index(m_index[index]);
+		return m_data[data_index];
+	}
+
+	template<class T>
+	inline const T& Container<T>::operator[](uint64_t index) const
 	{
 		const ID data_index(m_index[index]);
 		return m_data[data_index];
@@ -266,11 +291,25 @@ namespace fva
 	}
 
 	template<class T>
+	inline uint64_t Container<T>::indexCount() const
+	{
+		return uint32_t(m_index.size());
+	}
+
+	template<class T>
+	inline bool Container<T>::isValidIndex(ID index) const
+	{
+		return index < m_active_index.size() && m_active_index[index] != 0u;
+	}
+
+	template<class T>
 	inline void Container<T>::clear()
 	{
 		m_data.clear();
 		m_index.clear();
+		m_active_index.clear();
 		m_reverse_index.clear();
+		m_free_indexes = std::queue<ID>{};
 	}
 
 	template<class T>

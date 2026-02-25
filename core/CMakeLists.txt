@@ -17,6 +17,9 @@ set(CORE_HEADERS
     include/RogueCity/Core/Data/CoordinateSystem.hpp
     include/RogueCity/Core/Data/Texture2D.hpp
     include/RogueCity/Core/Data/TextureSpace.hpp
+    include/RogueCity/Core/Geometry/PolygonOps.hpp
+    include/RogueCity/Core/Roads/RoadMDP.hpp
+    include/RogueCity/Core/Buildings/FrontageMarkov.hpp
     include/RogueCity/Core/Export/TextureReplayHash.hpp
     include/RogueCity/Core/Editor/EditorState.hpp
     include/RogueCity/Core/Editor/GlobalState.hpp
@@ -24,6 +27,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Editor/TerrainBrush.hpp
     include/RogueCity/Core/Editor/TexturePainting.hpp
     include/RogueCity/Core/Editor/SelectionSync.hpp
+    include/RogueCity/Core/Editor/EditorUtils.hpp
     include/RogueCity/Core/Simulation/SimulationPipeline.hpp
     include/RogueCity/Core/Texture/SIMDProcessor.hpp
     include/RogueCity/Core/Texture/TextureProcessor.hpp
@@ -31,6 +35,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Util/IndexVector.hpp
     include/RogueCity/Core/Util/StableIndexVector.hpp
     include/RogueCity/Core/Util/RogueWorker.hpp
+    include/RogueCity/Core/Infomatrix.hpp
     include/RogueCity/Core/Validation/EditorIntegrity.hpp
     include/RogueCity/Core/Validation/EditorOverlayValidation.hpp
     include/RogueCity/Core/Validation/DeterminismHash.hpp
@@ -43,13 +48,17 @@ set(CORE_SOURCES
     src/Core/Data/CitySpec.cpp
     src/Core/Data/CoordinateSystem.cpp
     src/Core/Data/TextureSpace.cpp
+    src/Core/Geometry/PolygonOps.cpp
+    src/Core/Buildings/FrontageMarkov.cpp
     src/Core/Export/TextureReplayHash.cpp
+    src/Core/Infomatrix.cpp
     src/Core/Editor/EditorState.cpp
     src/Core/Editor/GlobalState.cpp
     src/Core/Editor/StableIDRegistry.cpp
     src/Core/Editor/ViewportIndex.cpp
     src/Core/Editor/TerrainBrush.cpp
     src/Core/Editor/TexturePainting.cpp
+    src/Core/Editor/EditorUtils.cpp
     src/Core/Simulation/SimulationPipeline.cpp
     src/Core/Texture/SIMDProcessor.cpp
     src/Core/Texture/TextureProcessor.cpp

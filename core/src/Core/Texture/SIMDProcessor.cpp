@@ -1,3 +1,31 @@
+/**
+ * @file SIMDProcessor.cpp
+ * @brief Implements SIMD-accelerated and scalar image processing routines for RogueCity textures.
+ *
+ * This file provides functions for CPU feature detection and optimized image processing operations,
+ * including box blur, downsampling, and float-to-uint8 conversion. SIMD (AVX2) acceleration is used
+ * where available, with scalar fallbacks for compatibility.
+ *
+ * Key Functions:
+ * - DetectCPUFeatures(): Detects available SIMD features (SSE2, AVX, AVX2) at runtime.
+ * - BoxBlur3x3Scalar(): Performs a 3x3 box blur using scalar operations.
+ * - BoxBlur3x3AVX2(): Performs a 3x3 box blur using AVX2 SIMD instructions (if supported).
+ * - SIMDProcessor::boxBlur3x3(): Applies a 3x3 box blur, choosing SIMD or scalar based on CPU features.
+ * - SIMDProcessor::downsample2x(): Downsamples a texture by a factor of 2 using averaging.
+ * - SIMDProcessor::floatToUint8(): Converts an array of floats to uint8_t, normalizing to [0, 255] and using SIMD if available.
+ *
+ * SIMDProcessor::CPUFeatures:
+ *   - sse2: Indicates SSE2 support.
+ *   - avx: Indicates AVX support.
+ *   - avx2: Indicates AVX2 support.
+ *
+ * Platform Support:
+ * - Windows (MSVC): Uses __cpuid and _xgetbv for feature detection.
+ * - Linux/macOS (GCC/Clang): Uses __get_cpuid and inline assembly for feature detection.
+ *
+ * Namespace: RogueCity::Core::Texture
+ */
+ 
 #include "RogueCity/Core/Texture/SIMDProcessor.hpp"
 
 #include <algorithm>

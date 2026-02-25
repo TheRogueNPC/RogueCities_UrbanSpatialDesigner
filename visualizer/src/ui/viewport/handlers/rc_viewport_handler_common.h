@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include "ui/tools/rc_tool_geometry_policy.h"
 #include "ui/tools/rc_tool_interaction_metrics.h"
 
@@ -12,6 +13,12 @@
 #include <vector>
 
 namespace RC_UI::Viewport::Handlers {
+
+using RogueCity::Core::Editor::FindRoadMutable;
+using RogueCity::Core::Editor::FindDistrictMutable;
+using RogueCity::Core::Editor::FindWaterMutable;
+using RogueCity::Core::Editor::FindLotMutable;
+using RogueCity::Core::Editor::FindBuildingMutable;
 
 struct ViewportInteractionContext {
     RogueCity::Core::Editor::GlobalState& gs;
@@ -65,12 +72,6 @@ void PromoteEntityToUserLocked(
     RogueCity::Core::Editor::GlobalState& gs,
     RogueCity::Core::Editor::VpEntityKind kind,
     uint32_t id);
-
-[[nodiscard]] RogueCity::Core::Road* FindRoadMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
-[[nodiscard]] RogueCity::Core::District* FindDistrictMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
-[[nodiscard]] RogueCity::Core::WaterBody* FindWaterMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
-[[nodiscard]] RogueCity::Core::LotToken* FindLotMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
-[[nodiscard]] RogueCity::Core::BuildingSite* FindBuildingMutable(RogueCity::Core::Editor::GlobalState& gs, uint32_t id);
 
 [[nodiscard]] uint32_t NextRoadId(const RogueCity::Core::Editor::GlobalState& gs);
 [[nodiscard]] uint32_t NextDistrictId(const RogueCity::Core::Editor::GlobalState& gs);

@@ -1,29 +1,34 @@
-#include "RogueCity/Core/Data/TensorTypes.hpp"
-#include <cmath>
+
+
+/**
+ * @file TensorTypes.cpp
+ * @brief Implementation of 2D tensor operations for RogueCity core data structures.
+ *
+ * Contains methods for adding and rotating 2D tensors.
+ */
 
 namespace RogueCity::Core {
 
-    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unused]] bool smooth) {
-        (void)smooth;  // Unused in core, used in generators layer
+    /**
+     * @brief Adds another Tensor2D to this tensor.
+     *
+     * Performs element-wise addition of the tensor components.
+     * The 'smooth' parameter is unused in the core layer, but may be used in generator layers for smooth blending.
+     *
+     * @param other The Tensor2D to add.
+     * @param smooth Indicates whether smooth blending should be applied (unused here).
+     * @return Reference to this Tensor2D after addition.
+     */
+    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unused]] bool smooth);
 
-        // Simplified addition (full smooth blending in generators layer)
-        r += other.r;
-        m0 += other.m0;
-        m1 += other.m1;
-        theta_dirty = true;
-        return *this;
-    }
-
-
-    Tensor2D& Tensor2D::rotate(double theta_radians) {
-        double cos2t = std::cos(2.0 * theta_radians);
-        double sin2t = std::sin(2.0 * theta_radians);
-        double new_m0 = m0 * cos2t - m1 * sin2t;
-        double new_m1 = m0 * sin2t + m1 * cos2t;
-        m0 = new_m0;
-        m1 = new_m1;
-        theta_dirty = true;
-        return *this;
-    }
+    /**
+     * @brief Rotates the tensor by a given angle in radians.
+     *
+     * Applies a rotation transformation to the tensor components using double-angle trigonometric formulas.
+     *
+     * @param theta_radians The angle to rotate the tensor, in radians.
+     * @return Reference to this Tensor2D after rotation.
+     */
+    Tensor2D& Tensor2D::rotate(double theta_radians);
 
 } // namespace RogueCity::Core

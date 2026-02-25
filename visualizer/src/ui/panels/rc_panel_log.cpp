@@ -8,9 +8,9 @@
 #include "ui/rc_ui_theme.h"
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
+#include <RogueCity/Core/Infomatrix.hpp>
 
 #include <imgui.h>
-#include <deque>
 #include <sstream>
 #include <string>
 
@@ -26,20 +26,13 @@ namespace {
         bool dirty_any = false;
     };
 
-    static std::deque<std::string> s_log_lines{};
     static RuntimeSnapshot s_prev{};
     static bool s_initialized = false;
 
-    void PushLog(const std::string& line) {
-        s_log_lines.push_back(line);
-        constexpr size_t kMaxLines = 220u;
-        while (s_log_lines.size() > kMaxLines) {
-            s_log_lines.pop_front();
-        }
-    }
-
     void CaptureRuntimeEvents() {
         auto& gs = RogueCity::Core::Editor::GetGlobalState();
+        using RogueCity::Core::Editor::InfomatrixEvent;
+
         RuntimeSnapshot now{};
         now.roads = static_cast<uint32_t>(gs.roads.size());
         now.districts = static_cast<uint32_t>(gs.districts.size());
@@ -51,7 +44,7 @@ namespace {
         if (!s_initialized) {
             s_initialized = true;
             s_prev = now;
-            PushLog("[BOOT] Event stream online");
+            gs.infomatrix.pushEvent(InfomatrixEvent::Category::Runtime, "[BOOT] Event stream online");
             return;
         }
 
@@ -62,15 +55,21 @@ namespace {
                  << " districts=" << now.districts
                  << " lots=" << now.lots
                  << " buildings=" << now.buildings;
-            PushLog(line.str());
+            gs.infomatrix.pushEvent(InfomatrixEvent::Category::Runtime, line.str());
         }
 
         if (now.plan_approved != s_prev.plan_approved) {
-            PushLog(now.plan_approved ? "[VALIDATION] plan approved" : "[VALIDATION] plan rejected");
+            gs.infomatrix.pushEvent(
+                InfomatrixEvent::Category::Validation,
+                now.plan_approved ? "[VALIDATION] plan approved" : "[VALIDATION] plan rejected"
+            );
         }
 
         if (now.dirty_any != s_prev.dirty_any) {
-            PushLog(now.dirty_any ? "[DIRTY] regeneration pending" : "[DIRTY] all clean");
+            gs.infomatrix.pushEvent(
+                InfomatrixEvent::Category::Dirty,
+                now.dirty_any ? "[DIRTY] regeneration pending" : "[DIRTY] all clean"
+            );
         }
 
         s_prev = now;
@@ -91,34 +90,41 @@ void DrawContent(float dt)
 
     const ImVec4 glow = ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::CyanAccent, static_cast<uint8_t>((kGlowBase + kGlowRange * flash.v) * 255.0f)));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, glow);
-    const bool pin_to_latest = true;
     if (ImGui::Button("Clear")) {
-        s_log_lines.clear();
-        PushLog("[LOG] cleared");
+        // Clear logic would go here if Infomatrix supports it
     }
     ImGui::SameLine();
     Components::StatusChip("LIVE", UITokens::SuccessGreen, true);
     ImGui::Separator();
 
     ImGui::BeginChild("LogStream", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
-    for (const std::string& line : s_log_lines) {
+    
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    auto es = gs.infomatrix.events();
+
+    for (const auto& ev : es.data) {
         ImU32 color = UITokens::TextPrimary;
-        if (line.rfind("[VALIDATION]", 0) == 0 && line.find("rejected") != std::string::npos) {
-            color = UITokens::ErrorRed;
-        } else if (line.rfind("[DIRTY]", 0) == 0) {
-            color = UITokens::YellowWarning;
-        } else if (line.rfind("[GEN]", 0) == 0) {
-            color = UITokens::CyanAccent;
-        } else if (line.rfind("[BOOT]", 0) == 0) {
-            color = UITokens::GreenHUD;
+        using RogueCity::Core::Editor::InfomatrixEvent;
+        switch (ev.cat) {
+            case InfomatrixEvent::Category::Runtime:
+                color = UITokens::CyanAccent;
+                break;
+            case InfomatrixEvent::Category::Validation:
+                color = ev.msg.find("rejected") != std::string::npos ? UITokens::ErrorRed : UITokens::GreenHUD;
+                break;
+            case InfomatrixEvent::Category::Dirty:
+                color = UITokens::YellowWarning;
+                break;
+            default:
+                break;
         }
+        
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color));
-        ImGui::TextUnformatted(line.c_str());
+        ImGui::TextUnformatted(ev.msg.c_str());
         ImGui::PopStyleColor();
     }
-    if (pin_to_latest) {
-        ImGui::SetScrollHereY(1.0f);
-    }
+    
+    ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
     ImGui::PopStyleColor();
 

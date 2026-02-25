@@ -1,3 +1,16 @@
+/**
+ * @file ViewportIndex.cpp
+ * @brief Implements functions for managing stable IDs for viewport probe entities in the editor.
+ *
+ * Contains logic to determine if a probe is mappable, retrieve its stable ID, and rebuild the stable ID mapping
+ * for a collection of probes. Utilizes the StableIDRegistry to ensure consistent entity identification across sessions.
+ *
+ * Functions:
+ * - IsMappableProbe: Checks if a probe can be mapped based on its kind.
+ * - GetProbeStableID: Retrieves the stable ID for a probe if it is mappable.
+ * - RebuildStableIDMapping: Updates the stable ID mapping for a vector of probes and assigns stable IDs accordingly.
+ */
+ 
 #include "RogueCity/Core/Editor/ViewportIndex.hpp"
 
 #include "RogueCity/Core/Editor/StableIDRegistry.hpp"

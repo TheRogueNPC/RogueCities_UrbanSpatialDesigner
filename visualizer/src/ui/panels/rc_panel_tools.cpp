@@ -11,6 +11,7 @@
 
 #include <RogueCity/Core/Editor/EditorState.hpp>
 #include <RogueCity/Core/Editor/GlobalState.hpp>
+#include "ui/panels/RogueWidgets.hpp"
 
 #include <algorithm>
 #include <array>
@@ -39,8 +40,6 @@ namespace {
 
 } // namespace
 
-// AI_INTEGRATION_TAG: V1_PASS1_TASK2_TOOL_BUTTONS
-// Helper to render a tool button with state-reactive highlighting
 static void RenderToolButton(
     const char* label, 
     RogueCity::Core::Editor::EditorEvent event,
@@ -55,14 +54,8 @@ static void RenderToolButton(
     
     bool is_active = (hfsm.state() == active_state);
     
-    // Y2K affordance: glow when active
-    if (is_active) {
-        const float pulse = 0.5f + 0.5f * static_cast<float>(std::sin(ImGui::GetTime() * 4.0));
-        const ImU32 pulse_color = LerpColor(UITokens::GreenHUD, UITokens::CyanAccent, 1.0f - pulse);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(pulse_color));
-    }
-    
-    if (ImGui::Button(label, size)) {
+    // Use the unified RogueToolButton for consistent "Cockpit" feel
+    if (RogueCity::Visualizer::UI::RogueToolButton(label, label, is_active, size)) {
         bool dispatched = false;
         if (const auto default_action = DefaultLibraryAction(library_tool); default_action.has_value()) {
             std::string dispatch_status;
@@ -81,10 +74,6 @@ static void RenderToolButton(
             hfsm.handle_event(event, gs);
         }
         RC_UI::ActivateToolLibrary(library_tool);
-    }
-    
-    if (is_active) {
-        ImGui::PopStyleColor();
     }
 }
 

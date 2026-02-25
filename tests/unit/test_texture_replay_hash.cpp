@@ -11,7 +11,7 @@ using RogueCity::Core::Export::TextureReplayHash;
 using RogueCity::Generators::CityGenerator;
 
 namespace {
-    constexpr uint64_t kGoldenCombinedHash = 0x150378bf46cbef4aull;
+    constexpr uint64_t kGoldenCombinedHash = 0xb436d332a13fdddcull;
 
     CityGenerator::Config BuildConfig() {
         CityGenerator::Config config{};

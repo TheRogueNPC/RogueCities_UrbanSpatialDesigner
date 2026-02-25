@@ -8,11 +8,13 @@
 #include "RogueCity/Core/Editor/TexturePainting.hpp"
 #include "RogueCity/Core/Editor/SelectionManager.hpp"
 #include "RogueCity/Core/Editor/ViewportIndex.hpp"
+#include "RogueCity/Core/Infomatrix.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"  // IWYU pragma: keep
 #include "RogueCity/Core/Util/IndexVector.hpp"  // IWYU pragma: keep
 #include "RogueCity/Core/Util/StableIndexVector.hpp"  // IWYU pragma: keep
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -89,6 +91,10 @@ namespace RogueCity::Core::Editor {
 
         void MarkDirty(DirtyLayer layer) {
             flags[static_cast<size_t>(layer)] = true;
+        }
+
+        void MarkClean(DirtyLayer layer) {
+            flags[static_cast<size_t>(layer)] = false;
         }
 
         [[nodiscard]] bool IsDirty(DirtyLayer layer) const {
@@ -396,6 +402,77 @@ namespace RogueCity::Core::Editor {
         std::vector<Vec2> main_road_points{}; // optional editor-provided primary axis for Linear/Stem
     };
 
+    struct RenderSpatialLayer {
+        std::vector<uint32_t> offsets{}; // CSR offsets, size = cell_count + 1
+        std::vector<uint32_t> handles{}; // Entity handles/IDs per-cell
+
+        void Clear() {
+            offsets.clear();
+            handles.clear();
+        }
+    };
+
+    struct RenderSpatialGrid {
+        Bounds world_bounds{};
+        uint32_t width{ 0 };
+        uint32_t height{ 0 };
+        double cell_size_x{ 1.0 };
+        double cell_size_y{ 1.0 };
+        uint64_t build_version{ 0 };
+        bool valid{ false };
+
+        RenderSpatialLayer roads{};
+        RenderSpatialLayer districts{};
+        RenderSpatialLayer lots{};
+        RenderSpatialLayer water{};
+        RenderSpatialLayer buildings{};
+
+        [[nodiscard]] uint32_t CellCount() const {
+            return width * height;
+        }
+
+        [[nodiscard]] bool IsValid() const {
+            return valid && width > 0 && height > 0 &&
+                cell_size_x > 0.0 && cell_size_y > 0.0 &&
+                roads.offsets.size() == static_cast<size_t>(CellCount()) + 1u &&
+                districts.offsets.size() == static_cast<size_t>(CellCount()) + 1u &&
+                lots.offsets.size() == static_cast<size_t>(CellCount()) + 1u &&
+                water.offsets.size() == static_cast<size_t>(CellCount()) + 1u &&
+                buildings.offsets.size() == static_cast<size_t>(CellCount()) + 1u;
+        }
+
+        [[nodiscard]] uint32_t ToCellIndex(uint32_t x, uint32_t y) const {
+            return y * width + x;
+        }
+
+        [[nodiscard]] bool WorldToCell(const Vec2& world, int& out_x, int& out_y) const {
+            if (!IsValid()) {
+                out_x = 0;
+                out_y = 0;
+                return false;
+            }
+            const double rx = (world.x - world_bounds.min.x) / cell_size_x;
+            const double ry = (world.y - world_bounds.min.y) / cell_size_y;
+            out_x = static_cast<int>(std::floor(rx));
+            out_y = static_cast<int>(std::floor(ry));
+            return out_x >= 0 && out_x < static_cast<int>(width) &&
+                out_y >= 0 && out_y < static_cast<int>(height);
+        }
+
+        void Clear() {
+            width = 0;
+            height = 0;
+            cell_size_x = 1.0;
+            cell_size_y = 1.0;
+            valid = false;
+            roads.Clear();
+            districts.Clear();
+            lots.Clear();
+            water.Clear();
+            buildings.Clear();
+        }
+    };
+
     struct GlobalState {
         // Editor-facing data (stable handles)
         fva::Container<Road> roads;
@@ -411,6 +488,8 @@ namespace RogueCity::Core::Editor {
         // Internal scratch buffers (do NOT expose directly to UI)
         civ::IndexVector<Vec2> scratch_points;
 
+        Infomatrix infomatrix;
+
         EditorConfig config{};  // Editor configuration (dev mode, theme, etc.)
         EditorParameters params{};
         CityGenerationParams generation{};
@@ -419,6 +498,12 @@ namespace RogueCity::Core::Editor {
         SelectionManager selection_manager{};
         std::optional<SelectionItem> hovered_entity{};
         std::vector<VpProbeData> viewport_index{};
+        RenderSpatialGrid render_spatial_grid{};
+        std::unordered_map<uint32_t, uint32_t> road_handle_by_id{};
+        std::unordered_map<uint32_t, uint32_t> district_handle_by_id{};
+        std::unordered_map<uint32_t, uint32_t> lot_handle_by_id{};
+        std::unordered_map<uint32_t, uint32_t> water_handle_by_id{};
+        std::unordered_map<uint32_t, uint32_t> building_handle_by_id{};
         DirtyLayerState dirty_layers{};
         ValidationOverlayState validation_overlay{};
         bool debug_show_tensor_overlay{ false };

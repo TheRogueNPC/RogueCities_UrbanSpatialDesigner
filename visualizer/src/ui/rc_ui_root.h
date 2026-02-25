@@ -9,6 +9,7 @@
 #include <vector>
 #include <imgui.h>
 #include "ui/rc_ui_input_gate.h"
+#include "ui/panels/IPanelDrawer.h"
 
 namespace RogueCity::App { class MinimapViewport; }
 
@@ -28,6 +29,30 @@ enum class ToolLibrary {
     Lot,
     Building
 };
+
+// ---[BEGIN: NEW TYPE SCHEMA]---------------------------------------------------
+// WHY: Decouple layout and docking logic from individual panel Draw() calls.
+// WHERE: rc_ui_root.h
+
+using Panels::PanelType;
+
+// A layout entry that maps a panel type to a window name and dock area.
+struct PanelLayout {
+    PanelType      type;
+    std::string    window_name;
+    std::string    dock_area;
+    bool           is_index_like = false;
+};
+
+// A helper that lets a button control a docked or floating panel instance.
+struct ButtonDockedPanel {
+    PanelType  type;
+    std::string window_name;
+    std::string dock_area;
+    bool       m_open = false;
+    bool       m_docked = true;  // true => docked; false => floating
+};
+// ---[END: NEW TYPE SCHEMA]----------------------------------------------------
 
 inline constexpr std::array<ToolLibrary, 6> kToolLibraryOrder = {
     ToolLibrary::Axiom,
@@ -99,5 +124,19 @@ void EndDockableWindow();
 // Publish/inspect per-frame UI input arbitration for viewport actions.
 void PublishUiInputGateState(const UiInputGateState& state);
 [[nodiscard]] const UiInputGateState& GetUiInputGateState();
+
+// ---[BEGIN: NEW DRAW API]------------------------------------------------------
+struct IndicesTabs {
+    bool district = true;
+    bool road     = true;
+    bool lot      = true;
+    bool river    = true;
+    bool building = true;
+};
+
+void DrawPanelByType(PanelType type, float dt, std::string_view window_name);
+void DrawButtonDockedPanel(ButtonDockedPanel& panel, float dt);
+void DrawIndicesPanel(IndicesTabs& tabs, float dt);
+// ---[END: NEW DRAW API]--------------------------------------------------------
 
 } // namespace RC_UI

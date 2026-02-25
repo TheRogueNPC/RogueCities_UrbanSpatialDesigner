@@ -1,9 +1,32 @@
+/**
+ * @file GlobalState.cpp
+ * @brief Implements global editor state management for RogueCities Urban Spatial Designer.
+ *
+ * This file contains functions and utilities for managing the global editor state,
+ * including initialization and synchronization of texture space, marking and clearing
+ * dirty regions/layers, applying terrain and texture painting strokes, and updating
+ * world constraints based on height texture changes.
+ *
+ * Key functionalities:
+ * - Texture space initialization and resolution management.
+ * - Dirty region/layer marking and clearing for efficient updates.
+ * - Terrain brush and texture painting application with region tracking.
+ * - Synchronization of world constraints (height, slope, buildability) from height texture edits.
+ * - Ensures texture space is up-to-date with city parameters.
+ *
+ * Internal helpers:
+ * - BoundsMismatch: Checks for bounds equality with tolerance.
+ * - SampleConstraintHeightClamped: Safely samples constraint height with clamping.
+ * - SyncConstraintsFromHeightTextureRegion: Updates constraint fields (height, slope, build mask)
+ *   based on modified height texture regions.
+ *
+ * @namespace RogueCity::Core::Editor
+ */
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
-
 namespace RogueCity::Core::Editor {
 
     namespace {
