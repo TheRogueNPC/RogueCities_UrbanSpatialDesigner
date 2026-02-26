@@ -1,3 +1,14 @@
+/**
+ * @class DistrictTool
+ * @brief Tool for manipulating city districts within the viewport.
+ *
+ * Inherits from IViewportTool and provides functionality for district editing,
+ * including responding to mouse events and rendering district overlays.
+ *
+ * @note This tool is intended for use in the urban spatial designer application.
+ *
+ * @see IViewportTool
+ */
 #pragma once
 
 #include "RogueCity/App/Tools/IViewportTool.hpp"

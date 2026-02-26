@@ -19,8 +19,8 @@ VISUALIZER_CMAKE = ROOT / "visualizer" / "CMakeLists.txt"
 VIEWPORT_INTERACTION_CPP = ROOT / "visualizer" / "src" / "ui" / "viewport" / "rc_viewport_interaction.cpp"
 TOOL_METRICS_H = ROOT / "visualizer" / "src" / "ui" / "tools" / "rc_tool_interaction_metrics.h"
 TOOL_METRICS_CPP = ROOT / "visualizer" / "src" / "ui" / "tools" / "rc_tool_interaction_metrics.cpp"
-TOOL_GEOM_POLICY_H = ROOT / "visualizer" / "src" / "ui" / "tools" / "rc_tool_geometry_policy.h"
-TOOL_GEOM_POLICY_CPP = ROOT / "visualizer" / "src" / "ui" / "tools" / "rc_tool_geometry_policy.cpp"
+TOOL_GEOM_POLICY_H = ROOT / "app" / "include" / "RogueCity" / "App" / "Tools" / "GeometryPolicy.hpp"
+TOOL_GEOM_POLICY_CPP = ROOT / "app" / "src" / "Tools" / "GeometryPolicy.cpp"
 GLOBAL_STATE_H = ROOT / "core" / "include" / "RogueCity" / "Core" / "Editor" / "GlobalState.hpp"
 
 
@@ -108,10 +108,10 @@ def main() -> int:
         violations.append("app/CMakeLists.txt missing CityOutputApplier.cpp.")
     if "src/Integration/GenerationCoordinator.cpp" not in cmake_text:
         violations.append("app/CMakeLists.txt missing GenerationCoordinator.cpp.")
+    if "src/Tools/GeometryPolicy.cpp" not in cmake_text:
+        violations.append("app/CMakeLists.txt missing GeometryPolicy.cpp.")
     if "src/ui/tools/rc_tool_interaction_metrics.cpp" not in visualizer_cmake_text:
         violations.append("visualizer/CMakeLists.txt missing rc_tool_interaction_metrics.cpp.")
-    if "src/ui/tools/rc_tool_geometry_policy.cpp" not in visualizer_cmake_text:
-        violations.append("visualizer/CMakeLists.txt missing rc_tool_geometry_policy.cpp.")
 
     if violations:
         print("Generator/viewport contract violations detected:")

@@ -1,3 +1,22 @@
+/**
+ * @file AxiomVisual.hpp
+ * @brief Defines the visual representation and interactive control surface for an axiom in the urban spatial designer.
+ *
+ * Contains classes and structures for representing and manipulating axioms, including their control lattices,
+ * vertices, and type-specific parameters. Provides methods for updating, rendering, and handling user interaction,
+ * as well as converting visual state to generator input for city generation.
+ *
+ * Key components:
+ * - LatticeTopology: Enum describing the geometric topology of the axiom's control lattice.
+ * - ControlVertex: Structure representing a single control point in the lattice.
+ * - ControlLattice: Structure holding the lattice topology and its vertices.
+ * - AxiomVisual: Main class for visualizing and interacting with an axiom, supporting animation, rendering,
+ *   and parameter manipulation.
+ *
+ * Supports multiple axiom types (radial, grid, organic, superblock, etc.) and their unique parameters.
+ * Integrates with ImGui for rendering and user interaction.
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"

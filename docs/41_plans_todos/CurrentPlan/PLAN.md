@@ -14,10 +14,7 @@ Completed in code:
 6. Overlay scratch buffers for polygon/line/dedupe paths to reduce per-frame allocations.
 
 Not done yet:
-1. Tests are still pending:
-- `tests/test_viewport_spatial_grid.cpp`
-- `tests/test_viewport_lod_policy.cpp`
-- corresponding `CMakeLists.txt` entries.
+1. Full build/test verification is blocked by pre-existing compilation failures outside this refactor scope (`core/src/Core/Data/CityTypes.cpp`, `core/src/Core/Data/TensorTypes.cpp`, and existing `app/include/RogueCity/App/Tools/*.hpp` include/typing breakages).
 2. Manual acceptance run/telemetry validation has not been executed yet.
 3. Performance acceptance target (`< 2ms` fully zoomed out on baseline machine) is still pending measurement.
 
@@ -78,6 +75,25 @@ Pass 3 verification targets:
 2. Zoomed-out frame time target under ~2 ms on baseline machine profile.
 3. New spatial and LOD tests passing in CI/local test run.
 4. Telemetry evidence captured and recorded in changelog/release notes.
+
+### Pass 3 Progress (2026-02-25)
+Completed in code:
+1. Added pass-3 tests and build wiring:
+- `tests/test_viewport_spatial_grid.cpp`
+- `tests/test_viewport_lod_policy.cpp`
+- `CMakeLists.txt` `add_executable` + `add_test` entries.
+2. Added viewport render telemetry state in `GlobalState` and wired per-frame instrumentation:
+- visible cell count
+- per-layer deduped-handle counts
+- fallback full-scan usage count.
+3. Exposed frame-time correlation labels and render-attribution counters in telemetry panel (`rc_panel_telemetry.cpp`).
+4. Removed remaining per-frame transient `std::vector<ImVec2>` allocations in viewport highlights/lasso paths in `rc_panel_axiom_editor.cpp` by reusing persistent scratch storage.
+5. Added selection optimization readiness hooks in `rc_viewport_handler_common.cpp` (`TryPickFromSpatialGrid`, `TryQueryRegionFromSpatialGrid`) that preserve current correctness-first behavior by falling back to legacy viewport index scans.
+6. Added shared viewport LOD policy helper (`rc_viewport_lod_policy.h/.cpp`) and switched overlays to use it, while keeping minimap LOD policy separate in this pass.
+
+Pending / blocked:
+1. Full compile + test execution remains blocked by unrelated existing compile errors in core/app files (outside pass-3 changes).
+2. Performance acceptance measurements and manual telemetry capture are pending once baseline build health is restored.
 
 ### Public API and Type Changes
 1. Add render spatial index types to [GlobalState.hpp](/mnt/d/Projects/RogueCities/RogueCities_UrbanSpatialDesigner/core/include/RogueCity/Core/Editor/GlobalState.hpp).

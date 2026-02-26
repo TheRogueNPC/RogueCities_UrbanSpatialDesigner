@@ -1,3 +1,12 @@
+/**
+ * @brief Tool for manipulating water features in the viewport using spline-based interactions.
+ *
+ * WaterTool provides interactive editing capabilities for water elements within the urban spatial designer.
+ * It allows users to add, modify, and visualize water features by responding to mouse events and rendering
+ * spline manipulations in the viewport.
+ *
+ * Inherits from IViewportTool and manages its own interaction state and viewport reference.
+ */
 #pragma once
 
 #include "RogueCity/App/Tools/IViewportTool.hpp"

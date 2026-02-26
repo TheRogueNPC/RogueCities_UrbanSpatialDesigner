@@ -74,6 +74,7 @@ add_library(RogueCityCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 target_include_directories(RogueCityCore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${MAGIC_ENUM_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/3rdparty/Clipper2/CPP/Clipper2Lib/include>
     $<INSTALL_INTERFACE:include>
 )
 
@@ -84,6 +85,14 @@ target_link_libraries(RogueCityCore
     PUBLIC
         Threads::Threads
 )
+
+if(TARGET Clipper2)
+    target_link_libraries(RogueCityCore PUBLIC Clipper2)
+endif()
+
+if(TARGET Clipper2)
+    target_link_libraries(RogueCityCore PUBLIC Clipper2)
+endif()
 
 # === C++ STANDARD ===
 target_compile_features(RogueCityCore PUBLIC cxx_std_20)

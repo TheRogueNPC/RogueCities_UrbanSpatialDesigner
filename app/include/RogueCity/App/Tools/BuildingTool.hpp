@@ -1,3 +1,23 @@
+/**
+ * @class BuildingTool
+ * @brief Placeholder class for the building placement tool in the RogueCity application.
+ *
+ * This class is intended to serve as a temporary implementation for testing tool switching and viewport interaction,
+ * without interfering with the axiom placement tool. The final implementation will likely follow similar patterns to
+ * AxiomPlacementTool, with custom rendering and interaction logic tailored to building placement.
+ *
+ * @note Future plans involve merging the axiom placement tool and building placement tool into a unified
+ * "Spatial Element Placement Tool". This new tool will allow users to place and edit all spatial elements (axioms,
+ * buildings, and other nodal points) through a single interface. Contextual type selection will enable relevant menus
+ * and editors to surface based on the selection, supporting multi-element editing in the inspector and sharing common
+ * interaction and rendering logic where possible.
+ *
+ * BuildingTool will be refactored into this unified tool, integrating building-specific logic alongside axiom placement
+ * functionality.
+ *
+ * @see IViewportTool
+ */
+ 
 #pragma once
 
 #include "RogueCity/App/Tools/IViewportTool.hpp"

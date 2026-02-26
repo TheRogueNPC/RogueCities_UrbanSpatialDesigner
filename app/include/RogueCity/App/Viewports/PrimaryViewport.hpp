@@ -1,3 +1,16 @@
+/**
+ * @class PrimaryViewport
+ * @brief Represents the primary viewport for the application, providing a 3D/2D hybrid view with an orbital camera.
+ *
+ * The PrimaryViewport displays the full city and allows interactive axiom placement. It manages camera controls,
+ * rendering, and mouse interaction for the viewport. Tools can be activated to provide additional interaction modes.
+ *
+ * @note The viewport is initialized with a GLFW window pointer and supports updating and rendering per frame.
+ *
+ * @see IViewportTool
+ * @see Generators::CityGenerator::CityOutput
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"

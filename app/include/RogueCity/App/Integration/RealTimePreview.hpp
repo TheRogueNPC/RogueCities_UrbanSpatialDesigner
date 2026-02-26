@@ -1,3 +1,27 @@
+/**
+ * @file RealTimePreview.hpp
+ * @brief Manages debounced real-time preview of city generation in RogueCities.
+ *
+ * Provides an interface for requesting city regeneration (debounced or immediate),
+ * tracking generation progress, handling background generation tasks, and notifying
+ * when generation completes. Supports incremental regeneration for dirty stages,
+ * cancellation, and UI overlay status reporting.
+ *
+ * Key Features:
+ * - Debounced and immediate city regeneration requests.
+ * - Incremental regeneration for dirty stages.
+ * - Background generation using worker threads.
+ * - Progress tracking and phase reporting.
+ * - Callback notification on generation completion.
+ * - Cancellation and output management.
+ *
+ * Usage:
+ * - Call `request_regeneration` or `force_regeneration` to trigger city generation.
+ * - Use `update` to handle debouncing and background task management.
+ * - Set a callback with `set_on_complete` to receive generation results.
+ * - Query progress, phase, and output for UI integration.
+ */
+ 
 #pragma once
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include <functional>

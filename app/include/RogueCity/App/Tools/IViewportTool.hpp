@@ -1,7 +1,6 @@
 #pragma once
 
-#include "RogueCity/Core/Types.hpp"
-
+#include "RogueCity/Core/Math/Vec2.hpp"
 #include <imgui.h>
 
 namespace RogueCity::App {
@@ -24,10 +23,12 @@ public:
     virtual void on_mouse_up(const Core::Vec2& world_pos) = 0;
     virtual void on_mouse_move(const Core::Vec2& world_pos) = 0;
     virtual void on_right_click(const Core::Vec2& world_pos) = 0;
+
     virtual void on_scroll(float delta, const Core::Vec2& world_pos) {
         (void)delta;
         (void)world_pos;
     }
+
     virtual void on_key(ImGuiKey key, bool pressed) {
         (void)key;
         (void)pressed;

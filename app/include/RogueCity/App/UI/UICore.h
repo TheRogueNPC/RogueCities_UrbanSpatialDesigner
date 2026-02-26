@@ -1,3 +1,14 @@
+/**
+ * @file UICore.h
+ * @brief Core UI definitions and strict mode enforcement for RogueCities Urban Spatial Designer.
+ *
+ * Includes the main DesignSystem header and provides optional strict mode macros for UI translation units.
+ * Strict mode should be enabled only in files fully migrated to wrapper-based APIs, enforcing usage of
+ * wrapper panels and token-based color definitions instead of legacy ImGui macros.
+ *
+ * @note To enforce strict mode, define ROGUEUI_ENFORCE_DESIGN_SYSTEM_STRICT before including this header.
+ *       This will replace legacy macros with error tokens to prevent their usage.
+ */
 #pragma once
 
 #include "RogueCity/App/UI/DesignSystem.h"

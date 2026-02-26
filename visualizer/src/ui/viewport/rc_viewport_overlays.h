@@ -5,172 +5,232 @@
 
 #pragma once
 
-#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/Core/Data/CityTypes.hpp"
-#include <imgui.h>
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 #include <glm/glm.hpp>
+#include <imgui.h>
+
+#include <array>
 
 namespace RC_UI::Viewport {
 
 // Overlay visibility toggles
 struct OverlayConfig {
-    bool show_zone_colors = true;
-    bool show_aesp_heatmap = false;
-    bool show_road_labels = true;
-    bool show_budget_bars = false;
-    bool show_slope_heatmap = false;
-    bool show_no_build_mask = true;
-    bool show_nature_heatmap = false;
-    bool show_tensor_field = false;
-    bool show_height_field = false;
-    bool show_zone_field = false;
-    bool show_validation_errors = true;
-    bool show_gizmos = true;
-    
-    // AI_INTEGRATION_TAG: V1_PASS1_TASK5_OVERLAY_CONFIG
-    bool show_axioms = true;
-    bool show_roads = true;
-    bool show_districts = true;
-    bool show_lots = true;
-    bool show_water_bodies = true;
-    bool show_building_sites = true;
-    bool show_lot_boundaries = true;
-    bool show_height_indicators = true;
-    bool show_city_boundary = true;
-    bool show_connector_graph = true;
-    
-    // AESP component selection (for heatmap)
-    enum class AESPComponent {
-        Access,
-        Exposure,
-        Service,
-        Privacy,
-        Combined
-    };
-    AESPComponent aesp_component = AESPComponent::Combined;
-    bool show_scale_ruler = true;
-    bool show_compass_gimbal = true;
-    bool compass_parented = false;
-    ImVec2 compass_center{ 0.0f, 0.0f };
-    float compass_radius = 36.0f;
+  bool show_zone_colors = true;
+  bool show_aesp_heatmap = false;
+  bool show_road_labels = true;
+  bool show_budget_bars = false;
+  bool show_slope_heatmap = false;
+  bool show_no_build_mask = true;
+  bool show_nature_heatmap = false;
+  bool show_tensor_field = false;
+  bool show_height_field = false;
+  bool show_zone_field = false;
+  bool show_validation_errors = true;
+  bool show_gizmos = true;
+
+  // AI_INTEGRATION_TAG: V1_PASS1_TASK5_OVERLAY_CONFIG
+  bool show_axioms = true;
+  bool show_roads = true;
+  bool show_districts = true;
+  bool show_lots = true;
+  bool show_water_bodies = true;
+  bool show_building_sites = true;
+  bool show_lot_boundaries = true;
+  bool show_height_indicators = true;
+  bool show_city_boundary = true;
+  bool show_connector_graph = true;
+  bool show_building_search = false;
+
+  // AESP component selection (for heatmap)
+  enum class AESPComponent { Access, Exposure, Service, Privacy, Combined };
+  AESPComponent aesp_component = AESPComponent::Combined;
+  bool show_scale_ruler = true;
+  bool show_compass_gimbal = true;
+  bool compass_parented = false;
+  ImVec2 compass_center{0.0f, 0.0f};
+  float compass_radius = 36.0f;
 };
 
 // Color scheme for districts (Y2K palette)
 struct DistrictColorScheme {
-    static glm::vec4 GetColorForType(RogueCity::Core::DistrictType type);
-    static glm::vec4 Residential() { return glm::vec4(0.3f, 0.5f, 0.9f, 0.6f); }  // Blue
-    static glm::vec4 Commercial() { return glm::vec4(0.3f, 0.9f, 0.5f, 0.6f); }   // Green
-    static glm::vec4 Industrial() { return glm::vec4(0.9f, 0.3f, 0.3f, 0.6f); }   // Red
-    static glm::vec4 Civic() { return glm::vec4(0.9f, 0.7f, 0.3f, 0.6f); }        // Orange
-    static glm::vec4 Mixed() { return glm::vec4(0.7f, 0.7f, 0.7f, 0.6f); }        // Gray
+  static glm::vec4 GetColorForType(RogueCity::Core::DistrictType type);
+  static glm::vec4 Residential() {
+    return glm::vec4(0.3f, 0.5f, 0.9f, 0.6f);
+  } // Blue
+  static glm::vec4 Commercial() {
+    return glm::vec4(0.3f, 0.9f, 0.5f, 0.6f);
+  } // Green
+  static glm::vec4 Industrial() {
+    return glm::vec4(0.9f, 0.3f, 0.3f, 0.6f);
+  } // Red
+  static glm::vec4 Civic() {
+    return glm::vec4(0.9f, 0.7f, 0.3f, 0.6f);
+  } // Orange
+  static glm::vec4 Mixed() { return glm::vec4(0.7f, 0.7f, 0.7f, 0.6f); } // Gray
 };
 
 // Viewport overlay renderer
 class ViewportOverlays {
 public:
-    ViewportOverlays() = default;
+  ViewportOverlays() = default;
 
-    struct ViewTransform {
-        RogueCity::Core::Vec2 camera_xy{ 0.0, 0.0 };
-        float zoom{ 1.0f };
-        float yaw{ 0.0f };
-        ImVec2 viewport_pos{ 0.0f, 0.0f };
-        ImVec2 viewport_size{ 0.0f, 0.0f };
-    };
+  struct ViewTransform {
+    RogueCity::Core::Vec2 camera_xy{0.0, 0.0};
+    float zoom{1.0f};
+    float yaw{0.0f};
+    ImVec2 viewport_pos{0.0f, 0.0f};
+    ImVec2 viewport_size{0.0f, 0.0f};
+  };
 
-    struct HighlightState {
-        bool has_selected_lot{ false };
-        bool has_hovered_lot{ false };
-        bool has_selected_building{ false };
-        bool has_hovered_building{ false };
-        RogueCity::Core::Vec2 selected_lot_pos{};
-        RogueCity::Core::Vec2 hovered_lot_pos{};
-        RogueCity::Core::Vec2 selected_building_pos{};
-        RogueCity::Core::Vec2 hovered_building_pos{};
-    };
-    
-    // Main render call (called from main viewport loop)
-    void Render(const RogueCity::Core::Editor::GlobalState& gs, const OverlayConfig& config);
-    
-    // Individual overlay renders
-    void RenderZoneColors(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState& gs, OverlayConfig::AESPComponent component);
-    void RenderRoadNetwork(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderRoadLabels(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderNoBuildMask(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderNatureHeatmap(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderTensorField(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderHeightField(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderZoneField(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderValidationErrors(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderGizmos(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderGridOverlay(const RogueCity::Core::Editor::GlobalState& gs);
-    
-    // AI_INTEGRATION_TAG: V1_PASS1_TASK5_VIEWPORT_OVERLAYS
-    void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderBuildingSites(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState& gs);
+  struct HighlightState {
+    bool has_selected_lot{false};
+    bool has_hovered_lot{false};
+    bool has_selected_building{false};
+    bool has_hovered_building{false};
+    RogueCity::Core::Vec2 selected_lot_pos{};
+    RogueCity::Core::Vec2 hovered_lot_pos{};
+    RogueCity::Core::Vec2 selected_building_pos{};
+    RogueCity::Core::Vec2 hovered_building_pos{};
+  };
 
-    void RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState& gs);
-    void RenderCompassGimbalHUD(bool parented, const ImVec2& center, float radius);
-    std::optional<float> requested_yaw_{};
+  // Main render call (called from main viewport loop)
+  void Render(RogueCity::Core::Editor::GlobalState &gs,
+              const OverlayConfig &config);
 
-    void SetViewTransform(const ViewTransform& transform) { view_transform_ = transform; }
-    const ViewTransform& GetViewTransform() const { return view_transform_; }
+  // Individual overlay renders
+  void RenderZoneColors(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderAESPHeatmap(const RogueCity::Core::Editor::GlobalState &gs,
+                         OverlayConfig::AESPComponent component);
+  void RenderRoadNetwork(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderRoadLabels(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderBudgetIndicators(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderSlopeHeatmap(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderNoBuildMask(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderNatureHeatmap(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderTensorField(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderHeightField(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderZoneField(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderValidationErrors(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderGizmos(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderGridOverlay(const RogueCity::Core::Editor::GlobalState &gs);
 
-    void SetSelectedLot(const RogueCity::Core::Vec2& pos) { highlights_.has_selected_lot = true; highlights_.selected_lot_pos = pos; }
-    void SetHoveredLot(const RogueCity::Core::Vec2& pos) { highlights_.has_hovered_lot = true; highlights_.hovered_lot_pos = pos; }
-    void ClearLotHighlights() { highlights_.has_selected_lot = highlights_.has_hovered_lot = false; }
+  // AI_INTEGRATION_TAG: V1_PASS1_TASK5_VIEWPORT_OVERLAYS
+  void RenderWaterBodies(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderBuildingSites(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState &gs);
 
-    void SetSelectedBuilding(const RogueCity::Core::Vec2& pos) { highlights_.has_selected_building = true; highlights_.selected_building_pos = pos; }
-    void SetHoveredBuilding(const RogueCity::Core::Vec2& pos) { highlights_.has_hovered_building = true; highlights_.hovered_building_pos = pos; }
-    void ClearBuildingHighlights() { highlights_.has_selected_building = highlights_.has_hovered_building = false; }
-    
-    // Helper: Draw polygon with color
-    void DrawPolygon(const std::vector<RogueCity::Core::Vec2>& points, const glm::vec4& color);
-    
-    // Helper: Draw text at world position
-    void DrawWorldText(const RogueCity::Core::Vec2& pos, const char* text, const glm::vec4& color);
+  void RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderCompassGimbalHUD(bool parented, const ImVec2 &center,
+                              float radius);
+  std::optional<float> requested_yaw_{};
 
-    // Drawing primitives
-    void DrawLabel(const RogueCity::Core::Vec2& pos, const char* text, const glm::vec4& color);
-    void DrawBudgetBar(const RogueCity::Core::Vec2& pos, float ratio, const glm::vec4& fill, const glm::vec4& outline);
-    
-    // Helper: Calculate AESP gradient color (0.0 = cold, 1.0 = hot)
-    glm::vec4 GetAESPGradientColor(float score);
+  void SetViewTransform(const ViewTransform &transform) {
+    view_transform_ = transform;
+  }
+  const ViewTransform &GetViewTransform() const { return view_transform_; }
 
-    // Projection helpers
-    ImVec2 WorldToScreen(const RogueCity::Core::Vec2& world_pos) const;
-    float WorldToScreenScale(float world_distance) const;
+  void SetSelectedLot(const RogueCity::Core::Vec2 &pos) {
+    highlights_.has_selected_lot = true;
+    highlights_.selected_lot_pos = pos;
+  }
+  void SetHoveredLot(const RogueCity::Core::Vec2 &pos) {
+    highlights_.has_hovered_lot = true;
+    highlights_.hovered_lot_pos = pos;
+  }
+  void ClearLotHighlights() {
+    highlights_.has_selected_lot = highlights_.has_hovered_lot = false;
+  }
 
-    void RenderHighlights();
-    void RenderSelectionOutlines(const RogueCity::Core::Editor::GlobalState& gs);
+  void SetSelectedBuilding(const RogueCity::Core::Vec2 &pos) {
+    highlights_.has_selected_building = true;
+    highlights_.selected_building_pos = pos;
+  }
+  void SetHoveredBuilding(const RogueCity::Core::Vec2 &pos) {
+    highlights_.has_hovered_building = true;
+    highlights_.hovered_building_pos = pos;
+  }
+  void ClearBuildingHighlights() {
+    highlights_.has_selected_building = highlights_.has_hovered_building =
+        false;
+  }
+
+  // Helper: Draw polygon with color
+  void DrawPolygon(const std::vector<RogueCity::Core::Vec2> &points,
+                   const glm::vec4 &color);
+
+  // Helper: Draw text at world position
+  void DrawWorldText(const RogueCity::Core::Vec2 &pos, const char *text,
+                     const glm::vec4 &color);
+
+  // Drawing primitives
+  void DrawLabel(const RogueCity::Core::Vec2 &pos, const char *text,
+                 const glm::vec4 &color);
+  void DrawBudgetBar(const RogueCity::Core::Vec2 &pos, float ratio,
+                     const glm::vec4 &fill, const glm::vec4 &outline);
+
+  // Helper: Calculate AESP gradient color (0.0 = cold, 1.0 = hot)
+  glm::vec4 GetAESPGradientColor(float score);
+
+  // Projection helpers
+  ImVec2 WorldToScreen(const RogueCity::Core::Vec2 &world_pos) const;
+  float WorldToScreenScale(float world_distance) const;
+
+  void RenderHighlights();
+  void RenderSelectionOutlines(const RogueCity::Core::Editor::GlobalState &gs);
 
 private:
-    RogueCity::Core::Vec2 ScreenToWorld(const ImVec2& screen_pos) const;
-    bool ComputeVisibleCellRange(
-        const RogueCity::Core::Editor::GlobalState& gs,
-        int& out_min_cell_x,
-        int& out_max_cell_x,
-        int& out_min_cell_y,
-        int& out_max_cell_y) const;
-    void BeginDedupePass(size_t required_size);
-    bool MarkHandleSeen(uint32_t handle);
-    ViewTransform view_transform_{};
-    HighlightState highlights_{};
-    mutable std::vector<ImVec2> scratch_screen_points_{};
-    mutable std::vector<uint32_t> scratch_triangle_indices_{};
-    mutable std::vector<uint32_t> scratch_dedupe_stamps_{};
-    mutable uint32_t scratch_dedupe_epoch_{ 1u };
-    bool compass_drag_active_{ false };
+  RogueCity::Core::Vec2 ScreenToWorld(const ImVec2 &screen_pos) const;
+  bool ComputeVisibleCellRange(const RogueCity::Core::Editor::GlobalState &gs,
+                               int &out_min_cell_x, int &out_max_cell_x,
+                               int &out_min_cell_y, int &out_max_cell_y) const;
+  void BeginLayerDedupePass(RogueCity::Core::Editor::ViewportRenderLayer layer,
+                            size_t required_size);
+  bool MarkHandleSeen(uint32_t handle);
+  void RecordFallbackFullScan();
+  ViewTransform view_transform_{};
+  HighlightState highlights_{};
+  mutable std::vector<ImVec2> scratch_screen_points_{};
+  mutable std::vector<uint32_t> scratch_triangle_indices_{};
+  mutable std::vector<uint32_t> scratch_dedupe_stamps_{};
+  mutable uint32_t scratch_dedupe_epoch_{1u};
+  mutable std::array<uint32_t,
+                     static_cast<size_t>(
+                         RogueCity::Core::Editor::ViewportRenderLayer::Count)>
+      scratch_deduped_handles_by_layer_{};
+  mutable std::optional<RogueCity::Core::Editor::ViewportRenderLayer>
+      scratch_active_dedupe_layer_{};
+  mutable uint32_t scratch_fallback_full_scan_count_{0u};
+  bool compass_drag_active_{false};
 };
 
-// Singleton accessor
-ViewportOverlays& GetViewportOverlays();
+// Focused search overlay for buildings within the viewport
+class BuildingSearchOverlay {
+public:
+  BuildingSearchOverlay() = default;
+
+  void Render(RogueCity::Core::Editor::GlobalState &gs,
+              const ViewportOverlays::ViewTransform &view_transform);
+
+  bool IsActive() const { return active_; }
+  void SetActive(bool active);
+  void Toggle() { SetActive(!active_); }
+
+private:
+  bool active_{false};
+  char search_buffer_[128]{0};
+  std::vector<uint32_t> filtered_building_ids_{};
+  bool needs_filter_update_{true};
+  int selected_index_{-1};
+
+  void UpdateFilter(const RogueCity::Core::Editor::GlobalState &gs);
+};
+
+// Singleton accessors
+ViewportOverlays &GetViewportOverlays();
+BuildingSearchOverlay &GetBuildingSearchOverlay();
 
 } // namespace RC_UI::Viewport

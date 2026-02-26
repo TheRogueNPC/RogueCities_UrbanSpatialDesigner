@@ -1,3 +1,15 @@
+/**
+ * @file GenerationCoordinator.hpp
+ * @brief Coordinates city generation requests, manages their lifecycle, and provides status updates and results to the rest of the application.
+ *
+ * This file defines the GenerationCoordinator class, which serves as the main interface for panels and tools that need to trigger city generation
+ * and receive results asynchronously. It handles debouncing of rapid requests, cancellation of in-flight generation, and ensures that callbacks
+ * are invoked with the correct context when generation completes. The class tracks the state of generation requests and their associated metadata,
+ * allowing for accurate management of request lifecycles, including serial numbers for request tracking.
+ *
+ * @note Status queries should display to the event log and debug console for accurate tracking of generation activity.
+ */
+ 
 #pragma once
 
 #include "RogueCity/App/Integration/RealTimePreview.hpp"

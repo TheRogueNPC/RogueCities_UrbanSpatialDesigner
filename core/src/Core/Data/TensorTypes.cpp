@@ -1,34 +1,24 @@
-
-
-/**
- * @file TensorTypes.cpp
- * @brief Implementation of 2D tensor operations for RogueCity core data structures.
- *
- * Contains methods for adding and rotating 2D tensors.
- */
+﻿#include "RogueCity/Core/Data/TensorTypes.hpp"
 
 namespace RogueCity::Core {
 
-    /**
-     * @brief Adds another Tensor2D to this tensor.
-     *
-     * Performs element-wise addition of the tensor components.
-     * The 'smooth' parameter is unused in the core layer, but may be used in generator layers for smooth blending.
-     *
-     * @param other The Tensor2D to add.
-     * @param smooth Indicates whether smooth blending should be applied (unused here).
-     * @return Reference to this Tensor2D after addition.
-     */
-    Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unused]] bool smooth);
+Tensor2D& Tensor2D::add(const Tensor2D& other, [[maybe_unused]] bool smooth) {
+    r += other.r;
+    m0 += other.m0;
+    m1 += other.m1;
+    theta_dirty = true;
+    return *this;
+}
 
-    /**
-     * @brief Rotates the tensor by a given angle in radians.
-     *
-     * Applies a rotation transformation to the tensor components using double-angle trigonometric formulas.
-     *
-     * @param theta_radians The angle to rotate the tensor, in radians.
-     * @return Reference to this Tensor2D after rotation.
-     */
-    Tensor2D& Tensor2D::rotate(double theta_radians);
+Tensor2D& Tensor2D::rotate(double theta_radians) {
+    const double c = std::cos(2.0 * theta_radians);
+    const double s = std::sin(2.0 * theta_radians);
+    const double new_m0 = (m0 * c) - (m1 * s);
+    const double new_m1 = (m0 * s) + (m1 * c);
+    m0 = new_m0;
+    m1 = new_m1;
+    theta_dirty = true;
+    return *this;
+}
 
 } // namespace RogueCity::Core

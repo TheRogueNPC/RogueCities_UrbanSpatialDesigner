@@ -24,6 +24,7 @@ set(APP_SOURCES
     src/Tools/BuildingTool.cpp
     src/Tools/WaterTool.cpp
     src/Tools/SplineManipulator.cpp
+    src/Tools/GeometryPolicy.cpp
     src/Tools/AxiomIcon.cpp
     src/Tools/ContextWindowPopup.cpp
 
@@ -64,6 +65,7 @@ set(APP_HEADERS
     include/RogueCity/App/Tools/BuildingTool.hpp
     include/RogueCity/App/Tools/WaterTool.hpp
     include/RogueCity/App/Tools/SplineManipulator.hpp
+    include/RogueCity/App/Tools/GeometryPolicy.hpp
     include/RogueCity/App/Tools/AxiomIcon.hpp
     include/RogueCity/App/Tools/ContextWindowPopup.hpp
 

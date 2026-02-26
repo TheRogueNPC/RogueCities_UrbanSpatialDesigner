@@ -94,7 +94,6 @@ endif()
         src/ui/tools/rc_tool_contract.cpp
         src/ui/tools/rc_tool_dispatcher.cpp
         src/ui/tools/rc_tool_interaction_metrics.cpp
-        src/ui/tools/rc_tool_geometry_policy.cpp
         src/ui/commands/rc_context_command_registry.cpp
         src/ui/commands/rc_context_menu_smart.cpp
         src/ui/commands/rc_context_menu_pie.cpp
@@ -124,6 +123,7 @@ endif()
         # RC-0.10: Zoning control and viewport overlays
         src/ui/panels/rc_panel_zoning_control.cpp
         src/ui/viewport/rc_viewport_overlays.cpp
+        src/ui/viewport/rc_viewport_lod_policy.cpp
         src/ui/viewport/rc_scene_frame.cpp
         src/ui/viewport/rc_minimap_renderer.cpp
         src/ui/viewport/rc_minimap_interaction_math.cpp
@@ -171,6 +171,14 @@ endif()
     endif()
     
     rc_configure_msvc_pdb(RogueCityVisualizerHeadless "RogueCityVisualizerHeadless")
+
+    if(MSVC)
+        target_precompile_headers(RogueCityVisualizerHeadless PRIVATE
+            <imgui.h>
+            <imgui_internal.h>
+            <RogueCity/Core/Editor/GlobalState.hpp>
+        )
+    endif()
     
     # ==================================================
     # GUI executable (GLFW + OpenGL3 + ImGui)
@@ -192,6 +200,12 @@ endif()
         # GLFW target is now 'glfw' from add_subdirectory
         if(TARGET glfw)
             
+            # Build gl3w as a separate library to avoid PCH conflicts
+            add_library(RogueCityGL3W STATIC "${ROGUECITY_GL3W_DIR}/GL/gl3w.c")
+            target_include_directories(RogueCityGL3W PUBLIC "${ROGUECITY_GL3W_DIR}")
+            target_link_libraries(RogueCityGL3W PRIVATE OpenGL::GL)
+            set_source_files_properties("${ROGUECITY_GL3W_DIR}/GL/gl3w.c" PROPERTIES LANGUAGE C)
+
             add_executable(RogueCityVisualizerGui
                 src/main_gui.cpp
                 # UI system sources
@@ -202,7 +216,6 @@ endif()
                 src/ui/tools/rc_tool_contract.cpp
                 src/ui/tools/rc_tool_dispatcher.cpp
                 src/ui/tools/rc_tool_interaction_metrics.cpp
-                src/ui/tools/rc_tool_geometry_policy.cpp
                 src/ui/commands/rc_context_command_registry.cpp
                 src/ui/commands/rc_context_menu_smart.cpp
                 src/ui/commands/rc_context_menu_pie.cpp
@@ -238,6 +251,7 @@ endif()
                 src/ui/panels/RcPanelDrawers.cpp
                 # Viewport overlays (RC-0.10)
                 src/ui/viewport/rc_viewport_overlays.cpp
+                src/ui/viewport/rc_viewport_lod_policy.cpp
                 src/ui/viewport/rc_scene_frame.cpp
                 src/ui/viewport/rc_minimap_renderer.cpp
                 src/ui/viewport/rc_minimap_interaction_math.cpp
@@ -257,10 +271,7 @@ endif()
                 "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
             )
             
-            # Add gl3w.c as a separate C source (not C++).
-            # Newer Dear ImGui no longer ships the gl3w loader; we keep it vendored at 3rdparty/gl3w.
-            target_sources(RogueCityVisualizerGui PRIVATE "${ROGUECITY_GL3W_DIR}/GL/gl3w.c")
-            set_source_files_properties("${ROGUECITY_GL3W_DIR}/GL/gl3w.c" PROPERTIES LANGUAGE C)
+            # target_sources removed gl3w.c as it's now in RogueCityGL3W
 
             target_include_directories(RogueCityVisualizerGui PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"
@@ -268,7 +279,6 @@ endif()
                 "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
                 "${IMGUI_DIR}"
                 "${IMGUI_DIR}/backends"
-                "${ROGUECITY_GL3W_DIR}"
             )
 
             target_compile_definitions(RogueCityVisualizerGui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GL3W=1)
@@ -279,6 +289,7 @@ endif()
                 RogueCityAI          # NEW: For AI assist controls
                 RogueCityImGui 
                 RogueCityVisualizerFeaturePanels
+                RogueCityGL3W
                 OpenGL::GL 
                 glfw
             )
@@ -312,9 +323,14 @@ endif()
             endif()
             
             rc_configure_msvc_pdb(RogueCityVisualizerGui "RogueCityVisualizerGui")
-            
-            # Disable precompiled headers for this target (mixed C/C++)
-            set_target_properties(RogueCityVisualizerGui PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+
+            if(MSVC)
+                target_precompile_headers(RogueCityVisualizerGui PRIVATE
+                    <imgui.h>
+                    <imgui_internal.h>
+                    <RogueCity/Core/Editor/GlobalState.hpp>
+                )
+            endif()
 
             # Keep a convenient launcher binary at repo root next to build scripts.
             set(ROGUECITY_GUI_ROOT_EXE "${CMAKE_SOURCE_DIR}/RogueCityVisualizerGui.exe")
@@ -330,11 +346,11 @@ endif()
             if(WIN32)
                 find_program(ROGUECITY_POWERSHELL_EXE powershell)
                 if(ROGUECITY_POWERSHELL_EXE)
-                    add_custom_command(TARGET RogueCityVisualizerGui POST_BUILD
-                        COMMAND "${ROGUECITY_POWERSHELL_EXE}" -NoProfile -ExecutionPolicy Bypass -Command
-                            "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('${ROGUECITY_GUI_SHORTCUT}'); $S.TargetPath='${ROGUECITY_GUI_ROOT_EXE}'; $S.WorkingDirectory='${CMAKE_SOURCE_DIR}'; $S.IconLocation='${ROGUECITY_GUI_ROOT_EXE},0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
-                        COMMENT "Updating RogueCityVisualizerGui.lnk in repository root"
-                    )
+                                    add_custom_command(TARGET RogueCityVisualizerGui POST_BUILD
+                                        COMMAND "${ROGUECITY_POWERSHELL_EXE}" -NoProfile -ExecutionPolicy Bypass -Command
+                                            "$W=New-Object -ComObject WScript.Shell; $S=$W.CreateShortcut('${ROGUECITY_GUI_SHORTCUT}'); $S.TargetPath='${ROGUECITY_GUI_ROOT_EXE}'; $S.WorkingDirectory='${CMAKE_SOURCE_DIR}'; $S.IconLocation='${ROGUECITY_GUI_ROOT_EXE},0'; $S.Description='RogueCity Visualizer GUI'; $S.Save()"
+                                        COMMENT "Updating RogueCityVisualizerGui.lnk in repository root"
+                                    )
                 endif()
             endif()
             

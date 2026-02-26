@@ -1,3 +1,42 @@
+/**
+ * @class AxiomPlacementTool
+ * @brief Tool for placing and editing axioms in the viewport during EditorState::Editing_Axioms.
+ *
+ * Provides interactive manipulation of axioms, including placement, dragging, resizing, and editing terminal features.
+ * Supports undo/redo functionality, snapshotting, and conversion to generator inputs.
+ *
+ * @note Active only during the Editing_Axioms editor state.
+ *
+ * @section Usage
+ * - Call update() per frame when active to update tool state.
+ * - Use render() to draw overlays and previews.
+ * - Handle mouse events via on_mouse_down(), on_mouse_up(), on_mouse_move(), and on_right_click().
+ * - Manage axioms with add_axiom(), remove_axiom(), clear_axioms(), and snapshot-related methods.
+ * - Configure default axiom types and features.
+ * - Access undo/redo via can_undo(), can_redo(), undo(), redo(), and push_command().
+ *
+ * @section Features
+ * - Interactive axiom placement and editing.
+ * - Multiple manipulation modes (Idle, Placing, DraggingSize, DraggingAxiom, DraggingKnob, Hovering).
+ * - Undo/redo command history.
+ * - Snapshot and restore axiom states.
+ * - Conversion to generator inputs for city generation.
+ * - Customizable default axiom types and terminal features.
+ * - Animation toggle for visual feedback.
+ *
+ * @section Internal
+ * - Maintains a list of axioms and their states.
+ * - Tracks selected and hovered axioms.
+ * - Handles interaction modes and drag operations.
+ * - Provides warning popups for non-intrusive feedback.
+ *
+ * @struct AxiomSnapshot
+ * @brief Serializable representation of an axiom's state for undo/redo and restoration.
+ *
+ * Contains all relevant parameters for an axiom, including type, position, radius, rotation, curviness, spokes, jitter,
+ * loop strength, branch angle, block size, ring rotation, knob weights, and terminal features.
+ */
+ 
 #pragma once
 
 #include "RogueCity/App/Editor/CommandHistory.hpp"

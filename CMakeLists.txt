@@ -21,6 +21,7 @@ option(ROGUECITY_ENABLE_FASTNOISE2 "Enable FastNoise2 integration when present" 
 option(ROGUECITY_ENABLE_DELAUNATOR "Enable delaunator-cpp integration when present" OFF)
 option(ROGUECITY_ENABLE_NANOFLANN "Enable nanoflann integration when present" OFF)
 option(ROGUEUI_ENFORCE_DESIGN_SYSTEM "Fail fast when UI panels bypass token/wrapper architecture" ON)
+option(ROGUECITY_ENABLE_DOXYGEN "Enable Doxygen docs generation target" ON)
 
 # AI_INTEGRATION_TAG: V1_PASS1_TASK1_MSVC_RUNTIME_FIX
 # AGENT: Debug_Manager + Coder_Agent
@@ -266,6 +267,22 @@ if(ROGUEUI_ENFORCE_DESIGN_SYSTEM)
 else()
     message(STATUS "ROGUEUI_ENFORCE_DESIGN_SYSTEM=OFF (UI compliance checks disabled)")
 endif()
+
+if(ROGUECITY_ENABLE_DOXYGEN)
+    find_package(Doxygen QUIET)
+    if(DOXYGEN_FOUND)
+        add_custom_target(docs
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_SOURCE_DIR}/build/docs/doxygen"
+            COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Doxyfile"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM)
+    else()
+        message(STATUS "Doxygen not found; docs target will be unavailable")
+    endif()
+else()
+    message(STATUS "ROGUECITY_ENABLE_DOXYGEN=OFF (docs target disabled)")
+endif()
 # === TESTS ===
 if(BUILD_TESTING)
     add_executable(test_generators tests/test_generators.cpp)
@@ -388,6 +405,18 @@ if(BUILD_TESTING)
     target_link_libraries(test_viewport PRIVATE RogueCityCore RogueCityApp)
     target_compile_features(test_viewport PRIVATE cxx_std_20)
 
+    add_executable(test_viewport_spatial_grid tests/test_viewport_spatial_grid.cpp)
+    target_link_libraries(test_viewport_spatial_grid PRIVATE RogueCityCore RogueCityApp)
+    target_compile_features(test_viewport_spatial_grid PRIVATE cxx_std_20)
+
+    add_executable(test_viewport_lod_policy
+        tests/test_viewport_lod_policy.cpp
+        visualizer/src/ui/viewport/rc_viewport_lod_policy.cpp
+    )
+    target_link_libraries(test_viewport_lod_policy PRIVATE RogueCityCore)
+    target_compile_features(test_viewport_lod_policy PRIVATE cxx_std_20)
+    target_include_directories(test_viewport_lod_policy PRIVATE "${CMAKE_SOURCE_DIR}/visualizer/src")
+
     set(VIEWPORT_INTERACTION_TEST_SOURCES
         visualizer/src/ui/viewport/handlers/rc_viewport_handler_common.cpp
         visualizer/src/ui/viewport/handlers/rc_viewport_domain_handlers.cpp
@@ -398,13 +427,11 @@ if(BUILD_TESTING)
         visualizer/src/ui/viewport/handlers/rc_viewport_water_handler.cpp
         visualizer/src/ui/viewport/handlers/rc_viewport_non_axiom_pipeline.cpp
         visualizer/src/ui/tools/rc_tool_interaction_metrics.cpp
-        visualizer/src/ui/tools/rc_tool_geometry_policy.cpp
     )
 
     add_executable(test_viewport_interaction_helpers
         tests/test_viewport_interaction_helpers.cpp
         visualizer/src/ui/tools/rc_tool_interaction_metrics.cpp
-        visualizer/src/ui/tools/rc_tool_geometry_policy.cpp
     )
     target_link_libraries(test_viewport_interaction_helpers PRIVATE RogueCityCore RogueCityApp)
     target_compile_features(test_viewport_interaction_helpers PRIVATE cxx_std_20)
@@ -481,6 +508,8 @@ if(BUILD_TESTING)
     add_test(NAME test_simulation_pipeline COMMAND test_simulation_pipeline)
     add_test(NAME test_stable_id_registry COMMAND test_stable_id_registry)
     add_test(NAME test_viewport_id_stability COMMAND test_viewport_id_stability)
+    add_test(NAME test_viewport_spatial_grid COMMAND test_viewport_spatial_grid)
+    add_test(NAME test_viewport_lod_policy COMMAND test_viewport_lod_policy)
     add_test(NAME test_editor_plan COMMAND test_editor_plan)
     add_test(NAME test_viewport_interaction_helpers COMMAND test_viewport_interaction_helpers)
     add_test(NAME test_viewport_interaction_selection COMMAND test_viewport_interaction_selection)

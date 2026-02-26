@@ -1,3 +1,45 @@
+/**
+ * @file ThemeManager.h
+ * @brief Multi-theme system for Y2K Cockpit UI in RogueCities Urban Spatial Designer.
+ *
+ * Provides management and application of UI themes for ImGui-based interfaces.
+ * Supports built-in and custom themes, loading/saving from JSON, and runtime editing.
+ *
+ * @namespace RogueCity::UI
+ * 
+ * @struct ThemeProfile
+ *   Represents a theme color profile with 12 key tokens for accents, backgrounds, text, and borders.
+ *   - name: Theme name.
+ *   - primary_accent: Main interactive elements color.
+ *   - secondary_accent: Secondary highlights color.
+ *   - success_color: Success state color.
+ *   - warning_color: Warning/caution color.
+ *   - error_color: Error/danger color.
+ *   - background_dark: Main viewport/window background color.
+ *   - panel_background: Panel background color.
+ *   - grid_overlay: Subtle grid/guides color (with alpha).
+ *   - text_primary: Main text color.
+ *   - text_secondary: Secondary text color.
+ *   - text_disabled: Disabled text color.
+ *   - border_accent: Window borders/active elements color.
+ *
+ * @class ThemeManager
+ *   Singleton class for managing UI themes.
+ *   - Load, register, and save themes.
+ *   - Apply themes to ImGui.
+ *   - Access built-in and custom themes.
+ *   - Edit active theme at runtime.
+ *
+ * @namespace Themes
+ *   Provides built-in theme presets for UI preview and selection:
+ *   - Default
+ *   - Soviet (alias for DowntownCity)
+ *   - RedRetro
+ *   - DowntownCity
+ *   - RedlightDistrict
+ *   - CyberPunk
+ *   - Tron
+ */
 // ThemeManager.h - Multi-theme system for Y2K Cockpit UI
 #pragma once
 #include <imgui.h>

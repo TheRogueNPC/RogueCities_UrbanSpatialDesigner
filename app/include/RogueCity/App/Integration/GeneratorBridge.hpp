@@ -1,3 +1,16 @@
+/**
+ * @brief Adapter between UI (AxiomVisual) and Generator (AxiomInput).
+ *
+ * The GeneratorBridge class provides static methods to convert UI axiom representations
+ * (AxiomVisual) into generator inputs (AxiomInput), validate these inputs, and perform
+ * coordinate conversions and parameter computations required for city generation.
+ *
+ * Responsibilities:
+ * - Data conversion between UI and generator formats.
+ * - Validation of generator inputs (bounds, conflicts, etc.).
+ * - Utility functions for parameter computation and coordinate conversion.
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"

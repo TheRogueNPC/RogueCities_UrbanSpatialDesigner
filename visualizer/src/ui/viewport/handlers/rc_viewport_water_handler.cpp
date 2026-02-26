@@ -451,7 +451,7 @@ bool HandleWaterPlacement(
                             if (distance > context.geometry_policy.water_falloff_radius_world) {
                                 continue;
                             }
-                            double weight = RC_UI::Tools::ComputeFalloffWeight(
+                            double weight = RogueCity::App::Tools::ComputeFalloffWeight(
                                 distance,
                                 context.geometry_policy.water_falloff_radius_world);
                             RogueCity::Core::Vec2 movement = delta;

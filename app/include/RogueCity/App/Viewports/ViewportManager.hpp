@@ -1,3 +1,13 @@
+/**
+ * @class ViewportManager
+ * @brief Orchestrates the dual-viewport system (Primary 3D/2D + Minimap 2D) for the application.
+ *
+ * Enforces the Cockpit Doctrine, treating viewports as control stations on the network.
+ * Responsible for initializing, updating, and rendering both viewports, as well as managing camera synchronization.
+ *
+ * @note The manager provides access to individual viewports and handles their lifecycle.
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include <memory>

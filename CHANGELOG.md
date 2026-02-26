@@ -1,6 +1,20 @@
 # Changelog
 
 ## [Unreleased] - 2026-02-25
+- **UI Restoration (Regression Fix)**: Restored the primary viewport drawing call and re-enabled the Tool Library action icons by restoring their orphaned rendering loop. Corrected the Master Panel dock layout to include `Library` and `ToolDeck` nodes and categorized the `AxiomEditor` drawer as hidden to prevent UI tab redundancy.
+
+### Added
+- **Architectural Refactor**: Migrated `GeometryPolicy` from the visualizer layer to the app layer (`app/src/Tools/GeometryPolicy.cpp`) to enforce strict layer boundaries. Updated `WaterTool` and `RoadTool` to utilize the dynamic `GeometryPolicy`, removing hardcoded geometric constants.
+- **Core Generator Logic**: 
+  - Implemented `FrontageProfiler.cpp` to procedurally trace building facades along edge splines using a discrete `TransitionMatrix` (Markov Chain), including adaptive scaling and truncation handling for terminal modules.
+  - Implemented `Policies.cpp` enforcing the Road MDP logic (`GridPolicy`, `OrganicPolicy`) based on distance fields and local network density constraints.
+- **Geometry Foundation (`PolygonOps.cpp`)**: Fully implemented polygon clipping and insetting utilizing the newly integrated `Clipper2` library. Fixed integer coordinate scaling (`kClipperScale = 1000.0`) is enforced per architectural specifications.
+- **Dependency Cleanliness**: Added `Clipper2` directly to the `3rdparty/` directory for full debug visibility and stripped unneeded noise directories (`.git`, `test`) to ensure clean audits.
+- **UI Framework & Panels (RC-0.12)**:
+  - **Unified Design System**: Centralized all UI tokens (colors, spacings, rounding) into `rc_ui_theme.h` and refactored the theme implementation to enforce Cockpit Doctrine compliance.
+  - **Multi-Column Data Panels**: Refactored `RcDataIndexPanel` to support generic multi-column traits. Updated all entity index panels (Roads, Districts, Lots, Buildings) and the River index to use this unified template.
+  - **Building Search Overlay**: Implemented a viewport-contextual search overlay for buildings, activated by `Ctrl+F`. Supports real-time filtering and automatic selection sync.
+  - **Viewport Integration**: Integrated search overlay rendering and hotkeys directly into the `AxiomEditorPanel` viewport chrome.
 
 ### Done
 - Implemented viewport render spatial indexing in `GlobalState` with CSR layers (`roads`, `districts`, `lots`, `water`, `buildings`) and per-entity ID-to-handle maps.

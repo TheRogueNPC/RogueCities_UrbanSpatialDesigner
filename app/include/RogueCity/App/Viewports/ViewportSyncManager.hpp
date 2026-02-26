@@ -1,3 +1,23 @@
+/**
+ * @class ViewportSyncManager
+ * @brief Manages camera synchronization between primary and minimap viewports.
+ *
+ * This class provides functionality to synchronize the XY position of cameras between
+ * the primary viewport and the minimap viewport. It supports smooth interpolation to
+ * reduce jitter during synchronization, and allows toggling of sync mode and adjustment
+ * of the smoothness factor.
+ *
+ * @note Call update(float delta_time) per frame when synchronization is enabled.
+ *
+ * @param primary Pointer to the primary viewport.
+ * @param minimap Pointer to the minimap viewport.
+ *
+ * @method update Updates the camera synchronization each frame.
+ * @method set_sync_enabled Enables or disables synchronization.
+ * @method is_sync_enabled Returns whether synchronization is enabled.
+ * @method set_smooth_factor Sets the interpolation factor for smooth synchronization.
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 

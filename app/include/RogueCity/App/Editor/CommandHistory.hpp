@@ -1,5 +1,14 @@
-// FILE: CommandHistory.hpp
-// PURPOSE: Editor command history for undo/redo.
+ /**
+ * @file CommandHistory.hpp
+ * @brief Defines interfaces and classes for managing editor command history (undo/redo) in RogueCity.
+ *
+ * Contains:
+ * - ICommand: Interface for editor commands supporting execution, undo, and description.
+ * - CommandHistory: Manages a history of commands, providing undo/redo functionality.
+ * - GetEditorCommandHistory: Accessor for shared editor-wide command history.
+ * - ResetEditorCommandHistory: Resets the shared command history.
+ */
+ 
 #pragma once
 
 #include <memory>

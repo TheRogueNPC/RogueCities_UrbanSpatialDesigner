@@ -1,3 +1,14 @@
+/**
+ * @class RoadTool
+ * @brief Tool for manipulating and creating roads within the viewport.
+ *
+ * Inherits from IViewportTool and provides interaction logic for road editing,
+ * including spline manipulation and mouse event handling.
+ *
+ * @note This tool manages its own interaction state and viewport reference.
+ *
+ * @see IViewportTool
+ */
 #pragma once
 
 #include "RogueCity/App/Tools/IViewportTool.hpp"

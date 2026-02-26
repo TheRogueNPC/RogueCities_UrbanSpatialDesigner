@@ -160,6 +160,36 @@ bool ProbeContainsPoint(
     return false;
 }
 
+bool TryPickFromSpatialGrid(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    const RogueCity::Core::Vec2& world_pos,
+    const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics,
+    double radius_scale,
+    bool prefer_manhattan,
+    std::optional<RogueCity::Core::Editor::SelectionItem>& out_pick) {
+    (void)gs;
+    (void)world_pos;
+    (void)interaction_metrics;
+    (void)radius_scale;
+    (void)prefer_manhattan;
+    // Pass-3 readiness hook: future O(visible) selection can return true once implemented.
+    out_pick.reset();
+    return false;
+}
+
+bool TryQueryRegionFromSpatialGrid(
+    const RogueCity::Core::Editor::GlobalState& gs,
+    const std::function<bool(const RogueCity::Core::Vec2&)>& include_point,
+    bool include_hidden,
+    std::vector<RogueCity::Core::Editor::SelectionItem>& out_results) {
+    (void)gs;
+    (void)include_point;
+    (void)include_hidden;
+    // Pass-3 readiness hook: future spatial region queries can return true once implemented.
+    out_results.clear();
+    return false;
+}
+
 } // namespace
 
 uint64_t SelectionKey(const RogueCity::Core::Editor::SelectionItem& item) {
@@ -260,6 +290,17 @@ std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
     const RC_UI::Tools::ToolInteractionMetrics& interaction_metrics,
     double radius_scale,
     bool prefer_manhattan) {
+    std::optional<RogueCity::Core::Editor::SelectionItem> spatial_pick{};
+    if (TryPickFromSpatialGrid(
+            gs,
+            world_pos,
+            interaction_metrics,
+            radius_scale,
+            prefer_manhattan,
+            spatial_pick)) {
+        return spatial_pick;
+    }
+
     const double world_radius = std::max(0.25, interaction_metrics.world_pick_radius * std::max(0.2, radius_scale));
     int best_priority = -1;
     double best_distance = std::numeric_limits<double>::max();
@@ -291,6 +332,11 @@ std::vector<RogueCity::Core::Editor::SelectionItem> QueryRegionFromViewportIndex
     const RogueCity::Core::Editor::GlobalState& gs,
     const std::function<bool(const RogueCity::Core::Vec2&)>& include_point,
     bool include_hidden) {
+    std::vector<RogueCity::Core::Editor::SelectionItem> spatial_results{};
+    if (TryQueryRegionFromSpatialGrid(gs, include_point, include_hidden, spatial_results)) {
+        return spatial_results;
+    }
+
     std::vector<RogueCity::Core::Editor::SelectionItem> results;
     std::unordered_set<uint64_t> dedupe;
     results.reserve(gs.viewport_index.size());

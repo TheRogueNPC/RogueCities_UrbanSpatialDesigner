@@ -1,7 +1,20 @@
-// FILE: ZoningBridge.hpp
-// PURPOSE: Translates UI parameters to ZoningGenerator inputs and populates GlobalState
-// LAYER: App Integration (bridges Generators ? Editor UI)
-
+ /**
+ * @brief Bridge between UI and ZoningGenerator for urban spatial design.
+ *
+ * The ZoningBridge class provides an interface for generating, clearing, and managing zoning,
+ * lot, and building data within the application's GlobalState. It exposes configuration options
+ * for UI integration, manages deterministic generation pipelines, and tracks generation statistics.
+ *
+ * Features:
+ * - UI-exposed configuration for zoning and building generation.
+ * - Generation of zones, lots, and buildings, populating the editor's GlobalState.
+ * - Full city specification pipeline for deterministic city generation.
+ * - Clearing of all generated zoning, lot, and building data.
+ * - Retrieval of generation statistics for UI display.
+ * - Internal helpers for configuration translation, input preparation, output population,
+ *   and plan validation.
+ */
+ 
 #pragma once
 
 #include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"

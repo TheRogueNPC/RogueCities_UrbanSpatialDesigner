@@ -1,5 +1,41 @@
-// DesignSystem.h - Single Source of Truth for RogueCity UI/UX
-// Enforces Cockpit Doctrine: Y2K aesthetics, motion-as-instruction, affordance-rich
+/**
+ * @file DesignSystem.h
+ * @brief Defines the Cockpit Doctrine design system for RogueCity UI.
+ *
+ * This header enforces a cohesive, affordance-rich Y2K-inspired design language across the application.
+ * All UI code must reference the tokens and helpers defined here—no hardcoded colors, spacing, or timing
+ * outside this file. Static analysis and code review guidelines should ensure adherence.
+ *
+ * @section DesignTokens
+ * - Centralized palette for colors, spacing, border widths, corner rounding, animation timing, and typography.
+ * - All values are inspired by aviation/spacecraft HUDs: neon accents, hard edges, high contrast, and instructional motion.
+ * - Spacing is strictly multiples of 8px (or 4px for tight layouts).
+ *
+ * @section DesignSystem
+ * - Provides theme application, color conversion, validation, motion helpers, layout helpers, and affordance patterns.
+ * - Ensures all ImGui style settings are defined in one place.
+ * - Includes validation functions to detect and warn about hardcoded values.
+ *
+ * @section UI
+ * - Safe wrapper surface for editor/panel code, abstracting ImGui calls.
+ * - Standardizes panel, input, spacing, and text patterns for consistency.
+ *
+ * @section DebugMacros
+ * - Macros for compile-time enforcement of design token usage (debug builds only).
+ *
+ * @section CockpitDoctrinePrinciples
+ * - Y2K Geometry: Hard edges, neon accents, warning stripes, grid overlays.
+ * - Motion as Instruction: Animations teach meaning, not decoration.
+ * - Affordance-Rich: Visible state changes, responsive elements, no hidden modes.
+ * - State-Reactive: Layout adapts to system state, status always visible.
+ * - Diegetic UI: Cockpit/instrument panel metaphor, coordinate readouts, control surfaces.
+ *
+ * @note
+ * All UI styling and layout must reference DesignTokens. No hardcoded values allowed.
+ * This is essential for maintaining a consistent, easily updatable design system.
+ */
+ // Enforces Cockpit Doctrine: Y2K aesthetics, motion-as-instruction, affordance-rich
+ 
 #pragma once
 #include <imgui.h>
 #include <cstdint>

@@ -1,3 +1,27 @@
+/**
+ * @class ContextWindowPopup
+ * @brief Provides a reusable, context-sensitive popup window for numeric entry in the UI.
+ *
+ * Designed with a Y2K aesthetic (hard edges, warning stripe border, fixed-width font), this class enables
+ * flexible contextual interactions such as adjusting building properties, axiom properties, or other numeric values.
+ * The popup can display different content and handle various input types based on the context, supporting
+ * customization via a generic content rendering function or data structure.
+ *
+ * Features:
+ * - Opens at a specified screen position with a given value range and label.
+ * - Supports smooth value interpolation (0.3s ease-in-out) for user feedback.
+ * - Allows setting a callback for value changes.
+ * - Designed for intuitive user experience with labels, tooltips, and clear feedback.
+ *
+ * Usage:
+ * - Call `open()` to display the popup at a desired position.
+ * - Call `update()` per frame while the popup is open to render and handle input.
+ * - Use `set_on_apply()` to handle value changes.
+ * - Call `close()` to dismiss the popup.
+ *
+ * @note The popup is intended to be reusable across different contexts and should not be tightly coupled to a specific use case.
+ */
+ 
 #pragma once
 #include "RogueCity/Core/Types.hpp"
 #include <imgui.h>
