@@ -12,6 +12,11 @@ option(ROGUECITY_AI_ENABLE_UI_AGENT "Enable UI Agent protocol + client" ON)
 option(ROGUECITY_AI_ENABLE_CITYSPEC "Enable CitySpec generation client" ON)
 option(ROGUECITY_AI_ENABLE_DESIGN_ASSISTANT "Enable UI design assistant client" ON)
 
+# RC_FEATURE_AI_BRIDGE — gates the actual HTTP/Ollama network calls.
+# OFF by default: snapshot building, UiIntrospector, and dev-shell exports
+# all continue to work without a running AI backend.
+option(RC_FEATURE_AI_BRIDGE "Enable Ollama/HTTP AI bridge connection" OFF)
+
 # === SOURCE FILES ===
 set(AI_SOURCES
     protocol/UiAgentProtocol.cpp
@@ -56,6 +61,13 @@ target_compile_definitions(RogueCityAI
         ROGUECITY_AI_FEATURE_CITYSPEC=$<BOOL:${ROGUECITY_AI_ENABLE_CITYSPEC}>
         ROGUECITY_AI_FEATURE_UI_DESIGN=$<BOOL:${ROGUECITY_AI_ENABLE_DESIGN_ASSISTANT}>
 )
+
+if(RC_FEATURE_AI_BRIDGE)
+    target_compile_definitions(RogueCityAI PUBLIC RC_FEATURE_AI_BRIDGE=1)
+    message(STATUS "AI Bridge: HTTP/Ollama connection ENABLED")
+else()
+    message(STATUS "AI Bridge: HTTP/Ollama connection DISABLED (set -DRC_FEATURE_AI_BRIDGE=ON to enable)")
+endif()
 
 # === DEPENDENCIES ===
 # Core library (for Editor state)

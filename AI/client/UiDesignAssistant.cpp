@@ -43,29 +43,34 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     const UiSnapshot& snapshot,
     const std::string& goal
 ) {
+    UiDesignPlan plan;
+
+#ifndef RC_FEATURE_AI_BRIDGE
+    (void)snapshot;
+    (void)goal;
+    return plan;
+#else
     auto& config = AiConfigManager::Instance().GetConfig();
     std::string url = config.bridgeBaseUrl + "/ui_design_assistant";
-    
+
     // Load pattern catalog
     json catalog = LoadPatternCatalog();
-    
+
     // Build request payload
     json requestBody;
     requestBody["snapshot"] = json::parse(UiAgentJson::SnapshotToJson(snapshot));
     requestBody["pattern_catalog"] = catalog;
     requestBody["goal"] = goal.empty() ? "Analyze UI for refactoring opportunities" : goal;
     requestBody["model"] = config.uiAgentModel;
-    
+
     std::cout << "[UiDesignAssistant] Generating design plan..." << std::endl;
     if (!goal.empty()) {
         std::cout << "[UiDesignAssistant] Goal: " << goal << std::endl;
     }
-    
+
     // Call toolserver
     std::string responseStr = HttpClient::PostJson(url, requestBody.dump());
-    
-    UiDesignPlan plan;
-    
+
     if (responseStr.empty() || responseStr == "[]") {
         std::cerr << "[UiDesignAssistant] Empty response from design assistant" << std::endl;
         return plan;
@@ -139,14 +144,22 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     } catch (const std::exception& e) {
         std::cerr << "[UiDesignAssistant] Failed to parse response: " << e.what() << std::endl;
     }
-    
+
     return plan;
+#endif // RC_FEATURE_AI_BRIDGE
 }
 
 UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     const nlohmann::json& introspectionSnapshot,
     const std::string& goal
 ) {
+    UiDesignPlan plan;
+
+#ifndef RC_FEATURE_AI_BRIDGE
+    (void)introspectionSnapshot;
+    (void)goal;
+    return plan;
+#else
     auto& config = AiConfigManager::Instance().GetConfig();
     std::string url = config.bridgeBaseUrl + "/ui_design_assistant";
 
@@ -167,8 +180,6 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     }
 
     std::string responseStr = HttpClient::PostJson(url, requestBody.dump());
-
-    UiDesignPlan plan;
 
     if (responseStr.empty() || responseStr == "[]") {
         std::cerr << "[UiDesignAssistant] Empty response from design assistant" << std::endl;
@@ -242,6 +253,7 @@ UiDesignPlan UiDesignAssistant::GenerateDesignPlan(
     }
 
     return plan;
+#endif // RC_FEATURE_AI_BRIDGE
 }
 
 bool UiDesignAssistant::SaveDesignPlan(

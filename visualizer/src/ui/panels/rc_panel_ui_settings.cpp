@@ -7,6 +7,7 @@
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_animation.h"
+#include "ui/rc_ui_components.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 
@@ -16,7 +17,6 @@
 #include <imgui.h>
 #include <string>
 #include <vector>
-
 
 namespace RC_UI::Panels::UiSettings {
 
@@ -33,7 +33,7 @@ static bool s_show_hex_by_default = true;
 static bool s_theme_was_edited = false;
 static float s_theme_save_timer = 0.0f;
 static constexpr float kSaveDebounceSeconds = 2.0f;
-}
+} // namespace
 
 bool IsOpen() { return s_open; }
 
@@ -323,148 +323,155 @@ void DrawContent(float dt) {
     if (viewport->Size.x < 1280 || viewport->Size.y < 720) {
       ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(
                                                UITokens::YellowWarning));
-      ImGui::TextWrapped("UI optimized for 1920x1080+. Current resolution may "
-                         "cause panel clipping.");
+      RC_UI::Components::BoundedText(
+          "UI optimized for 1920x1080+. Current resolution may "
+          "cause panel clipping.");
       ImGui::PopStyleColor();
     }
   }
 
-ImGui::Separator();
+  ImGui::Separator();
 
-// ======================================================================
-// LAYOUT PREFERENCES (dock ratio controls with safe center constraints)
-// ======================================================================
-RC_UI::AnimationHelpers::BeginBreathingHeader("Layout Preferences",
-                                              UITokens::InfoBlue,
-                                              panel_focused);
-{
-  ImGui::TextWrapped("Baseline preset is tuned for 1280x1024 and scales to "
-                     "other resolutions.");
-  ImGui::Spacing();
+  // ======================================================================
+  // LAYOUT PREFERENCES (dock ratio controls with safe center constraints)
+  // ======================================================================
+  RC_UI::AnimationHelpers::BeginBreathingHeader(
+      "Layout Preferences", UITokens::InfoBlue, panel_focused);
 
-  ImGui::SliderFloat("Master Panel Ratio",
-                     &s_layout_prefs_edit.left_panel_ratio, 0.20f, 0.45f,
-                     "%.2f");
-  uiint.RegisterWidget({"slider",
-                        "Master Panel Ratio",
-                        "ui.layout.left_ratio",
-                        {"ui", "layout", "dock"}});
+  // ======================================================================
+  // LAYOUT PREFERENCES (dock ratio controls with safe center constraints)
+  // ======================================================================
+  RC_UI::AnimationHelpers::BeginBreathingHeader(
+      "Layout Preferences", UITokens::InfoBlue, panel_focused);
+  {
+    RC_UI::Components::BoundedText(
+        "Baseline preset is tuned for 1280x1024 and scales to "
+        "other resolutions.");
+    ImGui::Spacing();
 
-  ImGui::SliderFloat("Right Column Ratio",
-                     &s_layout_prefs_edit.right_panel_ratio, 0.15f, 0.35f,
-                     "%.2f");
-  uiint.RegisterWidget({"slider",
-                        "Right Column Ratio",
-                        "ui.layout.right_ratio",
-                        {"ui", "layout", "dock"}});
+    ImGui::SliderFloat("Master Panel Ratio",
+                       &s_layout_prefs_edit.left_panel_ratio, 0.20f, 0.45f,
+                       "%.2f");
+    bool commit_left = ImGui::IsItemDeactivatedAfterEdit();
+    uiint.RegisterWidget({"slider",
+                          "Master Panel Ratio",
+                          "ui.layout.left_ratio",
+                          {"ui", "layout", "dock"}});
 
-  ImGui::SliderFloat("Tool Deck Height Ratio",
-                     &s_layout_prefs_edit.tool_deck_ratio, 0.18f, 0.45f,
-                     "%.2f");
-  uiint.RegisterWidget({"slider",
-                        "Tool Deck Height Ratio",
-                        "ui.layout.tool_deck_ratio",
-                        {"ui", "layout", "dock"}});
+    ImGui::SliderFloat("Right Column Ratio",
+                       &s_layout_prefs_edit.right_panel_ratio, 0.15f, 0.35f,
+                       "%.2f");
+    bool commit_right = ImGui::IsItemDeactivatedAfterEdit();
+    uiint.RegisterWidget({"slider",
+                          "Right Column Ratio",
+                          "ui.layout.right_ratio",
+                          {"ui", "layout", "dock"}});
 
-  const float center_ratio = 1.0f - s_layout_prefs_edit.left_panel_ratio -
-                             s_layout_prefs_edit.right_panel_ratio;
-  ImGui::Text("Center Workspace Ratio: %.2f", center_ratio);
-  if (center_ratio < 0.40f) {
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
-                       "Center workspace is below recommended minimum (0.40).");
+    ImGui::SliderFloat("Tool Deck Height Ratio",
+                       &s_layout_prefs_edit.tool_deck_ratio, 0.18f, 0.45f,
+                       "%.2f");
+    bool commit_bottom = ImGui::IsItemDeactivatedAfterEdit();
+    uiint.RegisterWidget({"slider",
+                          "Tool Deck Height Ratio",
+                          "ui.layout.tool_deck_ratio",
+                          {"ui", "layout", "dock"}});
+
+    if (commit_left || commit_right || commit_bottom) {
+      RC_UI::SetDockLayoutPreferences(s_layout_prefs_edit);
+      RC_UI::ResetDockLayout();
+    }
+
+    const float center_ratio = 1.0f - s_layout_prefs_edit.left_panel_ratio -
+                               s_layout_prefs_edit.right_panel_ratio;
+    ImGui::Text("Center Workspace Ratio: %.2f", center_ratio);
+    if (center_ratio < 0.40f) {
+      ImGui::TextColored(
+          ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
+          "Center workspace is below recommended minimum (0.40).");
+    }
+
+    if (RogueCity::UI::DesignSystem::ButtonSecondary(
+            "Return to Factory Default", ImVec2(220.0f, 30.0f))) {
+      s_layout_prefs_edit = RC_UI::GetDefaultDockLayoutPreferences();
+      RC_UI::SetDockLayoutPreferences(s_layout_prefs_edit);
+      RC_UI::ResetDockLayout();
+    }
+    uiint.RegisterWidget({"button",
+                          "Return to Factory Default",
+                          "action:ui.layout.reset",
+                          {"action", "ui", "layout"}});
   }
 
-  if (RogueCity::UI::DesignSystem::ButtonPrimary("Apply Layout Preferences",
-                                                 ImVec2(220.0f, 30.0f))) {
-    RC_UI::SetDockLayoutPreferences(s_layout_prefs_edit);
-    RC_UI::ResetDockLayout();
-  }
-  uiint.RegisterWidget({"button",
-                        "Apply Layout Preferences",
-                        "action:ui.layout.apply",
-                        {"action", "ui", "layout"}});
+  ImGui::Separator();
 
-  ImGui::SameLine();
-  if (RogueCity::UI::DesignSystem::ButtonSecondary("Reset 1280x1024 Preset",
-                                                   ImVec2(220.0f, 30.0f))) {
-    s_layout_prefs_edit = RC_UI::GetDefaultDockLayoutPreferences();
-    RC_UI::SetDockLayoutPreferences(s_layout_prefs_edit);
-    RC_UI::ResetDockLayout();
-  }
-  uiint.RegisterWidget({"button",
-                        "Reset 1280x1024 Preset",
-                        "action:ui.layout.reset",
-                        {"action", "ui", "layout"}});
-}
+  // ======================================================================
+  // CUSTOM THEME CREATION (Advanced, with breathing animation)
+  // ======================================================================
+  if (gs.config.dev_mode_enabled) {
+    RC_UI::AnimationHelpers::BeginBreathingHeader(
+        "Custom Theme (Advanced)", UITokens::InfoBlue, panel_focused);
+    {
 
-ImGui::Separator();
+      RC_UI::Components::BoundedText(
+          "Create custom theme profiles by editing JSON files in "
+          "AI/config/themes/");
+      ImGui::Spacing();
 
-// ======================================================================
-// CUSTOM THEME CREATION (Advanced, with breathing animation)
-// ======================================================================
-RC_UI::AnimationHelpers::BeginBreathingHeader("Custom Theme (Advanced)",
-                                              UITokens::InfoBlue,
-                                              panel_focused);
-{
+      ImGui::InputText("Theme Name", s_custom_theme_name,
+                       sizeof(s_custom_theme_name));
+      uiint.RegisterWidget(
+          {"text", "Theme Name", "ui.custom_theme_name", {"ui", "settings"}});
 
-  ImGui::TextWrapped("Create custom theme profiles by editing JSON files in "
-                     "AI/config/themes/");
-  ImGui::Spacing();
+      ImGui::Spacing();
 
-  ImGui::InputText("Theme Name", s_custom_theme_name,
-                   sizeof(s_custom_theme_name));
-  uiint.RegisterWidget(
-      {"text", "Theme Name", "ui.custom_theme_name", {"ui", "settings"}});
+      if (RogueCity::UI::DesignSystem::ButtonPrimary("Export Current Theme",
+                                                     ImVec2(200, 30))) {
+        std::string error;
+        if (theme_mgr.SaveThemeToFile(theme_mgr.GetActiveTheme(), &error)) {
+          ImGui::OpenPopup("Export Success");
+        } else {
+          ImGui::OpenPopup("Export Failed");
+        }
+      }
+      uiint.RegisterWidget({"button",
+                            "Export Current Theme",
+                            "action:ui.export_theme",
+                            {"action", "ui", "settings"}});
 
-  ImGui::Spacing();
+      // Export success/fail popups
+      if (ImGui::BeginPopupModal("Export Success", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Theme exported successfully!");
+        ImGui::Separator();
+        if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
 
-  if (RogueCity::UI::DesignSystem::ButtonPrimary("Export Current Theme",
-                                                 ImVec2(200, 30))) {
-    std::string error;
-    if (theme_mgr.SaveThemeToFile(theme_mgr.GetActiveTheme(), &error)) {
-      ImGui::OpenPopup("Export Success");
-    } else {
-      ImGui::OpenPopup("Export Failed");
+      if (ImGui::BeginPopupModal("Export Failed", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
+                           "Theme export failed!");
+        ImGui::Separator();
+        if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
+
+      ImGui::Spacing();
+
+      if (RogueCity::UI::DesignSystem::ButtonSecondary("Reload Custom Themes",
+                                                       ImVec2(200, 30))) {
+        theme_mgr.LoadCustomThemes();
+      }
+      uiint.RegisterWidget({"button",
+                            "Reload Custom Themes",
+                            "action:ui.reload_themes",
+                            {"action", "ui", "settings"}});
     }
   }
-  uiint.RegisterWidget({"button",
-                        "Export Current Theme",
-                        "action:ui.export_theme",
-                        {"action", "ui", "settings"}});
-
-  // Export success/fail popups
-  if (ImGui::BeginPopupModal("Export Success", nullptr,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::Text("Theme exported successfully!");
-    ImGui::Separator();
-    if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::EndPopup();
-  }
-
-  if (ImGui::BeginPopupModal("Export Failed", nullptr,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
-                       "Theme export failed!");
-    ImGui::Separator();
-    if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::EndPopup();
-  }
-
-  ImGui::Spacing();
-
-  if (RogueCity::UI::DesignSystem::ButtonSecondary("Reload Custom Themes",
-                                                   ImVec2(200, 30))) {
-    theme_mgr.LoadCustomThemes();
-  }
-  uiint.RegisterWidget({"button",
-                        "Reload Custom Themes",
-                        "action:ui.reload_themes",
-                        {"action", "ui", "settings"}});
-}
 }
 
 } // namespace RC_UI::Panels::UiSettings

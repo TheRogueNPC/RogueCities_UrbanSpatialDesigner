@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RogueCities Visualizer — UI/UX Mockup</title>
+<style>
+/* ═══════════════════════════════════════════════
+   ROGUE CITIES — DESIGN SYSTEM TOKENS
+   Maps to: rc_ui_theme.h
+   ═══════════════════════════════════════════════ */
+:root {
+  /* Core palette — derived from your existing theme */
+  --bg-deep:      #060B10;
+  --bg-panel:     #0A1118;
+  --bg-surface:   #0E1820;
+  --bg-elevated:  #121F2A;
+  --bg-input:     #0C1519;
+
+  /* Semantic colors — matching your theme editor values */
+  --primary:      #D67848;   /* Warm orange — actions, active tabs */
+  --primary-dim:  #D6784833;
+  --primary-glow: #D6784866;
+  --secondary:    #68D6D8;   /* Teal/cyan — borders, frames, data */
+  --secondary-dim:#68D6D822;
+  --secondary-glow:#68D6D844;
+  --success:      #76C47F;   /* Green — enabled, valid, ground layer */
+  --warning:      #E8A24E;   /* Amber — caution, elevated layer */
+  --error:        #C44A3C;   /* Red — errors, critical */
+  --border:       #68D6D833;
+  --border-active:#68D6D8;
+  --text:         #C8D8E0;
+  --text-dim:     #607888;
+  --text-label:   #8A9CA8;
+  --text-bright:  #E8F0F4;
+
+  /* Glow & FX */
+  --glow-primary: 0 0 8px #D6784866, 0 0 20px #D6784822;
+  --glow-secondary: 0 0 8px #68D6D844, 0 0 20px #68D6D822;
+  --glow-success: 0 0 8px #76C47F44;
+  --glow-error: 0 0 8px #C44A3C44;
+  --scanline: rgba(104, 214, 216, 0.03);
+
+  /* Typography */
+  --font-mono: 'Consolas', 'SF Mono', 'Fira Code', monospace;
+  --font-ui: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --font-size-xs: 9px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+
+  /* Spacing (ImGui-friendly multiples of 4) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* Layout ratios — matching your UI Settings */
+  --master-ratio: 0.32;
+  --right-ratio: 0.22;
+  --tool-deck-ratio: 0.24;
+
+  /* ImGui geometry — hot-reloadable via Mockup Live Link
+     Change these values, save, and the running app updates within 1s.
+     Units are pixels (no "px" suffix needed for numeric values). */
+  --window-rounding: 0;      /* 0 = Y2K hard edges */
+  --frame-rounding: 0;
+  --tab-rounding: 0;
+  --border-size: 1;          /* Window / child border thickness */
+  --frame-border-size: 1;    /* Input field border thickness */
+  --window-padding: 8;       /* px — horizontal window content padding */
+  --window-padding-y: 6;     /* px — vertical window content padding */
+  --frame-padding: 6;        /* px — widget frame horizontal padding */
+  --frame-padding-y: 4;      /* px — widget frame vertical padding */
+  --item-spacing: 8;         /* px — horizontal space between widgets */
+  --item-spacing-y: 4;       /* px — vertical space between rows */
+  --scrollbar-size: 10;      /* px — scrollbar track width */
+  --indent-spacing: 16;      /* px — tree indent width */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ═══════════════════════════════════════════════
+   SCANLINE OVERLAY — The CRT feel
+   ImGui: Custom ImDrawList overlay on root window
+   ═══════════════════════════════════════════════ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--scanline) 2px,
+    var(--scanline) 4px
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   APP SHELL — Main layout grid
+   Maps to: RcMasterPanel.cpp dockspace
+   ═══════════════════════════════════════════════ */
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px 1fr 280px;
+  grid-template-rows: 28px 1fr 32px;
+  grid-template-areas:
+    "titlebar titlebar titlebar"
+    "master   viewport inspector"
+    "status   status   status";
+  height: 100vh;
+  gap: 1px;
+}
+
+/* ═══════════════════════════════════════════════
+   TITLE BAR
+   Maps to: Window title / menu bar
+   ═══════════════════════════════════════════════ */
+.titlebar {
+  grid-area: titlebar;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  gap: var(--sp-4);
+}
+
+.titlebar-brand {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+  letter-spacing: 2px;
+  text-shadow: var(--glow-primary);
+}
+
+.titlebar-brand span {
+  color: var(--secondary);
+  font-weight: 400;
+}
+
+.titlebar-path {
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.titlebar-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.titlebar-right {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════
+   PANEL FRAME — The LCARS/Y2K geometric borders
+   ImGui: ImDrawList custom frame rendering
+
+   This is the KEY aesthetic differentiator.
+   Each panel gets corner brackets and a top accent bar.
+   ═══════════════════════════════════════════════ */
+.panel {
+  position: relative;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--secondary) 0%, var(--secondary) 30%, transparent 30%, transparent 70%, var(--secondary) 70%);
+  opacity: 0.6;
+}
+
+/* Corner bracket decorations */
+.panel-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 10;
+}
+.panel-corner--tl { top: 0; left: 0; border-top: 2px solid var(--secondary); border-left: 2px solid var(--secondary); }
+.panel-corner--tr { top: 0; right: 0; border-top: 2px solid var(--secondary); border-right: 2px solid var(--secondary); }
+.panel-corner--bl { bottom: 0; left: 0; border-bottom: 2px solid var(--secondary); border-left: 2px solid var(--secondary); }
+.panel-corner--br { bottom: 0; right: 0; border-bottom: 2px solid var(--secondary); border-right: 2px solid var(--secondary); }
+
+/* ═══════════════════════════════════════════════
+   SECTION HEADER — LCARS-style segmented bars
+   ImGui: Custom header widget with colored band
+   ═══════════════════════════════════════════════ */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  margin: var(--sp-1) 0;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-header::before {
+  content: '';
+  width: 4px;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 0 2px 2px 0;
+}
+
+.section-header--primary::before { background: var(--primary); box-shadow: var(--glow-primary); }
+.section-header--secondary::before { background: var(--secondary); box-shadow: var(--glow-secondary); }
+.section-header--success::before { background: var(--success); box-shadow: var(--glow-success); }
+.section-header--warning::before { background: var(--warning); }
+
+.section-header .section-icon {
+  font-size: 8px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+
+.section-header .section-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.section-header--primary .section-title { color: var(--primary); }
+.section-header--secondary .section-title { color: var(--secondary); }
+.section-header--success .section-title { color: var(--success); }
+.section-header--warning .section-title { color: var(--warning); }
+
+.section-header .section-badge {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  background: var(--bg-surface);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════════
+   TAB BAR — Top-level navigation
+   Maps to: Indices | Controls | Tools | System
+   ImGui: ImGui::TabBar with custom styling
+   ═══════════════════════════════════════════════ */
+.tab-bar {
+  display: flex;
+  gap: 1px;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  position: relative;
+  transition: all 0.15s;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.tab.active {
+  color: var(--primary);
+  background: var(--bg-panel);
+  border-color: var(--primary-dim);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.sub-tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-panel);
+}
+
+.sub-tab {
+  padding: 2px var(--sp-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+
+.sub-tab:hover { color: var(--text); border-color: var(--secondary-dim); }
+
+.sub-tab.active {
+  color: var(--secondary);
+  border-color: var(--secondary);
+  background: var(--secondary-dim);
+  text-shadow: var(--glow-secondary);
+}
+
+/* ═══════════════════════════════════════════════
+   MASTER PANEL (Left)
+   Maps to: RcMasterPanel.cpp
+   ═══════════════════════════════════════════════ */
+.master-panel {
+  grid-area: master;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+
+.master-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-2);
+}
+
+/* Search bar */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.search-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: var(--sp-1) var(--sp-2);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 6px var(--secondary-dim);
+}
+
+.search-input::placeholder { color: var(--text-dim); }
+
+.search-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════
+   ASSET GRID — Tool palette (Axiom Bar)
+   Maps to: Axiom Bar sub-tab under Tools
+   ImGui: Grid of ImageButton with tooltip
+   ═══════════════════════════════════════════════ */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 52px);
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+}
+
+.asset-card {
+  width: 52px;
+  height: 52px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.asset-card:hover {
+  border-color: var(--secondary);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 12px var(--secondary-dim);
+}
+
+.asset-card.selected {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 16px var(--primary-dim), var(--glow-primary);
+}
+
+.asset-card .asset-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--secondary-dim);
+  border: 1px solid var(--secondary);
+  opacity: 0.6;
+}
+
+.asset-card.selected .asset-icon {
+  opacity: 1;
+  border-color: var(--primary);
+  background: var(--primary-dim);
+}
+
+/* Thumbnail hover glow animation */
+.asset-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  transition: all 0.3s;
+  pointer-events: none;
+}
+
+.asset-card:hover::after {
+  border-color: var(--secondary);
+  box-shadow: var(--glow-secondary);
+}
+
+/* ═══════════════════════════════════════════════
+   DATA INDEX TABLE
+   Maps to: rc_ui_data_index_panel.h
+   ImGui: ImGui::Table with custom row styling
+   ═══════════════════════════════════════════════ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.data-table thead th {
+  text-align: left;
+  padding: var(--sp-1) var(--sp-2);
+  color: var(--text-dim);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: var(--font-size-xs);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--bg-surface);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+
+.data-table tbody tr:hover {
+  background: var(--secondary-dim);
+}
+
+.data-table tbody tr.selected {
+  background: var(--primary-dim);
+  border-left: 2px solid var(--primary);
+}
+
+.data-table td {
+  padding: var(--sp-1) var(--sp-2);
+  color: var(--text);
+}
+
+.data-table td.id-col {
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
+.data-table td.type-col {
+  color: var(--secondary);
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 2px var(--sp-2);
+  width: 100%;
+  outline: none;
+  margin: var(--sp-1) var(--sp-2);
+}
+
+.filter-input:focus {
+  border-color: var(--secondary);
+}
+
+/* ═══════════════════════════════════════════════
+   VIEWPORT (Center)
+   Maps to: RC_VISUALIZER viewport window
+   ═══════════════════════════════════════════════ */
+.viewport-area {
+  grid-area: viewport;
+  position: relative;
+  background: #050A0E;
+  overflow: hidden;
+}
+
+/* Grid background — the spatial grid feel */
+.viewport-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--secondary-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--secondary-dim) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.3;
+}
+
+/* Fine grid */
+.viewport-grid::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(104,214,216,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104,214,216,0.05) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+/* HUD Overlay — Top Left: Tool Mode Badge */
+.hud-tool-badge {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.hud-tool-name {
+  background: var(--primary);
+  color: var(--bg-deep);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 2px var(--sp-3);
+  letter-spacing: 1px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
+  padding-right: 16px;
+}
+
+.hud-tool-status {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+}
+
+/* HUD: Viewport render stats overlay */
+.hud-render-stats {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  top: 40px;
+  z-index: 10;
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.hud-render-stats .stat-label { color: var(--secondary); }
+.hud-render-stats .stat-value { color: var(--text); }
+.hud-render-stats .stat-warning { color: var(--warning); }
+
+/* HUD: Top Right — LOD / Nav Info */
+.hud-nav {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 10;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+
+.hud-nav-title {
+  font-size: var(--font-size-sm);
+  color: var(--secondary);
+  letter-spacing: 2px;
+  text-shadow: var(--glow-secondary);
+}
+
+.hud-nav-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+}
+
+/* HUD: Bottom Center — Coordinates */
+.hud-coords {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--font-size-sm);
+}
+
+.hud-coord-label { color: var(--text-dim); font-size: var(--font-size-xs); }
+.hud-coord-value { color: var(--secondary); text-shadow: var(--glow-secondary); }
+
+/* HUD: Scale bar */
+.hud-scale {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.hud-scale-bar {
+  width: 100px;
+  height: 2px;
+  background: var(--secondary);
+  position: relative;
+  box-shadow: var(--glow-secondary);
+}
+
+.hud-scale-bar::before, .hud-scale-bar::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 8px;
+  background: var(--secondary);
+  top: -3px;
+}
+
+.hud-scale-bar::before { left: 0; }
+.hud-scale-bar::after { right: 0; }
+
+.hud-scale-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+}
+
+/* HUD: Mode indicator — bottom right */
+.hud-mode {
+  position: absolute;
+  bottom: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 10;
+  text-align: right;
+  font-size: var(--font-size-xs);
+}
+
+.hud-mode-label {
+  color: var(--success);
+  text-shadow: var(--glow-success);
+  letter-spacing: 1px;
+}
+
+/* HUD: Compass rose */
+.hud-compass {
+  position: absolute;
+  top: var(--sp-3);
+  right: 90px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--secondary-dim);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-compass::before {
+  content: 'N';
+  position: absolute;
+  top: -2px;
+  font-size: 8px;
+  color: var(--secondary);
+}
+
+.hud-compass-needle {
+  width: 1px;
+  height: 16px;
+  background: linear-gradient(var(--error) 50%, var(--secondary) 50%);
+}
+
+/* Viewport center cursor */
+.viewport-cursor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+
+.viewport-cursor::before, .viewport-cursor::after {
+  content: '';
+  position: absolute;
+  background: var(--secondary);
+  opacity: 0.4;
+}
+.viewport-cursor::before { width: 20px; height: 1px; top: 0; left: -10px; }
+.viewport-cursor::after { width: 1px; height: 20px; top: -10px; left: 0; }
+
+.viewport-cursor-dot {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--secondary);
+  border-radius: 50%;
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  animation: pulse-cursor 2s ease-in-out infinite;
+}
+
+@keyframes pulse-cursor {
+  0%, 100% { opacity: 0.4; box-shadow: none; }
+  50% { opacity: 0.8; box-shadow: 0 0 8px var(--secondary); }
+}
+
+/* Mock road network rendering */
+.viewport-road-network {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.viewport-road-network svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Selection rectangle */
+.viewport-selection {
+  position: absolute;
+  top: 35%;
+  left: 40%;
+  width: 120px;
+  height: 90px;
+  border: 1px solid var(--warning);
+  background: rgba(232, 162, 78, 0.05);
+  z-index: 4;
+  animation: selection-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes selection-pulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 12px rgba(232, 162, 78, 0.2); }
+}
+
+/* ═══════════════════════════════════════════════
+   INSPECTOR PANEL (Right)
+   Maps to: Inspector tab in right column
+   ═══════════════════════════════════════════════ */
+.inspector-panel {
+  grid-area: inspector;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-2);
+}
+
+/* Inspector tabs */
+.inspector-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-tab {
+  flex: 1;
+  text-align: center;
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--font-mono);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.5px;
+}
+
+.inspector-tab:hover { color: var(--text); }
+
+.inspector-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Property rows */
+.prop-group {
+  margin: var(--sp-2) 0;
+}
+
+.prop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px var(--sp-2);
+  font-size: var(--font-size-sm);
+  gap: var(--sp-2);
+}
+
+.prop-row:hover {
+  background: var(--bg-surface);
+}
+
+.prop-label {
+  color: var(--text-label);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+}
+
+.prop-value {
+  color: var(--text);
+  text-align: right;
+  font-size: var(--font-size-sm);
+}
+
+.prop-value.highlight {
+  color: var(--secondary);
+}
+
+.prop-value.warn {
+  color: var(--warning);
+}
+
+/* Numeric input */
+.num-input {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.num-field {
+  width: 60px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: 2px var(--sp-1);
+  text-align: right;
+  outline: none;
+}
+
+.num-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 4px var(--primary-dim);
+}
+
+.num-drag {
+  width: 20px;
+  height: 18px;
+  background: var(--primary-dim);
+  border: 1px solid var(--primary);
+  cursor: ew-resize;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.num-drag:hover {
+  opacity: 1;
+  box-shadow: var(--glow-primary);
+}
+
+/* Checkbox */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.checkbox-box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.checkbox-box.checked {
+  background: var(--success);
+  border-color: var(--success);
+  box-shadow: var(--glow-success);
+}
+
+.checkbox-box.checked::after {
+  content: '✓';
+  font-size: 10px;
+  color: var(--bg-deep);
+  font-weight: 700;
+}
+
+.checkbox-label {
+  color: var(--text-label);
+  font-size: var(--font-size-xs);
+}
+
+/* Layer manager row */
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-2);
+  transition: background 0.1s;
+}
+
+.layer-row:hover { background: var(--bg-surface); }
+
+.layer-color {
+  width: 80px;
+  height: 16px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-1);
+  font-size: var(--font-size-xs);
+  color: var(--bg-deep);
+  font-weight: 600;
+}
+
+.layer-color.ground { background: var(--success); }
+.layer-color.elevated { background: var(--warning); }
+.layer-color.underground { background: #6A7FDB; }
+
+.layer-opacity {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.layer-opacity-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  position: relative;
+}
+
+.layer-opacity-fill {
+  height: 100%;
+  border-radius: 2px;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.layer-opacity-fill.ground { width: 100%; background: var(--success); }
+.layer-opacity-fill.elevated { width: 92%; background: var(--warning); }
+.layer-opacity-fill.underground { width: 85%; background: #6A7FDB; }
+
+.layer-opacity-val {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  width: 30px;
+  text-align: right;
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 3px var(--sp-3);
+  border: 1px solid;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+  background: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dim);
+  box-shadow: var(--glow-primary);
+}
+
+.btn-secondary {
+  color: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.btn-secondary:hover {
+  background: var(--secondary-dim);
+  box-shadow: var(--glow-secondary);
+}
+
+.btn-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.btn-danger:hover {
+  background: rgba(196, 74, 60, 0.15);
+  box-shadow: var(--glow-error);
+}
+
+.btn-success {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+/* Filled variant */
+.btn-filled {
+  background: var(--primary);
+  color: var(--bg-deep);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+.btn-filled:hover {
+  box-shadow: var(--glow-primary);
+  filter: brightness(1.1);
+}
+
+.btn-group {
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+}
+
+/* ═══════════════════════════════════════════════
+   PROGRESS / METER BARS
+   Maps to: Runtime Pressure, Grid Quality Index
+   ═══════════════════════════════════════════════ */
+.meter {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-2);
+}
+
+.meter-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-label);
+  min-width: 80px;
+}
+
+.meter-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.meter-fill.good { background: var(--success); box-shadow: var(--glow-success); }
+.meter-fill.warn { background: var(--warning); }
+.meter-fill.danger { background: var(--error); box-shadow: var(--glow-error); }
+.meter-fill.info { background: var(--secondary); box-shadow: var(--glow-secondary); }
+
+/* Animated scan sweep on meters */
+.meter-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+  animation: meter-sweep 2s ease-in-out infinite;
+}
+
+@keyframes meter-sweep {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.meter-value {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════
+   VALIDATION OVERLAY (Query / Selection)
+   ═══════════════════════════════════════════════ */
+.query-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+}
+
+.query-field {
+  width: 50px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 2px var(--sp-1);
+  text-align: right;
+  outline: none;
+}
+
+.query-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  transition: all 0.1s;
+}
+
+.query-btn:hover {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.query-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-label);
+}
+
+/* Dropdown */
+.dropdown {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 2px var(--sp-2);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 70px;
+}
+
+/* ═══════════════════════════════════════════════
+   STATUS BAR (Bottom)
+   Maps to: Bottom status bar with state indicator
+   ═══════════════════════════════════════════════ */
+.status-bar {
+  grid-area: status;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  gap: var(--sp-4);
+  font-size: var(--font-size-xs);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: status-blink 2s ease-in-out infinite;
+}
+
+.status-dot.online { background: var(--success); box-shadow: var(--glow-success); }
+.status-dot.warning { background: var(--warning); }
+.status-dot.error { background: var(--error); box-shadow: var(--glow-error); }
+
+@keyframes status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-text { color: var(--text-dim); }
+.status-text.active { color: var(--secondary); }
+
+.status-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.status-state-badge {
+  background: var(--secondary-dim);
+  border: 1px solid var(--secondary);
+  color: var(--secondary);
+  padding: 1px var(--sp-2);
+  font-size: var(--font-size-xs);
+  letter-spacing: 1px;
+}
+
+.status-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════
+   CONTROLS TAB — Diagnostics & Performance
+   Maps to: Controls → runtime pressure etc.
+   ═══════════════════════════════════════════════ */
+.diagnostics {
+  padding: var(--sp-2);
+}
+
+.diag-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px var(--sp-2);
+  font-size: var(--font-size-xs);
+}
+
+.diag-label { color: var(--text-label); }
+.diag-value { color: var(--text); }
+.diag-value.good { color: var(--success); }
+.diag-value.warn { color: var(--warning); }
+
+.diag-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: var(--font-size-xs);
+  border: 1px solid;
+  letter-spacing: 0.5px;
+}
+
+.diag-badge.ok {
+  color: var(--success);
+  border-color: var(--success);
+  background: rgba(118, 196, 127, 0.1);
+}
+
+.diag-badge.fail {
+  color: var(--error);
+  border-color: var(--error);
+  background: rgba(196, 74, 60, 0.1);
+}
+
+/* ═══════════════════════════════════════════════
+   PIE MENU (overlay concept)
+   Maps to: Hotkey / → Pie Menu
+   ═══════════════════════════════════════════════ */
+.pie-menu-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  display: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-dim);
+}
+
+/* ═══════════════════════════════════════════════
+   ANIMATIONS — Ambient glow / scan
+   ═══════════════════════════════════════════════ */
+@keyframes scan-horizontal {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.scan-line {
+  position: absolute;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--secondary-dim), transparent);
+  animation: scan-horizontal 4s linear infinite;
+  pointer-events: none;
+}
+
+/* System Map circle */
+.system-map-circle {
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--secondary);
+  border-radius: 50%;
+  margin: var(--sp-3) auto;
+  position: relative;
+  box-shadow: var(--glow-secondary);
+}
+
+.system-map-circle::after {
+  content: '';
+  position: absolute;
+  inset: 10%;
+  border: 1px solid var(--secondary-dim);
+  border-radius: 50%;
+}
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE / TAB SWITCHER
+   (For demonstrating different master panel views)
+   ═══════════════════════════════════════════════ */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.sub-tab-content { display: none; }
+.sub-tab-content.active { display: block; }
+
+/* Utility */
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-error { color: var(--error); }
+.text-dim { color: var(--text-dim); }
+.text-xs { font-size: var(--font-size-xs); }
+.mt-1 { margin-top: var(--sp-1); }
+.mt-2 { margin-top: var(--sp-2); }
+.mt-3 { margin-top: var(--sp-3); }
+.mb-2 { margin-bottom: var(--sp-2); }
+.px-2 { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.py-1 { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════
+       TITLE BAR
+       ═══════════════════════════════════ -->
+  <div class="titlebar">
+    <div class="titlebar-brand">RC<span>—USD</span></div>
+    <div class="titlebar-separator"></div>
+    <div class="titlebar-path">[ / / RC_VISUALIZER / / ]</div>
+    <div class="titlebar-right">
+      <span class="text-success">● SOLITON</span>
+      <span class="text-dim">|</span>
+      <span>LOD: Auto (1) AQ</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       MASTER PANEL (Left)
+       ═══════════════════════════════════ -->
+  <div class="master-panel panel">
+    <div class="panel-corner panel-corner--tl"></div>
+    <div class="panel-corner panel-corner--bl"></div>
+
+    <!-- Primary Tabs -->
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab(this, 'tools-tab')">Tools</button>
+      <button class="tab" onclick="switchTab(this, 'indices-tab')">Indices</button>
+      <button class="tab" onclick="switchTab(this, 'controls-tab')">Controls</button>
+      <button class="tab" onclick="switchTab(this, 'system-tab')">System</button>
+    </div>
+
+    <div class="search-bar">
+      <input class="search-input" type="text" placeholder="Search... (Ctrl+P)">
+    </div>
+
+    <!-- ═══ TOOLS TAB ═══ -->
+    <div class="tab-content active" id="tools-tab">
+      <div class="sub-tab-bar">
+        <button class="sub-tab active" onclick="switchSubTab(this, 'axiom-bar')">Axiom Bar</button>
+        <button class="sub-tab" onclick="switchSubTab(this, 'road-editor')">Road Editor</button>
+        <button class="sub-tab" onclick="switchSubTab(this, 'tools-panel')">Tools</button>
+      </div>
+
+      <!-- Axiom Bar -->
+      <div class="sub-tab-content active" id="axiom-bar">
+        <div class="master-content">
+          <div class="asset-grid">
+            <div class="asset-card selected"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+            <div class="asset-card"><div class="asset-icon"></div></div>
+          </div>
+          <div class="px-2 mt-2 text-xs text-dim">
+            Click to select • Double-click to place duplicate
+          </div>
+          <div class="btn-group mt-2">
+            <button class="btn btn-secondary">Reset Dock Layout</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Road Editor -->
+      <div class="sub-tab-content" id="road-editor">
+        <div class="master-content">
+          <div class="section-header section-header--primary">
+            <span class="section-icon">▾</span>
+            <span class="section-title">Spline Tools</span>
+          </div>
+          <div class="prop-group">
+            <div class="prop-row">
+              <span class="prop-label">Mode</span>
+              <span class="prop-value highlight">Draw</span>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Snap</span>
+              <div class="num-input">
+                <div class="num-drag"></div>
+                <input class="num-field" value="10.0">
+              </div>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Samples</span>
+              <div class="num-input">
+                <div class="num-drag"></div>
+                <input class="num-field" value="8">
+              </div>
+            </div>
+          </div>
+          <div class="section-header section-header--secondary">
+            <span class="section-icon">▾</span>
+            <span class="section-title">Road Properties</span>
+          </div>
+          <div class="prop-group">
+            <div class="prop-row">
+              <span class="prop-label">Width</span>
+              <div class="num-input">
+                <div class="num-drag"></div>
+                <input class="num-field" value="12.0">
+              </div>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Lanes</span>
+              <div class="num-input">
+                <div class="num-drag"></div>
+                <input class="num-field" value="2">
+              </div>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Type</span>
+              <select class="dropdown" style="width:100px">
+                <option>Arterial</option>
+                <option>Local</option>
+                <option>Highway</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="sub-tab-content" id="tools-panel">
+        <div class="master-content">
+          <div class="section-header section-header--warning">
+            <span class="section-icon">▾</span>
+            <span class="section-title">Generation</span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-filled">Generate City</button>
+            <button class="btn btn-danger">Clear All</button>
+          </div>
+          <div class="section-header section-header--secondary mt-3">
+            <span class="section-icon">▾</span>
+            <span class="section-title">Selection Tools</span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-secondary">Select All</button>
+            <button class="btn btn-secondary">Invert</button>
+            <button class="btn btn-secondary">By Type...</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ INDICES TAB ═══ -->
+    <div class="tab-content" id="indices-tab">
+      <div class="sub-tab-bar">
+        <button class="sub-tab active">Road Index</button>
+        <button class="sub-tab">District</button>
+        <button class="sub-tab">Lot</button>
+        <button class="sub-tab">River</button>
+        <button class="sub-tab">Building</button>
+      </div>
+      <div class="master-content">
+        <div class="table-toolbar">
+          <span>Roads: <span class="text-secondary">24</span></span>
+          <button class="btn btn-secondary" style="padding:1px 8px">Sort A-Z</button>
+        </div>
+        <input class="filter-input" type="text" placeholder="Filter...">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px">ID</th>
+              <th>Type</th>
+              <th style="width:50px">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="selected">
+              <td class="id-col">001</td>
+              <td class="type-col">Arterial</td>
+              <td>12</td>
+            </tr>
+            <tr>
+              <td class="id-col">002</td>
+              <td class="type-col">Local</td>
+              <td>8</td>
+            </tr>
+            <tr>
+              <td class="id-col">003</td>
+              <td class="type-col">Arterial</td>
+              <td>15</td>
+            </tr>
+            <tr>
+              <td class="id-col">004</td>
+              <td class="type-col">Highway</td>
+              <td>22</td>
+            </tr>
+            <tr>
+              <td class="id-col">005</td>
+              <td class="type-col">Local</td>
+              <td>6</td>
+            </tr>
+            <tr>
+              <td class="id-col">006</td>
+              <td class="type-col">Local</td>
+              <td>9</td>
+            </tr>
+            <tr>
+              <td class="id-col">007</td>
+              <td class="type-col">Arterial</td>
+              <td>18</td>
+            </tr>
+            <tr>
+              <td class="id-col">008</td>
+              <td class="type-col">Collector</td>
+              <td>11</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ CONTROLS TAB ═══ -->
+    <div class="tab-content" id="controls-tab">
+      <div class="master-content">
+        <div class="section-header section-header--primary">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Runtime</span>
+        </div>
+        <div class="diagnostics">
+          <div class="meter mt-1">
+            <span class="meter-label">Pressure</span>
+            <div class="meter-bar"><div class="meter-fill warn" style="width:34%"></div></div>
+            <span class="meter-value">34%</span>
+          </div>
+          <div class="diag-row mt-2">
+            <span class="diag-label">FPS</span>
+            <span class="diag-value good">59.8 (16.72ms)</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Dirty Layers</span>
+            <span class="diag-value">0 / 7</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Entities</span>
+            <span class="diag-value">R:24 D:8 L:142 B:0</span>
+          </div>
+          <div class="mt-2 px-2">
+            <span class="diag-badge ok">PLAN OK</span>
+          </div>
+        </div>
+
+        <div class="section-header section-header--secondary mt-3">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Grid Quality Index</span>
+        </div>
+        <div class="diagnostics">
+          <div class="meter">
+            <span class="meter-label">Composite</span>
+            <div class="meter-bar"><div class="meter-fill good" style="width:72%"></div></div>
+            <span class="meter-value">72%</span>
+          </div>
+          <div class="meter">
+            <span class="meter-label">Straightness</span>
+            <div class="meter-bar"><div class="meter-fill good" style="width:85%"></div></div>
+            <span class="meter-value">85%</span>
+          </div>
+          <div class="meter">
+            <span class="meter-label">Orientation</span>
+            <div class="meter-bar"><div class="meter-fill info" style="width:68%"></div></div>
+            <span class="meter-value">68%</span>
+          </div>
+          <div class="meter">
+            <span class="meter-label">4-Way Prop</span>
+            <div class="meter-bar"><div class="meter-fill warn" style="width:45%"></div></div>
+            <span class="meter-value">45%</span>
+          </div>
+        </div>
+
+        <div class="section-header section-header--warning mt-3">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Urban Hell Diagnostics</span>
+        </div>
+        <div class="diagnostics">
+          <div class="diag-row">
+            <span class="diag-label">Connectivity</span>
+            <span class="diag-value good">Unified</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Dead Ends</span>
+            <span class="diag-value">3%</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Gamma Index</span>
+            <span class="diag-value">0.42</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Strokes</span>
+            <span class="diag-value">18</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Intersections</span>
+            <span class="diag-value">12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SYSTEM TAB ═══ -->
+    <div class="tab-content" id="system-tab">
+      <div class="sub-tab-bar">
+        <button class="sub-tab active">Log</button>
+        <button class="sub-tab">Dev Shell</button>
+        <button class="sub-tab">UI Settings</button>
+      </div>
+      <div class="master-content" style="font-size:10px; color:var(--text-dim); line-height:1.8">
+        <div>[<span class="text-success">BOOT</span>] Event stream online</div>
+        <div>[<span class="text-secondary">INFO</span>] Workspace preset: default</div>
+        <div>[<span class="text-secondary">INFO</span>] Theme loaded: Rogue</div>
+        <div>[<span class="text-success">LOAD</span>] GlobalState initialized</div>
+        <div>[<span class="text-success">LOAD</span>] SpatialGrid: 64x64 cells</div>
+        <div>[<span class="text-warning">WARN</span>] LOD boundary at 0.2/0.8</div>
+        <div>[<span class="text-secondary">INFO</span>] GeneratorBridge ready</div>
+        <div>[<span class="text-secondary">INFO</span>] RogueWorker: 4 threads</div>
+        <div>[<span class="text-success">BOOT</span>] Visualizer ready</div>
+        <div style="margin-top:8px; color:var(--secondary)">▮</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════
+       VIEWPORT (Center)
+       ═══════════════════════════════════ -->
+  <div class="viewport-area">
+    <!-- Grid background -->
+    <div class="viewport-grid"></div>
+
+    <!-- Scan line effect -->
+    <div class="scan-line" style="top: 30%"></div>
+    <div class="scan-line" style="top: 70%; animation-delay: 2s;"></div>
+
+    <!-- Mock road network -->
+    <div class="viewport-road-network">
+      <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+        <!-- Major arterials -->
+        <line x1="100" y1="150" x2="700" y2="150" stroke="#68D6D8" stroke-width="2" opacity="0.6"/>
+        <line x1="100" y1="350" x2="700" y2="350" stroke="#68D6D8" stroke-width="2" opacity="0.6"/>
+        <line x1="200" y1="50" x2="200" y2="550" stroke="#68D6D8" stroke-width="2" opacity="0.6"/>
+        <line x1="500" y1="50" x2="500" y2="550" stroke="#68D6D8" stroke-width="2" opacity="0.6"/>
+        <!-- Local roads -->
+        <line x1="100" y1="250" x2="700" y2="250" stroke="#68D6D8" stroke-width="1" opacity="0.3"/>
+        <line x1="100" y1="450" x2="700" y2="450" stroke="#68D6D8" stroke-width="1" opacity="0.3"/>
+        <line x1="350" y1="50" x2="350" y2="550" stroke="#68D6D8" stroke-width="1" opacity="0.3"/>
+        <line x1="600" y1="50" x2="600" y2="550" stroke="#68D6D8" stroke-width="1" opacity="0.3"/>
+        <!-- Diagonal -->
+        <line x1="200" y1="150" x2="500" y2="350" stroke="#D67848" stroke-width="1.5" opacity="0.5"/>
+        <!-- Districts (filled areas) -->
+        <rect x="210" y="160" width="130" height="80" fill="#76C47F" fill-opacity="0.06" stroke="#76C47F" stroke-opacity="0.2" stroke-width="1"/>
+        <rect x="360" y="160" width="130" height="80" fill="#E8A24E" fill-opacity="0.06" stroke="#E8A24E" stroke-opacity="0.2" stroke-width="1"/>
+        <rect x="210" y="260" width="130" height="80" fill="#6A7FDB" fill-opacity="0.06" stroke="#6A7FDB" stroke-opacity="0.2" stroke-width="1"/>
+        <rect x="510" y="160" width="80" height="180" fill="#76C47F" fill-opacity="0.04" stroke="#76C47F" stroke-opacity="0.15" stroke-width="1"/>
+        <!-- Intersection dots -->
+        <circle cx="200" cy="150" r="4" fill="#D67848" opacity="0.8"/>
+        <circle cx="200" cy="250" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="200" cy="350" r="4" fill="#D67848" opacity="0.8"/>
+        <circle cx="350" cy="150" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="350" cy="250" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="350" cy="350" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="500" cy="150" r="4" fill="#D67848" opacity="0.8"/>
+        <circle cx="500" cy="250" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="500" cy="350" r="4" fill="#D67848" opacity="0.8"/>
+        <circle cx="600" cy="150" r="3" fill="#68D6D8" opacity="0.5"/>
+        <circle cx="600" cy="350" r="3" fill="#68D6D8" opacity="0.5"/>
+        <!-- Spline control points (active editing) -->
+        <circle cx="280" cy="300" r="5" fill="none" stroke="#D67848" stroke-width="2" opacity="0.9"/>
+        <circle cx="380" cy="280" r="5" fill="none" stroke="#D67848" stroke-width="2" opacity="0.9"/>
+        <circle cx="440" cy="320" r="5" fill="none" stroke="#D67848" stroke-width="2" opacity="0.9"/>
+        <path d="M280,300 Q380,260 440,320" fill="none" stroke="#D67848" stroke-width="2" opacity="0.7" stroke-dasharray="4,4"/>
+      </svg>
+    </div>
+
+    <!-- Selection highlight -->
+    <div class="viewport-selection"></div>
+
+    <!-- Center cursor -->
+    <div class="viewport-cursor">
+      <div class="viewport-cursor-dot"></div>
+    </div>
+
+    <!-- HUD: Tool badge (top-left) -->
+    <div class="hud-tool-badge">
+      <div class="hud-tool-name">Road</div>
+      <div class="hud-tool-status">viewport-interaction-handled</div>
+    </div>
+
+    <!-- HUD: Render stats -->
+    <div class="hud-render-stats">
+      <div><span class="stat-label">Viewport</span> Render Attribution</div>
+      <div>Cells: <span class="stat-value">12</span> | Fallback: <span class="stat-value">3</span> | Fallback Scan Path</div>
+      <div>Dedupes: R:<span class="stat-value">8</span> Z:<span class="stat-value">0</span> A:<span class="stat-value">2</span></div>
+      <div style="margin-top:4px">Axioms: <span class="stat-value">24</span> | Roads: <span class="stat-value">24</span> | Districts: <span class="stat-value">8</span></div>
+      <div>Lots: <span class="stat-warning">142</span> | XYZ: <span class="stat-value">1000.0, 1000.0, 0.0</span></div>
+    </div>
+
+    <!-- HUD: Compass -->
+    <div class="hud-compass">
+      <div class="hud-compass-needle"></div>
+    </div>
+
+    <!-- HUD: Nav info (top-right) -->
+    <div class="hud-nav">
+      <div class="hud-nav-title">ROGUENAV</div>
+      <div class="hud-nav-detail">LOD: Auto (1) AQ</div>
+    </div>
+
+    <!-- HUD: Coordinates (bottom-center) -->
+    <div class="hud-coords">
+      <div>
+        <span class="hud-coord-label">CUR</span>
+        <span class="hud-coord-value">1000, 1000</span>
+      </div>
+    </div>
+
+    <!-- HUD: Scale bar -->
+    <div class="hud-scale">
+      <div class="hud-scale-bar"></div>
+      <span class="hud-scale-label">200 m</span>
+    </div>
+
+    <!-- HUD: Mode (bottom-right) -->
+    <div class="hud-mode">
+      <div class="hud-mode-label">NORMAL</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       INSPECTOR PANEL (Right)
+       ═══════════════════════════════════ -->
+  <div class="inspector-panel panel">
+    <div class="panel-corner panel-corner--tr"></div>
+    <div class="panel-corner panel-corner--br"></div>
+
+    <div class="inspector-tab-bar">
+      <button class="inspector-tab active" onclick="switchInspectorTab(this, 'inspector-props')">Inspector</button>
+      <button class="inspector-tab" onclick="switchInspectorTab(this, 'system-map')">System Map</button>
+    </div>
+
+    <!-- Inspector Properties -->
+    <div class="tab-content active" id="inspector-props">
+      <div class="inspector-content">
+
+        <div class="btn-group">
+          <button class="btn btn-primary">Property Undo</button>
+          <button class="btn btn-primary">Property Redo</button>
+        </div>
+
+        <div class="section-header section-header--primary mt-2">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Active Tool Runtime</span>
+        </div>
+        <div class="prop-group">
+          <div class="prop-row">
+            <span class="prop-label">Domain</span>
+            <span class="prop-value">Road</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Last Action</span>
+            <span class="prop-value text-dim">none (idle)</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Viewport Status</span>
+            <span class="prop-value highlight">interaction-handled</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Gen Policy</span>
+            <span class="prop-value">ExplicitOnly</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Dispatch Serial</span>
+            <span class="prop-value">0</span>
+          </div>
+          <div class="px-2 mt-1" style="font-size:10px; color:var(--text-dim)">
+            <div>● Road Tool: Spline</div>
+            <div>● Road Spline: Selection</div>
+          </div>
+          <div class="checkbox mt-1">
+            <div class="checkbox-box"></div>
+            <span class="checkbox-label">Spline Editing Enabled</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Spline Samples</span>
+            <div class="num-input">
+              <div class="num-drag"></div>
+              <input class="num-field" value="0">
+            </div>
+          </div>
+          <div class="px-2 mt-1 text-xs text-dim">No selection</div>
+        </div>
+
+        <div class="section-header section-header--secondary mt-2">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Gizmo</span>
+        </div>
+        <div class="prop-group">
+          <div style="display:flex; gap:12px; padding:3px 8px">
+            <div class="checkbox">
+              <div class="checkbox-box checked"></div>
+              <span class="checkbox-label">Enabled</span>
+            </div>
+            <div class="checkbox">
+              <div class="checkbox-box checked"></div>
+              <span class="checkbox-label">Visible</span>
+            </div>
+            <div class="checkbox">
+              <div class="checkbox-box"></div>
+              <span class="checkbox-label">Snapping</span>
+            </div>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Translate (G)</span>
+            <div class="checkbox-box checked" style="width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;background:var(--success);border-color:var(--success)"><span style="font-size:9px;color:var(--bg-deep);font-weight:700">✓</span></div>
+            <span class="prop-label" style="margin-left:auto">Operation</span>
+          </div>
+          <div class="prop-row">
+            <div class="num-drag"></div>
+            <input class="num-field" value="10.0">
+            <span class="prop-label">Translate Snap</span>
+          </div>
+          <div class="prop-row">
+            <div class="num-drag"></div>
+            <input class="num-field" value="15.0">
+            <span class="prop-label">Rotate Snap (deg)</span>
+          </div>
+          <div class="prop-row">
+            <div class="num-drag"></div>
+            <input class="num-field" value="0.10">
+            <span class="prop-label">Scale Snap</span>
+          </div>
+        </div>
+
+        <div class="section-header section-header--success mt-2">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Layer Manager</span>
+        </div>
+        <div class="prop-group">
+          <div class="layer-row">
+            <div class="checkbox-box checked"></div>
+            <div class="layer-color ground">Ground</div>
+            <div class="layer-opacity">
+              <div class="layer-opacity-bar"><div class="layer-opacity-fill ground"></div></div>
+              <span class="layer-opacity-val">1.00</span>
+            </div>
+          </div>
+          <div class="layer-row">
+            <div class="checkbox-box checked"></div>
+            <div class="layer-color elevated">Elevated</div>
+            <div class="layer-opacity">
+              <div class="layer-opacity-bar"><div class="layer-opacity-fill elevated"></div></div>
+              <span class="layer-opacity-val">0.92</span>
+            </div>
+          </div>
+          <div class="layer-row">
+            <div class="checkbox-box checked"></div>
+            <div class="layer-color underground">Underground</div>
+            <div class="layer-opacity">
+              <div class="layer-opacity-bar"><div class="layer-opacity-fill underground"></div></div>
+              <span class="layer-opacity-val">0.85</span>
+            </div>
+          </div>
+          <div class="checkbox mt-1">
+            <div class="checkbox-box checked"></div>
+            <span class="checkbox-label">Dim Inactive Layers</span>
+          </div>
+          <div class="checkbox">
+            <div class="checkbox-box"></div>
+            <span class="checkbox-label">Box Through Hidden Layers</span>
+          </div>
+          <div class="btn-group mt-1">
+            <button class="btn btn-filled" style="font-size:9px;padding:2px 8px">Assign Selection → Active Layer</button>
+          </div>
+        </div>
+
+        <div class="section-header section-header--warning mt-2">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Validation Overlay</span>
+        </div>
+        <div class="prop-group">
+          <div style="display:flex; gap:12px; padding:3px 8px">
+            <div class="checkbox">
+              <div class="checkbox-box checked"></div>
+              <span class="checkbox-label">Show Overlay</span>
+            </div>
+            <div class="checkbox">
+              <div class="checkbox-box checked"></div>
+              <span class="checkbox-label">Show Warnings</span>
+            </div>
+          </div>
+          <div class="checkbox">
+            <div class="checkbox-box checked"></div>
+            <span class="checkbox-label">Show Labels</span>
+          </div>
+          <div class="px-2 text-xs mt-1">
+            Errors: <span class="text-success">0</span>
+          </div>
+        </div>
+
+        <div class="section-header section-header--secondary mt-2">
+          <span class="section-icon">▾</span>
+          <span class="section-title">Query Selection</span>
+        </div>
+        <div class="prop-group">
+          <div class="query-row">
+            <select class="dropdown">
+              <option>Any</option>
+              <option>Road</option>
+              <option>District</option>
+              <option>Lot</option>
+            </select>
+            <span class="query-label">Kind</span>
+          </div>
+          <div class="query-row">
+            <input class="query-field" value="-1">
+            <button class="query-btn">−</button>
+            <button class="query-btn">+</button>
+            <span class="query-label">ID Min</span>
+          </div>
+          <div class="query-row">
+            <input class="query-field" value="-1">
+            <button class="query-btn">−</button>
+            <button class="query-btn">+</button>
+            <span class="query-label">ID Max</span>
+          </div>
+          <div class="query-row">
+            <input class="query-field" value="-1">
+            <button class="query-btn">−</button>
+            <button class="query-btn">+</button>
+            <span class="query-label">District ID</span>
+          </div>
+          <div class="checkbox mt-1">
+            <div class="checkbox-box"></div>
+            <span class="checkbox-label">User-Created Only</span>
+          </div>
+          <div class="btn-group mt-1">
+            <button class="btn btn-success">Apply Query</button>
+            <button class="btn btn-danger">Clear Selection</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Map -->
+    <div class="tab-content" id="system-map">
+      <div class="inspector-content">
+        <div class="btn-group">
+          <button class="btn btn-filled" style="font-size:9px">SYSTEM MAP</button>
+        </div>
+        <div class="px-2 mt-2 text-xs text-dim">
+          Roads: <span class="text-secondary">24</span>
+          Districts: <span class="text-secondary">8</span>
+          Lots: <span class="text-secondary">142</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; padding:8px">
+          <div class="checkbox"><div class="checkbox-box checked"></div><span class="checkbox-label">Roads</span></div>
+          <div class="checkbox"><div class="checkbox-box checked"></div><span class="checkbox-label">Districts</span></div>
+          <div class="checkbox"><div class="checkbox-box"></div><span class="checkbox-label">Lots</span></div>
+          <div class="checkbox"><div class="checkbox-box"></div><span class="checkbox-label">Buildings</span></div>
+          <div class="checkbox"><div class="checkbox-box checked"></div><span class="checkbox-label">Water</span></div>
+          <div class="checkbox"><div class="checkbox-box"></div><span class="checkbox-label">Labels</span></div>
+        </div>
+        <div class="checkbox px-2"><div class="checkbox-box"></div><span class="checkbox-label">World Constraints</span></div>
+        <div class="checkbox px-2"><div class="checkbox-box checked"></div><span class="checkbox-label">Hover Query</span></div>
+        <div class="checkbox px-2"><div class="checkbox-box checked"></div><span class="checkbox-label">Click Select</span></div>
+        <div class="px-2 mt-1 text-xs text-dim">Query: <span class="text-secondary">none</span></div>
+
+        <div class="system-map-circle mt-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       STATUS BAR (Bottom)
+       ═══════════════════════════════════ -->
+  <div class="status-bar">
+    <div class="status-indicator">
+      <div class="status-dot online"></div>
+      <span class="status-text active">[→]</span>
+    </div>
+    <div class="status-state-badge">viewport-interaction-handled</div>
+    <div class="status-separator"></div>
+    <span class="status-text">Domain: <span class="text-secondary">Road</span></span>
+    <div class="status-separator"></div>
+    <span class="status-text">Mode: <span class="text-primary">Spline</span></span>
+    <div class="status-right">
+      <span>Entities: <span class="text-secondary">174</span></span>
+      <div class="status-separator"></div>
+      <span>59.8 FPS</span>
+      <div class="status-separator"></div>
+      <span class="text-success">SOLITON</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Tab switching logic
+function switchTab(btn, contentId) {
+  // Deactivate all main tabs
+  btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  // Show matching content
+  const masterPanel = btn.closest('.master-panel');
+  masterPanel.querySelectorAll(':scope > .tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(contentId).classList.add('active');
+}
+
+function switchSubTab(btn, contentId) {
+  btn.parentElement.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const parent = btn.closest('.tab-content');
+  parent.querySelectorAll(':scope > .sub-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(contentId).classList.add('active');
+}
+
+function switchInspectorTab(btn, contentId) {
+  btn.parentElement.querySelectorAll('.inspector-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const inspector = btn.closest('.inspector-panel');
+  inspector.querySelectorAll(':scope > .tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(contentId).classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -40,6 +40,9 @@
 #include "ui/panels/PanelRegistry.h"
 #include "ui/panels/RcMasterPanel.h"
 
+#include "RogueCity/App/UI/ThemeManager.h"
+#include "ui/panels/rc_panel_workspace.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -109,12 +112,57 @@ static IndicesTabs s_indices_tabs{
     .building = true,
 };
 
+// Schema-2 preset entry: docking ini blob + theme snapshot.
+// Schema-1 files (plain string values) are still accepted on load.
+struct PresetEntry {
+  std::string ini;
+  RogueCity::UI::ThemeProfile theme;
+  bool has_theme = false; // false for entries loaded from schema-1 files
+};
+
 struct WorkspacePresetStore {
-  std::unordered_map<std::string, std::string> presets;
+  std::unordered_map<std::string, PresetEntry> presets;
 };
 
 [[nodiscard]] static std::filesystem::path WorkspacePresetPath() {
   return std::filesystem::path(kWorkspacePresetFile);
+}
+
+// Serialize a ThemeProfile to a JSON object (matches ThemeManager field names).
+static nlohmann::json ThemeProfileToPresetJson(const RogueCity::UI::ThemeProfile &t) {
+  nlohmann::json j;
+  j["name"]            = t.name;
+  j["primary_accent"]  = t.primary_accent;
+  j["secondary_accent"]= t.secondary_accent;
+  j["success_color"]   = t.success_color;
+  j["warning_color"]   = t.warning_color;
+  j["error_color"]     = t.error_color;
+  j["background_dark"] = t.background_dark;
+  j["panel_background"]= t.panel_background;
+  j["grid_overlay"]    = t.grid_overlay;
+  j["text_primary"]    = t.text_primary;
+  j["text_secondary"]  = t.text_secondary;
+  j["text_disabled"]   = t.text_disabled;
+  j["border_accent"]   = t.border_accent;
+  return j;
+}
+
+static RogueCity::UI::ThemeProfile ThemeProfileFromPresetJson(const nlohmann::json &j) {
+  RogueCity::UI::ThemeProfile t;
+  t.name             = j.value("name", "Custom");
+  t.primary_accent   = j.value("primary_accent",   ImU32{0});
+  t.secondary_accent = j.value("secondary_accent", ImU32{0});
+  t.success_color    = j.value("success_color",    ImU32{0});
+  t.warning_color    = j.value("warning_color",    ImU32{0});
+  t.error_color      = j.value("error_color",      ImU32{0});
+  t.background_dark  = j.value("background_dark",  ImU32{0});
+  t.panel_background = j.value("panel_background", ImU32{0});
+  t.grid_overlay     = j.value("grid_overlay",     ImU32{0});
+  t.text_primary     = j.value("text_primary",     ImU32{0xFFFFFFFF});
+  t.text_secondary   = j.value("text_secondary",   ImU32{0xFFAAAAAA});
+  t.text_disabled    = j.value("text_disabled",    ImU32{0xFF666666});
+  t.border_accent    = j.value("border_accent",    ImU32{0});
+  return t;
 }
 
 static void LoadWorkspacePresetStore(WorkspacePresetStore &store) {
@@ -135,9 +183,22 @@ static void LoadWorkspacePresetStore(WorkspacePresetStore &store) {
     if (!j.contains("presets") || !j["presets"].is_object()) {
       return;
     }
+    const int schema = j.value("schema", 1);
     for (const auto &item : j["presets"].items()) {
-      if (item.value().is_string()) {
-        store.presets[item.key()] = item.value().get<std::string>();
+      PresetEntry entry;
+      if (schema >= 2 && item.value().is_object()) {
+        // Schema 2: { "ini": "...", "theme": { ... } }
+        entry.ini = item.value().value("ini", std::string{});
+        if (item.value().contains("theme") && item.value()["theme"].is_object()) {
+          entry.theme     = ThemeProfileFromPresetJson(item.value()["theme"]);
+          entry.has_theme = true;
+        }
+      } else if (item.value().is_string()) {
+        // Schema 1 fallback: plain ini blob
+        entry.ini = item.value().get<std::string>();
+      }
+      if (!entry.ini.empty()) {
+        store.presets[item.key()] = std::move(entry);
       }
     }
   } catch (...) {
@@ -152,10 +213,15 @@ static bool SaveWorkspacePresetStore(const WorkspacePresetStore &store,
     std::filesystem::create_directories(path.parent_path());
 
     nlohmann::json j;
-    j["schema"] = 1;
+    j["schema"] = 2;
     j["presets"] = nlohmann::json::object();
-    for (const auto &[name, ini] : store.presets) {
-      j["presets"][name] = ini;
+    for (const auto &[name, entry] : store.presets) {
+      nlohmann::json e;
+      e["ini"] = entry.ini;
+      if (entry.has_theme) {
+        e["theme"] = ThemeProfileToPresetJson(entry.theme);
+      }
+      j["presets"][name] = e;
     }
 
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
@@ -1410,6 +1476,7 @@ void DrawRoot(float dt) {
   Panels::AxiomEditor::Draw(dt);
   Panels::Inspector::Draw(dt);
   Panels::SystemMap::Draw(dt);
+  Panels::Workspace::Draw(dt);
   // Panels::Telemetry::Draw(dt);
   // ... (18 more panels)
 
@@ -1486,7 +1553,12 @@ bool SaveWorkspacePreset(const char *presetName, std::string *error) {
 
   WorkspacePresetStore store;
   LoadWorkspacePresetStore(store);
-  store.presets[presetName] = std::string(ini_data, ini_size);
+
+  PresetEntry entry;
+  entry.ini       = std::string(ini_data, ini_size);
+  entry.theme     = RogueCity::UI::ThemeManager::Instance().GetActiveTheme();
+  entry.has_theme = true;
+  store.presets[presetName] = std::move(entry);
 
   // TODO(ai-layout): expose preset metadata to the UI agent for monitor-aware
   // workspace suggestions.
@@ -1518,11 +1590,27 @@ bool LoadWorkspacePreset(const char *presetName, std::string *error) {
     return false;
   }
 
-  ImGui::LoadIniSettingsFromMemory(it->second.c_str(),
-                                   static_cast<size_t>(it->second.size()));
+  const PresetEntry &entry = it->second;
+  ImGui::LoadIniSettingsFromMemory(entry.ini.c_str(),
+                                   static_cast<size_t>(entry.ini.size()));
   s_pending_dock_requests.clear();
   s_dock_layout_dirty = false;
   s_dock_built = true;
+
+  // Restore theme snapshot if present
+  if (entry.has_theme) {
+    auto &tm = RogueCity::UI::ThemeManager::Instance();
+    // Register and switch to the saved theme so it's reflected in the UI
+    const std::string &tname = entry.theme.name;
+    if (!tm.GetTheme(tname)) {
+      tm.RegisterTheme(entry.theme);
+    }
+    if (!tm.LoadTheme(tname)) {
+      // Theme name may differ; apply directly
+      tm.GetActiveThemeMutable() = entry.theme;
+      tm.ApplyToImGui();
+    }
+  }
   return true;
 }
 
@@ -1531,7 +1619,8 @@ std::vector<std::string> ListWorkspacePresets() {
   LoadWorkspacePresetStore(store);
   std::vector<std::string> names;
   names.reserve(store.presets.size());
-  for (const auto &[name, _] : store.presets) {
+  for (const auto &[name, entry] : store.presets) {
+    (void)entry;
     names.push_back(name);
   }
   std::sort(names.begin(), names.end());

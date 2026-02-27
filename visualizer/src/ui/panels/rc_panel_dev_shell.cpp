@@ -8,6 +8,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Visualizer/MockupTokenParser.hpp"
 
 #include <imgui.h>
 #include <atomic>
@@ -56,6 +57,49 @@ namespace {
         std::ostringstream oss;
         oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << std::setw(3) << std::setfill('0') << ms.count();
         return oss.str();
+    }
+
+    /// Write a sidecar HTML comment file containing the current UI introspection
+    /// snapshot JSON. Intended for round-tripping state back into the mockup.
+    static bool ExportMockupStateComment(std::string* outPath, std::string* outError) {
+        const std::string path = "visualizer/RC_UI_Mockup_state.html";
+
+        auto& introspector = RogueCity::UIInt::UiIntrospector::Instance();
+        const auto snapshot = introspector.SnapshotJson();
+
+        try {
+            std::filesystem::create_directories("visualizer");
+            std::ofstream f(path, std::ios::binary);
+            if (!f.is_open()) {
+                if (outError) *outError = "Failed to open: " + path;
+                return false;
+            }
+
+            using namespace std::chrono;
+            auto now = system_clock::now();
+            auto t = system_clock::to_time_t(now);
+            std::tm tm{};
+#ifdef _WIN32
+            localtime_s(&tm, &t);
+#else
+            tm = *std::localtime(&t);
+#endif
+            std::ostringstream ts;
+            ts << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
+
+            f << "<!-- RC-USD UI State Snapshot\n";
+            f << "     Generated: " << ts.str() << "\n";
+            f << "     Source: UiIntrospector live frame\n";
+            f << "\n";
+            f << snapshot.dump(2);
+            f << "\n-->\n";
+
+            if (outPath) *outPath = path;
+            return true;
+        } catch (const std::exception& e) {
+            if (outError) *outError = e.what();
+            return false;
+        }
     }
 }
 
@@ -153,6 +197,19 @@ void DrawContent(float /*dt*/)
         }
     }
     uiint.RegisterWidget({"button", "Export UI Snapshot JSON", "action:uiint.export", {"action", "dev"}});
+
+    ImGui::SameLine();
+    if (ImGui::Button("Export Snapshot \xe2\x86\x92 Mockup Comment")) {
+        std::string path, err;
+        if (ExportMockupStateComment(&path, &err)) {
+            std::snprintf(s_lastOutput, sizeof(s_lastOutput), "%s", path.c_str());
+            s_lastError[0] = '\0';
+        } else {
+            std::snprintf(s_lastError, sizeof(s_lastError), "%s", err.c_str());
+        }
+    }
+    uiint.RegisterWidget({"button", "Export Snapshot \xe2\x86\x92 Mockup Comment",
+        "action:uiint.export_mockup_comment", {"action", "dev", "mockup"}});
 
     if (s_lastOutput[0] != '\0') {
         ImGui::Text("Last export: %s", s_lastOutput);

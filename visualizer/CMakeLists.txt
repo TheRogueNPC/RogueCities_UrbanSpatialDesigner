@@ -91,6 +91,9 @@ endif()
         src/ui/rc_ui_input_gate.cpp
         src/ui/rc_ui_root.cpp
         src/ui/rc_ui_theme.cpp
+        src/ui/WorkspaceProfile.cpp
+        src/ui/MockupTokenParser.cpp
+        src/ui/MockupWatcher.cpp
         src/ui/tools/rc_tool_contract.cpp
         src/ui/tools/rc_tool_dispatcher.cpp
         src/ui/tools/rc_tool_interaction_metrics.cpp
@@ -116,6 +119,7 @@ endif()
         src/ui/panels/rc_panel_river_index.cpp
         src/ui/panels/rc_panel_dev_shell.cpp
         src/ui/panels/rc_panel_road_editor.cpp
+        src/ui/panels/rc_panel_workspace.cpp
         # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
         src/ui/panels/rc_panel_lot_control.cpp
         src/ui/panels/rc_panel_building_control.cpp
@@ -213,6 +217,9 @@ endif()
                 src/ui/rc_ui_input_gate.cpp
                 src/ui/rc_ui_root.cpp
                 src/ui/rc_ui_theme.cpp
+                src/ui/WorkspaceProfile.cpp
+                src/ui/MockupTokenParser.cpp
+                src/ui/MockupWatcher.cpp
                 src/ui/tools/rc_tool_contract.cpp
                 src/ui/tools/rc_tool_dispatcher.cpp
                 src/ui/tools/rc_tool_interaction_metrics.cpp
@@ -244,6 +251,7 @@ endif()
                 src/ui/panels/rc_panel_water_control.cpp
                 src/ui/panels/rc_panel_dev_shell.cpp
                 src/ui/panels/rc_panel_road_editor.cpp
+                src/ui/panels/rc_panel_workspace.cpp
                 # Master Panel Architecture (RC-0.10)
                 src/ui/panels/IPanelDrawer.cpp
                 src/ui/panels/PanelRegistry.cpp
