@@ -1,0 +1,15 @@
+[project]
+name = "roguecity-mcp"
+version = "0.1.0"
+description = "RogueCity MCP server for bridge, build, perception, and pipeline orchestration"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.6.0",
+    "pydantic>=2.7.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+roguecity-mcp = "main:run_server"
+

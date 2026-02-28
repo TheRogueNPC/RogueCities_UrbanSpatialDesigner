@@ -8,5 +8,7 @@ namespace RC_UI::Panels::Validation {
 // Draw the validation panel. Supply delta time to update reactive animations.
 void Draw(float dt);
 void DrawContent(float dt);
+int GetValidationEventCount();
+bool HasValidationFailure();
 
 } // namespace RC_UI::Panels::Validation

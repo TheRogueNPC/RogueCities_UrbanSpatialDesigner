@@ -8,10 +8,21 @@ namespace RogueCity::AI {
 struct AiConfig {
     std::string startScript = "tools/Start_Ai_Bridge_Fixed.ps1";
     std::string stopScript = "tools/Stop_Ai_Bridge_Fixed.ps1";
-    std::string uiAgentModel = "deepseek-coder-v2:16b";
-    std::string citySpecModel = "deepseek-coder-v2:16b";
-    std::string codeAssistantModel = "deepseek-coder-v2:16b";
-    std::string namingModel = "deepseek-coder-v2:16b";
+    std::string uiAgentModel = "gemma3:4b";
+    std::string citySpecModel = "gemma3:4b";
+    std::string codeAssistantModel = "codegemma:2b";
+    std::string namingModel = "gemma3:4b";
+    // Pipeline v2 model roles
+    std::string controllerModel = "functiongemma";
+    std::string triageModel = "codegemma:2b";
+    std::string synthFastModel = "gemma3:4b";
+    std::string synthEscalationModel = "gemma3:12b";
+    std::string embeddingModel = "embeddinggemma";
+    std::string visionModel = "granite3.2-vision";
+    std::string ocrModel = "glm-ocr";
+    bool pipelineV2Enabled = true;
+    bool auditStrictEnabled = false;
+    int embeddingDimensions = 512;
     bool preferPwsh = true;
     int healthCheckTimeoutSec = 30;
     std::string bridgeBaseUrl = "http://127.0.0.1:7077";

@@ -23,10 +23,20 @@ bool AiConfigManager::LoadFromFile(const std::string& path) {
         
         m_config.startScript = j.value("start_script", "tools/Start_Ai_Bridge_Fixed.ps1");
         m_config.stopScript = j.value("stop_script", "tools/Stop_Ai_Bridge_Fixed.ps1");
-        m_config.uiAgentModel = j.value("ui_agent_model", "deepseek-coder-v2:16b");
-        m_config.citySpecModel = j.value("city_spec_model", "deepseek-coder-v2:16b");
-        m_config.codeAssistantModel = j.value("code_assistant_model", "deepseek-coder-v2:16b");
-        m_config.namingModel = j.value("naming_model", "deepseek-coder-v2:16b");
+        m_config.uiAgentModel = j.value("ui_agent_model", "gemma3:4b");
+        m_config.citySpecModel = j.value("city_spec_model", "gemma3:4b");
+        m_config.codeAssistantModel = j.value("code_assistant_model", "codegemma:2b");
+        m_config.namingModel = j.value("naming_model", "gemma3:4b");
+        m_config.controllerModel = j.value("controller_model", "functiongemma");
+        m_config.triageModel = j.value("triage_model", "codegemma:2b");
+        m_config.synthFastModel = j.value("synth_fast_model", "gemma3:4b");
+        m_config.synthEscalationModel = j.value("synth_escalation_model", "gemma3:12b");
+        m_config.embeddingModel = j.value("embedding_model", "embeddinggemma");
+        m_config.visionModel = j.value("vision_model", "granite3.2-vision");
+        m_config.ocrModel = j.value("ocr_model", "glm-ocr");
+        m_config.pipelineV2Enabled = j.value("pipeline_v2_enabled", true);
+        m_config.auditStrictEnabled = j.value("audit_strict_enabled", false);
+        m_config.embeddingDimensions = j.value("embedding_dimensions", 512);
         m_config.preferPwsh = j.value("prefer_pwsh", true);
         m_config.healthCheckTimeoutSec = j.value("health_check_timeout_sec", 30);
         m_config.bridgeBaseUrl = j.value("bridge_base_url", "http://127.0.0.1:7077");

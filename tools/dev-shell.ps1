@@ -71,6 +71,30 @@ if (Test-Path $venvPath) {
     Write-Host "Python virtual environment activated." -ForegroundColor Gray
 }
 
+# AI compatibility defaults (set once per shell; explicit user env vars still win).
+$aiDefaultEnv = @{
+    "RC_AI_PIPELINE_V2" = "on"
+    "RC_AI_AUDIT_STRICT" = "off"
+    "RC_AI_CONTROLLER_MODEL" = "functiongemma"
+    "RC_AI_TRIAGE_MODEL" = "codegemma:2b"
+    "RC_AI_SYNTH_FAST_MODEL" = "gemma3:4b"
+    "RC_AI_SYNTH_ESCALATION_MODEL" = "gemma3:12b"
+    "RC_AI_EMBEDDING_MODEL" = "embeddinggemma"
+    "RC_AI_VISION_MODEL" = "granite3.2-vision"
+    "RC_AI_OCR_MODEL" = "glm-ocr"
+    "OLLAMA_FLASH_ATTENTION" = "1"
+    "OLLAMA_KV_CACHE_TYPE" = "f16"
+}
+foreach ($name in $aiDefaultEnv.Keys) {
+    $existing = [string](Get-Item -Path "Env:$name" -ErrorAction SilentlyContinue).Value
+    if (-not $existing) {
+        Set-Item -Path "Env:$name" -Value $aiDefaultEnv[$name]
+    }
+}
+if (-not $env:RC_AI_BRIDGE_BASE_URL) {
+    $env:RC_AI_BRIDGE_BASE_URL = "http://127.0.0.1:7077"
+}
+
 function rc-help {
     <#
     .SYNOPSIS
@@ -102,14 +126,22 @@ function rc-help {
     Write-Host "  rc-index" -ForegroundColor Magenta
     Write-Host ""
     Write-Host "AI Integration (Ollama / Local):" -ForegroundColor Cyan
-    Write-Host "  rc-ai-setup      (Pulls deepseek-coder-v2:16b)" -ForegroundColor DarkCyan
-    Write-Host "  rc-ai-start      [-Port 7077] (Recycle then start AI Bridge in live mode)" -ForegroundColor DarkCyan
-    Write-Host "  rc-ai-restart    [-Port 7077] (Force stop stale listener then relaunch)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-setup      (Pulls Gemma-first local AI stack)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-harden     [-Port 7077] [-StartBridge] [-InstallDeps] (compat defaults + dependency checks)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-start      [-Port 7077] [-BindAll] [-BindHost 127.0.0.1] (Recycle then start AI Bridge in live mode)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-restart    [-Port 7077] [-BindAll] [-BindHost 127.0.0.1] (Force stop stale listener then relaunch)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-start-wsl  [-Port 7077] [-Mock] [-WslHost 127.0.0.1] [-OllamaBaseUrl http://host.docker.internal:11434] (Run bridge in WSL/local runtime)" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-stop-wsl   [-Port 7077] (Stop WSL/local bridge runtime)" -ForegroundColor DarkCyan
     Write-Host "  rc-ai-stop       [-Port 7077] (Stops Python AI Bridge)" -ForegroundColor DarkCyan
     Write-Host "  rc-ai-stop-admin [-Port 7077] (Elevated stop for blocked listeners)" -ForegroundColor DarkCyan
-    Write-Host "  rc-ai-smoke      [-Live] [-Model deepseek-coder-v2:16b] [-Port 7077]" -ForegroundColor DarkCyan
-    Write-Host "  rc-ai-query      -Prompt \"...\" [-Model deepseek-coder-v2:16b] [-File path1,path2] [-NoStrict] [-MaxRetries 1] [-IncludeRepoIndex] [-SearchPattern p1,p2]" -ForegroundColor DarkCyan
-    Write-Host "  rc-ai-eval       [-CaseFile tools/ai_eval_cases.json] [-Model deepseek-coder-v2:16b] [-MaxCases 10]" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-smoke      [-Live] [-Model gemma3:4b] [-Port 7077]" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-query      -Prompt \"...\" [-Model gemma3:4b] [-File path1,path2] [-NoStrict] [-Audit] [-Temperature 0.10] [-TopP 0.85] [-NumPredict 256] [-MaxRetries 1] [-IncludeRepoIndex] [-SearchPattern p1,p2]" -ForegroundColor DarkCyan
+    Write-Host "  rc-ai-eval       [-CaseFile tools/ai_eval_cases.json] [-Model gemma3:4b] [-MaxCases 10] [-Audit] [-Temperature 0.10] [-TopP 0.85] [-NumPredict 256]" -ForegroundColor DarkCyan
+    Write-Host "  rc-mcp-setup     (Installs/updates RogueCity MCP Python package and deps)" -ForegroundColor DarkCyan
+    Write-Host "  rc-mcp-smoke     [-Port 7077] (Runs MCP self-test and returns ok_core/ok_full/runtime_recommendation)" -ForegroundColor DarkCyan
+    Write-Host "  rc-perceive-ui   [-Mode quick|full] [-Frames 5] [-Screenshot] [-IncludeVision \$true] [-IncludeOcr \$true]" -ForegroundColor DarkCyan
+    Write-Host "  rc-perception-audit [-Observations 3] [-Mode quick|full] [-IncludeReports] [-IncludeVision \$true] [-IncludeOcr \$true] [-LatencyGateP95Ms 8000]" -ForegroundColor DarkCyan
+    Write-Host "  rc-full-smoke    [-Port 7222] [-Runs 2] (Commit-gate smoke/audit with strict checks)" -ForegroundColor DarkCyan
     Write-Host "  rc-cfg-ai        (Configures CMake with AI Bridge ON)" -ForegroundColor DarkCyan
 }
 
@@ -527,26 +559,492 @@ Register-ArgumentCompleter -CommandName rc-watch -ParameterName Target -ScriptBl
 # AI Integration Commands
 # ==============================================================================
 
+function Resolve-RCPythonLauncher {
+    $launcherCandidates = @()
+
+    $venvPython = Join-Path $env:RC_ROOT ".venv\Scripts\python.exe"
+    if (Test-Path -LiteralPath $venvPython) {
+        $launcherCandidates += @{ exe = $venvPython; argsPrefix = @() }
+    }
+
+    $cmdPy = Get-Command py -ErrorAction SilentlyContinue
+    if ($cmdPy) { $launcherCandidates += @{ exe = $cmdPy.Source; argsPrefix = @("-3") } }
+    $cmdPython = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmdPython) { $launcherCandidates += @{ exe = $cmdPython.Source; argsPrefix = @() } }
+    $cmdPython3 = Get-Command python3 -ErrorAction SilentlyContinue
+    if ($cmdPython3) { $launcherCandidates += @{ exe = $cmdPython3.Source; argsPrefix = @() } }
+
+    $localAppData = [Environment]::GetEnvironmentVariable("LOCALAPPDATA")
+    $winDir = [Environment]::GetEnvironmentVariable("WINDIR")
+    $pathCandidates = @(
+        (Join-Path $winDir "py.exe"),
+        (Join-Path $localAppData "Programs\Python\Python313\python.exe"),
+        (Join-Path $localAppData "Programs\Python\Python312\python.exe"),
+        (Join-Path $localAppData "Programs\Python\Python311\python.exe"),
+        (Join-Path $localAppData "Programs\Python\Python310\python.exe")
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+
+    foreach ($p in $pathCandidates) {
+        if ([IO.Path]::GetFileName($p).ToLowerInvariant() -eq "py.exe") {
+            $launcherCandidates += @{ exe = $p; argsPrefix = @("-3") }
+        }
+        else {
+            $launcherCandidates += @{ exe = $p; argsPrefix = @() }
+        }
+    }
+
+    foreach ($candidate in $launcherCandidates) {
+        if ($candidate.exe -and (Test-Path -LiteralPath $candidate.exe)) {
+            return $candidate
+        }
+    }
+    throw "No Python launcher found (expected py/python/python3 or .venv\\Scripts\\python.exe)."
+}
+
+function Invoke-RCPythonModule {
+    param([Parameter(Mandatory = $true)][string[]]$Args)
+    $launcher = Resolve-RCPythonLauncher
+    $fullArgs = @($launcher.argsPrefix + $Args)
+    Push-Location $env:RC_ROOT
+    try {
+        & $launcher.exe @fullArgs
+        $ok = $? -and (($null -eq $LASTEXITCODE) -or ($LASTEXITCODE -eq 0))
+        if (-not $ok) {
+            throw "Python command failed: $($launcher.exe) $($fullArgs -join ' ') (exit=$LASTEXITCODE)"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Set-RCAiCompatibilityEnv {
+    param([int]$Port = 7077)
+    $defaults = @{
+        "RC_AI_PIPELINE_V2" = "on"
+        "RC_AI_AUDIT_STRICT" = "off"
+        "RC_AI_CONTROLLER_MODEL" = "functiongemma"
+        "RC_AI_TRIAGE_MODEL" = "codegemma:2b"
+        "RC_AI_SYNTH_FAST_MODEL" = "gemma3:4b"
+        "RC_AI_SYNTH_ESCALATION_MODEL" = "gemma3:12b"
+        "RC_AI_EMBEDDING_MODEL" = "embeddinggemma"
+        "RC_AI_VISION_MODEL" = "granite3.2-vision"
+        "RC_AI_OCR_MODEL" = "glm-ocr"
+        "OLLAMA_FLASH_ATTENTION" = "1"
+        "OLLAMA_KV_CACHE_TYPE" = "f16"
+    }
+    foreach ($name in $defaults.Keys) {
+        $existing = [string](Get-Item -Path "Env:$name" -ErrorAction SilentlyContinue).Value
+        if (-not $existing) {
+            Set-Item -Path "Env:$name" -Value $defaults[$name]
+        }
+    }
+    $env:RC_AI_BRIDGE_BASE_URL = "http://127.0.0.1:$Port"
+}
+
+function Get-RCOllamaBaseUrl {
+    <#
+    .SYNOPSIS
+        Resolves the best Ollama base URL for this shell context.
+    .PARAMETER ProbeReachable
+        When set, probes candidate endpoints and returns the first reachable URL.
+    #>
+    param([switch]$ProbeReachable)
+
+    $explicit = [string](Get-Item -Path "Env:OLLAMA_BASE_URL" -ErrorAction SilentlyContinue).Value
+    if ($explicit) {
+        return $explicit.Trim().TrimEnd('/')
+    }
+
+    $candidates = @("http://127.0.0.1:11434", "http://host.docker.internal:11434")
+    if ($IsLinux -and (Test-Path -LiteralPath "/etc/resolv.conf")) {
+        try {
+            $nameserver = (Get-Content -LiteralPath "/etc/resolv.conf" -ErrorAction SilentlyContinue |
+                Where-Object { $_ -match '^nameserver\s+' } |
+                Select-Object -First 1)
+            if ($nameserver) {
+                $parts = $nameserver -split '\s+'
+                if ($parts.Count -ge 2 -and $parts[1]) {
+                    $candidates += "http://$($parts[1]):11434"
+                }
+            }
+        }
+        catch {
+            # no-op: keep defaults
+        }
+    }
+    $candidates = @($candidates | Select-Object -Unique)
+
+    if (-not $ProbeReachable) {
+        return $candidates[0]
+    }
+
+    foreach ($base in $candidates) {
+        try {
+            Invoke-RestMethod -Uri "$($base.TrimEnd('/'))/api/tags" -Method Get -TimeoutSec 3 | Out-Null
+            return $base.TrimEnd('/')
+        }
+        catch {
+            continue
+        }
+    }
+    return $candidates[0]
+}
+
+function Get-RCOllamaApiUrl {
+    param([string]$Path = "/api/tags", [switch]$ProbeReachable)
+    $base = Get-RCOllamaBaseUrl -ProbeReachable:$ProbeReachable
+    if (-not $Path.StartsWith("/")) {
+        $Path = "/$Path"
+    }
+    return "$($base.TrimEnd('/'))$Path"
+}
+
+function rc-ai-harden {
+    <#
+    .SYNOPSIS
+        Applies hardened AI env defaults, validates model/runtime prerequisites, and optionally installs dependencies.
+    #>
+    param(
+        [int]$Port = 7077,
+        [switch]$InstallDeps,
+        [switch]$StartBridge
+    )
+
+    Set-RCAiCompatibilityEnv -Port $Port
+    $requiredModels = @(
+        "functiongemma:latest",
+        "embeddinggemma:latest",
+        "codegemma:2b",
+        "gemma3:4b",
+        "gemma3:12b",
+        "granite3.2-vision:latest",
+        "glm-ocr:latest"
+    )
+
+    $missingModels = @()
+    $ollamaReachable = $false
+    $ollamaTagsUrl = Get-RCOllamaApiUrl -Path "/api/tags" -ProbeReachable
+    try {
+        $tags = Invoke-RestMethod -Uri $ollamaTagsUrl -Method Get -TimeoutSec 6
+        $ollamaReachable = $true
+        $present = @($tags.models | ForEach-Object { $_.name })
+        foreach ($m in $requiredModels) {
+            if (-not ($present -contains $m)) {
+                $missingModels += $m
+            }
+        }
+    }
+    catch {
+        $ollamaReachable = $false
+    }
+
+    if ($InstallDeps) {
+        Invoke-RCPythonModule -Args @("-m", "pip", "install", "-U", "fastapi", "uvicorn", "httpx", "pydantic")
+        rc-mcp-setup -Upgrade
+    }
+
+    if ($StartBridge) {
+        rc-ai-restart -Port $Port
+    }
+
+    $summary = [ordered]@{
+        bridge_url = $env:RC_AI_BRIDGE_BASE_URL
+        pipeline_v2 = $env:RC_AI_PIPELINE_V2
+        audit_strict = $env:RC_AI_AUDIT_STRICT
+        models = [ordered]@{
+            controller = $env:RC_AI_CONTROLLER_MODEL
+            triage = $env:RC_AI_TRIAGE_MODEL
+            synth_fast = $env:RC_AI_SYNTH_FAST_MODEL
+            synth_escalation = $env:RC_AI_SYNTH_ESCALATION_MODEL
+            embedding = $env:RC_AI_EMBEDDING_MODEL
+            vision = $env:RC_AI_VISION_MODEL
+            ocr = $env:RC_AI_OCR_MODEL
+        }
+        ollama_tuning = [ordered]@{
+            flash_attention = $env:OLLAMA_FLASH_ATTENTION
+            kv_cache_type = $env:OLLAMA_KV_CACHE_TYPE
+        }
+        ollama_base_url = (Get-RCOllamaBaseUrl)
+        ollama_reachable = $ollamaReachable
+        missing_models = $missingModels
+        hints = @(
+            "Run rc-ai-setup to pull missing models.",
+            "Run rc-mcp-smoke -Port $Port after bridge start."
+        )
+    }
+    Write-Output ($summary | ConvertTo-Json -Depth 8)
+}
+
 function rc-ai-setup {
     <# .SYNOPSIS Pulls required models via Ollama. #>
-    Write-Host "Pulling default AI model (deepseek-coder-v2:16b) via Ollama..." -ForegroundColor Cyan
-    ollama pull deepseek-coder-v2:16b
+    $models = @(
+        "functiongemma:latest",
+        "embeddinggemma:latest",
+        "codegemma:2b",
+        "gemma3:4b",
+        "gemma3:12b",
+        "granite3.2-vision:latest",
+        "glm-ocr:latest"
+    )
+    Write-Host "Pulling Gemma-first AI stack via Ollama..." -ForegroundColor Cyan
+    foreach ($m in $models) {
+        Write-Host "  ollama pull $m" -ForegroundColor Gray
+        ollama pull $m
+    }
+    Write-Host "Core Gemma-first stack is ready." -ForegroundColor Green
+}
+
+function rc-mcp-setup {
+    <# .SYNOPSIS Installs or updates the RogueCity MCP package and dependencies. #>
+    param(
+        [switch]$Upgrade,
+        [switch]$UserInstall
+    )
+
+    $mcpRoot = Join-Path $env:RC_ROOT "tools\mcp-server\roguecity-mcp"
+    if (-not (Test-Path -LiteralPath $mcpRoot)) {
+        throw "RogueCity MCP path not found: $mcpRoot"
+    }
+
+    $pipArgs = @("-m", "pip", "install")
+    if ($Upgrade) { $pipArgs += "-U" }
+    if ($UserInstall) { $pipArgs += "--user" }
+    $pipArgs += @("-e", $mcpRoot)
+    Invoke-RCPythonModule -Args $pipArgs
+    Invoke-RCPythonModule -Args @("-c", "import mcp, httpx, pydantic; print('roguecity_mcp_ready')")
+}
+
+function rc-mcp-smoke {
+    <# .SYNOPSIS Runs deterministic MCP/bridge readiness checks and returns JSON. #>
+    param([int]$Port = 7077)
+    Set-RCAiCompatibilityEnv -Port $Port
+    $baseUrl = "http://127.0.0.1:$Port"
+
+    $pythonOk = $false
+    try {
+        Invoke-RCPythonModule -Args @("-c", "import mcp, httpx, pydantic")
+        $pythonOk = $true
+    }
+    catch {
+        $pythonOk = $false
+    }
+
+    $health = $null
+    $pipelineStatus = 0
+    $perceptionStatus = 0
+    $bridgeOk = $false
+    try {
+        $health = Invoke-RestMethod -Uri "$baseUrl/health" -Method Get -TimeoutSec 8
+        $bridgeOk = $true
+    }
+    catch {
+        $bridgeOk = $false
+    }
+
+    try {
+        Invoke-WebRequest -Uri "$baseUrl/pipeline/query" -Method Get -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        $pipelineStatus = 200
+    }
+    catch {
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $pipelineStatus = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    try {
+        Invoke-WebRequest -Uri "$baseUrl/perception/observe" -Method Get -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        $perceptionStatus = 200
+    }
+    catch {
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $perceptionStatus = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    $summary = [ordered]@{
+        bridge_url = $baseUrl
+        python_mcp_deps_ok = $pythonOk
+        bridge_health_ok = $bridgeOk
+        health = $health
+        pipeline_endpoint_present = ($pipelineStatus -ne 404 -and $pipelineStatus -ne 0)
+        pipeline_probe_status = $pipelineStatus
+        perception_endpoint_present = ($perceptionStatus -ne 404 -and $perceptionStatus -ne 0)
+        perception_probe_status = $perceptionStatus
+        ok_core = $false
+        ok_full = $false
+        runtime_recommendation = "powershell_primary"
+        mcp_self_test = $null
+    }
+
+    try {
+        $mcpMain = Join-Path $env:RC_ROOT "tools\mcp-server\roguecity-mcp\main.py"
+        if (Test-Path -LiteralPath $mcpMain) {
+            $py = Resolve-RCPythonLauncher
+            $args = @($py.argsPrefix + @($mcpMain, "--self-test", "--toolserver-url", $baseUrl))
+            $raw = & $py.exe @args
+            if ($LASTEXITCODE -eq 0 -and $raw) {
+                $selfTest = $raw | ConvertFrom-Json -ErrorAction Stop
+                $summary.mcp_self_test = $selfTest
+                $summary.ok_core = [bool]$selfTest.ok_core
+                $summary.ok_full = [bool]$selfTest.ok_full
+                $summary.runtime_recommendation = [string]$selfTest.runtime_recommendation
+            }
+        }
+    } catch {
+        # Fall back to local readiness checks below when MCP self-test cannot run.
+    }
+
+    if (-not $summary.ok_core) {
+        $summary.ok_core = [bool]($pythonOk -and $bridgeOk -and $summary.pipeline_endpoint_present -and $summary.perception_endpoint_present)
+    }
+    if (-not $summary.ok_full) {
+        $summary.ok_full = $summary.ok_core
+    }
+    if (-not $summary.mcp_self_test) {
+        $summary.runtime_recommendation = if ($summary.ok_full) { "powershell_or_wsl" } else { "powershell_primary" }
+    }
+
+    if ($summary.runtime_recommendation -eq "powershell_primary") {
+        $stopCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$env:RC_ROOT\tools\Stop_Ai_Bridge_Fixed.ps1`" -NonInteractive -Port $Port"
+        $restartCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$env:RC_ROOT\tools\Start_Ai_Bridge_Fixed.ps1`" -MockMode:`$false -NonInteractive -ForceRestart -Port $Port -BindAll"
+        $summary.fallback_commands = [ordered]@{
+            stop_command = $stopCmd
+            restart_command = $restartCmd
+            set_bridge_url = "`$env:RC_AI_BRIDGE_BASE_URL = `"http://127.0.0.1:$Port`""
+        }
+    }
+    Write-Output ($summary | ConvertTo-Json -Depth 8)
 }
 
 function rc-ai-start {
     <# .SYNOPSIS Starts the Python AI Bridge and connects to Ollama. #>
-    param([int]$Port = 7077)
+    param(
+        [int]$Port = 7077,
+        [switch]$BindAll,
+        [string]$BindHost = "127.0.0.1"
+    )
     Write-Host "Starting AI Bridge (Live Mode, standardized restart flow)..." -ForegroundColor Cyan
-    & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port
+    if ($BindAll) {
+        & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port -BindAll
+    } else {
+        & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port -BindHost:$BindHost
+    }
 }
 
 function rc-ai-restart {
     <# .SYNOPSIS Force-restarts the Python AI Bridge. #>
-    param([int]$Port = 7077)
+    param(
+        [int]$Port = 7077,
+        [switch]$BindAll,
+        [string]$BindHost = "127.0.0.1"
+    )
     Write-Host "Force-restarting AI Bridge..." -ForegroundColor Cyan
     & "$repoRoot\tools\Stop_Ai_Bridge_Fixed.ps1" -NonInteractive -Port:$Port
     Start-Sleep -Milliseconds 500
-    & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port
+    if ($BindAll) {
+        & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port -BindAll
+    } else {
+        & "$repoRoot\tools\Start_Ai_Bridge_Fixed.ps1" -MockMode:$false -NonInteractive -ForceRestart -Port:$Port -BindHost:$BindHost
+    }
+}
+
+function rc-ai-start-wsl {
+    <# .SYNOPSIS Starts a local bridge process in WSL/Linux runtime for same-environment MCP usage. #>
+    param(
+        [int]$Port = 7077,
+        [switch]$Mock,
+        [string]$WslHost = "127.0.0.1",
+        [string]$OllamaBaseUrl = ""
+    )
+    $script = Join-Path $repoRoot "tools\start_ai_bridge_wsl.sh"
+    if (-not (Test-Path -LiteralPath $script)) {
+        throw "WSL bridge starter not found: $script"
+    }
+    if (-not $IsLinux -and -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+        throw "wsl.exe not found; cannot launch WSL bridge runtime from this shell."
+    }
+    function Convert-ToWslPath {
+        param([string]$PathValue)
+        if (-not $PathValue) { return "" }
+        $raw = & wsl.exe wslpath -a -- "$PathValue" 2>$null
+        if ($raw) {
+            $candidate = [string]($raw | Select-Object -First 1)
+            if ($candidate) { return $candidate.Trim() }
+        }
+        if ($PathValue -match '^[A-Za-z]:\\') {
+            $drive = $PathValue.Substring(0, 1).ToLowerInvariant()
+            $rest = $PathValue.Substring(2).Replace('\', '/')
+            return "/mnt/$drive$rest"
+        }
+        return ""
+    }
+    $modeArg = if ($Mock) { "--mock" } else { "--live" }
+    if (-not $OllamaBaseUrl) {
+        $OllamaBaseUrl = Get-RCOllamaBaseUrl -ProbeReachable
+    }
+    $wslScript = Convert-ToWslPath -PathValue $script
+    if (-not $wslScript) {
+        throw "Failed to translate WSL script path for: $script"
+    }
+    $quotedOllama = $OllamaBaseUrl.Replace("'", "''")
+    $ollamaArg = if ($quotedOllama) { "--ollama-base-url '$quotedOllama'" } else { "" }
+    if ($IsLinux) {
+        & bash -lc "'$wslScript' --port $Port --host $WslHost $modeArg $ollamaArg"
+    } else {
+        & wsl.exe bash -lc "'$wslScript' --port $Port --host $WslHost $modeArg $ollamaArg"
+    }
+
+    try {
+        $smoke = rc-mcp-smoke -Port $Port | ConvertFrom-Json -ErrorAction Stop
+        if ($smoke -and $smoke.runtime_recommendation -eq "powershell_primary") {
+            Write-Warning "WSL bridge is running in degraded mode (Ollama routing mismatch). Defaulting recommendation to PowerShell runtime."
+            if ($smoke.PSObject.Properties.Name -contains "fallback_commands" -and $smoke.fallback_commands) {
+                Write-Host "Run these commands in PowerShell:" -ForegroundColor Yellow
+                Write-Host "  $($smoke.fallback_commands.stop_command)" -ForegroundColor Gray
+                Write-Host "  $($smoke.fallback_commands.restart_command)" -ForegroundColor Gray
+                Write-Host "  $($smoke.fallback_commands.set_bridge_url)" -ForegroundColor Gray
+            }
+        }
+    } catch {
+        Write-Warning "WSL post-start smoke check failed: $($_.Exception.Message)"
+    }
+}
+
+function rc-ai-stop-wsl {
+    <# .SYNOPSIS Stops local WSL/Linux bridge process. #>
+    param([int]$Port = 7077)
+    $script = Join-Path $repoRoot "tools\stop_ai_bridge_wsl.sh"
+    if (-not (Test-Path -LiteralPath $script)) {
+        throw "WSL bridge stopper not found: $script"
+    }
+    if (-not $IsLinux -and -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+        throw "wsl.exe not found; cannot stop WSL bridge runtime from this shell."
+    }
+    function Convert-ToWslPath {
+        param([string]$PathValue)
+        if (-not $PathValue) { return "" }
+        $raw = & wsl.exe wslpath -a -- "$PathValue" 2>$null
+        if ($raw) {
+            $candidate = [string]($raw | Select-Object -First 1)
+            if ($candidate) { return $candidate.Trim() }
+        }
+        if ($PathValue -match '^[A-Za-z]:\\') {
+            $drive = $PathValue.Substring(0, 1).ToLowerInvariant()
+            $rest = $PathValue.Substring(2).Replace('\', '/')
+            return "/mnt/$drive$rest"
+        }
+        return ""
+    }
+    $wslScript = Convert-ToWslPath -PathValue $script
+    if (-not $wslScript) {
+        throw "Failed to translate WSL script path for: $script"
+    }
+    if ($IsLinux) {
+        & bash -lc "'$wslScript' --port $Port"
+    } else {
+        & wsl.exe bash -lc "'$wslScript' --port $Port"
+    }
 }
 
 function rc-ai-stop {
@@ -608,6 +1106,30 @@ function rc-cfg-ai {
     cmake --preset $Preset -DRC_FEATURE_AI_BRIDGE=ON
 }
 
+function Test-RCPipelineV2Enabled {
+    $raw = [string]$env:RC_AI_PIPELINE_V2
+    if (-not $raw) { return $false }
+    return @("1", "true", "yes", "on") -contains $raw.Trim().ToLowerInvariant()
+}
+
+function Get-RCBridgeBaseUrl {
+    if ($env:RC_AI_BRIDGE_BASE_URL) {
+        return [string]$env:RC_AI_BRIDGE_BASE_URL
+    }
+    $cfgPath = Join-Path $env:RC_ROOT "AI/ai_config.json"
+    if (Test-Path -LiteralPath $cfgPath) {
+        try {
+            $cfg = Get-Content -LiteralPath $cfgPath -Raw | ConvertFrom-Json -ErrorAction Stop
+            if ($cfg -and $cfg.bridge_base_url) {
+                return [string]$cfg.bridge_base_url
+            }
+        } catch {
+            # fall through to default
+        }
+    }
+    return "http://127.0.0.1:7077"
+}
+
 function rc-ai-smoke {
     <#
     .SYNOPSIS
@@ -621,7 +1143,7 @@ function rc-ai-smoke {
     #>
     param(
         [switch]$Live,
-        [string]$Model = "deepseek-coder-v2:16b",
+        [string]$Model = "gemma3:4b",
         [int]$Port = 7077
     )
 
@@ -633,8 +1155,9 @@ function rc-ai-smoke {
         Write-Host "AI smoke: LIVE mode (non-mock)." -ForegroundColor Cyan
         $env:ROGUECITY_TOOLSERVER_MOCK = $null
         $ollamaModels = @()
+        $ollamaTagsUrl = Get-RCOllamaApiUrl -Path "/api/tags" -ProbeReachable
         try {
-            $ollama = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -Method Get -TimeoutSec 5
+            $ollama = Invoke-RestMethod -Uri $ollamaTagsUrl -Method Get -TimeoutSec 5
             $ollamaModels = @($ollama.models | ForEach-Object { $_.name })
             if ($ollamaModels.Count -eq 0) {
                 Write-Warning "Ollama is running but no models are listed."
@@ -645,7 +1168,7 @@ function rc-ai-smoke {
             }
         }
         catch {
-            throw "Ollama is not reachable at http://127.0.0.1:11434 (required for -Live)."
+            throw "Ollama is not reachable at $ollamaTagsUrl (required for -Live)."
         }
     }
     else {
@@ -764,16 +1287,18 @@ function rc-ai-query {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Prompt,
-        [string]$Model = "deepseek-coder-v2:16b",
+        [string]$Model = "gemma3:4b",
         [string[]]$File = @(),
         [switch]$NoStrict,
+        [switch]$Audit,
         [string[]]$RequiredPaths = @(),
         [switch]$IncludeRepoIndex,
         [string[]]$SearchPattern = @(),
         [int]$MaxSearchResults = 120,
         [int]$MaxRetries = 1,
-        [double]$Temperature = 0.2,
-        [double]$TopP = 0.9
+        [double]$Temperature = 0.10,
+        [double]$TopP = 0.85,
+        [int]$NumPredict = 256
     )
 
     function Get-RCAiContextText {
@@ -814,7 +1339,8 @@ function rc-ai-query {
         }
         $payload = $payloadObj | ConvertTo-Json -Depth 10 -Compress
         $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-        $resp = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/generate" -Method Post -ContentType "application/json; charset=utf-8" -Body $payloadBytes -TimeoutSec 120
+        $generateUrl = Get-RCOllamaApiUrl -Path "/api/generate" -ProbeReachable
+        $resp = Invoke-RestMethod -Uri $generateUrl -Method Post -ContentType "application/json; charset=utf-8" -Body $payloadBytes -TimeoutSec 120
         if (-not $resp.response) {
             throw "No response from Ollama generate endpoint."
         }
@@ -951,6 +1477,79 @@ function rc-ai-query {
     }
 
     $Strict = -not $NoStrict
+
+    if (Test-RCPipelineV2Enabled) {
+        $baseUrl = Get-RCBridgeBaseUrl
+        $mode = if ($Audit) { "audit" } else { "normal" }
+        $requestBody = [ordered]@{
+            prompt = $Prompt
+            mode = $mode
+            context_files = @($File | Where-Object { $_ } | Select-Object -Unique)
+            required_paths = @($RequiredPaths | Where-Object { $_ } | Select-Object -Unique)
+            search_hints = @($SearchPattern | Where-Object { $_ } | Select-Object -Unique)
+            include_repo_index = [bool]$IncludeRepoIndex
+            include_semantic = $false
+            embedding_dimensions = 512
+            max_search_results = [Math]::Min([Math]::Max($MaxSearchResults, 1), 120)
+            max_context_chars = 24000
+            debug_trace = $false
+            temperature = $Temperature
+            top_p = $TopP
+            num_predict = [Math]::Max($NumPredict, 64)
+        }
+        if ($PSBoundParameters.ContainsKey("Model") -and $Model) {
+            $requestBody.model_overrides = @{
+                triage_model = $Model
+                synth_fast_model = $Model
+                synth_escalation_model = $Model
+            }
+        }
+
+        $payload = $requestBody | ConvertTo-Json -Depth 12
+        try {
+            $resp = Invoke-RestMethod -Uri "$baseUrl/pipeline/query" -Method Post -ContentType "application/json" -Body $payload -TimeoutSec 120
+            if ($Strict -and $resp -and $resp.verifier) {
+                $invalid = @($resp.verifier.invalid_paths)
+                $missingRequired = @($resp.verifier.missing_required_paths)
+                $answerQualityOk = $true
+                $answerQualityReason = "ok"
+                if ($resp.verifier.PSObject.Properties.Name -contains "answer_quality_ok") {
+                    $answerQualityOk = [bool]$resp.verifier.answer_quality_ok
+                }
+                if ($resp.verifier.PSObject.Properties.Name -contains "answer_quality_reason") {
+                    $answerQualityReason = [string]$resp.verifier.answer_quality_reason
+                }
+                if ($invalid.Count -gt 0) {
+                    Write-Warning "rc-ai-query strict mode: response contains invalid paths: $($invalid -join ', ')"
+                }
+                if ($missingRequired.Count -gt 0) {
+                    Write-Warning "rc-ai-query strict mode: response missing required paths: $($missingRequired -join ', ')"
+                }
+                if (-not $answerQualityOk) {
+                    $msg = "rc-ai-query strict mode: response answer quality failed: $answerQualityReason"
+                    Write-Warning $msg
+                    throw $msg
+                }
+                if ([string]::IsNullOrWhiteSpace([string]$resp.answer)) {
+                    $msg = "rc-ai-query strict mode: empty answer received."
+                    Write-Warning $msg
+                    throw $msg
+                }
+            }
+            Write-Output ($resp | ConvertTo-Json -Depth 12)
+            return
+        } catch {
+            $detail = $_.Exception.Message
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $detail = $_.ErrorDetails.Message
+            }
+            if ($detail -match '"detail"\s*:\s*"Not Found"' -or $detail -match '404') {
+                $manualStart = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$env:RC_ROOT\tools\Start_Ai_Bridge_Fixed.ps1`" -MockMode:`$false -NonInteractive -ForceRestart -Port 7077"
+                throw "pipeline/query not found at $baseUrl. A legacy bridge process is likely running. Restart bridge in the owning/elevated shell.`n$manualStart"
+            }
+            throw "pipeline/query request failed at $baseUrl. $detail"
+        }
+    }
 
     $contextText = Get-RCAiContextText -ExtraFiles $File
     $fileManifest = @($File | Where-Object { $_ } | Select-Object -Unique)
@@ -1092,9 +1691,13 @@ function rc-ai-eval {
     #>
     param(
         [string]$CaseFile = "tools/ai_eval_cases.json",
-        [string]$Model = "deepseek-coder-v2:16b",
+        [string]$Model = "gemma3:4b",
         [int]$MaxCases = 10,
-        [switch]$IncludeRepoIndex
+        [switch]$IncludeRepoIndex,
+        [switch]$Audit,
+        [double]$Temperature = 0.10,
+        [double]$TopP = 0.85,
+        [int]$NumPredict = 256
     )
 
     $casePath = if ([System.IO.Path]::IsPathRooted($CaseFile)) { $CaseFile } else { Join-Path $env:RC_ROOT $CaseFile }
@@ -1102,12 +1705,51 @@ function rc-ai-eval {
         throw "Case file not found: $casePath"
     }
 
+    if (Test-RCPipelineV2Enabled) {
+        $baseUrl = Get-RCBridgeBaseUrl
+        $mode = if ($Audit) { "audit" } else { "normal" }
+        $requestBody = [ordered]@{
+            case_file = $CaseFile
+            max_cases = [Math]::Max($MaxCases, 1)
+            mode = $mode
+            include_repo_index = [bool]$IncludeRepoIndex
+            include_semantic = $false
+            embedding_dimensions = 512
+            temperature = $Temperature
+            top_p = $TopP
+            num_predict = [Math]::Max($NumPredict, 64)
+        }
+        if ($PSBoundParameters.ContainsKey("Model") -and $Model) {
+            $requestBody.model_overrides = @{
+                triage_model = $Model
+                synth_fast_model = $Model
+                synth_escalation_model = $Model
+            }
+        }
+        $payload = $requestBody | ConvertTo-Json -Depth 12
+        try {
+            $resp = Invoke-RestMethod -Uri "$baseUrl/pipeline/eval" -Method Post -ContentType "application/json" -Body $payload -TimeoutSec 300
+            Write-Output ($resp | ConvertTo-Json -Depth 12)
+            return
+        } catch {
+            $detail = $_.Exception.Message
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $detail = $_.ErrorDetails.Message
+            }
+            if ($detail -match '"detail"\s*:\s*"Not Found"' -or $detail -match '404') {
+                $manualStart = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$env:RC_ROOT\tools\Start_Ai_Bridge_Fixed.ps1`" -MockMode:`$false -NonInteractive -ForceRestart -Port 7077"
+                throw "pipeline/eval not found at $baseUrl. A legacy bridge process is likely running. Restart bridge in the owning/elevated shell.`n$manualStart"
+            }
+            throw "pipeline/eval request failed at $baseUrl. $detail"
+        }
+    }
+
     $cases = Get-Content -LiteralPath $casePath -Raw | ConvertFrom-Json
     $subset = @($cases | Select-Object -First $MaxCases)
     $results = @()
 
     foreach ($case in $subset) {
-        $respJsonText = rc-ai-query -Prompt $case.prompt -Model $Model -File @($case.files) -RequiredPaths @($case.required_paths) -IncludeRepoIndex:$IncludeRepoIndex -SearchPattern @($case.search_patterns) -MaxSearchResults 20 -MaxRetries 2 -Temperature 0.15 -TopP 0.9
+        $respJsonText = rc-ai-query -Prompt $case.prompt -Model $Model -File @($case.files) -RequiredPaths @($case.required_paths) -IncludeRepoIndex:$IncludeRepoIndex -SearchPattern @($case.search_patterns) -MaxSearchResults 20 -MaxRetries 2 -Temperature 0.10 -TopP 0.85 -NumPredict 256
         $parsed = $null
         $jsonOk = $false
         try {
@@ -1121,6 +1763,8 @@ function rc-ai-eval {
         $invalid = @()
         $requiredMissing = @()
         $insufficient = $null
+        $answerQualityOk = $null
+        $answerQualityReason = ""
         if ($jsonOk -and $parsed) {
             if ($parsed.PSObject.Properties.Name -contains "paths_used") {
                 $paths = @($parsed.paths_used | ForEach-Object { [string]$_ })
@@ -1133,6 +1777,14 @@ function rc-ai-eval {
             }
             if ($parsed.PSObject.Properties.Name -contains "insufficient_context") {
                 $insufficient = [bool]$parsed.insufficient_context
+            }
+            if ($parsed.PSObject.Properties.Name -contains "verifier" -and $parsed.verifier) {
+                if ($parsed.verifier.PSObject.Properties.Name -contains "answer_quality_ok") {
+                    $answerQualityOk = [bool]$parsed.verifier.answer_quality_ok
+                }
+                if ($parsed.verifier.PSObject.Properties.Name -contains "answer_quality_reason") {
+                    $answerQualityReason = [string]$parsed.verifier.answer_quality_reason
+                }
             }
         }
 
@@ -1149,6 +1801,8 @@ function rc-ai-eval {
             path_count = @($paths).Count
             invalid_path_count = @($invalid).Count
             required_missing_count = @($requiredMissing).Count
+            answer_quality_ok = $answerQualityOk
+            answer_quality_reason = $answerQualityReason
             invalid_paths = @($invalid)
             required_missing = @($requiredMissing)
         }
@@ -1161,10 +1815,123 @@ function rc-ai-eval {
         json_ok_cases = @($results | Where-Object { $_.json_ok }).Count
         cases_with_invalid_paths = @($results | Where-Object { $_.invalid_path_count -gt 0 }).Count
         cases_missing_required_paths = @($results | Where-Object { $_.required_missing_count -gt 0 }).Count
+        cases_answer_quality_failed = @($results | Where-Object { $_.answer_quality_ok -eq $false }).Count
         results = $results
     }
 
     Write-Output ($summary | ConvertTo-Json -Depth 8)
+}
+
+function rc-perceive-ui {
+    <#
+    .SYNOPSIS
+        Observes runtime UI state via perception pipeline (snapshot + optional vision/OCR).
+    #>
+    param(
+        [ValidateSet("quick", "full")][string]$Mode = "quick",
+        [int]$Frames = 5,
+        [switch]$Screenshot,
+        [bool]$IncludeVision = $true,
+        [bool]$IncludeOcr = $true,
+        [bool]$StrictContract = $true,
+        [string]$MockupPath = "visualizer/RC_UI_Mockup.html",
+        [string[]]$ScreenshotPath = @(),
+        [int]$VisionTimeoutSec = 45,
+        [int]$OcrTimeoutSec = 45
+    )
+
+    $baseUrl = Get-RCBridgeBaseUrl
+    $requestBody = [ordered]@{
+        mode = $Mode
+        frames = [Math]::Max($Frames, 1)
+        screenshot = [bool]$Screenshot
+        screenshot_paths = @($ScreenshotPath | Where-Object { $_ } | Select-Object -Unique)
+        include_vision = $IncludeVision
+        include_ocr = $IncludeOcr
+        strict_contract = $StrictContract
+        mockup_path = $MockupPath
+        vision_timeout_sec = [Math]::Max($VisionTimeoutSec, 5)
+        ocr_timeout_sec = [Math]::Max($OcrTimeoutSec, 5)
+    }
+    $payload = $requestBody | ConvertTo-Json -Depth 12
+    try {
+        $resp = Invoke-RestMethod -Uri "$baseUrl/perception/observe" -Method Post -ContentType "application/json" -Body $payload -TimeoutSec 300
+        Write-Output ($resp | ConvertTo-Json -Depth 14)
+    } catch {
+        $detail = $_.Exception.Message
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            $detail = $_.ErrorDetails.Message
+        }
+        throw "perception/observe request failed at $baseUrl. $detail"
+    }
+}
+
+function rc-perception-audit {
+    <#
+    .SYNOPSIS
+        Runs repeated perception observations and reports section/latency metrics.
+    #>
+    param(
+        [int]$Observations = 3,
+        [switch]$IncludeReports,
+        [ValidateSet("quick", "full")][string]$Mode = "quick",
+        [int]$Frames = 5,
+        [switch]$Screenshot,
+        [bool]$IncludeVision = $true,
+        [bool]$IncludeOcr = $true,
+        [bool]$StrictContract = $true,
+        [string]$MockupPath = "visualizer/RC_UI_Mockup.html",
+        [int]$LatencyGateP95Ms = 8000
+    )
+
+    $baseUrl = Get-RCBridgeBaseUrl
+    $requestBody = [ordered]@{
+        observations = [Math]::Min([Math]::Max($Observations, 1), 20)
+        include_reports = [bool]$IncludeReports
+        mode = $Mode
+        frames = [Math]::Max($Frames, 1)
+        screenshot = [bool]$Screenshot
+        include_vision = $IncludeVision
+        include_ocr = $IncludeOcr
+        strict_contract = $StrictContract
+        mockup_path = $MockupPath
+        latency_gate_p95_ms = [Math]::Max($LatencyGateP95Ms, 1000)
+    }
+    $payload = $requestBody | ConvertTo-Json -Depth 12
+    try {
+        $resp = Invoke-RestMethod -Uri "$baseUrl/perception/audit" -Method Post -ContentType "application/json" -Body $payload -TimeoutSec 300
+        Write-Output ($resp | ConvertTo-Json -Depth 14)
+    } catch {
+        $detail = $_.Exception.Message
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            $detail = $_.ErrorDetails.Message
+        }
+        throw "perception/audit request failed at $baseUrl. $detail"
+    }
+}
+
+function rc-full-smoke {
+    <#
+    .SYNOPSIS
+        Runs commit-gate full smoke/audit script (PowerShell-primary) one or more times.
+    #>
+    param(
+        [int]$Port = 7222,
+        [int]$Runs = 2
+    )
+
+    $scriptPath = Join-Path $env:RC_ROOT "tools\.run\rc_full_smoke.ps1"
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+        throw "Full smoke script not found: $scriptPath"
+    }
+    $runCount = [Math]::Max($Runs, 1)
+    for ($i = 1; $i -le $runCount; $i++) {
+        Write-Host "Running full smoke gate ($i/$runCount) on port $Port..." -ForegroundColor Cyan
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Port $Port
+        if ($LASTEXITCODE -ne 0) {
+            throw "Full smoke gate failed on run $i (exit $LASTEXITCODE)."
+        }
+    }
 }
 
 Write-Host "RogueCities dev shell loaded. Run rc-help for commands." -ForegroundColor Green

@@ -210,6 +210,28 @@ endif()
             target_link_libraries(RogueCityGL3W PRIVATE OpenGL::GL)
             set_source_files_properties("${ROGUECITY_GL3W_DIR}/GL/gl3w.c" PROPERTIES LANGUAGE C)
 
+            # Enable optional runtime screenshot export in headless mode.
+            target_sources(RogueCityVisualizerHeadless PRIVATE
+                "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+                "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
+            )
+            target_include_directories(RogueCityVisualizerHeadless PRIVATE
+                "${IMGUI_DIR}/backends"
+                "${GLFW_DIR}/deps"
+            )
+            target_compile_definitions(RogueCityVisualizerHeadless PRIVATE
+                IMGUI_IMPL_OPENGL_LOADER_GL3W=1
+                ROGUECITY_HEADLESS_GL_SCREENSHOT=1
+            )
+            target_link_libraries(RogueCityVisualizerHeadless PRIVATE
+                RogueCityGL3W
+                OpenGL::GL
+                glfw
+            )
+            if(MSVC AND MSVC_VERSION GREATER_EQUAL 1900)
+                target_link_libraries(RogueCityVisualizerHeadless PRIVATE legacy_stdio_definitions)
+            endif()
+
             add_executable(RogueCityVisualizerGui
                 src/main_gui.cpp
                 # UI system sources

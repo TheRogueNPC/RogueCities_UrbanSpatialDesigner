@@ -65,4 +65,32 @@ void Draw(float dt) {
     Components::EndTokenPanel();
 }
 
+int GetValidationEventCount() {
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    auto es = gs.infomatrix.events();
+    using RogueCity::Core::Editor::InfomatrixEvent;
+    int count = 0;
+    for (const auto& ev : es.data) {
+        if (ev.cat == InfomatrixEvent::Category::Validation) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool HasValidationFailure() {
+    auto& gs = RogueCity::Core::Editor::GetGlobalState();
+    auto es = gs.infomatrix.events();
+    using RogueCity::Core::Editor::InfomatrixEvent;
+    for (const auto& ev : es.data) {
+        if (ev.cat != InfomatrixEvent::Category::Validation) {
+            continue;
+        }
+        if (ev.msg.find("rejected") != std::string::npos || ev.msg.find("ERROR") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace RC_UI::Panels::Validation

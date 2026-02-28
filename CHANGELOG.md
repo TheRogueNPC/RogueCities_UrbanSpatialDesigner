@@ -32,6 +32,57 @@
     - CSS Classes -> ImGui Style Pushes / Helper functions
 
 ### Fixed
+- **Gemma-First Pipeline V2 Staging (2026-02-28)**:
+  - Added Toolserver pipeline endpoints: `POST /pipeline/query`, `POST /pipeline/eval`, and `POST /pipeline/index/build` with deterministic triage/retrieval/synthesis/verification flow.
+  - Added pipeline schemas (`TriagedQueryPlan`, `ToolCall`, `VisualEvidence`, `EvidenceBundle`, `PipelineAnswer`) and audit-mode strict verification behavior (hard-fail in audit mode only).
+  - Added feature-flag gating via `RC_AI_PIPELINE_V2` / `RC_AI_AUDIT_STRICT` with config fallback from `AI/ai_config.json`.
+  - Added Gemma-first model role routing defaults for pipeline v2 (`functiongemma`, `codegemma`, `gemma3:4b`, `gemma3:12b`, `embeddinggemma`) while keeping legacy endpoints unchanged.
+  - Added JSONL-based semantic index scaffolding under `tools/.ai-index/` (chunking, embed build, flat cosine retrieval).
+  - Updated `rc-ai-query`/`rc-ai-eval` to call Toolserver pipeline endpoints when `RC_AI_PIPELINE_V2=on`, with fallback to legacy direct Ollama flow when off.
+  - Added new AI config keys (`controller_model`, `triage_model`, `synth_fast_model`, `synth_escalation_model`, `embedding_model`, `vision_model`, `ocr_model`, `pipeline_v2_enabled`, `audit_strict_enabled`, `embedding_dimensions`) and C++ parser support.
+  - Validation status: Python and PowerShell syntax checks pass for updated files; live HTTP endpoint smoke is pending in a Windows shell with `fastapi`/`uvicorn` installed.
+  - Performance profile update: set `synth_escalation_model` to `gemma3:4b` in `AI/ai_config.json` to avoid automatic 12B latency on current hardware.
+  - Bridge hardening update: `Start_Ai_Bridge_Fixed.ps1` now verifies pipeline-v2 endpoint availability when reusing an existing listener and warns/fails fast on legacy bridge processes that lack `/pipeline/query`.
+  - Dev-shell fix: `rc-ai-query`/`rc-ai-eval` now only apply `-Model` overrides when explicitly passed (v2 no longer silently forces `deepseek-coder-v2:16b`).
+  - Dev-shell UX hardening: improved pipeline error messaging for 404/legacy bridge scenarios with explicit restart command guidance.
+  - Visualizer AI Console enhancement: added a safe terminal-like command launcher (allowlisted dev-shell commands) for runtime/build control from inside the app panel.
+  - Dev-shell model defaults migrated to Gemma-first stack (`gemma3:4b` default for smoke/query/eval); `rc-ai-setup` now pulls Gemma-first models instead of DeepSeek.
+  - Applied pre-tuned Gemma generation defaults for pipeline/dev-shell (`temperature=0.10`, `top_p=0.85`, `num_predict=256`) based on quick latency/quality sweep.
+  - Full 6-case tuning sweep completed: near-fast profiles tied at `2/6` pass with stable required-path recall failures; `-IncludeRepoIndex` currently degrades to `0/6` and remains non-default.
+  - Implemented deterministic required-path enforcement in pipeline post-processing; full 6-case eval now passes `6/6` with balanced profile (`temperature=0.10`, `top_p=0.85`, `num_predict=256`).
+  - Added Program Perception endpoints in toolserver: `POST /perception/observe` and `POST /perception/audit` with capture, mockup contract checks, code-candidate mapping, and hybrid vision/OCR hooks (degrading safely when screenshots/models are unavailable).
+  - Added perception shell commands: `rc-perceive-ui` and `rc-perception-audit`.
+  - Added custom Python MCP server scaffold at `tools/mcp-server/roguecity-mcp/` with allowlisted tools for bridge/build/snapshot/perception/pipeline/report orchestration.
+  - Extended AI Console allowlisted command launcher with `rc-perceive-ui` and `rc-perception-audit`.
+  - Bridge startup endpoint listing now advertises perception endpoints when pipeline v2 is available.
+  - Runtime compatibility hardening: migrated remaining legacy model defaults from DeepSeek to Gemma-first (`gemma3:4b` / `codegemma:2b`) across `AI/ai_config.json`, C++ AI config fallbacks, bridge startup mode probe, and toolserver legacy request defaults.
+  - Bridge startup now initializes compatibility env defaults (`RC_AI_PIPELINE_V2=on`, model-role envs, bridge base URL) when unset for deterministic shell/runtime behavior.
+  - Dev shell “hypercharge” commands added: `rc-ai-harden`, `rc-mcp-setup`, and deterministic `rc-mcp-smoke` readiness JSON for bridge + endpoint + MCP dependency checks.
+  - Env doctor expanded with AI stack checks (ai_config alignment, bridge script presence, MCP server presence, Python AI module inventory, and Ollama model stack completeness).
+  - RogueCity MCP server upgraded with: `--self-test`, strict build target/preset allowlists, repo-path sanitization for path-bearing tools, `rc_env_validate`, and composite `rc_observe_and_map`.
+  - Added dual-runtime bridge strategy for broad compatibility:
+    - Cross-host bind mode in `Start_Ai_Bridge_Fixed.ps1` via `-BindAll` / `-BindHost`, with WSL/Linux access hints in startup output.
+    - Same-environment WSL bridge scripts: `tools/start_ai_bridge_wsl.sh` and `tools/stop_ai_bridge_wsl.sh`.
+    - Dev-shell wrappers: `rc-ai-start-wsl` and `rc-ai-stop-wsl`.
+    - MCP tools for same-runtime control: `rc_bridge_start_local` and `rc_bridge_stop_local`.
+  - Applied Ollama tuning defaults in hardened env setup and bridge startup (`OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=f16`) when unset.
+  - Cross-runtime Ollama compatibility hardening:
+    - Toolserver Ollama calls now resolve candidate base URLs from `OLLAMA_BASE_URL`/`OLLAMA_HOST` with WSL-friendly fallbacks (`host.docker.internal`, `/etc/resolv.conf` nameserver) instead of hardcoded localhost.
+    - `start_ai_bridge_wsl.sh` now supports `--ollama-base-url` and auto-selects a reachable Ollama base when unset.
+    - Dev-shell Ollama-aware commands (`rc-ai-harden`, `rc-ai-smoke`, `rc-ai-query`) now use resolved Ollama base URLs.
+    - MCP self-test/health probing now checks candidate Ollama endpoints and reports tried URLs for faster diagnostics.
+    - Added short per-candidate connect timeouts for Toolserver Ollama fallback calls to prevent long stalls on blackhole hosts.
+  - **PowerShell-Primary Stabilization Pass (2026-02-28)**:
+    - Pipeline verifier now enforces answer quality (`answer_quality_ok`, `answer_quality_reason`) with retry/escalation; audit mode hard-fails on low-quality/empty answers and normal mode returns structured failure instead of silent empties.
+    - Dev-shell strict query/eval paths now treat `answer_quality_ok=false` as a failure signal and expose answer-quality regression counts in eval summaries.
+    - Added explicit runtime `Titlebar` and `Status Bar` introspection surfaces in `rc_ui_root.cpp` with live status counters (validation/log/dirty), closing missing-section contract gaps.
+    - Added headless runtime screenshot export support via `--export-ui-screenshot <path>` in `RogueCityVisualizerHeadless` with hidden OpenGL render path and PNG framebuffer capture.
+    - Updated headless CMake wiring to enable screenshot runtime when GLFW/OpenGL are available (including ImGui OpenGL backend and gl3w linkage).
+    - Perception full mode now requires runtime screenshot artifacts for OCR/vision gate runs and no longer relies on seeded fixture screenshots in smoke flow.
+    - Perception multimodal lane now runs vision/OCR concurrently with trimmed prompt/`num_predict` payloads for lower full-mode latency.
+    - MCP self-test semantics now report `ok_core`, `ok_full`, and `runtime_recommendation`; top-level readiness maps to `ok_core` for PowerShell-primary operation.
+    - Dev-shell `rc-mcp-smoke` now surfaces runtime recommendation and fallback commands; `rc-ai-start-wsl` warns and prints explicit PowerShell fallback commands on degraded WSL/Ollama routing.
+    - Added commit-gate full smoke command path (`rc-full-smoke`) and upgraded `tools/.run/rc_full_smoke.ps1` to enforce gate checks (pipeline quality, required UI sections, p95 latency, runtime screenshot + OCR/vision evidence).
 - **Dev Shell Headless + Local AI Command Surface (2026-02-28)**:
   - Added headless helpers in `tools/dev-shell.ps1`: `rc-bld-headless`, `rc-run-headless`, and `rc-smoke-headless`.
   - Added `rc-ai-query` to query local Ollama with workspace context from `.gemini/GEMINI.md` and `.agents/Agents.md`.

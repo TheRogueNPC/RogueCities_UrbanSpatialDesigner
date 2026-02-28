@@ -222,4 +222,9 @@ void Draw(float dt) {
   RC_UI::Components::EndTokenPanel();
 }
 
+int GetEventCount() {
+  auto &gs = RogueCity::Core::Editor::GetGlobalState();
+  return static_cast<int>(gs.infomatrix.events().data.size());
+}
+
 } // namespace RC_UI::Panels::Log

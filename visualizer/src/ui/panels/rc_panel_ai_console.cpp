@@ -12,6 +12,8 @@
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
 #include <imgui.h>
+#include <array>
+#include <string>
 
 namespace RogueCity::UI {
 
@@ -118,6 +120,40 @@ void AiConsolePanel::RenderContent() {
         ImGui::PopStyleColor();
     }
     
+    DesignSystem::Separator();
+
+    // === DEV TERMINAL (SAFE COMMAND BRIDGE) ===
+    DesignSystem::SectionHeader("Dev Terminal (Safe)");
+    ImGui::TextWrapped("Runs allowlisted dev-shell commands in a background PowerShell process.");
+    static int selectedCommand = 0;
+    static std::string commandResult;
+    static const std::array<const char*, 8> kCommandIds = {
+        "rc-cfg-ai",
+        "rc-bld-vis",
+        "rc-tst-core",
+        "rc-doctor",
+        "rc-ai-smoke-live",
+        "rc-ai-eval-fast",
+        "rc-perceive-ui",
+        "rc-perception-audit",
+    };
+
+    ImGui::SetNextItemWidth(260.0f);
+    ImGui::Combo("Command", &selectedCommand, kCommandIds.data(), static_cast<int>(kCommandIds.size()));
+    ImGui::SameLine();
+    if (DesignSystem::ButtonSecondary("Run Command", ImVec2(140, 0))) {
+        std::string error;
+        const std::string id = kCommandIds[static_cast<size_t>(selectedCommand)];
+        if (runtime.RunDevShellCommand(id, &error)) {
+            commandResult = "Launched: " + id;
+        } else {
+            commandResult = "Failed: " + id + " | " + error;
+        }
+    }
+    if (!commandResult.empty()) {
+        ImGui::TextWrapped("%s", commandResult.c_str());
+    }
+
     DesignSystem::Separator();
     
     // === CONTROL BUTTONS ===

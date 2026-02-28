@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <sstream>
+#include <filesystem>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -77,8 +78,43 @@ bool AiBridgeRuntime::ExecuteCommand(const std::string& command, std::string* ou
 #endif
 }
 
+bool AiBridgeRuntime::RunDevShellCommand(const std::string& commandId, std::string* outError) {
+    std::string commandExpr;
+    if (commandId == "rc-cfg-ai") {
+        commandExpr = "rc-cfg-ai";
+    } else if (commandId == "rc-bld-vis") {
+        commandExpr = "rc-bld-vis";
+    } else if (commandId == "rc-tst-core") {
+        commandExpr = "rc-tst-core";
+    } else if (commandId == "rc-doctor") {
+        commandExpr = "rc-doctor";
+    } else if (commandId == "rc-ai-smoke-live") {
+        commandExpr = "rc-ai-smoke -Live";
+    } else if (commandId == "rc-ai-eval-fast") {
+        commandExpr = "$env:RC_AI_PIPELINE_V2='on'; rc-ai-eval -CaseFile tools/ai_eval_cases.json -MaxCases 3";
+    } else if (commandId == "rc-perceive-ui") {
+        commandExpr = "$env:RC_AI_PIPELINE_V2='on'; rc-perceive-ui -Mode quick -Frames 5 -StrictContract";
+    } else if (commandId == "rc-perception-audit") {
+        commandExpr = "$env:RC_AI_PIPELINE_V2='on'; rc-perception-audit -Observations 3 -Mode quick";
+    } else {
+        if (outError) {
+            *outError = "Command is not in allowlist.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path repoRoot = std::filesystem::current_path();
+    const std::string shellCmd =
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Set-Location -LiteralPath '"
+        + repoRoot.string()
+        + "'; . .\\tools\\dev-shell.ps1; "
+        + commandExpr
+        + "\"";
+    return ExecuteCommand(shellCmd, outError);
+}
+
 bool AiBridgeRuntime::TryStartWithPwsh(const std::string& scriptPath) {
-    std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+    std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -MockMode:$false -NonInteractive -ForceRestart";
     std::cout << "[AI] Attempting to start with pwsh: " << command << std::endl;
     std::string err;
     bool ok = ExecuteCommand(command, &err);
@@ -87,7 +123,7 @@ bool AiBridgeRuntime::TryStartWithPwsh(const std::string& scriptPath) {
 }
 
 bool AiBridgeRuntime::TryStartWithPowershell(const std::string& scriptPath) {
-    std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+    std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\" -MockMode:$false -NonInteractive -ForceRestart";
     std::cout << "[AI] Attempting to start with powershell: " << command << std::endl;
     std::string err;
     bool ok = ExecuteCommand(command, &err);
@@ -188,17 +224,18 @@ bool AiBridgeRuntime::StartBridge() {
     
     auto& config = AiConfigManager::Instance().GetConfig();
     std::string scriptPath = config.startScript;
+    const std::string startArgs = " -MockMode:$false -NonInteractive -ForceRestart";
     
     bool started = false;
     std::string firstError;
     std::string secondError;
 
     auto tryPwsh = [&]() {
-        std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+        std::string command = "pwsh -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"" + startArgs;
         return ExecuteCommand(command, &firstError);
     };
     auto tryPowershell = [&]() {
-        std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+        std::string command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" + scriptPath + "\"" + startArgs;
         return ExecuteCommand(command, &secondError);
     };
     

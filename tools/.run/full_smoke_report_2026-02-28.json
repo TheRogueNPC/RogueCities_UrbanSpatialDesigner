@@ -1,0 +1,1281 @@
+{
+  "timestamp": "2026-02-28T00:09:04.9674623-08:00",
+  "port": 7222,
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "ai_harden": {
+    "bridge_url": "http://127.0.0.1:7222",
+    "pipeline_v2": "on",
+    "audit_strict": "off",
+    "models": {
+      "controller": "functiongemma",
+      "triage": "codegemma:2b",
+      "synth_fast": "gemma3:4b",
+      "synth_escalation": "gemma3:12b",
+      "embedding": "embeddinggemma",
+      "vision": "granite3.2-vision",
+      "ocr": "glm-ocr"
+    },
+    "ollama_tuning": {
+      "flash_attention": "1",
+      "kv_cache_type": "f16"
+    },
+    "ollama_base_url": "http://127.0.0.1:11434",
+    "ollama_reachable": true,
+    "missing_models": [],
+    "hints": [
+      "Run rc-ai-setup to pull missing models.",
+      "Run rc-mcp-smoke -Port 7222 after bridge start."
+    ]
+  },
+  "mcp_smoke": {
+    "bridge_url": "http://127.0.0.1:7222",
+    "python_mcp_deps_ok": true,
+    "bridge_health_ok": true,
+    "health": {
+      "status": "ok",
+      "service": "RogueCity AI Bridge",
+      "mock": false,
+      "pid": 259364
+    },
+    "pipeline_endpoint_present": true,
+    "pipeline_probe_status": 405,
+    "perception_endpoint_present": true,
+    "perception_probe_status": 405
+  },
+  "mcp_self_test": null,
+  "headless_snapshot": {
+    "ok": true,
+    "path": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner/AI/docs/ui/ui_introspection_headless_latest.json",
+    "output": ""
+  },
+  "screenshot_seed": {
+    "source": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner/tools/mcp-server/n8n-mcp/docs/img/codex_connected.png",
+    "target": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner/AI/docs/ui/ui_screenshot_latest.png",
+    "target_exists": true
+  },
+  "perception_observe": {
+    "timestamp": "2026-02-28T00:11:18.190812-08:00",
+    "mode": "full",
+    "capture": {
+      "status": "captured",
+      "command": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\bin\\RogueCityVisualizerHeadless.exe --frames 4 --export-ui-snapshot C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+      "headless_ok": true
+    },
+    "artifacts": {
+      "snapshot_json": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+      "screenshot_paths": [
+        "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_screenshot_latest.png"
+      ],
+      "mockup_path": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\visualizer\\RC_UI_Mockup.html",
+      "mockup_hash": "b4e926a6131c5dc54c182bb3f0654e42a939b6267f81bae6d7f98c6b41af965f"
+    },
+    "runtime_layout": {
+      "panel_count": 4,
+      "panels": [
+        {
+          "dock_area": "Left",
+          "id": "Master Panel",
+          "owner_module": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+          "role": "container",
+          "tags": [
+            "master",
+            "router",
+            "tabs"
+          ],
+          "title": "Master Panel",
+          "visible": true,
+          "widgets": [
+            {
+              "binding": "Roads[]",
+              "label": "Roads",
+              "tags": [
+                "index"
+              ],
+              "type": "table"
+            }
+          ]
+        },
+        {
+          "dock_area": "Center",
+          "id": "[/ / / RC_VISUALIZER / / /]",
+          "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+          "role": "viewport",
+          "tags": [
+            "viewport",
+            "axiom",
+            "minimap"
+          ],
+          "title": "[/ / / RC_VISUALIZER / / /]",
+          "visible": true,
+          "widgets": [
+            {
+              "binding": "viewport.primary",
+              "label": "Primary Viewport",
+              "tags": [
+                "viewport"
+              ],
+              "type": "viewport"
+            }
+          ]
+        },
+        {
+          "dock_area": "Left",
+          "id": "System Map",
+          "owner_module": "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+          "role": "nav",
+          "tags": [
+            "map",
+            "nav"
+          ],
+          "title": "System Map",
+          "visible": false,
+          "widgets": []
+        },
+        {
+          "dock_area": "Left",
+          "id": "WorkspaceSelector",
+          "owner_module": "rc_panel_workspace.cpp",
+          "role": "settings",
+          "tags": [
+            "workspace",
+            "persona",
+            "theme"
+          ],
+          "title": "Workspace",
+          "visible": true,
+          "widgets": [
+            {
+              "binding": "workspace.mockup_link",
+              "label": "MOCKUP LINK",
+              "tags": [
+                "mockup"
+              ],
+              "type": "label"
+            },
+            {
+              "binding": "workspace.mockup_link_enabled",
+              "label": "Mockup Live Link",
+              "tags": [
+                "mockup"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.theme_selector",
+              "label": "Available Themes",
+              "tags": [
+                "ui",
+                "settings"
+              ],
+              "type": "combo"
+            },
+            {
+              "binding": "ui.theme_autosave",
+              "label": "Auto-save Custom Themes",
+              "tags": [
+                "ui",
+                "settings"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.theme_show_hex",
+              "label": "Show Hex by Default",
+              "tags": [
+                "ui",
+                "settings"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.scale",
+              "label": "UI Scale",
+              "tags": [
+                "ui",
+                "settings"
+              ],
+              "type": "slider"
+            },
+            {
+              "binding": "ui.multi_viewport_enabled",
+              "label": "Enable Multi-Viewport (Opt-in)",
+              "tags": [
+                "ui",
+                "settings",
+                "dpi"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.dpi_scale_fonts_enabled",
+              "label": "Scale Fonts With DPI",
+              "tags": [
+                "ui",
+                "settings",
+                "dpi"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.dpi_scale_viewports_enabled",
+              "label": "Scale Viewports With DPI",
+              "tags": [
+                "ui",
+                "settings",
+                "dpi"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.viewport_context_mode",
+              "label": "Viewport Right-Click Mode",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "combo"
+            },
+            {
+              "binding": "ui.hotkeys.space",
+              "label": "Hotkey Space",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.hotkeys.slash",
+              "label": "Hotkey Slash",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.hotkeys.grave",
+              "label": "Hotkey Grave",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.hotkeys.p",
+              "label": "Hotkey P",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.hotkeys.domain_context",
+              "label": "Domain Context Hold",
+              "tags": [
+                "ui",
+                "settings",
+                "commands"
+              ],
+              "type": "checkbox"
+            },
+            {
+              "binding": "ui.layout.left_ratio",
+              "label": "Master Panel Ratio",
+              "tags": [
+                "ui",
+                "layout",
+                "dock"
+              ],
+              "type": "slider"
+            },
+            {
+              "binding": "ui.layout.right_ratio",
+              "label": "Right Column Ratio",
+              "tags": [
+                "ui",
+                "layout",
+                "dock"
+              ],
+              "type": "slider"
+            },
+            {
+              "binding": "ui.layout.tool_deck_ratio",
+              "label": "Tool Deck Height Ratio",
+              "tags": [
+                "ui",
+                "layout",
+                "dock"
+              ],
+              "type": "slider"
+            },
+            {
+              "binding": "action:ui.layout.reset",
+              "label": "Return to Factory Default",
+              "tags": [
+                "action",
+                "ui",
+                "layout"
+              ],
+              "type": "button"
+            }
+          ]
+        }
+      ]
+    },
+    "runtime_sections": [
+      {
+        "name": "master",
+        "present": true,
+        "source": "introspection",
+        "panel_ids": [
+          "Master Panel",
+          "WorkspaceSelector"
+        ]
+      },
+      {
+        "name": "viewport",
+        "present": true,
+        "source": "introspection",
+        "panel_ids": [
+          "[/ / / RC_VISUALIZER / / /]"
+        ]
+      },
+      {
+        "name": "inspector",
+        "present": true,
+        "source": "introspection",
+        "panel_ids": [
+          "System Map"
+        ]
+      },
+      {
+        "name": "status",
+        "present": false,
+        "source": "introspection",
+        "panel_ids": []
+      },
+      {
+        "name": "titlebar",
+        "present": false,
+        "source": "introspection",
+        "panel_ids": []
+      }
+    ],
+    "visual_evidence": [
+      {
+        "source": "granite3.2-vision",
+        "summary": "\n- **Server:** n8n\n  - **Command:** npx n8n-mcq\n  - **Tools:** get_database, get_node_for_task, get_node_list, list_node_info, get_property_dependencies, list_nodes, list_templates, get_tasks, list_templates, n8n\n\n- **Server:** n8n\n  - **Command:** npx n8n-mcq\n  - **Tools:** get_database, get_node_for_task, get_node_list, list_node_info, get_property_dependencies, list_nodes, list_templates, get_tasks, list_templates, n8n\n\n- **Server:** n8n\n  - **Command:** npx n8n-mcq\n  - **Tools:** get_database, get_node_for_task, get_node_list, list_node_info, get_property_dependencies, list_nodes, list_templates, get_tasks,",
+        "text_spans": [],
+        "ui_regions": [],
+        "confidence": "medium"
+      },
+      {
+        "source": "glm-ocr",
+        "summary": "MCP Tools",
+        "text_spans": [
+          "MCP Tools",
+          "• Server: n8n",
+          "• Command: npx n8n-mcp",
+          "• Tools: get_database_statistics, get_node_as_tool_info, get_node_documentation, get_node_essentials, get_node_for_task, get_node_info, get_property_dependencies, get_template, get_templates_for_task, list_ai_tools, list_node_templates, list_nodes, list_tasks, list_templates, n8n_create_workflow, n8n_delete_execution, n8n_delete_workflow, n8n_diagnostic, n8n_get_execution, n8n_get_workflow, n8n_get_workflow_details, n8n_get_workflow_minimal, n8n_get_workflow_structure, n8n_health_check, n8n_list_available_tools, n8n_list_executions, n8n_list_workflows, n8n_trigger_webhook_workflow, n8n_update_full_workflow, n8n_update_partial"
+        ],
+        "ui_regions": [],
+        "confidence": "high"
+      }
+    ],
+    "contract_findings": [
+      {
+        "id": "missing_titlebar",
+        "severity": "low",
+        "section": "titlebar",
+        "expected": "present",
+        "observed": "absent",
+        "probable_paths": [
+          "visualizer/src/ui/rc_ui_root.cpp",
+          "visualizer/src/ui/panels/RcMasterPanel.cpp"
+        ]
+      },
+      {
+        "id": "missing_status",
+        "severity": "medium",
+        "section": "status",
+        "expected": "present",
+        "observed": "absent",
+        "probable_paths": [
+          "visualizer/src/ui/rc_ui_root.cpp",
+          "visualizer/src/ui/panels/rc_panel_validation.cpp",
+          "visualizer/src/ui/panels/rc_panel_log.h"
+        ]
+      }
+    ],
+    "code_candidates": [
+      {
+        "path": "visualizer/src/ui/rc_ui_root.cpp",
+        "reason": "contract_finding:missing_titlebar",
+        "score": 0.85
+      },
+      {
+        "path": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+        "reason": "contract_finding:missing_titlebar",
+        "score": 0.85
+      },
+      {
+        "path": "visualizer/src/ui/panels/rc_panel_validation.cpp",
+        "reason": "contract_finding:missing_status",
+        "score": 0.85
+      },
+      {
+        "path": "visualizer/src/ui/panels/rc_panel_log.h",
+        "reason": "contract_finding:missing_status",
+        "score": 0.85
+      }
+    ],
+    "actionability": "medium",
+    "warnings": [],
+    "errors": []
+  },
+  "perception_audit": {
+    "observations": 2,
+    "metrics": {
+      "section_presence_rate": {
+        "master": 1.0,
+        "viewport": 0.0,
+        "inspector": 1.0,
+        "status": 0.0,
+        "titlebar": 0.0
+      },
+      "contract_mismatch_rate": 1.0,
+      "code_candidate_precision_proxy": 1.0,
+      "latency_ms": {
+        "p50": 12667.76,
+        "p95": 12698.71
+      }
+    },
+    "runs": [
+      {
+        "index": 1,
+        "actionability": "medium",
+        "finding_count": 3,
+        "warnings": 0,
+        "errors": 0,
+        "latency_ms": 12667.76
+      },
+      {
+        "index": 2,
+        "actionability": "medium",
+        "finding_count": 3,
+        "warnings": 0,
+        "errors": 0,
+        "latency_ms": 12698.71
+      }
+    ],
+    "reports": [
+      {
+        "timestamp": "2026-02-28T00:11:30.872211-08:00",
+        "mode": "full",
+        "capture": {
+          "status": "captured",
+          "command": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\bin\\RogueCityVisualizerHeadless.exe --frames 3 --export-ui-snapshot C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+          "headless_ok": true
+        },
+        "artifacts": {
+          "snapshot_json": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+          "screenshot_paths": [
+            "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_screenshot_latest.png"
+          ],
+          "mockup_path": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\visualizer\\RC_UI_Mockup.html",
+          "mockup_hash": "b4e926a6131c5dc54c182bb3f0654e42a939b6267f81bae6d7f98c6b41af965f"
+        },
+        "runtime_layout": {
+          "panel_count": 3,
+          "panels": [
+            {
+              "dock_area": "Left",
+              "id": "Master Panel",
+              "owner_module": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+              "role": "container",
+              "tags": [
+                "master",
+                "router",
+                "tabs"
+              ],
+              "title": "Master Panel",
+              "visible": false,
+              "widgets": []
+            },
+            {
+              "dock_area": "Left",
+              "id": "System Map",
+              "owner_module": "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+              "role": "nav",
+              "tags": [
+                "map",
+                "nav"
+              ],
+              "title": "System Map",
+              "visible": false,
+              "widgets": []
+            },
+            {
+              "dock_area": "Left",
+              "id": "WorkspaceSelector",
+              "owner_module": "rc_panel_workspace.cpp",
+              "role": "settings",
+              "tags": [
+                "workspace",
+                "persona",
+                "theme"
+              ],
+              "title": "Workspace",
+              "visible": true,
+              "widgets": [
+                {
+                  "binding": "workspace.mockup_link",
+                  "label": "MOCKUP LINK",
+                  "tags": [
+                    "mockup"
+                  ],
+                  "type": "label"
+                },
+                {
+                  "binding": "workspace.mockup_link_enabled",
+                  "label": "Mockup Live Link",
+                  "tags": [
+                    "mockup"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.theme_selector",
+                  "label": "Available Themes",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "combo"
+                },
+                {
+                  "binding": "ui.theme_autosave",
+                  "label": "Auto-save Custom Themes",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.theme_show_hex",
+                  "label": "Show Hex by Default",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.scale",
+                  "label": "UI Scale",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.multi_viewport_enabled",
+                  "label": "Enable Multi-Viewport (Opt-in)",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.dpi_scale_fonts_enabled",
+                  "label": "Scale Fonts With DPI",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.dpi_scale_viewports_enabled",
+                  "label": "Scale Viewports With DPI",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.viewport_context_mode",
+                  "label": "Viewport Right-Click Mode",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "combo"
+                },
+                {
+                  "binding": "ui.hotkeys.space",
+                  "label": "Hotkey Space",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.slash",
+                  "label": "Hotkey Slash",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.grave",
+                  "label": "Hotkey Grave",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.p",
+                  "label": "Hotkey P",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.domain_context",
+                  "label": "Domain Context Hold",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.layout.left_ratio",
+                  "label": "Master Panel Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.layout.right_ratio",
+                  "label": "Right Column Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.layout.tool_deck_ratio",
+                  "label": "Tool Deck Height Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "action:ui.layout.reset",
+                  "label": "Return to Factory Default",
+                  "tags": [
+                    "action",
+                    "ui",
+                    "layout"
+                  ],
+                  "type": "button"
+                }
+              ]
+            }
+          ]
+        },
+        "runtime_sections": [
+          {
+            "name": "master",
+            "present": true,
+            "source": "introspection",
+            "panel_ids": [
+              "Master Panel",
+              "WorkspaceSelector"
+            ]
+          },
+          {
+            "name": "viewport",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          },
+          {
+            "name": "inspector",
+            "present": true,
+            "source": "introspection",
+            "panel_ids": [
+              "System Map"
+            ]
+          },
+          {
+            "name": "status",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          },
+          {
+            "name": "titlebar",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          }
+        ],
+        "visual_evidence": [
+          {
+            "source": "granite3.2-vision",
+            "summary": "\n- **Server**: n8n\n - **Command**: npx n8n-mcq\n - **Tools**: get_database, get_node_for_task, get_node_list, list_node_info, get_property_dependencies, list_nodes, list_templates, get_tasks, list_templates, n8n-delete_execution, n8n-get_workflow_details, n8n_list_available_tools, n8n_update_full_workflow, search_nodes, search_templates, validate_node_operation, n8n_diagnose_workflow, n8n_get_workflow_minimal, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list",
+            "text_spans": [],
+            "ui_regions": [],
+            "confidence": "medium"
+          },
+          {
+            "source": "glm-ocr",
+            "summary": "MCP Tools",
+            "text_spans": [
+              "MCP Tools",
+              "• Server: n8n",
+              "• Command: npx n8n-mcp",
+              "• Tools: get_database_statistics, get_node_as_tool_info, get_node_documentation, get_node_essentials, get_node_for_task, get_node_info, get_property_dependencies, get_template, get_templates_for_task, list_ai_tools, list_node_templates, list_nodes, list_tasks, list_templates, n8n_create_workflow, n8n_delete_execution, n8n_delete_workflow, n8n_diagnostic, n8n_get_execution, n8n_get_workflow, n8n_get_workflow_details, n8n_get_workflow_minimal, n8n_get_workflow_structure, n8n_health_check, n8n_list_available_tools, n8n_list_executions, n8n_list_workflows, n8n_trigger_webhook_workflow, n8n_update_full_workflow, n8n_update_partial"
+            ],
+            "ui_regions": [],
+            "confidence": "high"
+          }
+        ],
+        "contract_findings": [
+          {
+            "id": "missing_titlebar",
+            "severity": "low",
+            "section": "titlebar",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/ui/panels/RcMasterPanel.cpp"
+            ]
+          },
+          {
+            "id": "missing_viewport",
+            "severity": "high",
+            "section": "viewport",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/main.cpp",
+              "visualizer/src/ui/viewport/rc_viewport_overlays.cpp"
+            ]
+          },
+          {
+            "id": "missing_status",
+            "severity": "medium",
+            "section": "status",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/ui/panels/rc_panel_validation.cpp",
+              "visualizer/src/ui/panels/rc_panel_log.h"
+            ]
+          }
+        ],
+        "code_candidates": [
+          {
+            "path": "visualizer/src/ui/rc_ui_root.cpp",
+            "reason": "contract_finding:missing_titlebar",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+            "reason": "contract_finding:missing_titlebar",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/main.cpp",
+            "reason": "contract_finding:missing_viewport",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/viewport/rc_viewport_overlays.cpp",
+            "reason": "contract_finding:missing_viewport",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/rc_panel_validation.cpp",
+            "reason": "contract_finding:missing_status",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/rc_panel_log.h",
+            "reason": "contract_finding:missing_status",
+            "score": 0.85
+          }
+        ],
+        "actionability": "medium",
+        "warnings": [],
+        "errors": []
+      },
+      {
+        "timestamp": "2026-02-28T00:11:43.570942-08:00",
+        "mode": "full",
+        "capture": {
+          "status": "captured",
+          "command": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\bin\\RogueCityVisualizerHeadless.exe --frames 3 --export-ui-snapshot C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+          "headless_ok": true
+        },
+        "artifacts": {
+          "snapshot_json": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_introspection_headless_latest.json",
+          "screenshot_paths": [
+            "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\AI\\docs\\ui\\ui_screenshot_latest.png"
+          ],
+          "mockup_path": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\visualizer\\RC_UI_Mockup.html",
+          "mockup_hash": "b4e926a6131c5dc54c182bb3f0654e42a939b6267f81bae6d7f98c6b41af965f"
+        },
+        "runtime_layout": {
+          "panel_count": 3,
+          "panels": [
+            {
+              "dock_area": "Left",
+              "id": "Master Panel",
+              "owner_module": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+              "role": "container",
+              "tags": [
+                "master",
+                "router",
+                "tabs"
+              ],
+              "title": "Master Panel",
+              "visible": false,
+              "widgets": []
+            },
+            {
+              "dock_area": "Left",
+              "id": "System Map",
+              "owner_module": "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+              "role": "nav",
+              "tags": [
+                "map",
+                "nav"
+              ],
+              "title": "System Map",
+              "visible": false,
+              "widgets": []
+            },
+            {
+              "dock_area": "Left",
+              "id": "WorkspaceSelector",
+              "owner_module": "rc_panel_workspace.cpp",
+              "role": "settings",
+              "tags": [
+                "workspace",
+                "persona",
+                "theme"
+              ],
+              "title": "Workspace",
+              "visible": true,
+              "widgets": [
+                {
+                  "binding": "workspace.mockup_link",
+                  "label": "MOCKUP LINK",
+                  "tags": [
+                    "mockup"
+                  ],
+                  "type": "label"
+                },
+                {
+                  "binding": "workspace.mockup_link_enabled",
+                  "label": "Mockup Live Link",
+                  "tags": [
+                    "mockup"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.theme_selector",
+                  "label": "Available Themes",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "combo"
+                },
+                {
+                  "binding": "ui.theme_autosave",
+                  "label": "Auto-save Custom Themes",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.theme_show_hex",
+                  "label": "Show Hex by Default",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.scale",
+                  "label": "UI Scale",
+                  "tags": [
+                    "ui",
+                    "settings"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.multi_viewport_enabled",
+                  "label": "Enable Multi-Viewport (Opt-in)",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.dpi_scale_fonts_enabled",
+                  "label": "Scale Fonts With DPI",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.dpi_scale_viewports_enabled",
+                  "label": "Scale Viewports With DPI",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "dpi"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.viewport_context_mode",
+                  "label": "Viewport Right-Click Mode",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "combo"
+                },
+                {
+                  "binding": "ui.hotkeys.space",
+                  "label": "Hotkey Space",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.slash",
+                  "label": "Hotkey Slash",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.grave",
+                  "label": "Hotkey Grave",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.p",
+                  "label": "Hotkey P",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.hotkeys.domain_context",
+                  "label": "Domain Context Hold",
+                  "tags": [
+                    "ui",
+                    "settings",
+                    "commands"
+                  ],
+                  "type": "checkbox"
+                },
+                {
+                  "binding": "ui.layout.left_ratio",
+                  "label": "Master Panel Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.layout.right_ratio",
+                  "label": "Right Column Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "ui.layout.tool_deck_ratio",
+                  "label": "Tool Deck Height Ratio",
+                  "tags": [
+                    "ui",
+                    "layout",
+                    "dock"
+                  ],
+                  "type": "slider"
+                },
+                {
+                  "binding": "action:ui.layout.reset",
+                  "label": "Return to Factory Default",
+                  "tags": [
+                    "action",
+                    "ui",
+                    "layout"
+                  ],
+                  "type": "button"
+                }
+              ]
+            }
+          ]
+        },
+        "runtime_sections": [
+          {
+            "name": "master",
+            "present": true,
+            "source": "introspection",
+            "panel_ids": [
+              "Master Panel",
+              "WorkspaceSelector"
+            ]
+          },
+          {
+            "name": "viewport",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          },
+          {
+            "name": "inspector",
+            "present": true,
+            "source": "introspection",
+            "panel_ids": [
+              "System Map"
+            ]
+          },
+          {
+            "name": "status",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          },
+          {
+            "name": "titlebar",
+            "present": false,
+            "source": "introspection",
+            "panel_ids": []
+          }
+        ],
+        "visual_evidence": [
+          {
+            "source": "granite3.2-vision",
+            "summary": "\n- Server: n8n\n- Command: npx n8n-mcq\n- Tools: get_database, get_node_for_task, get_node_list, list_node_info, get_property_dependencies, list_nodes, list_templates, get_node_documentation, get_template, get_tasks, list_templates, n8n-delete_execution, n8n-get_workflow_details, n8n_list_available_tools, n8n_update_full_workflow, search_nodes, search_templates, validate_node_operation, n8n_diagnose_workflow, n8n_get_workflow_minimal, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_executions, n8n_list_",
+            "text_spans": [],
+            "ui_regions": [],
+            "confidence": "medium"
+          },
+          {
+            "source": "glm-ocr",
+            "summary": "MCP Tools",
+            "text_spans": [
+              "MCP Tools",
+              "• Server: n8n",
+              "• Command: npx n8n-mcp",
+              "• Tools: get_database_statistics, get_node_as_tool_info, get_node_documentation, get_node_essentials, get_node_for_task, get_node_info, get_property_dependencies, get_template, get_templates_for_task, list_ai_tools, list_node_templates, list_nodes, list_tasks, list_templates, n8n_create_workflow, n8n_delete_execution, n8n_delete_workflow, n8n_diagnostic, n8n_get_execution, n8n_get_workflow, n8n_get_workflow_details, n8n_get_workflow_minimal, n8n_get_workflow_structure, n8n_health_check, n8n_list_available_tools, n8n_list_executions, n8n_list_workflows, n8n_trigger_webhook_workflow, n8n_update_full_workflow, n8n_update_partial"
+            ],
+            "ui_regions": [],
+            "confidence": "high"
+          }
+        ],
+        "contract_findings": [
+          {
+            "id": "missing_titlebar",
+            "severity": "low",
+            "section": "titlebar",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/ui/panels/RcMasterPanel.cpp"
+            ]
+          },
+          {
+            "id": "missing_viewport",
+            "severity": "high",
+            "section": "viewport",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/main.cpp",
+              "visualizer/src/ui/viewport/rc_viewport_overlays.cpp"
+            ]
+          },
+          {
+            "id": "missing_status",
+            "severity": "medium",
+            "section": "status",
+            "expected": "present",
+            "observed": "absent",
+            "probable_paths": [
+              "visualizer/src/ui/rc_ui_root.cpp",
+              "visualizer/src/ui/panels/rc_panel_validation.cpp",
+              "visualizer/src/ui/panels/rc_panel_log.h"
+            ]
+          }
+        ],
+        "code_candidates": [
+          {
+            "path": "visualizer/src/ui/rc_ui_root.cpp",
+            "reason": "contract_finding:missing_titlebar",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+            "reason": "contract_finding:missing_titlebar",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/main.cpp",
+            "reason": "contract_finding:missing_viewport",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/viewport/rc_viewport_overlays.cpp",
+            "reason": "contract_finding:missing_viewport",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/rc_panel_validation.cpp",
+            "reason": "contract_finding:missing_status",
+            "score": 0.85
+          },
+          {
+            "path": "visualizer/src/ui/panels/rc_panel_log.h",
+            "reason": "contract_finding:missing_status",
+            "score": 0.85
+          }
+        ],
+        "actionability": "medium",
+        "warnings": [],
+        "errors": []
+      }
+    ]
+  },
+  "pipeline_query": {
+    "answer": "",
+    "paths_used": [
+      "tools/toolserver.py",
+      "tools/mcp-server/roguecity-mcp/main.py"
+    ],
+    "insufficient_context": false,
+    "confidence": "medium",
+    "mode": "normal",
+    "verifier": {
+      "json_ok": true,
+      "invalid_paths": [],
+      "missing_required_paths": []
+    },
+    "debug": null
+  },
+  "ai_query": {
+    "answer": "",
+    "paths_used": [
+      "tools/toolserver.py",
+      "tools/mcp-server/roguecity-mcp/main.py"
+    ],
+    "insufficient_context": false,
+    "confidence": "medium",
+    "mode": "audit",
+    "verifier": {
+      "json_ok": true,
+      "invalid_paths": [],
+      "missing_required_paths": []
+    },
+    "debug": null
+  },
+  "actionable": {
+    "bridge_health_ok": true,
+    "mcp_self_test_ok": false,
+    "pipeline_answer_present": false,
+    "pipeline_invalid_paths": 0,
+    "pipeline_missing_required": 0,
+    "perception_visual_evidence_count": 2,
+    "perception_warnings": [],
+    "perception_errors": [],
+    "perception_actionability": "medium",
+    "perception_audit_observations": 2,
+    "perception_audit_mismatch_rate": 0.0,
+    "ai_query_invalid_paths": 0,
+    "ai_query_missing_required": 0
+  }
+}

@@ -21,6 +21,7 @@ public:
     
     bool StartBridge();
     void StopBridge();
+    bool RunDevShellCommand(const std::string& commandId, std::string* outError = nullptr);
     
     BridgeStatus GetStatus() const { return m_status; }
     bool IsOnline() const { return m_status == BridgeStatus::Online; }

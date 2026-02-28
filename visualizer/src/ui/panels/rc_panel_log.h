@@ -5,4 +5,5 @@
 namespace RC_UI::Panels::Log {
 void Draw(float dt);
 void DrawContent(float dt);
+int GetEventCount();
 } // namespace RC_UI::Panels::Log

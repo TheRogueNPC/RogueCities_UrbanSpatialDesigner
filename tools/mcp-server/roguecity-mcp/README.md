@@ -1,0 +1,54 @@
+# RogueCity MCP Server
+
+Python MCP server for the RogueCity local AI toolchain.  
+It exposes an allowlisted set of tools for bridge control, build/snapshot orchestration, perception, and pipeline query/eval.
+
+## Tools
+
+- `rc_bridge_status`
+- `rc_bridge_restart`
+- `rc_bridge_start_local`
+- `rc_bridge_stop_local`
+- `rc_build_visualizer`
+- `rc_run_headless_snapshot`
+- `rc_perceive_ui`
+- `rc_pipeline_query`
+- `rc_pipeline_eval`
+- `rc_env_validate`
+- `rc_observe_and_map`
+- `rc_generate_audit_report`
+
+No raw shell execution tool is exposed in v1.
+
+## Run (stdio)
+
+```bash
+python main.py --transport stdio
+```
+
+## Self-test (no MCP client required)
+
+```bash
+python main.py --self-test --toolserver-url http://127.0.0.1:7077
+```
+
+## Run (SSE, optional)
+
+```bash
+python main.py --transport sse --port 3110
+```
+
+## Common arguments
+
+- `--toolserver-url http://127.0.0.1:7077`
+- `--repo-root <absolute-path-to-repo>`
+
+## Notes
+
+- Perception and pipeline tools require toolserver v2 endpoints enabled (`RC_AI_PIPELINE_V2=on`).
+- Bridge restart uses allowlisted scripts:
+  - `tools/Start_Ai_Bridge_Fixed.ps1`
+  - `tools/Stop_Ai_Bridge_Fixed.ps1`
+- Build tool enforces allowlisted targets/presets only.
+- Path-bearing tools sanitize inputs to repository-relative safe paths.
+- `rc_bridge_start_local` is the same-environment option for WSL/Linux MCP clients.

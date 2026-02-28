@@ -1353,6 +1353,111 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
 #endif
 }
 
+static void DrawRuntimeTitlebar() {
+  ImGuiViewport *viewport = ImGui::GetMainViewport();
+  if (viewport == nullptr) {
+    return;
+  }
+
+  constexpr float kTitlebarHeight = 34.0f;
+  ImGui::SetNextWindowPos(viewport->Pos, ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, kTitlebarHeight),
+                           ImGuiCond_Always);
+  ImGui::SetNextWindowViewport(viewport->ID);
+  ImGui::SetNextWindowBgAlpha(0.94f);
+
+  const ImGuiWindowFlags flags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
+      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
+      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
+      ImGuiWindowFlags_NoInputs;
+
+  const bool open =
+      ImGui::Begin("Rogue Titlebar###RC_RuntimeTitlebar", nullptr, flags);
+  auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
+  uiint.BeginPanel(
+      RogueCity::UIInt::PanelMeta{
+          "Rogue Titlebar",
+          "Titlebar",
+          "titlebar",
+          "Top",
+          "visualizer/src/ui/rc_ui_root.cpp",
+          {"titlebar", "chrome", "runtime"}},
+      open);
+
+  if (open) {
+    const std::string mode = ActiveModeFromHFSM();
+    ImGui::TextUnformatted("ROGUECITY URBAN SPATIAL DESIGNER");
+    ImGui::SameLine();
+    ImGui::TextDisabled("| Mode: %s", mode.c_str());
+    uiint.RegisterWidget({"text", "Titlebar Brand", "titlebar.brand", {"titlebar"}});
+    uiint.RegisterWidget({"text", "Mode Indicator", "titlebar.mode", {"titlebar"}});
+  }
+
+  uiint.EndPanel();
+  ImGui::End();
+}
+
+static void DrawRuntimeStatusBar() {
+  ImGuiViewport *viewport = ImGui::GetMainViewport();
+  if (viewport == nullptr) {
+    return;
+  }
+
+  constexpr float kStatusHeight = 28.0f;
+  ImGui::SetNextWindowPos(
+      ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - kStatusHeight),
+      ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, kStatusHeight),
+                           ImGuiCond_Always);
+  ImGui::SetNextWindowViewport(viewport->ID);
+  ImGui::SetNextWindowBgAlpha(0.90f);
+
+  const ImGuiWindowFlags flags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
+      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
+      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
+      ImGuiWindowFlags_NoInputs;
+
+  const bool open =
+      ImGui::Begin("Rogue Status Bar###RC_RuntimeStatusBar", nullptr, flags);
+  auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
+  uiint.BeginPanel(
+      RogueCity::UIInt::PanelMeta{
+          "Rogue Status Bar",
+          "Status Bar",
+          "status",
+          "Bottom",
+          "visualizer/src/ui/rc_ui_root.cpp",
+          {"status", "runtime"}},
+      open);
+
+  if (open) {
+    auto &gs = RogueCity::Core::Editor::GetGlobalState();
+    const int log_events = Panels::Log::GetEventCount();
+    const int validation_events = Panels::Validation::GetValidationEventCount();
+    const bool validation_failed = Panels::Validation::HasValidationFailure();
+    const bool dirty = gs.dirty_layers.AnyDirty();
+
+    const char *validation_state = validation_failed ? "REJECTED"
+                                  : (gs.plan_approved ? "APPROVED" : "PENDING");
+
+    ImGui::Text("Status: %s", validation_state);
+    ImGui::SameLine();
+    ImGui::TextDisabled("| Validation: %d", validation_events);
+    ImGui::SameLine();
+    ImGui::TextDisabled("| Log: %d", log_events);
+    ImGui::SameLine();
+    ImGui::TextDisabled("| Dirty: %s", dirty ? "yes" : "no");
+    uiint.RegisterWidget({"text", "Status Summary", "status.summary", {"status"}});
+  }
+
+  uiint.EndPanel();
+  ImGui::End();
+}
+
 void DrawRoot(float dt) {
   // Initialize minimap on first call
   InitializeMinim();
@@ -1406,6 +1511,9 @@ void DrawRoot(float dt) {
   // steals focus/input.
   UpdateDockLayout(0);
 #endif
+
+  DrawRuntimeTitlebar();
+  DrawRuntimeStatusBar();
 
   // MASTER PANEL SYSTEM (RC-0.10)
   // Single canonical UI path: dock host -> master panel (drawer registry) ->

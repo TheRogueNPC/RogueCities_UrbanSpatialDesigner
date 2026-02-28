@@ -7,7 +7,9 @@ param(
     [switch]$NonInteractive,
     [switch]$ForceRestart,
     [switch]$EnableReload,
-    [int]$Port = 7077
+    [int]$Port = 7077,
+    [string]$BindHost = "127.0.0.1",
+    [switch]$BindAll
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +25,8 @@ $ToolServerPath = Join-Path $RepoRoot "tools\toolserver.py"
 $PidFile = Join-Path $PSScriptRoot ".run\toolserver.pid"
 $PythonExe = $null
 $PythonArgsPrefix = @()
+if ($BindAll) { $BindHost = "0.0.0.0" }
+if (-not $BindHost) { $BindHost = "127.0.0.1" }
 
 function Test-PythonCommand {
     param([string[]]$Args)
@@ -37,6 +41,7 @@ function Test-PythonCommand {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
             return $false
         }
+        $process.WaitForExit()
         return ($process.ExitCode -eq 0)
     } catch {
         return $false
@@ -81,7 +86,7 @@ function Get-BridgeMode {
         $probeReq = @{
             snapshot = @{ panels = @() }
             goal = "mode-probe"
-            model = "deepseek-coder-v2:16b"
+            model = "gemma3:4b"
         } | ConvertTo-Json -Depth 6
         $probeResp = Invoke-RestMethod -Uri "http://127.0.0.1:$ProbePort/ui_agent" -Method Post -ContentType "application/json" -Body $probeReq -TimeoutSec 4
         if ($probeResp -and ($probeResp.PSObject.Properties.Name -contains "mock") -and $probeResp.mock -eq $true) {
@@ -93,16 +98,65 @@ function Get-BridgeMode {
     }
 }
 
+function Test-PipelineV2Endpoint {
+    param([int]$ProbePort)
+    try {
+        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$ProbePort/pipeline/query" -Method Get -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        return ($resp.StatusCode -ne 404)
+    } catch {
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $status = [int]$_.Exception.Response.StatusCode
+            return ($status -ne 404)
+        }
+        return $false
+    }
+}
+
 function Write-ManualRecoveryCommands {
     param([int]$RecoveryPort)
     $stopCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\Stop_Ai_Bridge_Fixed.ps1`" -NonInteractive -Port $RecoveryPort"
-    $startCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\Start_Ai_Bridge_Fixed.ps1`" -MockMode:`$false -NonInteractive -ForceRestart -Port $RecoveryPort"
+    $bindArgs = ""
+    if ($BindAll) {
+        $bindArgs = " -BindAll"
+    } elseif ($BindHost -and $BindHost -ne "127.0.0.1") {
+        $bindArgs = " -BindHost $BindHost"
+    }
+    $startCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\Start_Ai_Bridge_Fixed.ps1`" -MockMode:`$false -NonInteractive -ForceRestart -Port $RecoveryPort$bindArgs"
     Write-Host ""
     Write-Host "PORT OCCUPIED - manual recovery commands:" -ForegroundColor Yellow
     Write-Host "Stop listener (run in cmd or pwsh):" -ForegroundColor Yellow
     Write-Host "  $stopCmd" -ForegroundColor White
     Write-Host "Restart server (run in cmd or pwsh):" -ForegroundColor Yellow
     Write-Host "  $startCmd" -ForegroundColor White
+}
+
+function Set-DefaultIfEmpty {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+    $existing = [string](Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue).Value
+    if (-not $existing) {
+        Set-Item -Path "Env:$Name" -Value $Value
+    }
+}
+
+function Initialize-AiCompatibilityEnv {
+    param([int]$BridgePort)
+    # Keep defaults deterministic, but do not override explicitly provided environment values.
+    Set-DefaultIfEmpty -Name "RC_AI_PIPELINE_V2" -Value "on"
+    Set-DefaultIfEmpty -Name "RC_AI_AUDIT_STRICT" -Value "off"
+    Set-DefaultIfEmpty -Name "RC_AI_CONTROLLER_MODEL" -Value "functiongemma"
+    Set-DefaultIfEmpty -Name "RC_AI_TRIAGE_MODEL" -Value "codegemma:2b"
+    Set-DefaultIfEmpty -Name "RC_AI_SYNTH_FAST_MODEL" -Value "gemma3:4b"
+    Set-DefaultIfEmpty -Name "RC_AI_SYNTH_ESCALATION_MODEL" -Value "gemma3:12b"
+    Set-DefaultIfEmpty -Name "RC_AI_EMBEDDING_MODEL" -Value "embeddinggemma"
+    Set-DefaultIfEmpty -Name "RC_AI_VISION_MODEL" -Value "granite3.2-vision"
+    Set-DefaultIfEmpty -Name "RC_AI_OCR_MODEL" -Value "glm-ocr"
+    Set-DefaultIfEmpty -Name "OLLAMA_FLASH_ATTENTION" -Value "1"
+    Set-DefaultIfEmpty -Name "OLLAMA_KV_CACHE_TYPE" -Value "f16"
+    Set-DefaultIfEmpty -Name "OLLAMA_BASE_URL" -Value "http://127.0.0.1:11434"
+    $env:RC_AI_BRIDGE_BASE_URL = "http://127.0.0.1:$BridgePort"
 }
 
 # Create .run directory
@@ -119,6 +173,7 @@ if (-not (Test-Path $ToolServerPath)) {
     exit 1
 }
 Write-Host "? Found toolserver.py" -ForegroundColor Green
+Initialize-AiCompatibilityEnv -BridgePort $Port
 
 # Resolve Python launcher (py/python/python3 plus common install paths)
 $launcherCandidates = @()
@@ -185,9 +240,15 @@ foreach ($pkg in $packages) {
 }
 
 if ($missing.Count -gt 0) {
-    Write-Host "? Package probe reported missing modules: $($missing -join ', ')" -ForegroundColor Yellow
-    Write-Host "  Continuing; startup health check will validate runtime dependencies." -ForegroundColor Yellow
-    Write-Host "  If startup fails, install with: pip install $($missing -join ' ')" -ForegroundColor Gray
+    if ($missing.Count -eq $packages.Count) {
+        Write-Host "? Package probe is inconclusive in this shell context (all imports failed probe)." -ForegroundColor Yellow
+        Write-Host "  Continuing; startup health check will validate runtime dependencies." -ForegroundColor Yellow
+        Write-Host "  If startup fails, install with: pip install $($packages -join ' ')" -ForegroundColor Gray
+    } else {
+        Write-Host "? Package probe reported missing modules: $($missing -join ', ')" -ForegroundColor Yellow
+        Write-Host "  Continuing; startup health check will validate runtime dependencies." -ForegroundColor Yellow
+        Write-Host "  If startup fails, install with: pip install $($missing -join ' ')" -ForegroundColor Gray
+    }
 } else {
     Write-Host "? All packages installed" -ForegroundColor Green
 }
@@ -206,7 +267,7 @@ if ($portInUse) {
         Write-Host "ForceRestart enabled: stopping existing listener before relaunch..." -ForegroundColor Yellow
         $stopScript = Join-Path $PSScriptRoot "Stop_Ai_Bridge_Fixed.ps1"
         if (Test-Path -LiteralPath $stopScript) {
-            & $stopScript -NonInteractive
+            & $stopScript -NonInteractive -Port:$Port
             Start-Sleep -Milliseconds 500
         }
 
@@ -224,6 +285,12 @@ if ($portInUse) {
                     exit 1
                 }
                 if ($existingMode -eq "live") {
+                    if ($env:RC_AI_PIPELINE_V2 -and -not (Test-PipelineV2Endpoint -ProbePort $Port)) {
+                        Write-Host "? ERROR: Existing live bridge is healthy but does not expose /pipeline/query (legacy process)." -ForegroundColor Red
+                        Write-Host "Stop and relaunch from owning shell to load the updated toolserver." -ForegroundColor Yellow
+                        Write-ManualRecoveryCommands -RecoveryPort $Port
+                        exit 1
+                    }
                     Write-Host "? Existing bridge is healthy and already in live mode; reusing current instance." -ForegroundColor Green
                     exit 0
                 }
@@ -256,14 +323,16 @@ if ($MockMode) {
 } else {
     $env:ROGUECITY_TOOLSERVER_MOCK = $null
     Write-Host "? Live mode enabled (requires Ollama)" -ForegroundColor Green
+    $ollamaBase = if ($env:OLLAMA_BASE_URL) { $env:OLLAMA_BASE_URL.TrimEnd('/') } else { "http://127.0.0.1:11434" }
     
     # Check Ollama if live mode
     try {
-        $ollamaTest = Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        $ollamaTest = Invoke-WebRequest -Uri "$ollamaBase/api/tags" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
         Write-Host "? Ollama detected" -ForegroundColor Green
     } catch {
         Write-Host "? ERROR: Ollama not running" -ForegroundColor Red
-        Write-Host "Start Ollama first with: ollama serve" -ForegroundColor Yellow
+        Write-Host "Tried: $ollamaBase/api/tags" -ForegroundColor Gray
+        Write-Host "Start Ollama first with: ollama serve (or set OLLAMA_BASE_URL)" -ForegroundColor Yellow
         if (-not $NonInteractive) { pause }
         exit 1
     }
@@ -273,7 +342,9 @@ Write-Host ""
 Write-Host "Starting toolserver..." -ForegroundColor Yellow
 Write-Host "  Path: $ToolServerPath" -ForegroundColor Gray
 Write-Host "  Port: $Port" -ForegroundColor Gray
+Write-Host "  BindHost: $BindHost" -ForegroundColor Gray
 Write-Host "  Mode: $(if ($MockMode) { 'Mock' } else { 'Live' })" -ForegroundColor Gray
+Write-Host "  OllamaBase: $env:OLLAMA_BASE_URL" -ForegroundColor Gray
 Write-Host "  Reload: $(if ($EnableReload) { 'On' } else { 'Off' })" -ForegroundColor Gray
 Write-Host ""
 
@@ -285,7 +356,7 @@ try {
     $uvicornArgs = @($PythonArgsPrefix + @(
         "-m", "uvicorn",
         "tools.toolserver:app",
-        "--host", "127.0.0.1",
+        "--host", "$BindHost",
         "--port", "$Port"
     ))
     if ($EnableReload) {
@@ -339,6 +410,29 @@ try {
     Write-Host "  POST http://127.0.0.1:$Port/ui_agent" -ForegroundColor White
     Write-Host "  POST http://127.0.0.1:$Port/city_spec" -ForegroundColor White
     Write-Host "  POST http://127.0.0.1:$Port/ui_design_assistant" -ForegroundColor White
+    if (Test-PipelineV2Endpoint -ProbePort $Port) {
+        Write-Host "  POST http://127.0.0.1:$Port/pipeline/query" -ForegroundColor White
+        Write-Host "  POST http://127.0.0.1:$Port/pipeline/eval" -ForegroundColor White
+        Write-Host "  POST http://127.0.0.1:$Port/perception/observe" -ForegroundColor White
+        Write-Host "  POST http://127.0.0.1:$Port/perception/audit" -ForegroundColor White
+    } elseif ($env:RC_AI_PIPELINE_V2) {
+        Write-Host "  WARNING: RC_AI_PIPELINE_V2 is enabled but /pipeline/query is not available on this bridge process." -ForegroundColor Yellow
+    }
+    if ($BindAll) {
+        Write-Host "Cross-host access enabled (BindAll)." -ForegroundColor Yellow
+        Write-Host "WSL/Linux candidates:" -ForegroundColor Yellow
+        Write-Host "  http://host.docker.internal:$Port/health" -ForegroundColor White
+        try {
+            $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -and $_.IPAddress -notlike "169.254.*" -and $_.IPAddress -ne "127.0.0.1" } |
+                Select-Object -First 1 -ExpandProperty IPAddress)
+            if ($ip) {
+                Write-Host "  http://$ip`:$Port/health" -ForegroundColor White
+            }
+        } catch {
+            # best effort only
+        }
+    }
     Write-Host ""
     Write-Host "The toolserver is running in the background." -ForegroundColor Cyan
     Write-Host "Run Stop_Ai_Bridge.ps1 to stop it." -ForegroundColor Cyan

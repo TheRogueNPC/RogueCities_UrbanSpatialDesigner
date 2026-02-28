@@ -8,15 +8,19 @@ actionable PASS/WARN/FAIL items.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import platform
 import shlex
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List
+from urllib.parse import urlparse, urlunparse
 
 
 @dataclass
@@ -263,6 +267,190 @@ def check_code_cli() -> CheckResult:
     return CheckResult("code_cli", "PASS", "VS Code CLI available.", [f"version={version}"])
 
 
+def check_ai_config(root: Path) -> CheckResult:
+    cfg_path = root / "AI" / "ai_config.json"
+    if not cfg_path.exists():
+        return CheckResult("ai_config", "FAIL", "AI config file missing.", [str(cfg_path)])
+    cfg = parse_json(cfg_path)
+    if not isinstance(cfg, dict):
+        return CheckResult("ai_config", "FAIL", "AI config is invalid JSON.", [str(cfg_path)])
+
+    required_keys = [
+        "controller_model",
+        "triage_model",
+        "synth_fast_model",
+        "synth_escalation_model",
+        "embedding_model",
+        "vision_model",
+        "ocr_model",
+        "pipeline_v2_enabled",
+        "bridge_base_url",
+    ]
+    problems: List[str] = []
+    for key in required_keys:
+        if key not in cfg:
+            problems.append(f"Missing key: {key}")
+
+    legacy_keys = ["ui_agent_model", "city_spec_model", "code_assistant_model", "naming_model"]
+    deepseek_legacy = [k for k in legacy_keys if "deepseek" in str(cfg.get(k, "")).lower()]
+    if deepseek_legacy:
+        problems.append(f"Legacy model keys still point to deepseek: {', '.join(deepseek_legacy)}")
+
+    if not bool(cfg.get("pipeline_v2_enabled", False)):
+        problems.append("pipeline_v2_enabled is false")
+
+    if problems:
+        return CheckResult("ai_config", "WARN", "AI config needs compatibility alignment.", problems)
+    return CheckResult("ai_config", "PASS", "AI config is Gemma-first and pipeline-ready.", [])
+
+
+def check_bridge_scripts(root: Path) -> CheckResult:
+    scripts = [
+        root / "tools" / "Start_Ai_Bridge_Fixed.ps1",
+        root / "tools" / "Stop_Ai_Bridge_Fixed.ps1",
+        root / "tools" / "start_ai_bridge_wsl.sh",
+        root / "tools" / "stop_ai_bridge_wsl.sh",
+        root / "tools" / "dev-shell.ps1",
+        root / "tools" / "toolserver.py",
+    ]
+    missing = [str(p.relative_to(root)) for p in scripts if not p.exists()]
+    if missing:
+        return CheckResult("ai_bridge_scripts", "FAIL", "Required bridge scripts are missing.", missing)
+    return CheckResult("ai_bridge_scripts", "PASS", "Bridge script surface present.", [])
+
+
+def check_python_ai_modules() -> CheckResult:
+    modules = ["fastapi", "uvicorn", "httpx", "pydantic", "mcp"]
+    missing = [m for m in modules if importlib.util.find_spec(m) is None]
+    if missing:
+        return CheckResult(
+            "python_ai_modules",
+            "WARN",
+            "Some Python AI modules are missing.",
+            [f"missing={', '.join(missing)}", "Install: python -m pip install fastapi uvicorn httpx pydantic mcp[cli]"],
+        )
+    return CheckResult("python_ai_modules", "PASS", "Python AI modules are installed.", [])
+
+
+def check_mcp_server(root: Path) -> CheckResult:
+    mcp_root = root / "tools" / "mcp-server" / "roguecity-mcp"
+    required = [
+        mcp_root / "main.py",
+        mcp_root / "pyproject.toml",
+        mcp_root / "README.md",
+    ]
+    missing = [str(p.relative_to(root)) for p in required if not p.exists()]
+    if missing:
+        return CheckResult("roguecity_mcp", "FAIL", "RogueCity MCP server is incomplete.", missing)
+    return CheckResult("roguecity_mcp", "PASS", "RogueCity MCP server files present.", [str(mcp_root.relative_to(root))])
+
+
+def _normalize_base_url(raw: str) -> str | None:
+    text = str(raw or "").strip().rstrip("/")
+    if not text:
+        return None
+    if "://" not in text:
+        text = f"http://{text}"
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return urlunparse((parsed.scheme, parsed.netloc, "", "", "", "")).rstrip("/")
+
+
+def _ollama_base_candidates() -> List[str]:
+    out: List[str] = []
+    seen = set()
+
+    def _push(raw: str) -> None:
+        base = _normalize_base_url(raw)
+        if base and base not in seen:
+            seen.add(base)
+            out.append(base)
+
+    _push(os.getenv("OLLAMA_BASE_URL", ""))
+    _push(os.getenv("OLLAMA_HOST", ""))
+    _push("http://127.0.0.1:11434")
+    if os.name != "nt":
+        _push("http://host.docker.internal:11434")
+        resolv = Path("/etc/resolv.conf")
+        if resolv.exists():
+            try:
+                for line in resolv.read_text(encoding="utf-8", errors="ignore").splitlines():
+                    if line.strip().startswith("nameserver "):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            _push(f"http://{parts[1].strip()}:11434")
+                        break
+            except Exception:
+                pass
+
+    return out
+
+
+def check_ollama_models() -> CheckResult:
+    required_models = [
+        "functiongemma:latest",
+        "embeddinggemma:latest",
+        "codegemma:2b",
+        "gemma3:4b",
+        "gemma3:12b",
+        "granite3.2-vision:latest",
+        "glm-ocr:latest",
+    ]
+    payload = None
+    used_url = ""
+    tried_urls: List[str] = []
+    last_error = ""
+    for base in _ollama_base_candidates():
+        url = f"{base}/api/tags"
+        tried_urls.append(url)
+        try:
+            with urllib.request.urlopen(url, timeout=3) as response:
+                if response.status != 200:
+                    last_error = f"status={response.status}"
+                    continue
+                payload = json.loads(response.read().decode("utf-8", errors="ignore"))
+                used_url = url
+                break
+        except urllib.error.URLError as exc:
+            last_error = str(exc)
+            continue
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
+    if payload is None:
+        return CheckResult(
+            "ollama_stack",
+            "WARN",
+            "Ollama is not reachable on candidate endpoints.",
+            [
+                f"tried={', '.join(tried_urls) if tried_urls else 'none'}",
+                f"last_error={last_error}" if last_error else "last_error=unknown",
+                "Set OLLAMA_BASE_URL if Ollama is hosted outside this runtime.",
+            ],
+        )
+
+    models = [str(m.get("name", "")) for m in payload.get("models", []) if isinstance(m, dict)]
+    missing = [m for m in required_models if m not in models]
+    if missing:
+        return CheckResult(
+            "ollama_stack",
+            "WARN",
+            "Ollama is reachable but required models are missing.",
+            [f"missing={', '.join(missing)}"],
+        )
+    return CheckResult(
+        "ollama_stack",
+        "PASS",
+        "Ollama model stack is complete.",
+        [f"models={len(models)}", f"source={used_url or 'unknown'}"],
+    )
+
+
 def render_human(results: List[CheckResult]) -> None:
     print("RogueCities Env Doctor")
     print("=" * 24)
@@ -294,6 +482,11 @@ def main() -> int:
         check_toolchain(root),
         check_problems_bridge(root),
         check_code_cli(),
+        check_ai_config(root),
+        check_bridge_scripts(root),
+        check_python_ai_modules(),
+        check_mcp_server(root),
+        check_ollama_models(),
     ]
 
     if args.json:
