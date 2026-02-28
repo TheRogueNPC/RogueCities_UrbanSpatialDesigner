@@ -1,0 +1,96 @@
+[
+  {
+    "id": "case_root_ui_layout",
+    "prompt": "Name the primary UI root implementation file and one master-panel file used in this workspace.",
+    "files": [
+      "visualizer/src/ui/rc_ui_root.cpp",
+      "visualizer/src/ui/panels/RcMasterPanel.cpp"
+    ],
+    "required_paths": [
+      "visualizer/src/ui/rc_ui_root.cpp",
+      "visualizer/src/ui/panels/RcMasterPanel.cpp"
+    ],
+    "search_patterns": [
+      "RcMasterPanel",
+      "DrawRoot"
+    ]
+  },
+  {
+    "id": "case_bridge_scripts",
+    "prompt": "Identify the start and stop bridge scripts used by the dev shell.",
+    "files": [
+      "tools/dev-shell.ps1",
+      "tools/Start_Ai_Bridge_Fixed.ps1",
+      "tools/Stop_Ai_Bridge_Fixed.ps1"
+    ],
+    "required_paths": [
+      "tools/Start_Ai_Bridge_Fixed.ps1",
+      "tools/Stop_Ai_Bridge_Fixed.ps1"
+    ],
+    "search_patterns": [
+      "rc-ai-start",
+      "rc-ai-stop"
+    ]
+  },
+  {
+    "id": "case_ai_config_defaults",
+    "prompt": "Which files contain AI bridge/model fallback defaults?",
+    "files": [
+      "AI/config/AiConfig.h",
+      "AI/config/AiConfig.cpp",
+      "AI/ai_config.json"
+    ],
+    "required_paths": [
+      "AI/config/AiConfig.h",
+      "AI/config/AiConfig.cpp"
+    ],
+    "search_patterns": [
+      "bridge_base_url",
+      "deepseek-coder-v2:16b"
+    ]
+  },
+  {
+    "id": "case_mockup_contract",
+    "prompt": "Name the mockup HTML source and the workspace panel implementation that links mockup tokens.",
+    "files": [
+      "visualizer/RC_UI_Mockup.html",
+      "visualizer/src/ui/panels/rc_panel_workspace.cpp"
+    ],
+    "required_paths": [
+      "visualizer/RC_UI_Mockup.html",
+      "visualizer/src/ui/panels/rc_panel_workspace.cpp"
+    ],
+    "search_patterns": [
+      "Mockup",
+      "Live Link"
+    ]
+  },
+  {
+    "id": "case_headless_export_cli",
+    "prompt": "Identify the headless main file where --export-ui-snapshot is handled.",
+    "files": [
+      "visualizer/src/main.cpp"
+    ],
+    "required_paths": [
+      "visualizer/src/main.cpp"
+    ],
+    "search_patterns": [
+      "--export-ui-snapshot",
+      "SaveSnapshotJson"
+    ]
+  },
+  {
+    "id": "case_toolserver_contract",
+    "prompt": "Name the toolserver file and mention where health/shutdown endpoints are defined.",
+    "files": [
+      "tools/toolserver.py"
+    ],
+    "required_paths": [
+      "tools/toolserver.py"
+    ],
+    "search_patterns": [
+      "/health",
+      "/admin/shutdown"
+    ]
+  }
+]

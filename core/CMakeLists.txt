@@ -39,6 +39,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Validation/EditorIntegrity.hpp
     include/RogueCity/Core/Validation/EditorOverlayValidation.hpp
     include/RogueCity/Core/Validation/DeterminismHash.hpp
+    include/RogueCity/Core/Validation/AiTelemetry.hpp
 )
 
 set(CORE_SOURCES
@@ -65,6 +66,7 @@ set(CORE_SOURCES
     src/Core/Validation/EditorIntegrity.cpp
     src/Core/Validation/EditorOverlayValidation.cpp
     src/Core/Validation/DeterminismHash.cpp
+    src/Core/Validation/AiTelemetry.cpp
 )
 
 # === LIBRARY TARGET ===
@@ -76,6 +78,9 @@ target_include_directories(RogueCityCore PUBLIC
     $<BUILD_INTERFACE:${MAGIC_ENUM_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/3rdparty/Clipper2/CPP/Clipper2Lib/include>
     $<INSTALL_INTERFACE:include>
+)
+target_include_directories(RogueCityCore PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include>
 )
 
 # === DEPENDENCIES ===

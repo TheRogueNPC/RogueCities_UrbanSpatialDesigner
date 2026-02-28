@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import platform
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -97,13 +98,57 @@ def check_vscode_settings(root: Path) -> CheckResult:
 
 
 def check_compile_commands(root: Path) -> CheckResult:
-    cc_path = root / "build_vs" / "compile_commands.json"
-    if not cc_path.exists():
+    settings = parse_json(root / ".vscode" / "settings.json") or {}
+    presets = parse_json(root / "CMakePresets.json") or {}
+
+    expected_path_setting = settings.get("C_Cpp.default.compileCommands")
+    expected_path: Path | None = None
+    if isinstance(expected_path_setting, str) and expected_path_setting:
+        expected_str = expected_path_setting.replace("${workspaceFolder}", str(root))
+        expected_path = Path(expected_str).resolve()
+
+    candidate_paths = []
+    if expected_path is not None:
+        candidate_paths.append(expected_path)
+    candidate_paths.extend(
+        [
+            root / "build_ninja" / "compile_commands.json",
+            root / "build_vs" / "compile_commands.json",
+            root / "cmake-build-debug" / "compile_commands.json",
+        ]
+    )
+    # Preserve order while de-duplicating.
+    deduped_paths: List[Path] = []
+    seen = set()
+    for p in candidate_paths:
+        key = str(p)
+        if key not in seen:
+            seen.add(key)
+            deduped_paths.append(p)
+
+    cc_path = next((p for p in deduped_paths if p.exists()), None)
+    if cc_path is None:
+        is_vs_preset = False
+        for preset in presets.get("configurePresets", []):
+            generator = str(preset.get("generator", ""))
+            if "Visual Studio" in generator:
+                is_vs_preset = True
+                break
+        if is_vs_preset:
+            return CheckResult(
+                "compile_commands",
+                "WARN",
+                "No compile_commands.json found; valid for Visual Studio generator workflow.",
+                [
+                    "VS generators may not emit compile_commands.json.",
+                    "Optional: generate via Ninja: cmake -S . -B build_ninja -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                ],
+            )
         return CheckResult(
             "compile_commands",
             "FAIL",
             "compile_commands.json not found.",
-            ["Run: Configure (dev preset) task"],
+            ["Generate one: cmake -S . -B build_ninja -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"],
         )
     obj = parse_json(cc_path)
     if not isinstance(obj, list):
@@ -112,10 +157,20 @@ def check_compile_commands(root: Path) -> CheckResult:
         return CheckResult("compile_commands", "WARN", "compile_commands.json is empty.", [])
 
     has_std = False
-    has_sdk_include = False
+    has_msvc_or_sdk_include = False
+    has_any_include_flag = False
     for entry in obj:
         args = entry.get("arguments", [])
+        if not args:
+            command = entry.get("command", "")
+            if isinstance(command, str) and command.strip():
+                try:
+                    args = shlex.split(command, posix=False)
+                except ValueError:
+                    args = command.split()
         if any(isinstance(a, str) and a.startswith("/std:") for a in args):
+            has_std = True
+        if any(isinstance(a, str) and a.startswith("-std=") for a in args):
             has_std = True
         if any(
             isinstance(a, str)
@@ -123,23 +178,27 @@ def check_compile_commands(root: Path) -> CheckResult:
             and ("Microsoft Visual Studio" in a or "Windows Kits" in a)
             for a in args
         ):
-            has_sdk_include = True
-        if has_std and has_sdk_include:
+            has_msvc_or_sdk_include = True
+        if any(isinstance(a, str) and (a.startswith("/I") or a.startswith("-I")) for a in args):
+            has_any_include_flag = True
+        if has_std and (has_msvc_or_sdk_include or has_any_include_flag):
             break
 
-    details: List[str] = [f"entries={len(obj)}"]
+    details: List[str] = [f"path={cc_path}", f"entries={len(obj)}"]
     if not has_std:
-        details.append("No /std: flag found in first compile entry.")
-    if not has_sdk_include:
-        details.append("No MSVC/Windows SDK include path found in first compile entry.")
+        details.append("No C++ standard flag found (/std: or -std=).")
+    if not has_any_include_flag:
+        details.append("No include flag found (/I or -I).")
+    elif not has_msvc_or_sdk_include:
+        details.append("No MSVC/Windows SDK include path found (valid for non-MSVC Ninja toolchains).")
 
-    status = "PASS" if has_std and has_sdk_include else "WARN"
+    status = "PASS" if has_std and has_any_include_flag else "WARN"
     message = "compile_commands.json looks healthy." if status == "PASS" else "compile_commands.json may be incomplete."
     return CheckResult("compile_commands", status, message, details)
 
 
 def check_toolchain(root: Path) -> CheckResult:
-    cmd = ".vscode\\vsdev-init.cmd >NUL && where cl && where cmake && where msbuild && echo VSCMD_VER=%VSCMD_VER%"
+    cmd = ".vscode\\vsdev-init.cmd >NUL && set VSCMD_VER && where cl && where cmake && where msbuild"
     result = run_command(cmd, prefer_windows_shell=True)
     if result.returncode != 0:
         return CheckResult(

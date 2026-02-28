@@ -21,12 +21,12 @@ bool AiConfigManager::LoadFromFile(const std::string& path) {
         nlohmann::json j;
         file >> j;
         
-        m_config.startScript = j.value("start_script", "tools/Start_Ai_Bridge.ps1");
-        m_config.stopScript = j.value("stop_script", "tools/Stop_Ai_Bridge.ps1");
-        m_config.uiAgentModel = j.value("ui_agent_model", "qwen2.5:latest");
-        m_config.citySpecModel = j.value("city_spec_model", "qwen2.5:latest");
-        m_config.codeAssistantModel = j.value("code_assistant_model", "qwen3-coder-optimized:latest");
-        m_config.namingModel = j.value("naming_model", "hermes3:8b");
+        m_config.startScript = j.value("start_script", "tools/Start_Ai_Bridge_Fixed.ps1");
+        m_config.stopScript = j.value("stop_script", "tools/Stop_Ai_Bridge_Fixed.ps1");
+        m_config.uiAgentModel = j.value("ui_agent_model", "deepseek-coder-v2:16b");
+        m_config.citySpecModel = j.value("city_spec_model", "deepseek-coder-v2:16b");
+        m_config.codeAssistantModel = j.value("code_assistant_model", "deepseek-coder-v2:16b");
+        m_config.namingModel = j.value("naming_model", "deepseek-coder-v2:16b");
         m_config.preferPwsh = j.value("prefer_pwsh", true);
         m_config.healthCheckTimeoutSec = j.value("health_check_timeout_sec", 30);
         m_config.bridgeBaseUrl = j.value("bridge_base_url", "http://127.0.0.1:7077");

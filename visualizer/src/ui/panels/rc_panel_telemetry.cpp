@@ -30,10 +30,6 @@ void DrawContent(float dt) {
     return count;
   }();
 
-  ImDrawList *draw_list = ImGui::GetWindowDrawList();
-  const ImVec2 start = ImGui::GetCursorScreenPos();
-  const ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, 120.0f);
-
   static ReactiveF fill;
   const float target_load =
       0.35f * std::clamp(static_cast<float>(dirty_count) / 7.0f, 0.0f, 1.0f) +
@@ -44,91 +40,64 @@ void DrawContent(float dt) {
   fill.target = target_load;
   fill.Update(dt);
 
-  Components::DrawScanlineBackdrop(
-      start, ImVec2(start.x + size.x, start.y + size.y),
-      static_cast<float>(ImGui::GetTime()), UITokens::GreenHUD);
-  const ImVec2 bar_end(start.x + size.x, start.y + size.y);
-  draw_list->AddRectFilled(start, bar_end,
-                           WithAlpha(UITokens::BackgroundDark, 235),
-                           UITokens::RoundingPanel);
-  draw_list->AddRect(start, bar_end, WithAlpha(UITokens::YellowWarning, 180),
-                     UITokens::RoundingPanel, 0, UITokens::BorderNormal);
-
-  const float fill_height = size.y * (0.2f + 0.7f * fill.v);
-  const ImVec2 fill_start(start.x + 8.0f, bar_end.y - fill_height - 8.0f);
-  const ImVec2 fill_end(bar_end.x - 8.0f, bar_end.y - 8.0f);
-  draw_list->AddRectFilled(fill_start, fill_end,
-                           WithAlpha(UITokens::CyanAccent, 180),
-                           UITokens::RoundingButton);
-
-  ImGui::Dummy(size);
-  ImGui::Text("Runtime Pressure");
-  ImGui::ProgressBar(
-      fill.v, ImVec2(-1.0f, 0.0f),
-      (std::to_string(static_cast<int>(fill.v * 100.0f)) + "%").c_str());
-  ImGui::Text("FPS: %.1f  (%.2f ms)", fps, frame_ms);
-  ImGui::Text("Dirty Layers: %d / 7", dirty_count);
-  ImGui::Text("Entities R:%zu D:%zu L:%zu B:%zu", gs.roads.size(),
-              gs.districts.size(), gs.lots.size(), gs.buildings.size());
-  Components::StatusChip(
-      gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED",
-      gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed, true);
-
-  ImGui::Separator();
-  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
-                     "Grid Quality Index");
-
-  auto &gq = gs.grid_quality;
-  const float progress_w = ImGui::GetContentRegionAvail().x * 0.4f;
-
-  ImGui::Text("Composite:");
-  ImGui::SameLine(progress_w);
-  ImGui::ProgressBar(
-      gq.composite_index, ImVec2(-1, 0),
-      (std::to_string(static_cast<int>(gq.composite_index * 100)) + "%")
-          .c_str());
-
-  ImGui::Text("Straightness:");
-  ImGui::SameLine(progress_w);
-  ImGui::ProgressBar(gq.straightness, ImVec2(-1, 0));
-
-  ImGui::Text("Orientation:");
-  ImGui::SameLine(progress_w);
-  ImGui::ProgressBar(gq.orientation_order, ImVec2(-1, 0));
-
-  ImGui::Text("4-Way Prop:");
-  ImGui::SameLine(progress_w);
-  ImGui::ProgressBar(gq.four_way_proportion, ImVec2(-1, 0));
-
-  ImGui::Text("Strokes: %u", gq.total_strokes);
-  ImGui::SameLine();
-  ImGui::Text("Inters: %u", gq.total_intersections);
-
-  ImGui::Separator();
-  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
-                     "Urban Hell Diagnostics");
-
-  if (gq.island_count > 1) {
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
-                       "Disconnected Islands: %u", gq.island_count);
-  } else {
-    ImGui::Text("Network Connectivity: Unified");
+  // Runtime Pressure Section
+  if (Components::DrawSectionHeader("Runtime", UITokens::CyanAccent)) {
+      Components::DrawMeter("Pressure", fill.v, fill.v > 0.8f ? UITokens::ErrorRed : (fill.v > 0.5f ? UITokens::YellowWarning : UITokens::SuccessGreen));
+      
+      char fps_str[32];
+      snprintf(fps_str, sizeof(fps_str), "%.1f (%.2f ms)", fps, frame_ms);
+      Components::DrawDiagRow("FPS", fps_str, fps > 45.0f ? UITokens::SuccessGreen : UITokens::YellowWarning);
+      
+      char dirty_str[32];
+      snprintf(dirty_str, sizeof(dirty_str), "%d / 7", dirty_count);
+      Components::DrawDiagRow("Dirty Layers", dirty_str);
+      
+      char ent_str[64];
+      snprintf(ent_str, sizeof(ent_str), "R:%zu D:%zu L:%zu B:%zu", gs.roads.size(), gs.districts.size(), gs.lots.size(), gs.buildings.size());
+      Components::DrawDiagRow("Entities", ent_str);
+      
+      ImGui::Spacing();
+      Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED", gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed, true);
+      ImGui::Spacing();
   }
 
-  ImGui::Text("Dead Ends: %d%%",
-              static_cast<int>(gq.dead_end_proportion * 100));
-  if (gq.dead_end_proportion > 0.4f) {
-    ImGui::SameLine();
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
-                       "(HIGH SPRAWL)");
+  // Grid Quality Index Section
+  if (Components::DrawSectionHeader("Grid Quality Index", UITokens::CyanAccent)) {
+      auto &gq = gs.grid_quality;
+      
+      Components::DrawMeter("Composite", gq.composite_index, UITokens::SuccessGreen);
+      Components::DrawMeter("Straightness", gq.straightness, UITokens::SuccessGreen);
+      Components::DrawMeter("Orientation", gq.orientation_order, UITokens::InfoBlue);
+      Components::DrawMeter("4-Way Prop", gq.four_way_proportion, UITokens::YellowWarning);
+      
+      ImGui::Spacing();
   }
 
-  if (gq.micro_segment_count > 0) {
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
-                       "Micro-Segments (<1m): %u", gq.micro_segment_count);
-  }
+  // Urban Hell Diagnostics Section
+  if (Components::DrawSectionHeader("Urban Hell Diagnostics", UITokens::YellowWarning)) {
+      auto &gq = gs.grid_quality;
 
-  ImGui::Text("Gamma Index: %.2f", gq.connectivity_index);
+      if (gq.island_count > 1) {
+          Components::DrawDiagRow("Connectivity", (std::string("Disconnected (") + std::to_string(gq.island_count) + ")").c_str(), UITokens::ErrorRed);
+      } else {
+          Components::DrawDiagRow("Connectivity", "Unified", UITokens::SuccessGreen);
+      }
+
+      char dead_ends_str[32];
+      snprintf(dead_ends_str, sizeof(dead_ends_str), "%d%%", static_cast<int>(gq.dead_end_proportion * 100));
+      Components::DrawDiagRow("Dead Ends", dead_ends_str, gq.dead_end_proportion > 0.4f ? UITokens::ErrorRed : UITokens::TextPrimary);
+
+      if (gq.micro_segment_count > 0) {
+          Components::DrawDiagRow("Micro-Segments", std::to_string(gq.micro_segment_count).c_str(), UITokens::YellowWarning);
+      }
+
+      char gamma_str[32];
+      snprintf(gamma_str, sizeof(gamma_str), "%.2f", gq.connectivity_index);
+      Components::DrawDiagRow("Gamma Index", gamma_str);
+      
+      Components::DrawDiagRow("Strokes", std::to_string(gq.total_strokes).c_str());
+      Components::DrawDiagRow("Intersections", std::to_string(gq.total_intersections).c_str());
+  }
 
   uiint.RegisterWidget(
       {"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});

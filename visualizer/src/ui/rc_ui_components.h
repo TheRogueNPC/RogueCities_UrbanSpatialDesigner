@@ -262,4 +262,62 @@ inline bool DrawSectionHeader(const char* label, ImU32 bar_color,
     return open;
 }
 
+/// DrawMeter - renders a stylish, thin progress bar mimicking the mockup .meter-bar
+inline void DrawMeter(const char* label, float value, ImU32 fill_color, const char* value_text = nullptr) {
+    ImGui::PushID(label);
+    
+    // Label
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", label);
+    ImGui::SameLine(90.0f); // Fixed width for label (min-width: 80px in mockup)
+    
+    // Meter Bar
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    pos.y += (ImGui::GetTextLineHeight() - 6.0f) * 0.5f; // Center vertically
+    float bar_width = ImGui::GetContentRegionAvail().x - 45.0f; // Leave room for value text
+    
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    
+    // Background track
+    draw->AddRectFilled(pos, ImVec2(pos.x + bar_width, pos.y + 6.0f), 
+                        WithAlpha(UITokens::BackgroundDark, 200), UITokens::RoundingSubtle);
+    
+    // Fill
+    float fill_w = bar_width * std::clamp(value, 0.0f, 1.0f);
+    if (fill_w > 0) {
+        draw->AddRectFilled(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f), 
+                            fill_color, UITokens::RoundingSubtle);
+        
+        // Add glow effect if it's not a disabled/dim color
+        if (fill_color != UITokens::TextDisabled) {
+            draw->AddRect(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f), 
+                          WithAlpha(fill_color, 100), UITokens::RoundingSubtle, 0, 2.0f);
+        }
+    }
+    
+    ImGui::Dummy(ImVec2(bar_width, 6.0f));
+    
+    // Value text
+    ImGui::SameLine();
+    char buf[32];
+    if (!value_text) {
+        snprintf(buf, sizeof(buf), "%d%%", static_cast<int>(value * 100.0f));
+        value_text = buf;
+    }
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(value_text).x);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", value_text);
+    
+    ImGui::PopID();
+}
+
+/// DrawDiagRow - renders a simple key-value diagnostic row
+inline void DrawDiagRow(const char* label, const char* value, ImU32 value_color = UITokens::TextPrimary) {
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", label);
+    ImGui::SameLine();
+    
+    float val_width = ImGui::CalcTextSize(value).x;
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - val_width);
+    
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(value_color), "%s", value);
+}
+
 } // namespace RC_UI::Components

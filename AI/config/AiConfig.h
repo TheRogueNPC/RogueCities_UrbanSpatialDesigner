@@ -6,12 +6,12 @@ namespace RogueCity::AI {
 
 /// AI system configuration loaded from JSON
 struct AiConfig {
-    std::string startScript = "tools/Start_Ai_Bridge.ps1";
-    std::string stopScript = "tools/Stop_Ai_Bridge.ps1";
-    std::string uiAgentModel = "qwen2.5:latest";
-    std::string citySpecModel = "qwen2.5:latest";
-    std::string codeAssistantModel = "qwen3-coder-optimized:latest";
-    std::string namingModel = "hermes3:8b";
+    std::string startScript = "tools/Start_Ai_Bridge_Fixed.ps1";
+    std::string stopScript = "tools/Stop_Ai_Bridge_Fixed.ps1";
+    std::string uiAgentModel = "deepseek-coder-v2:16b";
+    std::string citySpecModel = "deepseek-coder-v2:16b";
+    std::string codeAssistantModel = "deepseek-coder-v2:16b";
+    std::string namingModel = "deepseek-coder-v2:16b";
     bool preferPwsh = true;
     int healthCheckTimeoutSec = 30;
     std::string bridgeBaseUrl = "http://127.0.0.1:7077";

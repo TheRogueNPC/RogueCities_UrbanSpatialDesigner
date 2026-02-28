@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import httpx
 import json
 import os
+import asyncio
 from typing import Any, Dict, List, Optional
 
 app = FastAPI()
@@ -17,7 +18,22 @@ def _toolserver_mock_enabled() -> bool:
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "RogueCity AI Bridge"}
+    return {
+        "status": "ok",
+        "service": "RogueCity AI Bridge",
+        "mock": _toolserver_mock_enabled(),
+        "pid": os.getpid(),
+    }
+
+@app.post("/admin/shutdown")
+async def admin_shutdown():
+    # Local-only bridge control endpoint (service is bound to 127.0.0.1).
+    async def _shutdown_soon():
+        await asyncio.sleep(0.15)
+        os._exit(0)
+
+    asyncio.create_task(_shutdown_soon())
+    return {"status": "shutting_down", "pid": os.getpid()}
 
 # =======================================================================
 # UI AGENT
@@ -26,7 +42,7 @@ async def health():
 class UiAgentRequest(BaseModel):
     snapshot: dict
     goal: str
-    model: str = "qwen2.5:latest"
+    model: str = "deepseek-coder-v2:16b"
 
 SYSTEM_PROMPT_UI = """You are a UI layout assistant for RogueCity Visualizer.
 Given a UI snapshot and a user goal, respond with JSON commands to adjust the layout.
@@ -83,7 +99,7 @@ async def ui_agent(req: UiAgentRequest):
 class CitySpecRequest(BaseModel):
     description: str
     constraints: dict = {}
-    model: str = "qwen2.5:latest"
+    model: str = "deepseek-coder-v2:16b"
 
 CITYSPEC_SYSTEM_PROMPT = """You are a city design assistant.
 Given a description, generate a structured city specification in JSON format.
@@ -201,7 +217,7 @@ class UiDesignRequest(BaseModel):
     introspection_snapshot: Optional[dict] = None
     pattern_catalog: dict
     goal: str
-    model: str = "qwen2.5:latest"
+    model: str = "deepseek-coder-v2:16b"
 
 class UiDesignResponse(BaseModel):
     updated_layout: dict

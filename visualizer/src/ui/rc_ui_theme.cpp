@@ -43,12 +43,13 @@ void ApplyTheme() {
   ImGui::StyleColorsDark();
   ImGuiStyle &style = ImGui::GetStyle();
 
-  style.WindowRounding = UITokens::RoundingPanel;
-  style.FrameRounding = UITokens::RoundingButton;
-  style.ChildRounding = UITokens::RoundingButton;
-  style.PopupRounding = UITokens::RoundingButton;
-  style.ScrollbarRounding = UITokens::RoundingButton;
-  style.GrabRounding = UITokens::RoundingButton;
+  style.WindowRounding = 0.0f;
+  style.FrameRounding = 0.0f;
+  style.ChildRounding = 0.0f;
+  style.PopupRounding = 0.0f;
+  style.ScrollbarRounding = 0.0f;
+  style.GrabRounding = 0.0f;
+  style.TabRounding = 0.0f;
 
   style.WindowPadding = ImVec2(UITokens::SpaceM, UITokens::SpaceM);
   style.FramePadding = ImVec2(UITokens::SpaceS + 6.0f, UITokens::SpaceS);

@@ -62,6 +62,9 @@ void RcMasterPanel::Draw(float dt) {
         open);
 
     if (open) {
+      // Mockup styling: LCARS / Y2K geometric panel frame
+      RC_UI::Components::DrawPanelFrame(UITokens::CyanAccent);
+
       // Tab bar for category navigation
       DrawTabBar(ctx);
       ImGui::Spacing();
@@ -100,6 +103,13 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
 
   std::vector<PanelType> active_panels;
 
+  ImGui::PushStyleColor(ImGuiCol_TabHovered, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::PanelBackground, 255)));
+  ImGui::PushStyleColor(ImGuiCol_Tab, ImGui::ColorConvertU32ToFloat4(UITokens::BackgroundDark));
+  ImGui::PushStyleColor(ImGuiCol_TabSelected, ImGui::ColorConvertU32ToFloat4(UITokens::PanelBackground));
+  ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary)); // default text dim
+  ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0f);
+
   if (ImGui::BeginTabBar("##MasterPanelTabs",
                          ImGuiTabBarFlags_FittingPolicyScroll)) {
     for (PanelCategory cat : categories) {
@@ -116,14 +126,23 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
         }
       }
 
+      // If active, push primary text color
+      bool is_active_cat = (m_active_category == cat);
+      if (is_active_cat) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+      
       if (ImGui::BeginTabItem(PanelCategoryName(cat))) {
         m_active_category = cat;
         active_panels = panels;
         ImGui::EndTabItem();
       }
+      
+      if (is_active_cat) ImGui::PopStyleColor();
     }
     ImGui::EndTabBar();
   }
+
+  ImGui::PopStyleVar();
+  ImGui::PopStyleColor(5);
 
   if (active_panels.empty()) {
     for (PanelCategory cat : categories) {
@@ -148,9 +167,25 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
   DrawCategoryTab(m_active_category, active_panels);
   ImGui::Spacing();
 
-  ImGui::PushTextWrapPos(0.0f);
-  ImGui::TextDisabled("%s", "(Ctrl+P for search)");
-  ImGui::PopTextWrapPos();
+  // Mockup style search bar
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::ColorConvertU32ToFloat4(UITokens::BackgroundDark));
+  ImGui::PushStyleColor(ImGuiCol_Border, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::CyanAccent, 100)));
+  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextPrimary));
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 4.0f));
+  
+  ImGui::SetNextItemWidth(-1.0f);
+  if (ImGui::InputTextWithHint("##InlineMasterSearch", "Search... (Ctrl+P)", m_search_filter, sizeof(m_search_filter))) {
+      // Typing here directly updates m_search_filter, same as the popup
+      m_search_results = FilterPanelsBySearch(m_search_filter);
+      // If we wanted to, we could show a popover below this. 
+      // For now, it updates the filter string which is used by the popup if it opens.
+  }
+  
+  ImGui::PopStyleVar(2);
+  ImGui::PopStyleColor(3);
+
+  ImGui::Spacing();
   ImGui::Separator();
 }
 
@@ -191,6 +226,13 @@ void RcMasterPanel::DrawCategoryTab(PanelCategory cat,
     break;
   }
 
+  ImGui::PushStyleColor(ImGuiCol_TabHovered, ImGui::ColorConvertU32ToFloat4(UITokens::TextPrimary));
+  ImGui::PushStyleColor(ImGuiCol_Tab, ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(UITokens::PanelBackground, 0)));
+  ImGui::PushStyleColor(ImGuiCol_TabSelected, ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(UITokens::CyanAccent, 40)));
+  ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline, ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent));
+  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
+  ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0f);
+
   if (ImGui::BeginTabBar(sub_tab_id, ImGuiTabBarFlags_FittingPolicyScroll)) {
     for (PanelType type : panels) {
       IPanelDrawer *drawer = registry.GetDrawer(type);
@@ -198,10 +240,15 @@ void RcMasterPanel::DrawCategoryTab(PanelCategory cat,
         continue;
       }
 
+      bool is_active_panel = (m_active_panel == type);
+      if (is_active_panel) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent));
+
       if (ImGui::BeginTabItem(drawer->display_name())) {
         m_active_panel = type;
         ImGui::EndTabItem();
       }
+
+      if (is_active_panel) ImGui::PopStyleColor();
 
       if (ImGui::IsItemHovered() &&
           ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
@@ -235,6 +282,9 @@ void RcMasterPanel::DrawCategoryTab(PanelCategory cat,
 
     ImGui::EndTabBar();
   }
+  
+  ImGui::PopStyleVar();
+  ImGui::PopStyleColor(5);
 }
 
 void RcMasterPanel::DrawActiveDrawer(DrawContext &ctx) {

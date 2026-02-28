@@ -449,27 +449,6 @@ public:
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
 } // namespace DevShell
 
-namespace UISettings {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::UISettings; }
-  const char *display_name() const override { return "UI Settings"; }
-  PanelCategory category() const override { return PanelCategory::System; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_ui_settings.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"system", "settings", "theme", "ui"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::UiSettings::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace UISettings
-
 // ============================================================================
 // AI PANEL DRAWERS (Feature-gated)
 // ============================================================================

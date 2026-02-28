@@ -1,0 +1,268 @@
+{
+  "actions": [],
+  "active_mode": "ROAD",
+  "app_name": "RogueCity Visualizer",
+  "context_tags": [
+    "mode:ROAD",
+    "devshell:inactive"
+  ],
+  "panels": [
+    {
+      "dock_area": "Left",
+      "id": "Master Panel",
+      "owner_module": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+      "role": "container",
+      "tags": [
+        "master",
+        "router",
+        "tabs"
+      ],
+      "title": "Master Panel",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "Roads[]",
+          "label": "Roads",
+          "tags": [
+            "index"
+          ],
+          "type": "table"
+        }
+      ]
+    },
+    {
+      "dock_area": "Center",
+      "id": "[/ / / RC_VISUALIZER / / /]",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+      "role": "viewport",
+      "tags": [
+        "viewport",
+        "axiom",
+        "minimap"
+      ],
+      "title": "[/ / / RC_VISUALIZER / / /]",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "viewport.primary",
+          "label": "Primary Viewport",
+          "tags": [
+            "viewport"
+          ],
+          "type": "viewport"
+        }
+      ]
+    },
+    {
+      "dock_area": "Left",
+      "id": "System Map",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+      "role": "nav",
+      "tags": [
+        "map",
+        "nav"
+      ],
+      "title": "System Map",
+      "visible": false,
+      "widgets": []
+    },
+    {
+      "dock_area": "Left",
+      "id": "WorkspaceSelector",
+      "owner_module": "rc_panel_workspace.cpp",
+      "role": "settings",
+      "tags": [
+        "workspace",
+        "persona",
+        "theme"
+      ],
+      "title": "Workspace",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "workspace.mockup_link",
+          "label": "MOCKUP LINK",
+          "tags": [
+            "mockup"
+          ],
+          "type": "label"
+        },
+        {
+          "binding": "workspace.mockup_link_enabled",
+          "label": "Mockup Live Link",
+          "tags": [
+            "mockup"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.theme_selector",
+          "label": "Available Themes",
+          "tags": [
+            "ui",
+            "settings"
+          ],
+          "type": "combo"
+        },
+        {
+          "binding": "ui.theme_autosave",
+          "label": "Auto-save Custom Themes",
+          "tags": [
+            "ui",
+            "settings"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.theme_show_hex",
+          "label": "Show Hex by Default",
+          "tags": [
+            "ui",
+            "settings"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.scale",
+          "label": "UI Scale",
+          "tags": [
+            "ui",
+            "settings"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "ui.multi_viewport_enabled",
+          "label": "Enable Multi-Viewport (Opt-in)",
+          "tags": [
+            "ui",
+            "settings",
+            "dpi"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.dpi_scale_fonts_enabled",
+          "label": "Scale Fonts With DPI",
+          "tags": [
+            "ui",
+            "settings",
+            "dpi"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.dpi_scale_viewports_enabled",
+          "label": "Scale Viewports With DPI",
+          "tags": [
+            "ui",
+            "settings",
+            "dpi"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.viewport_context_mode",
+          "label": "Viewport Right-Click Mode",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "combo"
+        },
+        {
+          "binding": "ui.hotkeys.space",
+          "label": "Hotkey Space",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.hotkeys.slash",
+          "label": "Hotkey Slash",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.hotkeys.grave",
+          "label": "Hotkey Grave",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.hotkeys.p",
+          "label": "Hotkey P",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.hotkeys.domain_context",
+          "label": "Domain Context Hold",
+          "tags": [
+            "ui",
+            "settings",
+            "commands"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui.layout.left_ratio",
+          "label": "Master Panel Ratio",
+          "tags": [
+            "ui",
+            "layout",
+            "dock"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "ui.layout.right_ratio",
+          "label": "Right Column Ratio",
+          "tags": [
+            "ui",
+            "layout",
+            "dock"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "ui.layout.tool_deck_ratio",
+          "label": "Tool Deck Height Ratio",
+          "tags": [
+            "ui",
+            "layout",
+            "dock"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "action:ui.layout.reset",
+          "label": "Return to Factory Default",
+          "tags": [
+            "action",
+            "ui",
+            "layout"
+          ],
+          "type": "button"
+        }
+      ]
+    }
+  ],
+  "protocol_version": "ui-introspect-v1"
+}

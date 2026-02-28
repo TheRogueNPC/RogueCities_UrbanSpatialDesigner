@@ -149,7 +149,6 @@ void DrawContent(float dt) {
 }
 
 void Draw(float dt) {
-    auto& gs = RogueCity::Core::Editor::GetGlobalState();
     
     // The actual visibility is controlled by the drawer's is_visible() method.
     // This BeginTokenPanel is just for the look and feel.

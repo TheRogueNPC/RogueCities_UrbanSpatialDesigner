@@ -1,0 +1,1 @@
+. ./tools/dev-shell.ps1; rc-problems -MaxItems 5

@@ -140,19 +140,33 @@ void DrawContent(float dt) {
     }
 
     // Apply reveal only to the LAST entry if it's new
+    std::string msg = ev.msg;
     if (i == es.data.size() - 1 && reveal_p < 1.0f) {
-      const int len = static_cast<int>(ev.msg.length());
+      const int len = static_cast<int>(msg.length());
       const int visible_chars = static_cast<int>(reveal_p * len);
-      ImGui::PushStyleColor(
-          ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(WithAlpha(color, 200)));
-      ImGui::Text("%.*s", visible_chars, ev.msg.c_str());
-      ImGui::PopStyleColor();
-    } else {
-      ImGui::PushStyleColor(ImGuiCol_Text,
-                            ImGui::ColorConvertU32ToFloat4(color));
-      ImGui::TextUnformatted(ev.msg.c_str());
-      ImGui::PopStyleColor();
+      msg = msg.substr(0, visible_chars);
     }
+
+    // Parse [PREFIX] to colorize it
+    size_t bracket_start = msg.find('[');
+    size_t bracket_end = msg.find(']');
+    
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Make sure it uses mono/default
+    if (bracket_start == 0 && bracket_end != std::string::npos) {
+        std::string prefix = msg.substr(1, bracket_end - 1);
+        std::string rest = msg.substr(bracket_end + 1);
+        
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "[");
+        ImGui::SameLine(0, 0);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "%s", prefix.c_str());
+        ImGui::SameLine(0, 0);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "]");
+        ImGui::SameLine(0, 0);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", rest.c_str());
+    } else {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", msg.c_str());
+    }
+    ImGui::PopFont();
   }
 
   ImGui::SetScrollHereY(1.0f);

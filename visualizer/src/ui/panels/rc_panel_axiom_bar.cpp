@@ -224,15 +224,37 @@ void DrawContent(float dt)
         const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-        const ImU32 fill = hovered
-            ? WithAlpha(UITokens::PanelBackground, 235u)
-            : WithAlpha(UITokens::PanelBackground, 210u);
-        const ImU32 border = is_popout
-            ? WithAlpha(UITokens::MagentaHighlight, 240u)
-            : (is_open ? WithAlpha(UITokens::CyanAccent, 230u) : WithAlpha(UITokens::TextSecondary, 170u));
+        const bool selected = is_open || is_popout;
 
-        draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
-        draw_list->AddRect(bmin, bmax, border, 8.0f, 0, is_open || is_popout ? 2.2f : 1.4f);
+        // Base styling (Y2K Asset Grid)
+        ImU32 fill = WithAlpha(UITokens::BackgroundDark, 255u);
+        ImU32 border = WithAlpha(UITokens::GridOverlay, 200u);
+        float border_thickness = 1.0f;
+
+        if (selected) {
+            fill = WithAlpha(UITokens::AmberGlow, 40u); // --primary-dim
+            border = UITokens::AmberGlow;               // --primary
+            border_thickness = 2.0f;
+            // Primary glow
+            draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::AmberGlow, 20u), 0.0f);
+        } else if (hovered) {
+            fill = WithAlpha(UITokens::PanelBackground, 255u); // --bg-elevated
+            border = UITokens::CyanAccent;                     // --secondary
+            // Secondary inset glow approximation
+            draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::CyanAccent, 20u), 0.0f);
+        }
+
+        // Hard Y2K corners (0.0f rounding)
+        draw_list->AddRectFilled(bmin, bmax, fill, 0.0f);
+        draw_list->AddRect(bmin, bmax, border, 0.0f, 0, border_thickness);
+
+        // Optional outer glow on hover
+        if (hovered && !selected) {
+            draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::CyanAccent, 100u), 0.0f, 0, 4.0f);
+        } else if (selected) {
+            draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::AmberGlow, 100u), 0.0f, 0, 6.0f);
+        }
+
         DrawToolIcon(draw_list, tool, center, icon_size * 0.44f);
 
         if (hovered) {

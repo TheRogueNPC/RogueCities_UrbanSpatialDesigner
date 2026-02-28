@@ -1,0 +1,42 @@
+RogueCities dev shell loaded. Run rc-help for commands.
+RC_ROOT=C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner
+RC_BUILD_DIR=C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs
+CMAKE_GENERATOR=Visual Studio 18 2026
+CMAKE_BUILD_PARALLEL_LEVEL=8
+{
+  "Root": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner",
+  "AvailableTools": [
+    "rc-ai-setup",
+    "rc-ai-start",
+    "rc-ai-stop",
+    "rc-bld",
+    "rc-bld-app",
+    "rc-bld-core",
+    "rc-bld-gen",
+    "rc-bld-vis",
+    "rc-cfg",
+    "rc-cfg-ai",
+    "rc-context",
+    "rc-contract",
+    "rc-deps",
+    "rc-doctor",
+    "rc-env",
+    "rc-fmt",
+    "rc-help",
+    "rc-index",
+    "rc-pdiff",
+    "rc-problems",
+    "rc-rdoc",
+    "rc-refresh",
+    "rc-run",
+    "rc-tst",
+    "rc-tst-app",
+    "rc-tst-core",
+    "rc-tst-gen",
+    "rc-watch"
+  ],
+  "Generator": "Visual Studio 18 2026",
+  "ParallelLevel": "8",
+  "BuildDir": "C:\\Users\\teamc\\Documents\\Rogue Cities\\RogueCities_UrbanSpatialDesigner\\build_vs",
+  "Python": null
+}

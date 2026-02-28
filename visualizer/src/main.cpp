@@ -1,12 +1,18 @@
 // namespace main.cpp: Entry point for the visualizer, demonstrating integration of the EditorHFSM with a simple ImGui interface. This file should remain focused on application setup and the main loop, while delegating UI rendering and state management to other modules to maintain separation of concerns and avoid ODR violations. Any shared state or utilities needed across multiple files should be defined in appropriate header/source files within the Core/Editor namespace, and this file should only include those headers without defining any additional state or non-trivial functions here.
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "ui/introspection/UiIntrospection.h"
 
 // ADDED (visualizer/src/main.cpp): Hyper-reactive UI root includes.
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 
 #include <imgui.h>
+#include <algorithm>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <string>
 
 using RogueCity::Core::Editor::EditorEvent;
 using RogueCity::Core::Editor::EditorHFSM;
@@ -84,8 +90,28 @@ static void apply_theme_once()
     }
 }
 
-int main()
+int main(int argc, char** argv)
 {
+    int frames_to_run = 3;
+    std::string export_ui_snapshot_path;
+    for (int i = 1; i < argc; ++i) {
+        const char* arg = argv[i];
+        if (std::strcmp(arg, "--help") == 0) {
+            std::printf("RogueCityVisualizerHeadless options:\n");
+            std::printf("  --frames <N>                 Number of headless frames (default: 3)\n");
+            std::printf("  --export-ui-snapshot <path>  Write UI introspection JSON snapshot\n");
+            return 0;
+        }
+        if (std::strcmp(arg, "--frames") == 0 && i + 1 < argc) {
+            frames_to_run = std::max(1, std::atoi(argv[++i]));
+            continue;
+        }
+        if (std::strcmp(arg, "--export-ui-snapshot") == 0 && i + 1 < argc) {
+            export_ui_snapshot_path = argv[++i];
+            continue;
+        }
+    }
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
@@ -124,8 +150,21 @@ int main()
         ++gs.frame_counter;
     };
 
-    for (int frame = 0; frame < 3; ++frame) {
+    for (int frame = 0; frame < frames_to_run; ++frame) {
         run_frame();
+    }
+
+    if (!export_ui_snapshot_path.empty()) {
+        std::string error;
+        const bool saved = RogueCity::UIInt::UiIntrospector::Instance().SaveSnapshotJson(
+            export_ui_snapshot_path, &error);
+        if (!saved) {
+            std::fprintf(stderr, "Failed to save UI snapshot to '%s': %s\n",
+                         export_ui_snapshot_path.c_str(), error.c_str());
+            ImGui::DestroyContext();
+            return 2;
+        }
+        std::printf("UI snapshot exported: %s\n", export_ui_snapshot_path.c_str());
     }
 
     ImGui::DestroyContext();

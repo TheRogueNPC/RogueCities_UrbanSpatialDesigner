@@ -33,9 +33,26 @@ void DrawContent(float dt)
     draw_list->AddRect(pos, end, ImGui::ColorConvertFloat4ToU32(ZoneAxiom.accent), 12.0f, 0,
         kBaseBorderThickness + kBaseBorderThickness * focus.v);
     ImGui::Dummy(size);
+    ImGui::Spacing();
+
+    // Push Mockup Y2K Styling for the Inspector
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::ColorConvertU32ToFloat4(UITokens::BackgroundDark));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::PanelBackground, 255)));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::AmberGlow, 100)));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::GridOverlay, 180)));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::AmberGlow, 200)));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 0.0f);
 
     static PropertyEditor editor;
     editor.Draw(gs);
+    
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(7);
+
     uiint.RegisterWidget({"property_editor", "Selection", "selection_manager", {"detail"}});
 
 }

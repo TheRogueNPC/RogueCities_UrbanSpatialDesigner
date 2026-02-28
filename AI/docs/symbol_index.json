@@ -1,0 +1,2470 @@
+{
+  "core/include/RogueCity/Core/Infomatrix.hpp": [
+    {
+      "type": "class/struct",
+      "name": "InfomatrixEvent"
+    },
+    {
+      "type": "class/struct",
+      "name": "Category"
+    },
+    {
+      "type": "class/struct",
+      "name": "InfomatrixEventView"
+    },
+    {
+      "type": "class/struct",
+      "name": "Infomatrix"
+    },
+    {
+      "type": "enum",
+      "name": "Category"
+    }
+  ],
+  "core/include/RogueCity/Core/Analytics/GridMetrics.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GridQualityReport"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadStroke"
+    }
+  ],
+  "core/include/RogueCity/Core/Buildings/FrontageMarkov.hpp": [
+    {
+      "type": "class/struct",
+      "name": "FacadeModule"
+    },
+    {
+      "type": "class/struct",
+      "name": "PlacedModule"
+    },
+    {
+      "type": "class/struct",
+      "name": "TransitionMatrix"
+    },
+    {
+      "type": "enum",
+      "name": "FacadeModule"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/CitySpec.hpp": [
+    {
+      "type": "class/struct",
+      "name": "CityIntent"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictHint"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingBudget"
+    },
+    {
+      "type": "class/struct",
+      "name": "PopulationConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "ZoningConstraints"
+    },
+    {
+      "type": "class/struct",
+      "name": "CitySpec"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/CityTypes.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadType"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictType"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotType"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingType"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationTag"
+    },
+    {
+      "type": "class/struct",
+      "name": "Polyline"
+    },
+    {
+      "type": "class/struct",
+      "name": "Polygon"
+    },
+    {
+      "type": "class/struct",
+      "name": "BlockPolygon"
+    },
+    {
+      "type": "class/struct",
+      "name": "Road"
+    },
+    {
+      "type": "class/struct",
+      "name": "District"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotToken"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingSite"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterType"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterBody"
+    },
+    {
+      "type": "class/struct",
+      "name": "HistoryTag"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationMode"
+    },
+    {
+      "type": "class/struct",
+      "name": "PlanViolationType"
+    },
+    {
+      "type": "class/struct",
+      "name": "PlanEntityType"
+    },
+    {
+      "type": "class/struct",
+      "name": "WorldConstraintField"
+    },
+    {
+      "type": "class/struct",
+      "name": "SiteProfile"
+    },
+    {
+      "type": "class/struct",
+      "name": "PlanViolation"
+    },
+    {
+      "type": "class/struct",
+      "name": "Bounds"
+    },
+    {
+      "type": "class/struct",
+      "name": "RNG"
+    },
+    {
+      "type": "class/struct",
+      "name": "BlockDebugStats"
+    },
+    {
+      "type": "class/struct",
+      "name": "CityGenerationParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationStats"
+    },
+    {
+      "type": "enum",
+      "name": "RoadType"
+    },
+    {
+      "type": "enum",
+      "name": "DistrictType"
+    },
+    {
+      "type": "enum",
+      "name": "LotType"
+    },
+    {
+      "type": "enum",
+      "name": "BuildingType"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationTag"
+    },
+    {
+      "type": "enum",
+      "name": "WaterType"
+    },
+    {
+      "type": "enum",
+      "name": "HistoryTag"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationMode"
+    },
+    {
+      "type": "enum",
+      "name": "PlanViolationType"
+    },
+    {
+      "type": "enum",
+      "name": "PlanEntityType"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/CoordinateSystem.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Int2"
+    },
+    {
+      "type": "class/struct",
+      "name": "CoordinateSystem"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/TensorTypes.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Tensor2D"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/Texture2D.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Texture2D"
+    }
+  ],
+  "core/include/RogueCity/Core/Data/TextureSpace.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TextureLayer"
+    },
+    {
+      "type": "class/struct",
+      "name": "DirtyRegion"
+    },
+    {
+      "type": "class/struct",
+      "name": "TextureSpace"
+    },
+    {
+      "type": "enum",
+      "name": "TextureLayer"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/EditorState.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorState"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorEvent"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorHFSM"
+    },
+    {
+      "type": "enum",
+      "name": "EditorState"
+    },
+    {
+      "type": "enum",
+      "name": "EditorEvent"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/EditorUtils.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/GlobalState.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Road"
+    },
+    {
+      "type": "class/struct",
+      "name": "District"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotToken"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingSite"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportCommandMode"
+    },
+    {
+      "type": "class/struct",
+      "name": "ScalePolicy"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorParameters"
+    },
+    {
+      "type": "class/struct",
+      "name": "Selection"
+    },
+    {
+      "type": "class/struct",
+      "name": "DirtyLayer"
+    },
+    {
+      "type": "class/struct",
+      "name": "DirtyLayerState"
+    },
+    {
+      "type": "class/struct",
+      "name": "ValidationSeverity"
+    },
+    {
+      "type": "class/struct",
+      "name": "ValidationError"
+    },
+    {
+      "type": "class/struct",
+      "name": "ValidationOverlayState"
+    },
+    {
+      "type": "class/struct",
+      "name": "GizmoOperation"
+    },
+    {
+      "type": "class/struct",
+      "name": "GizmoMode"
+    },
+    {
+      "type": "class/struct",
+      "name": "GizmoState"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorLayer"
+    },
+    {
+      "type": "class/struct",
+      "name": "LayerManagerState"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictBoundaryEditorState"
+    },
+    {
+      "type": "class/struct",
+      "name": "SplineEditorState"
+    },
+    {
+      "type": "class/struct",
+      "name": "SystemsMapRuntimeState"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportRenderLayer"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportRenderTelemetryState"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolDomain"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationMutationPolicy"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterSplineSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadSplineSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingSubtool"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolRuntimeState"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationPolicyState"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorAxiom"
+    },
+    {
+      "type": "class/struct",
+      "name": "Type"
+    },
+    {
+      "type": "class/struct",
+      "name": "RenderSpatialLayer"
+    },
+    {
+      "type": "class/struct",
+      "name": "RenderSpatialGrid"
+    },
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "enum",
+      "name": "ViewportCommandMode"
+    },
+    {
+      "type": "enum",
+      "name": "ScalePolicy"
+    },
+    {
+      "type": "enum",
+      "name": "DirtyLayer"
+    },
+    {
+      "type": "enum",
+      "name": "ValidationSeverity"
+    },
+    {
+      "type": "enum",
+      "name": "GizmoOperation"
+    },
+    {
+      "type": "enum",
+      "name": "GizmoMode"
+    },
+    {
+      "type": "enum",
+      "name": "ViewportRenderLayer"
+    },
+    {
+      "type": "enum",
+      "name": "ToolDomain"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationMutationPolicy"
+    },
+    {
+      "type": "enum",
+      "name": "WaterSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "WaterSplineSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "RoadSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "RoadSplineSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "DistrictSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "LotSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "BuildingSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "Type"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/SelectionManager.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SelectionItem"
+    },
+    {
+      "type": "class/struct",
+      "name": "SelectionManager"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/StableIDRegistry.hpp": [
+    {
+      "type": "class/struct",
+      "name": "StableID"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportEntityID"
+    },
+    {
+      "type": "class/struct",
+      "name": "StableIDRegistry"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportEntityIDHasher"
+    },
+    {
+      "type": "class/struct",
+      "name": "StableIDHasher"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/TerrainBrush.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TerrainBrush"
+    },
+    {
+      "type": "class/struct",
+      "name": "Mode"
+    },
+    {
+      "type": "class/struct",
+      "name": "Stroke"
+    },
+    {
+      "type": "enum",
+      "name": "Mode"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/TexturePainting.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TexturePainting"
+    },
+    {
+      "type": "class/struct",
+      "name": "Layer"
+    },
+    {
+      "type": "class/struct",
+      "name": "Stroke"
+    },
+    {
+      "type": "enum",
+      "name": "Layer"
+    }
+  ],
+  "core/include/RogueCity/Core/Editor/ViewportIndex.hpp": [
+    {
+      "type": "class/struct",
+      "name": "StableID"
+    },
+    {
+      "type": "class/struct",
+      "name": "VpEntityKind"
+    },
+    {
+      "type": "class/struct",
+      "name": "VpProbeData"
+    },
+    {
+      "type": "enum",
+      "name": "VpEntityKind"
+    }
+  ],
+  "core/include/RogueCity/Core/Export/TextureReplayHash.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TextureReplayDigest"
+    },
+    {
+      "type": "class/struct",
+      "name": "TextureReplayHash"
+    }
+  ],
+  "core/include/RogueCity/Core/Geometry/PolygonOps.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Polygon"
+    },
+    {
+      "type": "class/struct",
+      "name": "PolygonOps"
+    }
+  ],
+  "core/include/RogueCity/Core/Math/Vec2.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Vec2"
+    }
+  ],
+  "core/include/RogueCity/Core/Roads/RoadMDP.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadAction"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadState"
+    },
+    {
+      "type": "class/struct",
+      "name": "IRoadPolicy"
+    },
+    {
+      "type": "enum",
+      "name": "RoadAction"
+    }
+  ],
+  "core/include/RogueCity/Core/Simulation/SimulationPipeline.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "SimulationConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "StepResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "SimulationPipeline"
+    }
+  ],
+  "core/include/RogueCity/Core/Texture/SIMDProcessor.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SIMDProcessor"
+    },
+    {
+      "type": "class/struct",
+      "name": "CPUFeatures"
+    }
+  ],
+  "core/include/RogueCity/Core/Texture/TextureProcessor.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TextureProcessor"
+    }
+  ],
+  "core/include/RogueCity/Core/Util/constant_index_vector.hpp": [
+    {
+      "type": "class/struct",
+      "name": "IndexVector"
+    },
+    {
+      "type": "class/struct",
+      "name": "Ref"
+    },
+    {
+      "type": "class/struct",
+      "name": "IndexVector"
+    },
+    {
+      "type": "class/struct",
+      "name": "Metadata"
+    }
+  ],
+  "core/include/RogueCity/Core/Util/fast_array.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Container"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenericHandle"
+    },
+    {
+      "type": "class/struct",
+      "name": "Handle"
+    },
+    {
+      "type": "class/struct",
+      "name": "Container"
+    }
+  ],
+  "core/include/RogueCity/Core/Util/RogueWorker.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RogueWorker"
+    },
+    {
+      "type": "class/struct",
+      "name": "ExecutionGroup"
+    },
+    {
+      "type": "class/struct",
+      "name": "Worker"
+    },
+    {
+      "type": "class/struct",
+      "name": "Synchronizer"
+    },
+    {
+      "type": "class/struct",
+      "name": "ExecutionGroup"
+    },
+    {
+      "type": "class/struct",
+      "name": "WorkGroup"
+    },
+    {
+      "type": "class/struct",
+      "name": "RogueWorker"
+    }
+  ],
+  "core/include/RogueCity/Core/Util/stable_index_vector.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Vector"
+    },
+    {
+      "type": "class/struct",
+      "name": "Handle"
+    },
+    {
+      "type": "class/struct",
+      "name": "Vector"
+    },
+    {
+      "type": "class/struct",
+      "name": "Vector"
+    },
+    {
+      "type": "class/struct",
+      "name": "Metadata"
+    }
+  ],
+  "core/include/RogueCity/Core/Validation/AiTelemetry.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AiTelemetry"
+    }
+  ],
+  "core/include/RogueCity/Core/Validation/DeterminismHash.hpp": [
+    {
+      "type": "class/struct",
+      "name": "DeterminismHash"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Buildings/FrontageProfiler.hpp": [
+    {
+      "type": "class/struct",
+      "name": "FrontageProfiler"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Districts/AESPClassifier.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AESPClassifier"
+    },
+    {
+      "type": "class/struct",
+      "name": "AESPScores"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Geometry/GeometryAdapter.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Backend"
+    },
+    {
+      "type": "class/struct",
+      "name": "GeometryAdapter"
+    },
+    {
+      "type": "enum",
+      "name": "Backend"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AxiomInteractionEdge"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomInteractionResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomInteractionResolver"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/CityGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "TextureSpace"
+    },
+    {
+      "type": "class/struct",
+      "name": "CityGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    },
+    {
+      "type": "class/struct",
+      "name": "ValidationResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomInput"
+    },
+    {
+      "type": "class/struct",
+      "name": "RingSchema"
+    },
+    {
+      "type": "class/struct",
+      "name": "LatticeData"
+    },
+    {
+      "type": "class/struct",
+      "name": "Type"
+    },
+    {
+      "type": "class/struct",
+      "name": "CityOutput"
+    },
+    {
+      "type": "class/struct",
+      "name": "StageOptions"
+    },
+    {
+      "type": "class/struct",
+      "name": "StageCache"
+    },
+    {
+      "type": "enum",
+      "name": "Type"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/CitySpecAdapter.hpp": [
+    {
+      "type": "class/struct",
+      "name": "CitySpecGenerationRequest"
+    },
+    {
+      "type": "class/struct",
+      "name": "CitySpecAdapter"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/GenerationContext.hpp": [
+    {
+      "type": "class/struct",
+      "name": "CancellationToken"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationContext"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/GenerationStage.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GenerationStage"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationStage"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp": [
+    {
+      "type": "class/struct",
+      "name": "MajorConnectorGraphConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "MajorConnectorGraphOutput"
+    },
+    {
+      "type": "class/struct",
+      "name": "MajorConnectorGraph"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PlanValidatorGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    },
+    {
+      "type": "class/struct",
+      "name": "Input"
+    },
+    {
+      "type": "class/struct",
+      "name": "Output"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TerrainConstraintGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    },
+    {
+      "type": "class/struct",
+      "name": "Input"
+    },
+    {
+      "type": "class/struct",
+      "name": "Output"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ZoningGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    },
+    {
+      "type": "class/struct",
+      "name": "ZoningInput"
+    },
+    {
+      "type": "class/struct",
+      "name": "ZoningOutput"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/FlowAndControl.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadFlowDefaults"
+    },
+    {
+      "type": "class/struct",
+      "name": "ControlThresholds"
+    },
+    {
+      "type": "class/struct",
+      "name": "FlowControlConfig"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/GraphSimplify.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SimplifyConfig"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/IntersectionTemplates.hpp": [
+    {
+      "type": "class/struct",
+      "name": "JunctionArchetype"
+    },
+    {
+      "type": "class/struct",
+      "name": "GreenspaceCandidate"
+    },
+    {
+      "type": "class/struct",
+      "name": "InterchangeTemplate"
+    },
+    {
+      "type": "class/struct",
+      "name": "TemplateOutput"
+    },
+    {
+      "type": "class/struct",
+      "name": "TemplateConfig"
+    },
+    {
+      "type": "enum",
+      "name": "JunctionArchetype"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/Policies.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GridPolicy"
+    },
+    {
+      "type": "class/struct",
+      "name": "OrganicPolicy"
+    },
+    {
+      "type": "class/struct",
+      "name": "FollowTensorPolicy"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/PolylineRoadCandidate.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TerminationReason"
+    },
+    {
+      "type": "class/struct",
+      "name": "TraceMeta"
+    },
+    {
+      "type": "class/struct",
+      "name": "PolylineRoadCandidate"
+    },
+    {
+      "type": "enum",
+      "name": "TerminationReason"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/RoadClassifier.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadClassifier"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/RoadNoder.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadTypeParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "NoderConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadNoder"
+    },
+    {
+      "type": "class/struct",
+      "name": "RawSegment"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/SegmentGridStorage.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SegmentRef"
+    },
+    {
+      "type": "class/struct",
+      "name": "SegmentGridStorage"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/StreamlineTracer.hpp": [
+    {
+      "type": "class/struct",
+      "name": "StreamlineTracer"
+    },
+    {
+      "type": "class/struct",
+      "name": "Params"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Roads/Verticality.hpp": [
+    {
+      "type": "class/struct",
+      "name": "VerticalityConfig"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Scoring/GridAnalytics.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GridAnalytics"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Scoring/RogueProfiler.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RogueProfiler"
+    },
+    {
+      "type": "class/struct",
+      "name": "Scores"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Scoring/ScoringProfile.hpp": [
+    {
+      "type": "class/struct",
+      "name": "DistrictScoreWeights"
+    },
+    {
+      "type": "class/struct",
+      "name": "ScoringProfile"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Tensors/AxiomTerminalFeatures.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TerminalFeature"
+    },
+    {
+      "type": "class/struct",
+      "name": "TerminalFeatureSet"
+    },
+    {
+      "type": "enum",
+      "name": "TerminalFeature"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Tensors/BasisFields.hpp": [
+    {
+      "type": "class/struct",
+      "name": "BasisField"
+    },
+    {
+      "type": "class/struct",
+      "name": "OrganicField"
+    },
+    {
+      "type": "class/struct",
+      "name": "RadialField"
+    },
+    {
+      "type": "class/struct",
+      "name": "RadialHubSpokeField"
+    },
+    {
+      "type": "class/struct",
+      "name": "GridField"
+    },
+    {
+      "type": "class/struct",
+      "name": "HexagonalField"
+    },
+    {
+      "type": "class/struct",
+      "name": "StemField"
+    },
+    {
+      "type": "class/struct",
+      "name": "LooseGridField"
+    },
+    {
+      "type": "class/struct",
+      "name": "SuburbanField"
+    },
+    {
+      "type": "class/struct",
+      "name": "SuperblockField"
+    },
+    {
+      "type": "class/struct",
+      "name": "LinearField"
+    },
+    {
+      "type": "class/struct",
+      "name": "StrongLinearCorridorField"
+    },
+    {
+      "type": "class/struct",
+      "name": "ShearPlaneField"
+    },
+    {
+      "type": "class/struct",
+      "name": "BoundarySeamField"
+    },
+    {
+      "type": "class/struct",
+      "name": "CenterVoidOverrideField"
+    },
+    {
+      "type": "class/struct",
+      "name": "NoisePatchField"
+    },
+    {
+      "type": "class/struct",
+      "name": "ParallelLinearFieldBundle"
+    },
+    {
+      "type": "class/struct",
+      "name": "PeriodicRungField"
+    },
+    {
+      "type": "class/struct",
+      "name": "GridCorrectiveField"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Tensors/TensorFieldGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "TensorFieldGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AxiomTensorParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "TensorPostOp"
+    },
+    {
+      "type": "class/struct",
+      "name": "Kind"
+    },
+    {
+      "type": "class/struct",
+      "name": "FeaturePlan"
+    },
+    {
+      "type": "enum",
+      "name": "Kind"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/BlockGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "BlockGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/DistrictGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "DistrictGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/FrontageProfiles.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadFrontageProfile"
+    },
+    {
+      "type": "class/struct",
+      "name": "FrontageProfiles"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/Graph.hpp": [
+    {
+      "type": "class/struct",
+      "name": "VertexKind"
+    },
+    {
+      "type": "class/struct",
+      "name": "ControlType"
+    },
+    {
+      "type": "class/struct",
+      "name": "FlowStats"
+    },
+    {
+      "type": "class/struct",
+      "name": "Vertex"
+    },
+    {
+      "type": "class/struct",
+      "name": "Edge"
+    },
+    {
+      "type": "class/struct",
+      "name": "Graph"
+    },
+    {
+      "type": "enum",
+      "name": "VertexKind"
+    },
+    {
+      "type": "enum",
+      "name": "ControlType"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/GraphAlgorithms.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PathResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "GraphAlgorithms"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/GridStorage.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GridStorage"
+    },
+    {
+      "type": "class/struct",
+      "name": "Key"
+    },
+    {
+      "type": "class/struct",
+      "name": "KeyHash"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/Integrator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "Integrator"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/LotGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "LotGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/PolygonFinder.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PolygonFinder"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/RoadGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "generators/include/RogueCity/Generators/Urban/SiteGenerator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SiteGenerator"
+    },
+    {
+      "type": "class/struct",
+      "name": "Config"
+    }
+  ],
+  "app/include/RogueCity/App/Docking/DockLayoutManager.hpp": [
+    {
+      "type": "class/struct",
+      "name": "DockLayoutState"
+    },
+    {
+      "type": "class/struct",
+      "name": "DockLayoutManager"
+    }
+  ],
+  "app/include/RogueCity/App/Docking/PanelRegistry.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PanelRegistry"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelInfo"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelRegistry"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelInfo"
+    }
+  ],
+  "app/include/RogueCity/App/Editor/CommandHistory.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ICommand"
+    },
+    {
+      "type": "class/struct",
+      "name": "CommandHistory"
+    }
+  ],
+  "app/include/RogueCity/App/Editor/EditorManipulation.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SplineOptions"
+    },
+    {
+      "type": "class/struct",
+      "name": "SplineOptions"
+    }
+  ],
+  "app/include/RogueCity/App/Editor/ViewportIndexBuilder.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportIndexBuilder"
+    }
+  ],
+  "app/include/RogueCity/App/Integration/CityOutputApplier.hpp": [
+    {
+      "type": "class/struct",
+      "name": "CityOutputApplyOptions"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationScope"
+    },
+    {
+      "type": "class/struct",
+      "name": "CityOutputApplyOptions"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationScope"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationScope"
+    }
+  ],
+  "app/include/RogueCity/App/Integration/GenerationCoordinator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GenerationRequestReason"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationCoordinator"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationRequestReason"
+    }
+  ],
+  "app/include/RogueCity/App/Integration/GeneratorBridge.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GeneratorBridge"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    }
+  ],
+  "app/include/RogueCity/App/Integration/RealTimePreview.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GenerationDepth"
+    },
+    {
+      "type": "class/struct",
+      "name": "RealTimePreview"
+    },
+    {
+      "type": "class/struct",
+      "name": "GenerationPhase"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationDepth"
+    },
+    {
+      "type": "enum",
+      "name": "GenerationPhase"
+    }
+  ],
+  "app/include/RogueCity/App/Integration/ZoningBridge.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ZoningBridge"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "Stats"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/AxiomAnimationController.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AxiomAnimationController"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomVisual"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomAnimationController"
+    },
+    {
+      "type": "class/struct",
+      "name": "AnimationState"
+    },
+    {
+      "type": "enum",
+      "name": "AnimationState"
+    },
+    {
+      "type": "enum",
+      "name": "AnimationState"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/AxiomIcon.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AxiomTypeInfo"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/AxiomPlacementTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "AxiomPlacementTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomSnapshot"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomPlacementTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomSnapshot"
+    },
+    {
+      "type": "class/struct",
+      "name": "Mode"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomSnapshot"
+    },
+    {
+      "type": "enum",
+      "name": "Mode"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/AxiomVisual.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ImDrawList"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomAnimationController"
+    },
+    {
+      "type": "class/struct",
+      "name": "LatticeTopology"
+    },
+    {
+      "type": "class/struct",
+      "name": "ControlVertex"
+    },
+    {
+      "type": "class/struct",
+      "name": "ControlLattice"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomVisual"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "enum",
+      "name": "LatticeTopology"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/BuildingTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "BuildingTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingTool"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/ContextWindowPopup.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ContextWindowPopup"
+    },
+    {
+      "type": "class/struct",
+      "name": "ContextWindowPopup"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/DistrictTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "DistrictTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictTool"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/GeometryPolicy.hpp": [
+    {
+      "type": "class/struct",
+      "name": "GeometryPolicy"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/IViewportTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "IViewportTool"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/LotTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "LotTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotTool"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/RoadTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "RoadTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadTool"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/SplineManipulator.hpp": [
+    {
+      "type": "class/struct",
+      "name": "SplineInteractionState"
+    },
+    {
+      "type": "class/struct",
+      "name": "SplineManipulatorParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "SplineManipulator"
+    }
+  ],
+  "app/include/RogueCity/App/Tools/WaterTool.hpp": [
+    {
+      "type": "class/struct",
+      "name": "WaterTool"
+    }
+  ],
+  "app/include/RogueCity/App/UI/DesignSystem.h": [
+    {
+      "type": "class/struct",
+      "name": "DesignTokens"
+    },
+    {
+      "type": "class/struct",
+      "name": "DesignSystem"
+    },
+    {
+      "type": "class/struct",
+      "name": "UI"
+    }
+  ],
+  "app/include/RogueCity/App/UI/ThemeManager.h": [
+    {
+      "type": "class/struct",
+      "name": "ThemeProfile"
+    },
+    {
+      "type": "class/struct",
+      "name": "ThemeManager"
+    },
+    {
+      "type": "class/struct",
+      "name": "ThemeProfile"
+    },
+    {
+      "type": "class/struct",
+      "name": "ThemeManager"
+    }
+  ],
+  "app/include/RogueCity/App/Viewports/MinimapViewport.hpp": [
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "Size"
+    },
+    {
+      "type": "enum",
+      "name": "Size"
+    },
+    {
+      "type": "enum",
+      "name": "Size"
+    }
+  ],
+  "app/include/RogueCity/App/Viewports/PrimaryViewport.hpp": [
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "IViewportTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    }
+  ],
+  "app/include/RogueCity/App/Viewports/ViewportManager.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ViewportManager"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportSyncManager"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportManager"
+    }
+  ],
+  "app/include/RogueCity/App/Viewports/ViewportSyncManager.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ViewportSyncManager"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportSyncManager"
+    }
+  ],
+  "visualizer/src/ui/LayoutPresets.h": [
+    {
+      "type": "class/struct",
+      "name": "DockNode"
+    },
+    {
+      "type": "class/struct",
+      "name": "LayoutPreset"
+    },
+    {
+      "type": "class/struct",
+      "name": "LayoutManager"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_anim.h": [
+    {
+      "type": "class/struct",
+      "name": "ReactiveF"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_animation.h": [
+    {
+      "type": "class/struct",
+      "name": "AnimationState"
+    },
+    {
+      "type": "class/struct",
+      "name": "AnimationHelpers"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_input_gate.h": [
+    {
+      "type": "class/struct",
+      "name": "InputBlockReason"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiInputGateState"
+    },
+    {
+      "type": "enum",
+      "name": "InputBlockReason"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_responsive.h": [
+    {
+      "type": "class/struct",
+      "name": "ResponsiveConstants"
+    },
+    {
+      "type": "class/struct",
+      "name": "LayoutMode"
+    },
+    {
+      "type": "class/struct",
+      "name": "ResponsiveLayout"
+    },
+    {
+      "type": "class/struct",
+      "name": "ScopedResponsiveContainer"
+    },
+    {
+      "type": "class/struct",
+      "name": "ResponsiveButtonLayout"
+    },
+    {
+      "type": "enum",
+      "name": "LayoutMode"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_root.h": [
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolLibrary"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelLayout"
+    },
+    {
+      "type": "class/struct",
+      "name": "ButtonDockedPanel"
+    },
+    {
+      "type": "class/struct",
+      "name": "DockLayoutPreferences"
+    },
+    {
+      "type": "class/struct",
+      "name": "DockableWindowState"
+    },
+    {
+      "type": "class/struct",
+      "name": "IndicesTabs"
+    },
+    {
+      "type": "enum",
+      "name": "ToolLibrary"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_theme.h": [
+    {
+      "type": "class/struct",
+      "name": "SystemZone"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_tokens.h": [
+    {
+      "type": "class/struct",
+      "name": "UITokens"
+    },
+    {
+      "type": "class/struct",
+      "name": "ButtonFeedback"
+    }
+  ],
+  "visualizer/src/ui/rc_ui_viewport_config.h": [
+    {
+      "type": "class/struct",
+      "name": "ImGuiDockNode"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportBounds"
+    },
+    {
+      "type": "class/struct",
+      "name": "DockNodeValidator"
+    },
+    {
+      "type": "class/struct",
+      "name": "ScopedViewportPadding"
+    }
+  ],
+  "visualizer/src/ui/commands/rc_command_palette.h": [
+    {
+      "type": "class/struct",
+      "name": "CommandPaletteState"
+    }
+  ],
+  "visualizer/src/ui/commands/rc_context_command_registry.h": [
+    {
+      "type": "class/struct",
+      "name": "GlobalViewportCommandId"
+    },
+    {
+      "type": "class/struct",
+      "name": "GlobalViewportCommandSpec"
+    },
+    {
+      "type": "enum",
+      "name": "GlobalViewportCommandId"
+    }
+  ],
+  "visualizer/src/ui/commands/rc_context_menu_pie.h": [
+    {
+      "type": "class/struct",
+      "name": "PieMenuState"
+    }
+  ],
+  "visualizer/src/ui/commands/rc_context_menu_smart.h": [
+    {
+      "type": "class/struct",
+      "name": "SmartMenuState"
+    }
+  ],
+  "visualizer/src/ui/introspection/UiIntrospection.h": [
+    {
+      "type": "class/struct",
+      "name": "UiWidgetInfo"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiPanelInfo"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiActionInfo"
+    },
+    {
+      "type": "class/struct",
+      "name": "DockTreeNode"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiIntrospectionSnapshot"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelMeta"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiIntrospector"
+    }
+  ],
+  "visualizer/src/ui/panels/IPanelDrawer.h": [
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "EditorHFSM"
+    },
+    {
+      "type": "class/struct",
+      "name": "CommandHistory"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiIntrospector"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelCategory"
+    },
+    {
+      "type": "class/struct",
+      "name": "PanelType"
+    },
+    {
+      "type": "class/struct",
+      "name": "DrawContext"
+    },
+    {
+      "type": "class/struct",
+      "name": "IPanelDrawer"
+    },
+    {
+      "type": "enum",
+      "name": "PanelCategory"
+    },
+    {
+      "type": "enum",
+      "name": "PanelType"
+    }
+  ],
+  "visualizer/src/ui/panels/PanelRegistry.h": [
+    {
+      "type": "class/struct",
+      "name": "PanelRegistry"
+    }
+  ],
+  "visualizer/src/ui/panels/RcMasterPanel.h": [
+    {
+      "type": "class/struct",
+      "name": "RcMasterPanel"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_ai_console.h": [
+    {
+      "type": "class/struct",
+      "name": "AiConsolePanel"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_axiom_editor.h": [
+    {
+      "type": "class/struct",
+      "name": "AxiomPlacementTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "RealTimePreview"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomVisual"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_city_spec.h": [
+    {
+      "type": "class/struct",
+      "name": "CitySpecPanel"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_data_index_traits.h": [
+    {
+      "type": "class/struct",
+      "name": "RoadIndexTraits"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictIndexTraits"
+    },
+    {
+      "type": "class/struct",
+      "name": "LotIndexTraits"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingIndexTraits"
+    },
+    {
+      "type": "class/struct",
+      "name": "RiverIndexTraits"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_ui_agent.h": [
+    {
+      "type": "class/struct",
+      "name": "UiAgentPanel"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_panel_zoning_control.h": [
+    {
+      "type": "class/struct",
+      "name": "PanelState"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_property_editor.h": [
+    {
+      "type": "class/struct",
+      "name": "PropertyEditor"
+    }
+  ],
+  "visualizer/src/ui/panels/rc_system_map_query.h": [
+    {
+      "type": "class/struct",
+      "name": "SystemsMapQueryHit"
+    }
+  ],
+  "visualizer/src/ui/panels/RogueWidgets.hpp": [
+    {
+      "type": "class/struct",
+      "name": "ButtonStyle"
+    }
+  ],
+  "visualizer/src/ui/patterns/rc_ui_data_index_panel.h": [
+    {
+      "type": "class/struct",
+      "name": "DataIndexPanelTraits"
+    },
+    {
+      "type": "class/struct",
+      "name": "RcDataIndexPanel"
+    }
+  ],
+  "visualizer/src/ui/tools/rc_tool_contract.h": [
+    {
+      "type": "class/struct",
+      "name": "ToolActionGroup"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolExecutionPolicy"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolAvailability"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolActionId"
+    },
+    {
+      "type": "class/struct",
+      "name": "ToolActionSpec"
+    },
+    {
+      "type": "enum",
+      "name": "ToolActionGroup"
+    },
+    {
+      "type": "enum",
+      "name": "ToolExecutionPolicy"
+    },
+    {
+      "type": "enum",
+      "name": "ToolAvailability"
+    },
+    {
+      "type": "enum",
+      "name": "ToolActionId"
+    }
+  ],
+  "visualizer/src/ui/tools/rc_tool_dispatcher.h": [
+    {
+      "type": "class/struct",
+      "name": "EditorHFSM"
+    },
+    {
+      "type": "class/struct",
+      "name": "GlobalState"
+    },
+    {
+      "type": "class/struct",
+      "name": "UiIntrospector"
+    },
+    {
+      "type": "class/struct",
+      "name": "DispatchResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "DispatchContext"
+    },
+    {
+      "type": "enum",
+      "name": "DispatchResult"
+    }
+  ],
+  "visualizer/src/ui/tools/rc_tool_geometry_policy.h": [
+    {
+      "type": "class/struct",
+      "name": "ToolGeometryPolicy"
+    }
+  ],
+  "visualizer/src/ui/tools/rc_tool_interaction_metrics.h": [
+    {
+      "type": "class/struct",
+      "name": "ToolInteractionMetrics"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_minimap_renderer.h": [
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_placement_system.h": [
+    {
+      "type": "class/struct",
+      "name": "PlacementGenerationPlan"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_scene_frame.h": [
+    {
+      "type": "class/struct",
+      "name": "SceneFrame"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_viewport_interaction.h": [
+    {
+      "type": "class/struct",
+      "name": "AxiomPlacementTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterTool"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "CommandMenuStateBundle"
+    },
+    {
+      "type": "class/struct",
+      "name": "CommandInteractionParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomInteractionParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "AxiomInteractionResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "SelectionDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "GizmoDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadVertexDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictBoundaryDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "WaterVertexDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "SplinePenDragState"
+    },
+    {
+      "type": "class/struct",
+      "name": "NonAxiomInteractionState"
+    },
+    {
+      "type": "class/struct",
+      "name": "NonAxiomInteractionParams"
+    },
+    {
+      "type": "class/struct",
+      "name": "InteractionOutcome"
+    },
+    {
+      "type": "class/struct",
+      "name": "NonAxiomInteractionResult"
+    },
+    {
+      "type": "enum",
+      "name": "InteractionOutcome"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_viewport_lod_policy.h": [
+    {
+      "type": "class/struct",
+      "name": "ViewportLOD"
+    },
+    {
+      "type": "class/struct",
+      "name": "RoadDetailClass"
+    },
+    {
+      "type": "enum",
+      "name": "ViewportLOD"
+    },
+    {
+      "type": "enum",
+      "name": "RoadDetailClass"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_viewport_overlays.h": [
+    {
+      "type": "class/struct",
+      "name": "OverlayConfig"
+    },
+    {
+      "type": "class/struct",
+      "name": "AESPComponent"
+    },
+    {
+      "type": "class/struct",
+      "name": "DistrictColorScheme"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportOverlays"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewTransform"
+    },
+    {
+      "type": "class/struct",
+      "name": "HighlightState"
+    },
+    {
+      "type": "class/struct",
+      "name": "BuildingSearchOverlay"
+    },
+    {
+      "type": "enum",
+      "name": "AESPComponent"
+    }
+  ],
+  "visualizer/src/ui/viewport/rc_viewport_scene_controller.h": [
+    {
+      "type": "class/struct",
+      "name": "GenerationCoordinator"
+    },
+    {
+      "type": "class/struct",
+      "name": "MinimapViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "PrimaryViewport"
+    },
+    {
+      "type": "class/struct",
+      "name": "ViewportSyncManager"
+    },
+    {
+      "type": "class/struct",
+      "name": "SceneControllerUpdateInput"
+    }
+  ],
+  "visualizer/src/ui/viewport/handlers/rc_viewport_handler_common.h": [
+    {
+      "type": "class/struct",
+      "name": "ViewportInteractionContext"
+    }
+  ],
+  "visualizer/include/ui/panels/rc_panel_road_editor.h": [
+    {
+      "type": "class/struct",
+      "name": "RoadEditorSubtool"
+    },
+    {
+      "type": "enum",
+      "name": "RoadEditorSubtool"
+    }
+  ],
+  "visualizer/include/RogueCity/Visualizer/MockupTokenParser.hpp": [
+    {
+      "type": "class/struct",
+      "name": "MockupLayoutTokens"
+    },
+    {
+      "type": "class/struct",
+      "name": "MockupParseResult"
+    },
+    {
+      "type": "class/struct",
+      "name": "MockupTokenParser"
+    }
+  ],
+  "visualizer/include/RogueCity/Visualizer/MockupWatcher.hpp": [
+    {
+      "type": "class/struct",
+      "name": "MockupWatcher"
+    }
+  ],
+  "visualizer/include/RogueCity/Visualizer/WorkspaceProfile.hpp": [
+    {
+      "type": "class/struct",
+      "name": "WorkspacePersona"
+    },
+    {
+      "type": "class/struct",
+      "name": "WorkspaceProfile"
+    },
+    {
+      "type": "enum",
+      "name": "WorkspacePersona"
+    }
+  ]
+}

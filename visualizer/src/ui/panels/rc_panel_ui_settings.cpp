@@ -11,7 +11,6 @@
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 
-
 #include <algorithm>
 #include <array>
 #include <imgui.h>
@@ -331,12 +330,6 @@ void DrawContent(float dt) {
   }
 
   ImGui::Separator();
-
-  // ======================================================================
-  // LAYOUT PREFERENCES (dock ratio controls with safe center constraints)
-  // ======================================================================
-  RC_UI::AnimationHelpers::BeginBreathingHeader(
-      "Layout Preferences", UITokens::InfoBlue, panel_focused);
 
   // ======================================================================
   // LAYOUT PREFERENCES (dock ratio controls with safe center constraints)

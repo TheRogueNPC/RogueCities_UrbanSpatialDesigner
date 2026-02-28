@@ -1056,24 +1056,6 @@ static const char *ToolLibraryWindowName(ToolLibrary tool) {
   return "Tool Library";
 }
 
-static const char *ToolLibraryPopoutWindowName(ToolLibrary tool) {
-  switch (tool) {
-  case ToolLibrary::Axiom:
-    return "Axiom Library (Popout)###AxiomLibraryPopout";
-  case ToolLibrary::Water:
-    return "Water Library (Popout)###WaterLibraryPopout";
-  case ToolLibrary::Road:
-    return "Road Library (Popout)###RoadLibraryPopout";
-  case ToolLibrary::District:
-    return "District Library (Popout)###DistrictLibraryPopout";
-  case ToolLibrary::Lot:
-    return "Lot Library (Popout)###LotLibraryPopout";
-  case ToolLibrary::Building:
-    return "Building Library (Popout)###BuildingLibraryPopout";
-  }
-  return "Tool Library (Popout)###ToolLibraryPopout";
-}
-
 bool IsToolLibraryOpen(ToolLibrary tool) {
   const size_t index = ToolLibraryIndex(tool);
   return s_library_frame_open && s_tool_library_open[index];
