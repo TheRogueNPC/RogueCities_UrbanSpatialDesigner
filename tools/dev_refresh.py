@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -14,13 +15,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def run(command: str, prefer_windows_shell: bool = False) -> int:
-    if prefer_windows_shell and os.name != "nt":
-        wrapped = f'cmd.exe /d /c "{command}"'
+def run(args: list[str], prefer_windows_shell: bool = False) -> int:
+    # On Windows, prefer_windows_shell doesn't change much for list-based subprocess.run
+    # On non-Windows, if prefer_windows_shell is requested, we try to use cmd.exe if available
+    # but we should not fail if it is missing unless it is strictly necessary.
+    # Given the environment, it's better to only use cmd.exe if we are actually on Windows or
+    # if it's explicitly available.
+    if prefer_windows_shell and os.name != "nt" and shutil.which("cmd.exe"):
+        command_str = shlex.join(args)
+        wrapped = ["cmd.exe", "/d", "/c", command_str]
     else:
-        wrapped = command
-    print(f"[RUN] {command}", flush=True)
-    proc = subprocess.run(wrapped, shell=True, check=False)
+        wrapped = args
+    print(f"[RUN] {shlex.join(args)}", flush=True)
+    proc = subprocess.run(wrapped, shell=False, check=False)
     return proc.returncode
 
 
@@ -50,22 +57,23 @@ def main() -> int:
     history_dir = root / ".vscode" / "problems-history"
     before_snapshot = snapshot_file(problems_path, history_dir, "before_refresh")
 
-    rc = run(f"cmake --preset {args.configure_preset}", prefer_windows_shell=True)
+    rc = run(["cmake", "--preset", args.configure_preset], prefer_windows_shell=True)
     if rc != 0:
         print("[FAIL] Configure step failed.")
         return rc
 
-    gen_cmd = (
-        f"(py -3 tools\\generate_compile_commands.py --build-dir build_vs --config {args.compile_config} "
-        f"|| python tools\\generate_compile_commands.py --build-dir build_vs --config {args.compile_config})"
-    )
-    rc = run(gen_cmd, prefer_windows_shell=True)
+    gen_args_base = ["tools/generate_compile_commands.py", "--build-dir", "build_vs", "--config", args.compile_config]
+    # Try py -3 first, then fallback to python
+    rc = run(["py", "-3"] + gen_args_base, prefer_windows_shell=True)
+    if rc != 0:
+        rc = run(["python"] + gen_args_base, prefer_windows_shell=True)
+
     if rc != 0:
         print("[FAIL] compile_commands generation failed.")
         return rc
 
     if not args.skip_build:
-        rc = run(f"cmake --build --preset {args.build_preset}", prefer_windows_shell=True)
+        rc = run(["cmake", "--build", "--preset", args.build_preset], prefer_windows_shell=True)
         if rc != 0:
             print("[FAIL] Build step failed.")
             return rc
@@ -82,16 +90,26 @@ def main() -> int:
         return 0
 
     if before_snapshot:
-        diff_cmd = (
-            f"{sys.executable} tools/problems_diff.py --baseline \"{before_snapshot}\" "
-            f"--current .vscode/problems.export.json --snapshot-current"
-        )
+        diff_args = [
+            sys.executable, "tools/problems_diff.py",
+            "--baseline", str(before_snapshot),
+            "--current", ".vscode/problems.export.json",
+            "--snapshot-current"
+        ]
     else:
-        diff_cmd = f"{sys.executable} tools/problems_diff.py --current .vscode/problems.export.json --snapshot-current"
-    run(diff_cmd, prefer_windows_shell=False)
+        diff_args = [
+            sys.executable, "tools/problems_diff.py",
+            "--current", ".vscode/problems.export.json",
+            "--snapshot-current"
+        ]
+    run(diff_args, prefer_windows_shell=False)
 
-    triage_cmd = f"{sys.executable} tools/problems_triage.py --input .vscode/problems.export.json --max-items 8"
-    run(triage_cmd, prefer_windows_shell=False)
+    triage_args = [
+        sys.executable, "tools/problems_triage.py",
+        "--input", ".vscode/problems.export.json",
+        "--max-items", "8"
+    ]
+    run(triage_args, prefer_windows_shell=False)
 
     print("[OK] Refresh complete.")
     return 0
