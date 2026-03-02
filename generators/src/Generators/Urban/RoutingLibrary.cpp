@@ -1,3 +1,39 @@
+/// @file RoutingLibrary.cpp
+/// @brief Implementations for the additive RoutingLibrary routing adapters.
+///
+/// All 11 algorithms share the private helpers defined in the anonymous namespace
+/// below: neighborOf(), edgeWeight(), runDijkstra(), and reconstructPath().
+/// These helpers deliberately do NOT modify GraphAlgorithms.cpp; they are kept
+/// private to this translation unit to avoid polluting the Urban namespace.
+///
+/// ## Build-phase data (pre-computation TODOs)
+/// Several algorithms (TNR, arc-flags, REAL) require auxiliary data that must be
+/// built once after graph finalisation and cached in CityGenerator::Output.
+/// The helper patterns to follow are:
+///
+/// ```cpp
+/// // After CityGenerator::generate() completes:
+/// auto& out = generator_output;
+///
+/// // REAL A* data
+/// out.real_data.reach         = buildReachValues(out.road_graph);
+/// out.real_data.landmarks     = chooseLandmarks(out.road_graph, /*count=*/8);
+/// out.real_data.landmark_dist = buildLandmarkDistances(out.road_graph,
+///                                                      out.real_data.landmarks);
+///
+/// // Transit Node Set (choose transit nodes = highway vertices in top tier)
+/// auto hier = Routing::extractHighwayHierarchy(out.road_graph, 3);
+/// out.tns.nodes = hier.back().highway_vertices;  // top-level tier
+/// buildTransitDistances(out.road_graph, out.tns); // fills dist_table + access vecs
+///
+/// // Arc-flags (one region per district; use Vertex::layer_id as region index)
+/// out.arc_flags = buildArcFlags(out.road_graph, /*num_regions=*/out.districts.size());
+/// ```
+///
+/// None of the three build helpers above exist yet; they belong in a new file
+/// `generators/src/Generators/Urban/RoutingPrecompute.cpp` alongside a matching
+/// `RoutingPrecompute.hpp`.
+
 #include "RogueCity/Generators/Urban/RoutingLibrary.hpp"
 
 #include <algorithm>
@@ -16,10 +52,16 @@ namespace RogueCity::Generators::Urban::Routing {
 
     namespace {
 
-        // The invalid sentinel for VertexID / EdgeID values.
-        constexpr VertexID kInvalidVertex = std::numeric_limits<VertexID>::max();
-        constexpr EdgeID   kInvalidEdge   = std::numeric_limits<EdgeID>::max();
-        constexpr double   kInf           = std::numeric_limits<double>::infinity();
+    // =========================================================================
+    // Internal helpers (anonymous namespace)
+    // =========================================================================
+
+    // kInvalidVertex / kInvalidEdge: sentinel values used as "no predecessor"
+    // markers in predecessor arrays.  Chosen as max() so they are always out of
+    // range for any valid graph (graph sizes are bounded by uint32_t capacity).
+    constexpr VertexID kInvalidVertex = std::numeric_limits<VertexID>::max();
+    constexpr EdgeID   kInvalidEdge   = std::numeric_limits<EdgeID>::max();
+    constexpr double   kInf           = std::numeric_limits<double>::infinity();
 
         // Returns the other endpoint of an undirected edge relative to vertex v.
         [[nodiscard]] inline VertexID neighborOf(const Edge& e, VertexID v) noexcept {
@@ -138,6 +180,30 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 1. Yen's K-Shortest Loopless Paths
     // =========================================================================
+    //
+    // Reference: Jin Y. Yen, "Finding the K Shortest Loopless Paths in a Network",
+    //            Management Science, 17(11):712–716, 1971.
+    //
+    // Algorithm outline:
+    //   A-list: paths confirmed as the 1st … k-th shortest (grown one per outer iter).
+    //   B-heap: min-heap of candidate paths not yet accepted.
+    //
+    //   Iteration i (finding path A[i]):
+    //     For each "spur node" along path A[i-1]:
+    //       1. Root = prefix of A[i-1] up to and including the spur node.
+    //       2. Remove from the graph:
+    //          (a) Edges leaving the spur node that were used by previously
+    //              accepted paths with the same root prefix → prevents duplicate spurs.
+    //          (b) All edges incident to interior root vertices → enforces looplessness.
+    //       3. Run Dijkstra from spur node to dst in the reduced graph.
+    //       4. Concatenate root + spur path → candidate.
+    //       5. Insert unique candidates into B.
+    //     Pop the cheapest candidate from B → A[i].
+    //
+    // WHY the edge-removal is per-iteration-spur and not global:
+    //   Yen's correctness relies on uniquely constraining each spur so that the
+    //   resulting candidate cannot duplicate a path already in A.  A global removal
+    //   would over-constrain the search and miss valid k-th paths.
     KPathsResult yenKShortestPaths(
         const Graph& g,
         VertexID     src,
@@ -290,6 +356,29 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 2. Multi-Level Highway Hierarchies
     // =========================================================================
+    //
+    // Reference: Robert Geisberger et al., "Contraction Hierarchies: Faster and
+    //            Simpler Hierarchical Routing in Road Networks", WEA 2008.
+    //            (This implementation provides the first step: level extraction,
+    //             NOT full contraction.  Full CH requires shortcut insertion.)
+    //
+    // Level assignment:
+    //   level(e) = clamp(int(e.type) + max(0, e.layer_id),  0, num_levels-1)
+    //
+    //   Core::RoadType enum values increase with road importance:
+    //     Street=0, M_Minor=1, M_Major=2, Arterial=3, Highway=4, …
+    //   e.layer_id provides a grade-separation boost (0 = at-grade, 1 = overpass, …).
+    //
+    // To extend to full Contraction Hierarchies:
+    //   1. Compute importance(v) = edge_difference(v) + deleted_neighbours(v)
+    //      + shortcut_cover(v) + node_level(v).  A common heuristic combines
+    //      these with weights (e.g. 190, 120, 10, 1 – Geisberger 2008 values).
+    //   2. Order all vertices by increasing importance (lazy-update priority queue).
+    //   3. For each vertex u in order: contract it — for each pair of remaining
+    //      neighbours (s, t) where the only witness path goes through u, insert
+    //      shortcut edge s→t with weight dist(s,u) + dist(u,t).
+    //   4. Store the contracted graph alongside the original; queries use
+    //      bidirectional CH-Dijkstra that only relaxes upward edges.
     std::vector<HierarchyLevel> extractHighwayHierarchy(
         const Graph& g,
         int          num_levels)
@@ -341,6 +430,33 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 3. Delta-Stepping Distance Field (single-threaded baseline)
     // =========================================================================
+    //
+    // Reference: Ulrich Meyer & Peter Sanders, "Δ-stepping: A parallelisable
+    //            shortest path algorithm", Journal of Algorithms 49(1):114–152, 2003.
+    //
+    // Key data structure: an infinite sequence of buckets B[0], B[1], … where
+    // bucket B[i] holds tentative-settled vertices with distance in [i·Δ, (i+1)·Δ).
+    // "Light" edges (weight ≤ Δ) may push a vertex into the same or adjacent bucket.
+    // "Heavy" edges (weight > Δ) push into a bucket far ahead — these are safe to
+    // defer because a heavy edge cannot create a path cheaper than the current
+    // bucket's lower bound.
+    //
+    // Correctness invariant:
+    //   When bucket B[i] is fully drained, all vertices with true shortest distance
+    //   in [0, (i+1)·Δ) have been permanently settled.  This mirrors Dijkstra's
+    //   greedy correctness but works in bucket granularity rather than per-vertex.
+    //
+    // Choosing delta:
+    //   - Too small (Δ → 0): degrades to Dijkstra, no parallelism benefit.
+    //   - Too large (Δ → max_edge): many vertices in each bucket, heavy synchronisation.
+    //   - Recommended: Δ ≈ average edge length (meters), or 1/√m for theoretical optimality.
+    //
+    // Parallelism upgrade path (ROGUECITY_ROUTING_PARALLEL):
+    //   Replace the inner bucket-processing loop with a parallel_for over the
+    //   current bucket S.  Use thread-local candidate arrays to collect new
+    //   (vertex, distance) pairs, then merge them with atomic min operations
+    //   before the next bucket.  Add Crauser OUT labels (computeCrauserLabels)
+    //   to determine the barrier-free settling frontier.
     DistanceField deltaSteppingDistanceField(
         const Graph& g,
         VertexID     src,
@@ -417,6 +533,29 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 4. Loopless Candidate Generation (Pascoal) – safe placeholder
     // =========================================================================
+    //
+    // Reference: M. Pascoal, "A new implementation of Yen's ranking loopless
+    //            paths algorithm", 4OR 1(2):121–134, 2003.
+    //
+    // Current status: PLACEHOLDER — always returns empty candidates.
+    //
+    // The Pascoal algorithm improves upon Yen by avoiding the re-scanning of
+    // previously accepted paths during the deviation-arc enumeration.  It uses
+    // a "deviation" pointer per candidate and processes arcs in topological order,
+    // reducing the constant factor by roughly 30–50 % on dense graphs.
+    //
+    // Implementation guide (when ready to implement):
+    //   1. Represent each candidate as a (path, deviation_arc) pair.
+    //   2. Build a deviation-arc tree rooted at the shortest path P₁.
+    //   3. For each accepted path P_i, extend the tree with new deviation arcs
+    //      from P_i's deviation point onward.
+    //   4. Maintain a min-heap of partial extension costs; pop the cheapest
+    //      extension, reconstruct the full candidate, add to output.
+    //   5. Guard against cycles with path.size() > graph.vertices().size() check.
+    //
+    // Caller contract (preserved even after full implementation):
+    //   An empty result must degrade gracefully — callers should fall back to
+    //   yenKShortestPaths() or another candidate strategy.
     LooplessCandidates looplessCandidates(
         const Graph& /*g*/,
         VertexID     /*src*/,
@@ -431,6 +570,18 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 5. Edge-Flag Dijkstra
     // =========================================================================
+    //
+    // Thin wrapper around runDijkstra() with the edge_allowed mask populated
+    // from the caller's edge_flags vector.
+    //
+    // Invariant: edges with index >= edge_flags.size() are treated as allowed
+    // (permissive default) so that callers do not need to pre-size edge_flags to
+    // exactly graph.edges().size() when only blocking a subset of edges.
+    //
+    // Usage pattern (incremental road construction):
+    //   std::vector<bool> flags(graph.edges().size(), false); // all blocked
+    //   for (EdgeID eid : committed_edges) { flags[eid] = true; }
+    //   auto route = edgeFlagDijkstra(graph, depot, destination, flags);
     PathResult edgeFlagDijkstra(
         const Graph&             g,
         VertexID                 src,
@@ -447,6 +598,27 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 6. Formal-Language-Constrained Shortest Path
     // =========================================================================
+    //
+    // Reference: Barrett et al., "Formal-Language-Constrained Path Problems",
+    //            SIAM Journal on Computing 30(3):809–837, 2000.
+    //
+    // Product-graph construction:
+    //   The search space is the Cartesian product G × A of the road graph and
+    //   a DFA A.  A product-state (v, s) represents "at road vertex v with the
+    //   automaton in state s".  Edges in the product graph are:
+    //     ((u, s), (v, s')) with weight w(u,v)  iff transition(s, edge(u,v)) == s'.
+    //   Dead transitions (return -1) omit the edge entirely.
+    //
+    // Memory: O(n · |A|) for dist / prev arrays.  For large automata (|A| > 100)
+    //   consider sparse representation or trie-compressed state indexing.
+    //
+    // Typical automaton patterns for city road generation:
+    //   - "No U-turn": 2 states tracking last-used edge direction.
+    //   - "Highway-only segment": 3 states (off-highway, on-highway, dead).
+    //   - "Mandatory waypoint": k+1 states for a sequence of k mandatory landmarks.
+    //
+    // Fallback: if automaton.transition is null or num_states ≤ 0, the single
+    //   accepting state {0} means every path is valid → delegates to shortestPath().
     PathResult constrainedShortestPath(
         const Graph&              g,
         VertexID                  src,
@@ -559,6 +731,29 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 7. Crauser OUT-Criterion Helpers
     // =========================================================================
+    //
+    // Reference: Andreas Crauser et al., "A Parallelization of Dijkstra's
+    //            Shortest Path Algorithm", MFCS 1998, LNCS 1450:722–731.
+    //
+    // The OUT-criterion:
+    //   A vertex u in the priority queue can be settled in parallel with other
+    //   unsettled queue vertices if:
+    //     dist[u] ≤ min_{v in queue, v ≠ u} (dist[v] + out_lower_bound[u])
+    //   where out_lower_bound[u] = min weight of edges leaving u.
+    //
+    // This implementation only computes out_lower_bound[] (the label).
+    // The actual settling logic belongs inside a parallel Dijkstra or
+    // delta-stepping loop.  To wire it in:
+    //
+    //   CrauserLabels labels = computeCrauserLabels(graph);
+    //   // Inside parallel Dijkstra inner loop:
+    //   double threshold = dist[u] - labels.out_lower_bound[u];
+    //   // Any queue vertex v with dist[v] > threshold cannot block u → settle u.
+    //
+    // Note: for undirected graphs, "outgoing" and "incoming" edge sets are
+    // identical, so out_lower_bound[v] == in_lower_bound[v].  The IN-criterion
+    // (settling u if dist[u] ≤ min_{v settled} dist[v] + out_lower_bound[u])
+    // is also safe; consider implementing both for maximum parallelism.
     CrauserLabels computeCrauserLabels(const Graph& g) {
         CrauserLabels labels;
         labels.out_lower_bound.assign(g.vertices().size(), kInf);
@@ -584,6 +779,33 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 8. Transit Node Routing Query
     // =========================================================================
+    //
+    // Reference: Holger Bast et al., "Fast Routing in Road Networks with Transit
+    //            Nodes", Science 316(5824):566, 2007.
+    //
+    // Query algorithm (all data pre-built):
+    //   cost(src, dst) = min_{i,j} ( forward_access[src][i]
+    //                              + dist_table[i][j]
+    //                              + backward_access[dst][j] )
+    //
+    // This is O(|nodes|²) per query, typically sub-millisecond for city-scale
+    // graphs with |nodes| ≈ 100–500 transit vertices.
+    //
+    // Locality filter (not yet implemented):
+    //   For short-range queries (src and dst within the same district or
+    //   within a few hops), TNR can give wrong results because neither src nor
+    //   dst has a meaningful access path to any transit node.  The standard
+    //   fix is a locality test:  if dist(src, dst) < local_threshold, skip TNR
+    //   and use a plain Dijkstra or BFS instead.  Add a `local_threshold_meters`
+    //   parameter to TransitNodeSet and check it at the top of transitNodeQuery().
+    //
+    // Predecessor reconstruction:
+    //   The current implementation returns a synthetic vertex list
+    //   [src, tn_i, tn_j, dst].  Full reconstruction requires storing predecessor
+    //   trees from each Dijkstra run during the build phase.  Add
+    //   forward_prev[v][i]  (predecessor on the path from v to nodes[i]) and
+    //   backward_prev[v][j] (predecessor on the path from nodes[j] to v) to
+    //   TransitNodeSet, then splice the three sub-paths in transitNodeQuery().
     PathResult transitNodeQuery(
         const Graph&          g,
         VertexID              src,
@@ -658,6 +880,25 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 9. External Memory BFS Helper
     // =========================================================================
+    //
+    // "External memory" refers to the sequential memory access pattern: vertices
+    // are processed strictly in FIFO order using a deque, matching the access
+    // pattern expected by external-memory or disk-backed graph algorithms where
+    // random-access priority-queue operations would cause excessive page faults.
+    //
+    // In-memory usage in this codebase:
+    //   - Connectivity check: run BFS from any vertex; count level[v] == -1.
+    //   - Island detection: collect all unreachable vertices and link them via
+    //     synthetic short edges during the road-repair pass.
+    //   - Hop-distance proxy: use level[v] as a fast approximation to dist[v]
+    //     when edges have uniform weight (e.g. early-stage block layout).
+    //   - Spanning tree: the prev[] array encodes the BFS tree; use it to draw
+    //     the "skeleton" of the network in the debug overlay.
+    //
+    // To handle disconnected graphs:
+    //   Run externalMemoryBFS once per connected component.  Detect component
+    //   boundaries by scanning for level[v] == -1 after each BFS call, then
+    //   picking any unvisited vertex as the next source.
     BFSResult externalMemoryBFS(const Graph& g, VertexID src) {
         BFSResult result;
         const size_t n = g.vertices().size();
@@ -697,8 +938,34 @@ namespace RogueCity::Generators::Urban::Routing {
     }
 
     // =========================================================================
-    // 10. Two-Level Arc-Flags Helper
+    // 10. Two-Level Arc-Flags Dijkstra
     // =========================================================================
+    //
+    // Reference: Ulrich Lauther, "An Extremely Fast, Exact Algorithm for Finding
+    //            Shortest Paths in Static Networks with Geographical Background",
+    //            GeoInfo 2004.
+    //            Reinhard Möhring et al., "Partitioning Graphs to Speedup Dijkstra's
+    //            Algorithm", ACM JEA 11, 2006.
+    //
+    // Arc-flag build algorithm (to be implemented in RoutingPrecompute.cpp):
+    //   For each region r (e.g. district identified by Vertex::layer_id):
+    //     For each boundary vertex b of region r:
+    //       Run reverse Dijkstra from b (or forward Dijkstra to b on
+    //       the reversed graph).
+    //       For every edge (u,v) on the shortest-path tree rooted at b:
+    //         flags[edge_id(u,v)][r] = true.
+    //
+    //   Boundary vertices: vertices v where ∃ edge (v,w) with w in a different region.
+    //
+    // Two-level extension (Möhring 2006):
+    //   Partition the city first into "cells" (e.g. 4×4 grid of districts),
+    //   then into "regions" (groups of cells).  Build flags at both levels.
+    //   During a query, first prune with cell-level flags, then with region flags.
+    //   This two-level hierarchy reduces flag storage from O(m·R) to O(m·√R).
+    //
+    // Current implementation: single-level (one flag per edge per region).
+    // To upgrade to two-level: add a second ArcFlagsData for the coarser partition
+    // and check both in the inner loop (check coarser first — cheaper to evaluate).
     PathResult arcFlagsDijkstra(
         const Graph&        g,
         VertexID            src,
@@ -793,6 +1060,41 @@ namespace RogueCity::Generators::Urban::Routing {
     // =========================================================================
     // 11. REAL (Reach + ALT) A* Search
     // =========================================================================
+    //
+    // Reference: Andrew V. Goldberg & Renato Werneck, "Computing Point-to-Point
+    //            Shortest Paths from External Memory", ALENEX 2005.
+    //
+    // Two orthogonal speedup layers combined:
+    //
+    // --- Reach (Gutman 2004) ---
+    //   Reach R(v) = max over all shortest paths P through v of
+    //                min(dist(first(P), v), dist(v, last(P))).
+    //   A vertex u can be skipped during a query (src→dst) if:
+    //     g_cost[u] > reach[u]   AND   h(u) > reach[u]
+    //   where g_cost[u] = distance from src so far,
+    //         h(u)       = ALT lower bound on dist(u, dst).
+    //
+    //   WHY this is safe: if R(v) is small, v does not appear on any long path.
+    //   A path from src to dst with g_cost[u] > R(u) would mean u is "too far from
+    //   the start" relative to its reach, and h(u) > R(u) means "u is also far from
+    //   the end" — so u cannot lie on the src→dst shortest path.
+    //
+    // --- ALT (Goldberg & Harrelson 2005) ---
+    //   Lower bound:  h(v) = max_L |dist(L, dst) - dist(L, v)|
+    //   This is admissible by the triangle inequality:
+    //     dist(v, dst) ≥ dist(L, dst) - dist(L, v)  for any landmark L.
+    //
+    //   Good landmark placement (avoid heuristic, Goldberg 2005):
+    //     1. Pick any vertex as landmark 0.
+    //     2. Greedily add the vertex farthest from all existing landmarks
+    //        (using SSSP distances, not Euclidean).
+    //     3. Repeat until |landmarks| == target count (4–16 for city-scale).
+    //
+    // Reach value build (to be implemented in RoutingPrecompute.cpp):
+    //   Full APSP is O(n · (n + m) log n) — expensive for large graphs.
+    //   The pruned-reach algorithm (Goldberg 2005) computes approximate
+    //   reach values via partial shortest-path trees with an upper-bound
+    //   pruning criterion, reducing the effective work to O(n^1.5) in practice.
     PathResult realAStar(
         const Graph&    g,
         VertexID        src,
