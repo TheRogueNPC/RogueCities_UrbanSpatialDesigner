@@ -79,6 +79,8 @@ public:
     RogueCity::Core::Vec2 camera_xy{0.0, 0.0};
     float zoom{1.0f};
     float yaw{0.0f};
+    float pitch{0.0f};
+    bool is_3d{false};
     ImVec2 viewport_pos{0.0f, 0.0f};
     ImVec2 viewport_size{0.0f, 0.0f};
   };

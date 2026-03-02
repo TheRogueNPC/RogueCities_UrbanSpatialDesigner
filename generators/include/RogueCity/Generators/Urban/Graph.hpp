@@ -42,7 +42,7 @@ namespace RogueCity::Generators::Urban {
         Core::Vec2 pos{};
         VertexKind kind = VertexKind::Normal;
         int layer_id = 0;
-        std::vector<EdgeID> edges;
+        std::vector<EdgeID> edges = {}; // default member init silences aggregate-init warnings
 
         float demand_D = 0.0f;
         float risk_R = 0.0f;

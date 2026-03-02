@@ -19,38 +19,64 @@ namespace RC_UI::Panels::Inspector {
 
 namespace {
 
-void DrawActiveToolControls(RogueCity::Core::Editor::GlobalState& gs, float dt) {
-    using namespace RogueCity::Core::Editor;
-    switch (gs.tool_runtime.active_domain) {
-    case ToolDomain::Road:
-    case ToolDomain::Paths:
-        ImGui::SeparatorText("Road Editor");
-        RC_UI::Panels::RoadEditor::DrawContent(dt);
-        ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(120.0f);
-        ImGui::SliderInt("Samples##SplineRoad", &gs.spline_editor.samples_per_segment, 2, 24);
-        break;
-    case ToolDomain::Water:
-    case ToolDomain::Flow:
-        ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(120.0f);
-        ImGui::SliderInt("Samples##SplineWater", &gs.spline_editor.samples_per_segment, 2, 24);
-        break;
-    case ToolDomain::District:
-    case ToolDomain::Zone:
-        ImGui::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
-        ImGui::SameLine();
-        ImGui::Checkbox("Snap", &gs.district_boundary_editor.snap_to_grid);
-        if (gs.district_boundary_editor.snap_to_grid) {
-            ImGui::SetNextItemWidth(120.0f);
-            ImGui::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
-        }
-        break;
-    default:
-        break;
+void DrawActiveToolControls(RogueCity::Core::Editor::GlobalState &gs,
+                            float dt) {
+  using namespace RogueCity::Core::Editor;
+  switch (gs.tool_runtime.active_domain) {
+  case ToolDomain::Road:
+  case ToolDomain::Paths:
+    ImGui::SeparatorText("Road Editor");
+    RC_UI::Panels::RoadEditor::DrawContent(dt);
+    ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SliderInt("Samples##SplineRoad",
+                     &gs.spline_editor.samples_per_segment, 2, 24);
+    break;
+  case ToolDomain::Water:
+    ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SliderInt("Samples##SplineWater",
+                     &gs.spline_editor.samples_per_segment, 2, 24);
+    break;
+  case ToolDomain::Flow:
+    ImGui::SeparatorText("Simulation Setup");
+    ImGui::Checkbox("Enable Pedestrians",
+                    &gs.flow_simulation.enable_pedestrians);
+    if (gs.flow_simulation.enable_pedestrians) {
+      ImGui::SetNextItemWidth(150.0f);
+      ImGui::SliderFloat("Pedestrian Density",
+                         &gs.flow_simulation.pedestrian_density, 0.0f, 1.0f);
     }
+    ImGui::Checkbox("Enable Traffic", &gs.flow_simulation.enable_traffic);
+    if (gs.flow_simulation.enable_traffic) {
+      ImGui::SetNextItemWidth(150.0f);
+      ImGui::SliderFloat("Traffic Density", &gs.flow_simulation.traffic_density,
+                         0.0f, 1.0f);
+    }
+    ImGui::SeparatorText("Environment");
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::SliderFloat("Time of Day", &gs.flow_simulation.time_of_day, 0.0f,
+                       24.0f, "%.1f h");
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::SliderInt("Sim Speed", &gs.flow_simulation.simulation_speed, 0, 10,
+                     "%d x");
+    break;
+  case ToolDomain::District:
+  case ToolDomain::Zone:
+    ImGui::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
+    ImGui::SameLine();
+    ImGui::Checkbox("Snap", &gs.district_boundary_editor.snap_to_grid);
+    if (gs.district_boundary_editor.snap_to_grid) {
+      ImGui::SetNextItemWidth(120.0f);
+      ImGui::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size,
+                       0.5f, 0.5f, 200.0f, "%.1f");
+    }
+    break;
+  default:
+    break;
+  }
 }
 
 } // namespace
@@ -98,12 +124,11 @@ void DrawContent(float dt) {
                                 ? "none (idle)"
                                 : gs.tool_runtime.last_action_status.c_str());
     // Viewport Status
-    Components::DrawDiagRow(
-        "Viewport Status",
-        gs.tool_runtime.last_viewport_status.empty()
-            ? "idle"
-            : gs.tool_runtime.last_viewport_status.c_str(),
-        UITokens::CyanAccent);
+    Components::DrawDiagRow("Viewport Status",
+                            gs.tool_runtime.last_viewport_status.empty()
+                                ? "idle"
+                                : gs.tool_runtime.last_viewport_status.c_str(),
+                            UITokens::CyanAccent);
     // Gen Policy for active domain
     {
       const auto policy =
@@ -123,12 +148,10 @@ void DrawContent(float dt) {
     // Domain-specific subtool rows
     switch (gs.tool_runtime.active_domain) {
     case RogueCity::Core::Editor::ToolDomain::Road: {
-      const auto road_sub =
-          magic_enum::enum_name(gs.tool_runtime.road_subtool);
-      Components::DrawDiagRow("Subtool",
-                              road_sub.empty() ? "?"
-                                               : std::string(road_sub).c_str(),
-                              UITokens::AmberGlow);
+      const auto road_sub = magic_enum::enum_name(gs.tool_runtime.road_subtool);
+      Components::DrawDiagRow(
+          "Subtool", road_sub.empty() ? "?" : std::string(road_sub).c_str(),
+          UITokens::AmberGlow);
       const auto spline_sub =
           magic_enum::enum_name(gs.tool_runtime.road_spline_subtool);
       Components::DrawDiagRow(
@@ -137,18 +160,20 @@ void DrawContent(float dt) {
           UITokens::TextPrimary);
       break;
     }
-    case RogueCity::Core::Editor::ToolDomain::Water:
-    case RogueCity::Core::Editor::ToolDomain::Flow: {
-      const auto sub =
-          magic_enum::enum_name(gs.tool_runtime.water_subtool);
+    case RogueCity::Core::Editor::ToolDomain::Water: {
+      const auto sub = magic_enum::enum_name(gs.tool_runtime.water_subtool);
       Components::DrawDiagRow("Subtool",
                               sub.empty() ? "?" : std::string(sub).c_str(),
                               UITokens::InfoBlue);
       break;
     }
+    case RogueCity::Core::Editor::ToolDomain::Flow: {
+      Components::DrawDiagRow("Subtool", "Traffic/Pedestrians",
+                              UITokens::MagentaHighlight);
+      break;
+    }
     case RogueCity::Core::Editor::ToolDomain::District: {
-      const auto sub =
-          magic_enum::enum_name(gs.tool_runtime.district_subtool);
+      const auto sub = magic_enum::enum_name(gs.tool_runtime.district_subtool);
       Components::DrawDiagRow("Subtool",
                               sub.empty() ? "?" : std::string(sub).c_str(),
                               UITokens::GreenHUD);
@@ -172,7 +197,7 @@ void DrawContent(float dt) {
     ImGui::Checkbox("Snapping##Gizmo", &gs.gizmo.snapping);
     // Operation combo
     {
-      static const char* k_ops[] = {"Translate", "Rotate", "Scale"};
+      static const char *k_ops[] = {"Translate", "Rotate", "Scale"};
       int op_idx = static_cast<int>(gs.gizmo.operation);
       ImGui::SetNextItemWidth(120.0f);
       if (ImGui::Combo("Operation##Gizmo", &op_idx, k_ops, 3)) {
@@ -208,7 +233,7 @@ void DrawContent(float dt) {
                     &gs.layer_manager.allow_through_hidden);
     ImGui::Spacing();
     if (ImGui::Button("Assign Selection \xe2\x86\x92 Active Layer")) {
-      for (const auto& item : gs.selection_manager.Items()) {
+      for (const auto &item : gs.selection_manager.Items()) {
         const uint64_t key =
             (static_cast<uint64_t>(static_cast<uint8_t>(item.kind)) << 32ull) |
             static_cast<uint64_t>(item.id);
@@ -229,9 +254,9 @@ void DrawContent(float dt) {
                     &gs.validation_overlay.show_warnings);
     ImGui::Checkbox("Show Labels##ValOv", &gs.validation_overlay.show_labels);
     ImGui::Spacing();
-    ImGui::TextColored(
-        ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
-        "Errors: %d", static_cast<int>(gs.validation_overlay.errors.size()));
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
+                       "Errors: %d",
+                       static_cast<int>(gs.validation_overlay.errors.size()));
     ImGui::Unindent();
     ImGui::Spacing();
   }

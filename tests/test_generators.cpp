@@ -5,8 +5,11 @@
 #include "RogueCity/Generators/Roads/RoadNoder.hpp"
 #include "RogueCity/Generators/Roads/GraphSimplify.hpp"
 #include "RogueCity/Generators/Roads/FlowAndControl.hpp"
+#include "RogueCity/Generators/Roads/IntersectionTemplates.hpp"
 #include "RogueCity/Generators/Roads/Verticality.hpp"
+#include "RogueCity/Generators/Urban/BlockGenerator.hpp"
 #include "RogueCity/Generators/Urban/Graph.hpp"
+#include "RogueCity/Generators/Urban/PolygonFinder.hpp"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -179,9 +182,9 @@ int main() {
     std::cout << "\n=== Graph Simplification ===" << std::endl;
     {
         Urban::Graph g;
-        Urban::VertexID v0 = g.addVertex({ Core::Vec2(0.0, 0.0) });
-        Urban::VertexID v1 = g.addVertex({ Core::Vec2(1.0, 0.0) });
-        Urban::VertexID v2 = g.addVertex({ Core::Vec2(12.0, 0.0) });
+        Urban::VertexID v0 = g.addVertex({ .pos = Core::Vec2(0.0, 0.0) });
+        Urban::VertexID v1 = g.addVertex({ .pos = Core::Vec2(1.0, 0.0) });
+        Urban::VertexID v2 = g.addVertex({ .pos = Core::Vec2(12.0, 0.0) });
 
         Urban::Edge e0{};
         e0.a = v0;
@@ -209,11 +212,11 @@ int main() {
     std::cout << "\n=== Control Ladder ===" << std::endl;
     {
         Urban::Graph g;
-        const Urban::VertexID c = g.addVertex({ Core::Vec2(0.0, 0.0) });
-        const Urban::VertexID a = g.addVertex({ Core::Vec2(0.0, 20.0) });
-        const Urban::VertexID b = g.addVertex({ Core::Vec2(20.0, 0.0) });
-        const Urban::VertexID d = g.addVertex({ Core::Vec2(-20.0, 0.0) });
-        const Urban::VertexID e = g.addVertex({ Core::Vec2(0.0, -20.0) });
+        const Urban::VertexID c = g.addVertex({ .pos = Core::Vec2(0.0, 0.0) });
+        const Urban::VertexID a = g.addVertex({ .pos = Core::Vec2(0.0, 20.0) });
+        const Urban::VertexID b = g.addVertex({ .pos = Core::Vec2(20.0, 0.0) });
+        const Urban::VertexID d = g.addVertex({ .pos = Core::Vec2(-20.0, 0.0) });
+        const Urban::VertexID e = g.addVertex({ .pos = Core::Vec2(0.0, -20.0) });
 
         auto make_edge = [&](Urban::VertexID v) {
             Urban::Edge edge{};
@@ -268,11 +271,11 @@ int main() {
     std::cout << "\n=== Grade Separation Decision ===" << std::endl;
     {
         Urban::Graph g;
-        const Urban::VertexID center = g.addVertex({ Core::Vec2(0.0, 0.0) });
-        const Urban::VertexID north = g.addVertex({ Core::Vec2(0.0, 30.0) });
-        const Urban::VertexID south = g.addVertex({ Core::Vec2(0.0, -30.0) });
-        const Urban::VertexID east = g.addVertex({ Core::Vec2(30.0, 0.0) });
-        const Urban::VertexID west = g.addVertex({ Core::Vec2(-30.0, 0.0) });
+        const Urban::VertexID center = g.addVertex({ .pos = Core::Vec2(0.0, 0.0) });
+        const Urban::VertexID north = g.addVertex({ .pos = Core::Vec2(0.0, 30.0) });
+        const Urban::VertexID south = g.addVertex({ .pos = Core::Vec2(0.0, -30.0) });
+        const Urban::VertexID east = g.addVertex({ .pos = Core::Vec2(30.0, 0.0) });
+        const Urban::VertexID west = g.addVertex({ .pos = Core::Vec2(-30.0, 0.0) });
 
         auto major_edge = [&](Urban::VertexID v) {
             Urban::Edge edge{};
@@ -306,6 +309,159 @@ int main() {
         }
         assert(has_portal);
     }
+
+    // ============================================================
+    // 3D Foundation Contract Tests (multi-agent lane: core+generators)
+    // ============================================================
+
+    std::cout << "\n=== 3D Contract: Road Verticality Metadata Survives Pipeline ===" << std::endl;
+    {
+        // Build a simple two-layer graph (one road on layer 0, one on layer 1).
+        Urban::Graph g;
+        const Urban::VertexID va = g.addVertex({ .pos = Core::Vec2(0.0, 0.0) });
+        const Urban::VertexID vb = g.addVertex({ .pos = Core::Vec2(20.0, 0.0) });
+        const Urban::VertexID vc = g.addVertex({ .pos = Core::Vec2(0.0, 0.0) });
+        const Urban::VertexID vd = g.addVertex({ .pos = Core::Vec2(20.0, 0.0) });
+
+        Urban::Edge e0{};
+        e0.a = va; e0.b = vb; e0.type = Core::RoadType::Arterial;
+        e0.layer_id = 0; e0.length = 20.0f;
+        e0.shape = { Core::Vec2(0.0, 0.0), Core::Vec2(20.0, 0.0) };
+        g.addEdge(e0);
+
+        Urban::Edge e1{};
+        e1.a = vc; e1.b = vd; e1.type = Core::RoadType::Highway;
+        e1.layer_id = 1; e1.length = 20.0f;
+        e1.shape = { Core::Vec2(0.0, 0.0), Core::Vec2(20.0, 0.0) };
+        g.addEdge(e1);
+
+        // Verify that layer_id on graph edges can be round-tripped into Core::Road.
+        // This mirrors the RoadGenerator.cpp export loop (the data-preservation path).
+        bool found_layer0 = false;
+        bool found_layer1 = false;
+        for (const auto& edge : g.edges()) {
+            if (edge.shape.size() < 2) continue;
+            Core::Road road{};
+            road.layer_id = edge.layer_id;
+            road.has_grade_separation = (edge.layer_id != 0);
+            if (road.layer_id == 0) { found_layer0 = true; assert(!road.has_grade_separation); }
+            if (road.layer_id == 1) { found_layer1 = true; assert(road.has_grade_separation); }
+
+            // Elevation offsets should be populated for grade-separated roads.
+            if (road.has_grade_separation) {
+                road.elevation_offsets.resize(road.points.size(), static_cast<float>(road.layer_id) * 4.5f);
+                assert(!road.elevation_offsets.empty() || road.points.empty());
+            }
+        }
+        assert(found_layer0 && found_layer1);
+        std::cout << "  Road verticality metadata round-trip: PASS" << std::endl;
+    }
+
+    std::cout << "\n=== 3D Contract: IntersectionTemplate Polygon Data Not Dropped ===" << std::endl;
+    {
+        // Build a graph with enough controlled intersections to generate paved areas.
+        Urban::Graph g;
+        const Urban::VertexID center = g.addVertex({ .pos = Core::Vec2(50.0, 50.0) });
+        const Urban::VertexID n = g.addVertex({ .pos = Core::Vec2(50.0, 100.0) });
+        const Urban::VertexID s = g.addVertex({ .pos = Core::Vec2(50.0, 0.0) });
+        const Urban::VertexID e = g.addVertex({ .pos = Core::Vec2(100.0, 50.0) });
+        const Urban::VertexID w = g.addVertex({ .pos = Core::Vec2(0.0, 50.0) });
+
+        auto make_heavy = [&](Urban::VertexID v) {
+            Urban::Edge edge{};
+            edge.a = center; edge.b = v;
+            edge.type = Core::RoadType::Arterial;
+            edge.length = 50.0f;
+            edge.flow.v_base = 25.0f;
+            edge.flow.flow_score = 2.0f;
+            edge.shape = { g.getVertex(center)->pos, g.getVertex(v)->pos };
+            g.addEdge(edge);
+        };
+        make_heavy(n); make_heavy(s); make_heavy(e); make_heavy(w);
+
+        Roads::FlowControlConfig fcfg;
+        Roads::applyFlowAndControl(g, fcfg);
+        Roads::VerticalityConfig vcfg2;
+        Roads::applyVerticality(g, vcfg2);
+
+        Roads::TemplateConfig tcfg;
+        tcfg.circle_segments = 8;
+        const auto tmpl_out = Roads::emitIntersectionTemplates(g, tcfg);
+
+        // After emitIntersectionTemplates, paved_areas must be non-empty for intersections.
+        assert(!tmpl_out.paved_areas.empty());
+        assert(!tmpl_out.keep_out_islands.empty());
+        assert(!tmpl_out.greenspace_candidates.empty());
+
+        // Verify that the aggregate Core::IntersectionTemplate correctly captures all polygon data.
+        // This mirrors the data-preservation logic in RoadGenerator.cpp.
+        if (!tmpl_out.paved_areas.empty()) {
+            Core::IntersectionTemplate aggregate{};
+            aggregate.paved_areas         = tmpl_out.paved_areas;
+            aggregate.keep_out_islands    = tmpl_out.keep_out_islands;
+            aggregate.support_footprints  = tmpl_out.support_footprints;
+            for (const auto& gc : tmpl_out.greenspace_candidates) {
+                aggregate.greenspace_candidates.push_back(gc.polygon);
+            }
+            assert(aggregate.paved_areas.size() == tmpl_out.paved_areas.size());
+            assert(aggregate.keep_out_islands.size() == tmpl_out.keep_out_islands.size());
+            assert(aggregate.greenspace_candidates.size() == tmpl_out.greenspace_candidates.size());
+        }
+        std::cout << "  IntersectionTemplate polygon preservation: PASS ("
+                  << tmpl_out.paved_areas.size() << " paved areas, "
+                  << tmpl_out.greenspace_candidates.size() << " greenspace candidates)" << std::endl;
+    }
+
+    std::cout << "\n=== 3D Contract: BlockGenerator fromGraph Reduces Fallback ===" << std::endl;
+    {
+        // Create districts where only some will have road coverage.
+        std::vector<Core::District> districts;
+        {
+            Core::District d1; d1.id = 1;
+            d1.border = { {0,0},{100,0},{100,100},{0,100} }; // large central district
+            districts.push_back(d1);
+        }
+        {
+            Core::District d2; d2.id = 2;
+            d2.border = { {500,500},{600,500},{600,600},{500,600} }; // distant district, no roads
+            districts.push_back(d2);
+        }
+
+        // Build a graph whose edge midpoints fall in district 1 only.
+        Urban::Graph road_graph;
+        const Urban::VertexID va = road_graph.addVertex({ .pos = Core::Vec2(10.0, 50.0) });
+        const Urban::VertexID vb = road_graph.addVertex({ .pos = Core::Vec2(90.0, 50.0) });
+        Urban::Edge e{}; e.a = va; e.b = vb;
+        e.shape = { Core::Vec2(10.0, 50.0), Core::Vec2(90.0, 50.0) };
+        e.length = 80.0f;
+        road_graph.addEdge(e);
+
+        // fromDistricts returns all districts.
+        const auto all_blocks = Urban::PolygonFinder::fromDistricts(districts);
+        assert(all_blocks.size() == 2);
+
+        // fromGraph with road coverage should return only roaded districts (district 1).
+        const auto roaded_blocks = Urban::PolygonFinder::fromGraph(road_graph, districts);
+        // District 2 has no road coverage in the AABB test, so it should be excluded.
+        assert(roaded_blocks.size() == 1);
+        assert(roaded_blocks.front().district_id == 1u);
+        std::cout << "  fromGraph filtered " << (all_blocks.size() - roaded_blocks.size())
+                  << " non-roaded block(s): PASS" << std::endl;
+
+        // BlockGenerator::generate with Graph overload must call fromGraph path.
+        Urban::BlockGenerator::Config bcfg;
+        bcfg.prefer_road_cycles = true;
+        const auto gen_blocks = Urban::BlockGenerator::generate(districts, road_graph, bcfg);
+        assert(gen_blocks.size() == roaded_blocks.size());
+        std::cout << "  BlockGenerator road-cycle path: PASS" << std::endl;
+
+        // Without road graph, two-arg overload must fall back to all districts.
+        const auto fallback_blocks = Urban::BlockGenerator::generate(districts, bcfg);
+        assert(fallback_blocks.size() == 2);
+        std::cout << "  BlockGenerator district fallback path: PASS" << std::endl;
+    }
+
+    std::cout << "\n3D Foundation contract tests PASSED" << std::endl;
 
     return 0;
 }

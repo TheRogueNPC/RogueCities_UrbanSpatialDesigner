@@ -1,9 +1,31 @@
 # Changelog
 
+## [Unreleased] - 2026-03-01 (3D Viewport & Editor Architecture)
+- **True 3D Viewport**: Modernized renderer backend and `WorldToScreen`/`ScreenToWorld` math utilizing `glm::perspective` and `glm::inverse` to support `pitch` and `is_3d` camera modes.
+- **Authoritative Footprints**: Migrated footprint generation into `SiteGenerator` as explicit `Boost.Geometry` buffered polygon insets stored natively on `BuildingSite::outline`.
+- **Planar Face Block Topology**: Rewrote `PolygonFinder::fromGraph` applying accurate Half-Edge Data Structure (DCEL) minimal-cycle polygon extraction for guaranteed logical blocks.
+- **Building Tool Integration**: Hooked the `BuildingTool.cpp` placeholder logic via newly established footprints and `PolygonUtil::insidePolygon` raycasting to securely bind interactions.
+- **Dynamic Scale Policy & Flow Module**: Tied `SP::FixedWorldExtent` to dynamic pixel scaling during texture resolution overrides and added a pedestrian/traffic density settings module to the `Flow` tool in `rc_panel_inspector.cpp`.
+## [Unreleased] - 2026-03-01 (Viewport Command Cohesion Pass)
+- Reworked the viewport `G` tool surface from an in-canvas child into a dedicated overlay window (`##global_tool_palette_overlay`) with eased width/alpha/slide animation, so the panel now layers cleanly on top of the viewport instead of feeling embedded/clipped.
+- Added a visualizer-owned right-click popup (`##viewport_context_actions`) with shared global selection wiring: `Undo/Redo`, select modes, selection target filters, `Move/Rotate/Scale`, snap toggle, contextual topology actions (`Add/Split`, `Merge/Snap`, `Trim`), plus `Delete Selected` and `Clear Selection`.
+- Added explicit suppression support for the default viewport right-click command menu in `ProcessViewportCommandTriggers(...)` and enabled it from the visualizer panel so the new contextual menu is the single right-click surface.
+- Added viewport delete hotkeys (`Delete`/`Backspace`) to execute the undoable selection delete path and aligned non-axiom transform hotkeys to standard controls (`Q` select, `W` move, `E` rotate, `R` scale) while preserving legacy aliases (`G`, `S`) for continuity.
+- Tightened input gating by treating palette hover and active context popup state as overlay-blocking interaction zones, preventing accidental viewport edits while menus are open/hovered.
+
 ## [Unreleased] - 2026-03-01 (Visualizer G-Menu Tooling + Persistence)
 - Reworked the viewport `G` slideout into clustered visualizer tooling (`Selection`, `Transform`, `Edit/Topology`, `Attribute/View/Utility`) while keeping active runtime wiring for `Rectangle Select`, `Lasso Select`, `Move`, and `Handle Move` through the shared tool dispatcher and viewport interaction pipeline.
 - Added direct `G`-tool hotkeys (`1-4`) for fast switching of the four active visualizer tools and updated in-panel guidance to reflect the new shortcut flow.
 - Added workspace-preset persistence for `G` runtime state in `rc_ui_root.cpp` by serializing/restoring `viewport_selection_mode`, `viewport_edit_tool`, and `viewport_selection_target`, so saved workspace presets now restore last-used visualizer tool intent.
+- **Visualizer Rendering Modernization**: Updated `RenderBuildingSites` to draw oriented, footprint-aware quads using `footprint_area` and `rotation_radians` instead of screen-space markers.
+- **Road Layer Visualization**: Updated `RenderRoadNetwork` to visualize grade separation: bridges (`layer_id > 0`) now draw with a dark casing/shadow, and tunnels (`layer_id < 0`) draw with reduced opacity.
+- **Terrain Visualization**: Updated `RenderZoneColors` to visualize terracing requirements and `RenderLotBoundaries` to show retaining walls using the new 3D-ready metadata.
+
+## [Unreleased] - 2026-03-01 (Visualizer Selection + Utility Pass)
+- Replaced spatial pick/query stubs in `rc_viewport_handler_common.cpp` with active behavior (`TryPickFromSpatialGrid`, `TryQueryRegionFromSpatialGrid`) and routed box/lasso query calls through bounded spatial-cell scanning via world-bounds hints.
+- Updated non-axiom lasso behavior so `Shift` now correctly enters add-selection mode at lasso start (with existing `Ctrl` toggle preserved) and kept click/box/lasso on the shared accelerated selection path.
+- Replaced `Layer Toggles (Planned)` in the `G` slideout with an active popup utility (all-on/all-off, per-layer visibility flags, and layer-manager dim/through-hidden toggles).
+- Replaced `Select By Query (Planned)` in the `G` slideout with an active query popup supporting filterable entity selection (`Kind`, `ID Min/Max`, `District ID`, `User-Created`, `Visible Only`) and apply modes (`Replace`, `Add`, `Toggle`) across road/district/lot/building/water.
 
 ## [Unreleased] - 2026-03-01 (UI Code Reduction — Zones 1–4)
 - Created `visualizer/src/ui/rc_ui_panel_macros.h` with `RC_PANEL_DRAW_IMPL` macro, collapsing the 17-line `Draw(float dt)` boilerplate in Variant A panels; applied to `rc_panel_validation.cpp`, `rc_panel_system_map.cpp`, and `rc_panel_telemetry.cpp` (~60 LOC removed).

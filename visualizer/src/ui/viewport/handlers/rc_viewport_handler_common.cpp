@@ -19,6 +19,16 @@ namespace {
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 using BoostSegment = boost::geometry::model::segment<BoostPoint>;
+using RogueCity::Core::Bounds;
+using RogueCity::Core::BuildingSite;
+using RogueCity::Core::District;
+using RogueCity::Core::Editor::RenderSpatialGrid;
+using RogueCity::Core::Editor::SelectionItem;
+using RogueCity::Core::Editor::VpEntityKind;
+using RogueCity::Core::LotToken;
+using RogueCity::Core::Road;
+using RogueCity::Core::Vec2;
+using RogueCity::Core::WaterBody;
 
 bool BuildBoostPolygon(
     const std::vector<RogueCity::Core::Vec2>& border,
@@ -160,6 +170,213 @@ bool ProbeContainsPoint(
     return false;
 }
 
+[[nodiscard]] bool ProbeContainsRoad(
+    const Road& road,
+    const Vec2& world_pos,
+    double world_radius,
+    int& out_priority,
+    double& out_distance) {
+    out_priority = 0;
+    out_distance = std::numeric_limits<double>::max();
+    if (road.points.size() < 2) {
+        return false;
+    }
+    double min_distance = std::numeric_limits<double>::max();
+    for (size_t i = 1; i < road.points.size(); ++i) {
+        min_distance = std::min(min_distance, DistanceToSegment(world_pos, road.points[i - 1], road.points[i]));
+    }
+    if (min_distance > world_radius * 1.25) {
+        return false;
+    }
+    out_priority = 3;
+    out_distance = min_distance;
+    return true;
+}
+
+[[nodiscard]] bool ProbeContainsDistrict(
+    const District& district,
+    const Vec2& world_pos,
+    int& out_priority,
+    double& out_distance) {
+    out_priority = 0;
+    out_distance = std::numeric_limits<double>::max();
+    if (district.border.empty() || !PointInPolygon(world_pos, district.border)) {
+        return false;
+    }
+    out_priority = 2;
+    out_distance = world_pos.distanceTo(PolygonCentroid(district.border));
+    return true;
+}
+
+[[nodiscard]] bool ProbeContainsLot(
+    const LotToken& lot,
+    const Vec2& world_pos,
+    double world_radius,
+    bool prefer_manhattan,
+    int& out_priority,
+    double& out_distance) {
+    out_priority = 0;
+    out_distance = std::numeric_limits<double>::max();
+    if (!lot.boundary.empty() && PointInPolygon(world_pos, lot.boundary)) {
+        out_priority = 4;
+        out_distance = world_pos.distanceTo(lot.centroid);
+        return true;
+    }
+    const double dx = std::abs(world_pos.x - lot.centroid.x);
+    const double dy = std::abs(world_pos.y - lot.centroid.y);
+    const double euclid = std::sqrt(dx * dx + dy * dy);
+    const double manhattan = dx + dy;
+    const double d = prefer_manhattan ? (0.7 * euclid + 0.3 * manhattan) : euclid;
+    if (d > world_radius * 2.0) {
+        return false;
+    }
+    out_priority = 2;
+    out_distance = d;
+    return true;
+}
+
+[[nodiscard]] bool ProbeContainsBuilding(
+    const BuildingSite& building,
+    const Vec2& world_pos,
+    double world_radius,
+    bool prefer_manhattan,
+    int& out_priority,
+    double& out_distance) {
+    out_priority = 0;
+    out_distance = std::numeric_limits<double>::max();
+    const double dx = std::abs(world_pos.x - building.position.x);
+    const double dy = std::abs(world_pos.y - building.position.y);
+    const double euclid = std::sqrt(dx * dx + dy * dy);
+    const double manhattan = dx + dy;
+    const double d = prefer_manhattan ? (0.65 * euclid + 0.35 * manhattan) : euclid;
+    if (d > world_radius * 1.75) {
+        return false;
+    }
+    out_priority = 5;
+    out_distance = d;
+    return true;
+}
+
+[[nodiscard]] bool ProbeContainsWater(
+    const WaterBody& water,
+    const Vec2& world_pos,
+    double world_radius,
+    int& out_priority,
+    double& out_distance) {
+    out_priority = 0;
+    out_distance = std::numeric_limits<double>::max();
+    if (water.boundary.size() < 2) {
+        return false;
+    }
+    double min_distance = std::numeric_limits<double>::max();
+    for (size_t i = 1; i < water.boundary.size(); ++i) {
+        min_distance = std::min(min_distance, DistanceToSegment(world_pos, water.boundary[i - 1], water.boundary[i]));
+    }
+    if (water.boundary.size() >= 3 && PointInPolygon(world_pos, water.boundary)) {
+        out_priority = 4;
+        out_distance = 0.0;
+        return true;
+    }
+    if (min_distance > world_radius * 1.5) {
+        return false;
+    }
+    out_priority = 3;
+    out_distance = min_distance;
+    return true;
+}
+
+template <typename TCallback>
+void ForEachCellInWorldRadius(
+    const RenderSpatialGrid& spatial,
+    const Vec2& world_pos,
+    double world_radius,
+    TCallback&& callback) {
+    if (!spatial.IsValid()) {
+        return;
+    }
+
+    const int max_x = std::max(0, static_cast<int>(spatial.width) - 1);
+    const int max_y = std::max(0, static_cast<int>(spatial.height) - 1);
+    if (max_x < 0 || max_y < 0) {
+        return;
+    }
+
+    int center_x = 0;
+    int center_y = 0;
+    if (!spatial.WorldToCell(world_pos, center_x, center_y)) {
+        center_x = std::clamp(
+            static_cast<int>(std::floor((world_pos.x - spatial.world_bounds.min.x) / std::max(1e-9, spatial.cell_size_x))),
+            0,
+            max_x);
+        center_y = std::clamp(
+            static_cast<int>(std::floor((world_pos.y - spatial.world_bounds.min.y) / std::max(1e-9, spatial.cell_size_y))),
+            0,
+            max_y);
+    }
+
+    const int radius_x = std::max(
+        1,
+        static_cast<int>(std::ceil(world_radius / std::max(1e-9, spatial.cell_size_x))));
+    const int radius_y = std::max(
+        1,
+        static_cast<int>(std::ceil(world_radius / std::max(1e-9, spatial.cell_size_y))));
+
+    const int start_x = std::clamp(center_x - radius_x, 0, max_x);
+    const int end_x = std::clamp(center_x + radius_x, 0, max_x);
+    const int start_y = std::clamp(center_y - radius_y, 0, max_y);
+    const int end_y = std::clamp(center_y + radius_y, 0, max_y);
+    for (int y = start_y; y <= end_y; ++y) {
+        for (int x = start_x; x <= end_x; ++x) {
+            callback(spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y)));
+        }
+    }
+}
+
+template <typename TCallback>
+void ForEachCellInBounds(
+    const RenderSpatialGrid& spatial,
+    const Bounds& bounds,
+    TCallback&& callback) {
+    if (!spatial.IsValid() || spatial.width == 0u || spatial.height == 0u) {
+        return;
+    }
+
+    if (bounds.max.x < spatial.world_bounds.min.x ||
+        bounds.min.x > spatial.world_bounds.max.x ||
+        bounds.max.y < spatial.world_bounds.min.y ||
+        bounds.min.y > spatial.world_bounds.max.y) {
+        return;
+    }
+
+    const int max_x = static_cast<int>(spatial.width) - 1;
+    const int max_y = static_cast<int>(spatial.height) - 1;
+    const double cell_x = std::max(1e-9, spatial.cell_size_x);
+    const double cell_y = std::max(1e-9, spatial.cell_size_y);
+
+    const int start_x = std::clamp(
+        static_cast<int>(std::floor((bounds.min.x - spatial.world_bounds.min.x) / cell_x)),
+        0,
+        max_x);
+    const int end_x = std::clamp(
+        static_cast<int>(std::floor((bounds.max.x - spatial.world_bounds.min.x) / cell_x)),
+        0,
+        max_x);
+    const int start_y = std::clamp(
+        static_cast<int>(std::floor((bounds.min.y - spatial.world_bounds.min.y) / cell_y)),
+        0,
+        max_y);
+    const int end_y = std::clamp(
+        static_cast<int>(std::floor((bounds.max.y - spatial.world_bounds.min.y) / cell_y)),
+        0,
+        max_y);
+
+    for (int y = start_y; y <= end_y; ++y) {
+        for (int x = start_x; x <= end_x; ++x) {
+            callback(spatial.ToCellIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y)));
+        }
+    }
+}
+
 bool TryPickFromSpatialGrid(
     const RogueCity::Core::Editor::GlobalState& gs,
     const RogueCity::Core::Vec2& world_pos,
@@ -167,27 +384,307 @@ bool TryPickFromSpatialGrid(
     double radius_scale,
     bool prefer_manhattan,
     std::optional<RogueCity::Core::Editor::SelectionItem>& out_pick) {
-    (void)gs;
-    (void)world_pos;
-    (void)interaction_metrics;
-    (void)radius_scale;
-    (void)prefer_manhattan;
-    // Pass-3 readiness hook: future O(visible) selection can return true once implemented.
     out_pick.reset();
-    return false;
+    const auto& spatial = gs.render_spatial_grid;
+    if (!spatial.IsValid()) {
+        return false;
+    }
+
+    const double world_radius =
+        std::max(0.25, interaction_metrics.world_pick_radius * std::max(0.2, radius_scale));
+
+    int best_priority = -1;
+    double best_distance = std::numeric_limits<double>::max();
+    std::optional<SelectionItem> best{};
+    std::unordered_set<uint64_t> seen_candidates;
+    bool scanned_any_cell = false;
+
+    const auto try_update_best =
+        [&](VpEntityKind kind, uint32_t id, int priority, double distance) {
+            if (priority > best_priority ||
+                (priority == best_priority && distance < best_distance)) {
+                best_priority = priority;
+                best_distance = distance;
+                best = SelectionItem{ kind, id };
+            }
+        };
+
+    const auto try_road = [&](uint32_t handle) {
+        if (handle >= gs.roads.indexCount() || !gs.roads.isValidIndex(handle)) {
+            return;
+        }
+        const Road& road = gs.roads[handle];
+        const uint64_t key = (static_cast<uint64_t>(static_cast<uint8_t>(VpEntityKind::Road)) << 32ull) | road.id;
+        if (!seen_candidates.insert(key).second || !gs.IsEntityVisible(VpEntityKind::Road, road.id)) {
+            return;
+        }
+        int priority = 0;
+        double distance = 0.0;
+        if (ProbeContainsRoad(road, world_pos, world_radius, priority, distance)) {
+            try_update_best(VpEntityKind::Road, road.id, priority, distance);
+        }
+    };
+
+    const auto try_district = [&](uint32_t handle) {
+        if (handle >= gs.districts.indexCount() || !gs.districts.isValidIndex(handle)) {
+            return;
+        }
+        const District& district = gs.districts[handle];
+        const uint64_t key =
+            (static_cast<uint64_t>(static_cast<uint8_t>(VpEntityKind::District)) << 32ull) |
+            district.id;
+        if (!seen_candidates.insert(key).second || !gs.IsEntityVisible(VpEntityKind::District, district.id)) {
+            return;
+        }
+        int priority = 0;
+        double distance = 0.0;
+        if (ProbeContainsDistrict(district, world_pos, priority, distance)) {
+            try_update_best(VpEntityKind::District, district.id, priority, distance);
+        }
+    };
+
+    const auto try_lot = [&](uint32_t handle) {
+        if (handle >= gs.lots.indexCount() || !gs.lots.isValidIndex(handle)) {
+            return;
+        }
+        const LotToken& lot = gs.lots[handle];
+        const uint64_t key = (static_cast<uint64_t>(static_cast<uint8_t>(VpEntityKind::Lot)) << 32ull) | lot.id;
+        if (!seen_candidates.insert(key).second || !gs.IsEntityVisible(VpEntityKind::Lot, lot.id)) {
+            return;
+        }
+        int priority = 0;
+        double distance = 0.0;
+        if (ProbeContainsLot(lot, world_pos, world_radius, prefer_manhattan, priority, distance)) {
+            try_update_best(VpEntityKind::Lot, lot.id, priority, distance);
+        }
+    };
+
+    const auto try_water = [&](uint32_t handle) {
+        if (handle >= gs.waterbodies.indexCount() || !gs.waterbodies.isValidIndex(handle)) {
+            return;
+        }
+        const WaterBody& water = gs.waterbodies[handle];
+        const uint64_t key =
+            (static_cast<uint64_t>(static_cast<uint8_t>(VpEntityKind::Water)) << 32ull) | water.id;
+        if (!seen_candidates.insert(key).second || !gs.IsEntityVisible(VpEntityKind::Water, water.id)) {
+            return;
+        }
+        int priority = 0;
+        double distance = 0.0;
+        if (ProbeContainsWater(water, world_pos, world_radius, priority, distance)) {
+            try_update_best(VpEntityKind::Water, water.id, priority, distance);
+        }
+    };
+
+    const auto try_building = [&](uint32_t handle) {
+        if (handle >= gs.buildings.size()) {
+            return;
+        }
+        const BuildingSite& building = gs.buildings.getData()[handle];
+        const uint64_t key =
+            (static_cast<uint64_t>(static_cast<uint8_t>(VpEntityKind::Building)) << 32ull) |
+            building.id;
+        if (!seen_candidates.insert(key).second || !gs.IsEntityVisible(VpEntityKind::Building, building.id)) {
+            return;
+        }
+        int priority = 0;
+        double distance = 0.0;
+        if (ProbeContainsBuilding(
+                building,
+                world_pos,
+                world_radius,
+                prefer_manhattan,
+                priority,
+                distance)) {
+            try_update_best(VpEntityKind::Building, building.id, priority, distance);
+        }
+    };
+
+    ForEachCellInWorldRadius(spatial, world_pos, world_radius, [&](uint32_t cell) {
+        scanned_any_cell = true;
+
+        const uint32_t road_begin = spatial.roads.offsets[cell];
+        const uint32_t road_end = spatial.roads.offsets[cell + 1u];
+        for (uint32_t cursor = road_begin; cursor < road_end; ++cursor) {
+            try_road(spatial.roads.handles[cursor]);
+        }
+
+        const uint32_t district_begin = spatial.districts.offsets[cell];
+        const uint32_t district_end = spatial.districts.offsets[cell + 1u];
+        for (uint32_t cursor = district_begin; cursor < district_end; ++cursor) {
+            try_district(spatial.districts.handles[cursor]);
+        }
+
+        const uint32_t lot_begin = spatial.lots.offsets[cell];
+        const uint32_t lot_end = spatial.lots.offsets[cell + 1u];
+        for (uint32_t cursor = lot_begin; cursor < lot_end; ++cursor) {
+            try_lot(spatial.lots.handles[cursor]);
+        }
+
+        const uint32_t water_begin = spatial.water.offsets[cell];
+        const uint32_t water_end = spatial.water.offsets[cell + 1u];
+        for (uint32_t cursor = water_begin; cursor < water_end; ++cursor) {
+            try_water(spatial.water.handles[cursor]);
+        }
+
+        const uint32_t building_begin = spatial.buildings.offsets[cell];
+        const uint32_t building_end = spatial.buildings.offsets[cell + 1u];
+        for (uint32_t cursor = building_begin; cursor < building_end; ++cursor) {
+            try_building(spatial.buildings.handles[cursor]);
+        }
+    });
+
+    if (!scanned_any_cell) {
+        return false;
+    }
+
+    out_pick = best;
+    return true;
 }
 
 bool TryQueryRegionFromSpatialGrid(
     const RogueCity::Core::Editor::GlobalState& gs,
     const std::function<bool(const RogueCity::Core::Vec2&)>& include_point,
     bool include_hidden,
+    const Bounds* region_bounds,
     std::vector<RogueCity::Core::Editor::SelectionItem>& out_results) {
-    (void)gs;
-    (void)include_point;
-    (void)include_hidden;
-    // Pass-3 readiness hook: future spatial region queries can return true once implemented.
     out_results.clear();
-    return false;
+    const auto& spatial = gs.render_spatial_grid;
+    if (!spatial.IsValid()) {
+        return false;
+    }
+
+    std::vector<uint8_t> road_candidates(gs.roads.indexCount(), 0u);
+    std::vector<uint8_t> district_candidates(gs.districts.indexCount(), 0u);
+    std::vector<uint8_t> lot_candidates(gs.lots.indexCount(), 0u);
+    std::vector<uint8_t> water_candidates(gs.waterbodies.indexCount(), 0u);
+    std::vector<uint8_t> building_candidates(gs.buildings.size(), 0u);
+
+    const auto mark_candidates_for_cell = [&](uint32_t cell) {
+        const uint32_t road_begin = spatial.roads.offsets[cell];
+        const uint32_t road_end = spatial.roads.offsets[cell + 1u];
+        for (uint32_t cursor = road_begin; cursor < road_end; ++cursor) {
+            const uint32_t handle = spatial.roads.handles[cursor];
+            if (handle < road_candidates.size()) {
+                road_candidates[handle] = 1u;
+            }
+        }
+
+        const uint32_t district_begin = spatial.districts.offsets[cell];
+        const uint32_t district_end = spatial.districts.offsets[cell + 1u];
+        for (uint32_t cursor = district_begin; cursor < district_end; ++cursor) {
+            const uint32_t handle = spatial.districts.handles[cursor];
+            if (handle < district_candidates.size()) {
+                district_candidates[handle] = 1u;
+            }
+        }
+
+        const uint32_t lot_begin = spatial.lots.offsets[cell];
+        const uint32_t lot_end = spatial.lots.offsets[cell + 1u];
+        for (uint32_t cursor = lot_begin; cursor < lot_end; ++cursor) {
+            const uint32_t handle = spatial.lots.handles[cursor];
+            if (handle < lot_candidates.size()) {
+                lot_candidates[handle] = 1u;
+            }
+        }
+
+        const uint32_t water_begin = spatial.water.offsets[cell];
+        const uint32_t water_end = spatial.water.offsets[cell + 1u];
+        for (uint32_t cursor = water_begin; cursor < water_end; ++cursor) {
+            const uint32_t handle = spatial.water.handles[cursor];
+            if (handle < water_candidates.size()) {
+                water_candidates[handle] = 1u;
+            }
+        }
+
+        const uint32_t building_begin = spatial.buildings.offsets[cell];
+        const uint32_t building_end = spatial.buildings.offsets[cell + 1u];
+        for (uint32_t cursor = building_begin; cursor < building_end; ++cursor) {
+            const uint32_t handle = spatial.buildings.handles[cursor];
+            if (handle < building_candidates.size()) {
+                building_candidates[handle] = 1u;
+            }
+        }
+    };
+
+    if (region_bounds != nullptr) {
+        ForEachCellInBounds(spatial, *region_bounds, mark_candidates_for_cell);
+    } else {
+        for (uint32_t cell = 0; cell < spatial.CellCount(); ++cell) {
+            mark_candidates_for_cell(cell);
+        }
+    }
+
+    std::unordered_set<uint64_t> dedupe;
+    dedupe.reserve(gs.viewport_index.size() + 8u);
+
+    const auto try_add = [&](VpEntityKind kind, uint32_t id, const Vec2& anchor) {
+        if (!include_hidden && !gs.IsEntityVisible(kind, id)) {
+            return;
+        }
+        if (!include_point(anchor)) {
+            return;
+        }
+        const uint64_t key = (static_cast<uint64_t>(static_cast<uint8_t>(kind)) << 32ull) | id;
+        if (!dedupe.insert(key).second) {
+            return;
+        }
+        out_results.push_back(SelectionItem{ kind, id });
+    };
+
+    for (uint32_t handle = 0; handle < static_cast<uint32_t>(road_candidates.size()); ++handle) {
+        if (road_candidates[handle] == 0u || !gs.roads.isValidIndex(handle)) {
+            continue;
+        }
+        const Road& road = gs.roads[handle];
+        if (road.points.empty()) {
+            continue;
+        }
+        try_add(VpEntityKind::Road, road.id, road.points[road.points.size() / 2u]);
+    }
+
+    for (uint32_t handle = 0; handle < static_cast<uint32_t>(district_candidates.size()); ++handle) {
+        if (district_candidates[handle] == 0u || !gs.districts.isValidIndex(handle)) {
+            continue;
+        }
+        const District& district = gs.districts[handle];
+        if (district.border.empty()) {
+            continue;
+        }
+        try_add(VpEntityKind::District, district.id, PolygonCentroid(district.border));
+    }
+
+    for (uint32_t handle = 0; handle < static_cast<uint32_t>(lot_candidates.size()); ++handle) {
+        if (lot_candidates[handle] == 0u || !gs.lots.isValidIndex(handle)) {
+            continue;
+        }
+        const LotToken& lot = gs.lots[handle];
+        try_add(
+            VpEntityKind::Lot,
+            lot.id,
+            lot.boundary.empty() ? lot.centroid : PolygonCentroid(lot.boundary));
+    }
+
+    for (uint32_t handle = 0; handle < static_cast<uint32_t>(building_candidates.size()); ++handle) {
+        if (building_candidates[handle] == 0u) {
+            continue;
+        }
+        const BuildingSite& building = gs.buildings.getData()[handle];
+        try_add(VpEntityKind::Building, building.id, building.position);
+    }
+
+    for (uint32_t handle = 0; handle < static_cast<uint32_t>(water_candidates.size()); ++handle) {
+        if (water_candidates[handle] == 0u || !gs.waterbodies.isValidIndex(handle)) {
+            continue;
+        }
+        const WaterBody& water = gs.waterbodies[handle];
+        if (water.boundary.empty()) {
+            continue;
+        }
+        try_add(VpEntityKind::Water, water.id, PolygonCentroid(water.boundary));
+    }
+
+    return true;
 }
 
 } // namespace
@@ -331,9 +828,11 @@ std::optional<RogueCity::Core::Editor::SelectionItem> PickFromViewportIndex(
 std::vector<RogueCity::Core::Editor::SelectionItem> QueryRegionFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState& gs,
     const std::function<bool(const RogueCity::Core::Vec2&)>& include_point,
-    bool include_hidden) {
+    bool include_hidden,
+    const Bounds* region_bounds) {
     std::vector<RogueCity::Core::Editor::SelectionItem> spatial_results{};
-    if (TryQueryRegionFromSpatialGrid(gs, include_point, include_hidden, spatial_results)) {
+    if (TryQueryRegionFromSpatialGrid(
+            gs, include_point, include_hidden, region_bounds, spatial_results)) {
         return spatial_results;
     }
 

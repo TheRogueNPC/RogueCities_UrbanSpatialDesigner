@@ -7,10 +7,10 @@
 #include "ui/viewport/rc_viewport_lod_policy.h"
 #include <RogueCity/Core/Infomatrix.hpp>
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <limits>
 #include <magic_enum/magic_enum.hpp>
@@ -491,6 +491,16 @@ void ViewportOverlays::RenderZoneColors(
     color.a *= LayerOpacity(gs, RogueCity::Core::Editor::VpEntityKind::District,
                             district.id);
     DrawPolygon(district.border, color);
+
+    // Visualize terracing requirement (3D readiness)
+    if (district.requires_terracing) {
+      // DrawPolygon populates scratch_screen_points_, reuse it for the overlay
+      const ImU32 terrace_color = IM_COL32(100, 60, 20, 160); // Dark earth tone
+      ImGui::GetWindowDrawList()->AddPolyline(
+          scratch_screen_points_.data(),
+          static_cast<int>(scratch_screen_points_.size()), terrace_color, true,
+          3.0f);
+    }
   };
 
   int min_cell_x = 0;
@@ -659,7 +669,8 @@ void ViewportOverlays::RenderFlightDeckHUD(
   const float input_start_x = mode_max.x + 16.0f;
   if (s_terminal_mode_active) {
     ImGui::SetCursorScreenPos(ImVec2(input_start_x, bar_pos.y + 4.0f));
-    ImGui::Dummy(ImVec2(bar_end.x - input_start_x - 16.0f, 18.0f)); // Register bounds with layout system
+    ImGui::Dummy(ImVec2(bar_end.x - input_start_x - 16.0f,
+                        18.0f)); // Register bounds with layout system
     ImGui::SetCursorScreenPos(ImVec2(input_start_x, bar_pos.y + 4.0f));
     ImGui::PushItemWidth(bar_end.x - input_start_x - 16.0f);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 100));
@@ -717,9 +728,36 @@ void ViewportOverlays::RenderFlightDeckHUD(
   }
 }
 
+// Inline ellipse drawing helpers since ImDrawList doesn't have them natively in
+// old versions
+namespace {
+void DrawEllipseFilled(ImDrawList *dl, ImVec2 center, float rx, float ry,
+                       ImU32 col, int segments = 24) {
+  dl->PathClear();
+  for (int i = 0; i < segments; ++i) {
+    float a = (static_cast<float>(i) / segments) * 6.2831853f;
+    dl->PathLineTo(
+        ImVec2(center.x + std::cos(a) * rx, center.y + std::sin(a) * ry));
+  }
+  dl->PathFillConvex(col);
+}
+
+void DrawEllipse(ImDrawList *dl, ImVec2 center, float rx, float ry, ImU32 col,
+                 float thickness, int segments = 24) {
+  dl->PathClear();
+  for (int i = 0; i <= segments; ++i) { // <= to close loop
+    float a = (static_cast<float>(i) / segments) * 6.2831853f;
+    dl->PathLineTo(
+        ImVec2(center.x + std::cos(a) * rx, center.y + std::sin(a) * ry));
+  }
+  dl->PathStroke(col, ImDrawFlags_Closed, thickness);
+}
+} // namespace
+
 void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
                                               const ImVec2 &center,
                                               float radius) {
+
   ImDrawList *dl = ImGui::GetWindowDrawList();
   const float padding = 16.0f;
   const float r = std::max(18.0f, radius);
@@ -735,15 +773,31 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
   const ImU32 ring = IM_COL32(0, 255, 255, 120);
   const ImU32 ring_glow = IM_COL32(0, 255, 255, 40);
 
-  dl->AddCircleFilled(hud_center, r, bg);
-  dl->AddCircle(hud_center, r, ring_glow, 24, 6.0f);
-  dl->AddCircle(hud_center, r, ring, 24, 2.0f);
+  // If 3D, draw an ellipse instead of a circle, mimicking projection of a ring
+  // lying on the ground.
+  if (view_transform_.is_3d) {
+    const float compression = std::max(0.2f, std::sin(view_transform_.pitch));
+    DrawEllipseFilled(dl, hud_center, r, r * compression, bg, 24);
+    DrawEllipse(dl, hud_center, r, r * compression, ring_glow, 6.0f, 24);
+    DrawEllipse(dl, hud_center, r, r * compression, ring, 2.0f, 24);
+  } else {
+    dl->AddCircleFilled(hud_center, r, bg);
+    dl->AddCircle(hud_center, r, ring_glow, 24, 6.0f);
+    dl->AddCircle(hud_center, r, ring, 24, 2.0f);
+  }
 
   const float ang = -view_transform_.yaw;
   const float ca = std::cos(ang);
   const float sa = std::sin(ang);
-  auto rotate_dir = [ca, sa](const ImVec2 &v) -> ImVec2 {
-    return ImVec2(v.x * ca - v.y * sa, v.x * sa + v.y * ca);
+
+  // Project vector depending on 3D view compression
+  const float pitch_compression =
+      view_transform_.is_3d ? std::max(0.2f, std::sin(view_transform_.pitch))
+                            : 1.0f;
+
+  auto rotate_dir = [ca, sa, pitch_compression](const ImVec2 &v) -> ImVec2 {
+    return ImVec2((v.x * ca - v.y * sa),
+                  (v.x * sa + v.y * ca) * pitch_compression);
   };
 
   const ImVec2 dir_n = rotate_dir(ImVec2(0.0f, -1.0f));
@@ -862,7 +916,6 @@ void ViewportOverlays::Render2DCursorHUD(
 
   // Center dot
   dl->AddCircleFilled(center, 1.5f, IM_COL32(255, 255, 255, 200));
-
 }
 
 void ViewportOverlays::RenderToolBadgeHUD(
@@ -998,12 +1051,28 @@ void ViewportOverlays::RenderRoadNetwork(
     if (road.points.size() < 2) {
       return;
     }
-    const RoadRenderStyle style = ResolveRoadRenderStyle(road.type);
+    RoadRenderStyle style = ResolveRoadRenderStyle(road.type);
     scratch_screen_points_.clear();
     scratch_screen_points_.reserve(road.points.size());
     for (const auto &point : road.points) {
       scratch_screen_points_.push_back(WorldToScreen(point));
     }
+
+    // Layer visualization (3D readiness)
+    if (road.layer_id > 0) {
+      // Elevated/Bridge: Draw casing/shadow
+      const float casing_width = style.width + 2.5f;
+      const ImU32 casing_color =
+          RC_UI::WithAlpha(RC_UI::UITokens::BackgroundDark, 160u);
+      draw_list->AddPolyline(scratch_screen_points_.data(),
+                             static_cast<int>(scratch_screen_points_.size()),
+                             casing_color, false, casing_width);
+    } else if (road.layer_id < 0) {
+      // Tunnel: Reduce opacity
+      style.color = (style.color & 0x00FFFFFF) | 0x60000000; // Force ~37% alpha
+      style.width *= 0.8f;
+    }
+
     draw_list->AddPolyline(scratch_screen_points_.data(),
                            static_cast<int>(scratch_screen_points_.size()),
                            style.color, false, style.width);
@@ -1546,12 +1615,43 @@ ViewportOverlays::WorldToScreen(const RogueCity::Core::Vec2 &world_pos) const {
   const ImVec2 vp_pos = view_transform_.viewport_pos;
   const ImVec2 vp_size = view_transform_.viewport_size;
 
+  if (view_transform_.is_3d) {
+    // --- True 3D projection path ---
+
+    float aspect = vp_size.y > 0 ? vp_size.x / vp_size.y : 1.0f;
+    glm::mat4 proj =
+        glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10000.0f);
+
+    glm::vec3 target(view_transform_.camera_xy.x, 0.0f,
+                     view_transform_.camera_xy.y);
+    float r = 1000.0f / view_transform_.zoom;
+    float p = view_transform_.pitch;
+    float y = view_transform_.yaw;
+    glm::vec3 eye(target.x + r * std::cos(p) * std::sin(y),
+                  target.y + r * std::sin(p),
+                  target.z + r * std::cos(p) * std::cos(y));
+    glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    glm::vec4 world_pt(world_pos.x, 0.0f, world_pos.y, 1.0f);
+    glm::vec4 clip_pt = proj * view * world_pt;
+
+    if (clip_pt.w <= 0.0f) {
+      return ImVec2(-10000.0f, -10000.0f); // Behind camera, put offscreen
+    }
+
+    glm::vec3 ndc(clip_pt.x / clip_pt.w, clip_pt.y / clip_pt.w,
+                  clip_pt.z / clip_pt.w);
+    return ImVec2(
+        vp_pos.x + vp_size.x * 0.5f * (ndc.x + 1.0f),
+        vp_pos.y + vp_size.y * 0.5f * (1.0f - ndc.y) // Vulkan/ImGui Y-down
+    );
+  }
+
+  // --- 2D Orthographic fallback ---
   const RogueCity::Core::Vec2 rel(world_pos.x - view_transform_.camera_xy.x,
                                   world_pos.y - view_transform_.camera_xy.y);
   const float c = std::cos(view_transform_.yaw);
   const float s = std::sin(view_transform_.yaw);
-  // Keep overlay projection consistent with PrimaryViewport::world_to_screen
-  // (R(-yaw)).
   const RogueCity::Core::Vec2 rotated(rel.x * c + rel.y * s,
                                       -rel.x * s + rel.y * c);
 
@@ -1569,11 +1669,58 @@ ViewportOverlays::ScreenToWorld(const ImVec2 &screen_pos) const {
     return view_transform_.camera_xy;
   }
 
-  const ImVec2 viewport_min = view_transform_.viewport_pos;
+  const ImVec2 vp_pos = view_transform_.viewport_pos;
+  const ImVec2 vp_size = view_transform_.viewport_size;
+
+  if (view_transform_.is_3d) {
+    // --- True 3D raycasting path ---
+    float ndc_x = (screen_pos.x - vp_pos.x) / vp_size.x * 2.0f - 1.0f;
+    float ndc_y = 1.0f - (screen_pos.y - vp_pos.y) / vp_size.y *
+                             2.0f; // Vulkan/ImGui Y-up correction
+
+    float aspect = vp_size.y > 0 ? vp_size.x / vp_size.y : 1.0f;
+    glm::mat4 proj =
+        glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10000.0f);
+
+    glm::vec3 target(view_transform_.camera_xy.x, 0.0f,
+                     view_transform_.camera_xy.y);
+    float r = 1000.0f / view_transform_.zoom;
+    float p = view_transform_.pitch;
+    float y = view_transform_.yaw;
+    glm::vec3 eye(target.x + r * std::cos(p) * std::sin(y),
+                  target.y + r * std::sin(p),
+                  target.z + r * std::cos(p) * std::cos(y));
+    glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 inv_vp = glm::inverse(proj * view);
+
+    glm::vec4 near_pt = inv_vp * glm::vec4(ndc_x, ndc_y, 0.1f, 1.0f);
+    glm::vec4 far_pt =
+        inv_vp * glm::vec4(ndc_x, ndc_y, 0.99f,
+                           1.0f); // Use 0.99 for far plane stability
+
+    if (near_pt.w != 0.0f && far_pt.w != 0.0f) {
+      near_pt /= near_pt.w;
+      far_pt /= far_pt.w;
+
+      glm::vec3 ray_origin(near_pt);
+      glm::vec3 ray_dir = glm::normalize(glm::vec3(far_pt) - ray_origin);
+
+      if (std::abs(ray_dir.y) > 1e-6f) {
+        float t = -ray_origin.y / ray_dir.y;
+        if (t >= 0.0f) {
+          glm::vec3 hit = ray_origin + ray_dir * t;
+          return RogueCity::Core::Vec2(hit.x, hit.z);
+        }
+      }
+    }
+    return view_transform_.camera_xy; // Fallback
+  }
+
+  // --- 2D Orthographic fallback ---
   const float nx =
-      (screen_pos.x - viewport_min.x) / view_transform_.viewport_size.x - 0.5f;
+      (screen_pos.x - vp_pos.x) / view_transform_.viewport_size.x - 0.5f;
   const float ny =
-      (screen_pos.y - viewport_min.y) / view_transform_.viewport_size.y - 0.5f;
+      (screen_pos.y - vp_pos.y) / view_transform_.viewport_size.y - 0.5f;
   const RogueCity::Core::Vec2 view(
       static_cast<double>(nx * view_transform_.viewport_size.x /
                           view_transform_.zoom),
@@ -2111,9 +2258,6 @@ void ViewportOverlays::RenderBuildingSites(
     }
     const float layer_opacity = LayerOpacity(
         gs, RogueCity::Core::Editor::VpEntityKind::Building, building.id);
-    // Render building as a simple marker/circle for now
-    // In future, this could be footprint polygons with height
-    ImVec2 screen_pos = WorldToScreen(building.position);
 
     // Building color based on type
     glm::vec4 building_color;
@@ -2145,20 +2289,59 @@ void ViewportOverlays::RenderBuildingSites(
         ImVec4(building_color.r, building_color.g, building_color.b,
                building_color.a));
 
-    // Draw building marker (square for now)
-    float size = 4.0f * std::max(1.0f, view_transform_.zoom);
-    draw_list->AddRectFilled(ImVec2(screen_pos.x - size, screen_pos.y - size),
-                             ImVec2(screen_pos.x + size, screen_pos.y + size),
-                             color);
+    // Footprint-aware rendering
+    // Calculate half-extents in world space (default 10x10m base)
+    float width_half = 5.0f;
+    float depth_half = 5.0f;
 
-    // Outline for visibility
-    ImU32 outline = IM_COL32(255, 255, 255, 100);
-    draw_list->AddRect(ImVec2(screen_pos.x - size, screen_pos.y - size),
-                       ImVec2(screen_pos.x + size, screen_pos.y + size),
-                       outline, 0.0f, 0, 1.0f);
+    if (building.footprint_area > 1.0f) {
+      float side = std::sqrt(building.footprint_area);
+      width_half = side * 0.5f;
+      depth_half = side * 0.5f;
+    } else {
+      // Fallback to scale-based if area missing
+      width_half *= building.uniform_scale;
+      depth_half *= building.uniform_scale;
+    }
 
-    // Height indicator (vertical line) - only if enabled in config
-    // For now, we'll skip this as it requires config check in Render()
+    // Calculate screen corners
+    ImVec2 p0, p1, p2, p3;
+
+    if (std::abs(building.rotation_radians) < 0.001f) {
+      // Axis aligned optimization
+      p0 = WorldToScreen(
+          {building.position.x - width_half, building.position.y - depth_half});
+      p1 = WorldToScreen(
+          {building.position.x + width_half, building.position.y - depth_half});
+      p2 = WorldToScreen(
+          {building.position.x + width_half, building.position.y + depth_half});
+      p3 = WorldToScreen(
+          {building.position.x - width_half, building.position.y + depth_half});
+    } else {
+      // Rotated
+      const float c = std::cos(building.rotation_radians);
+      const float s = std::sin(building.rotation_radians);
+
+      auto rotate_pt = [&](float x, float y) {
+        return RogueCity::Core::Vec2(building.position.x + (x * c - y * s),
+                                     building.position.y + (x * s + y * c));
+      };
+
+      p0 = WorldToScreen(rotate_pt(-width_half, -depth_half));
+      p1 = WorldToScreen(rotate_pt(width_half, -depth_half));
+      p2 = WorldToScreen(rotate_pt(width_half, depth_half));
+      p3 = WorldToScreen(rotate_pt(-width_half, depth_half));
+    }
+
+    // Draw filled quad
+    draw_list->AddQuadFilled(p0, p1, p2, p3, color);
+
+    // Draw outline (if zoomed in enough to matter)
+    if (view_transform_.zoom > 0.5f) {
+      const ImU32 outline =
+          RC_UI::WithAlpha(RC_UI::UITokens::TextPrimary, 100u);
+      draw_list->AddQuad(p0, p1, p2, p3, outline, 1.0f);
+    }
   };
 
   int min_cell_x = 0;
@@ -2232,11 +2415,20 @@ void ViewportOverlays::RenderLotBoundaries(
     // Draw boundary lines
     ImU32 line_color = ImGui::ColorConvertFloat4ToU32(
         ImVec4(lot_color.r, lot_color.g, lot_color.b, lot_color.a));
+    float thickness = 1.0f;
+
+    // Visualize retaining walls (3D readiness)
+    if (lot.needs_retaining_walls) {
+      thickness = 3.0f;
+      line_color = RC_UI::WithAlpha(RC_UI::UITokens::TextSecondary,
+                                    180u); // Darker wall color
+    }
+
     draw_list->AddPolyline(scratch_screen_points_.data(),
                            static_cast<int>(scratch_screen_points_.size()),
                            line_color,
                            true, // Closed loop
-                           1.0f);
+                           thickness);
   };
 
   int min_cell_x = 0;

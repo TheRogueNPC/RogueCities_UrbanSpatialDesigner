@@ -26,14 +26,22 @@ namespace RogueCity::Generators::Urban {
             bool enable_verticality = true;
         };
 
-        [[nodiscard]] static fva::Container<Core::Road> generate(
+        [[nodiscard]] fva::Container<Core::Road> generate(
             const std::vector<Core::Vec2>& seeds,
             const TensorFieldGenerator& field);
 
-        [[nodiscard]] static fva::Container<Core::Road> generate(
+        [[nodiscard]] fva::Container<Core::Road> generate(
             const std::vector<Core::Vec2>& seeds,
             const TensorFieldGenerator& field,
             const Config& config);
+        
+        // Access intersection templates generated during last road generation pass
+        [[nodiscard]] const std::vector<Core::IntersectionTemplate>& getIntersectionTemplates() const {
+            return stored_intersection_templates_;
+        }
+
+    private:
+        std::vector<Core::IntersectionTemplate> stored_intersection_templates_;
     };
 
 } // namespace RogueCity::Generators::Urban

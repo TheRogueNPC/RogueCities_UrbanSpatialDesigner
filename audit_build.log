@@ -1,0 +1,1092 @@
+MSBuild version 18.0.5+e22287bf1 for .NET Framework
+
+MSBuild version 18.0.5+e22287bf1 for .NET Framework
+
+  1>Checking Build System
+  Checking ImGui input/ID/window ownership contracts
+  Checking UI token/wrapper compliance
+  ImGui contract check passed.
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/CMakeLists.txt
+  Clang/builder contract check passed.
+  Tool wiring contract check passed.
+  Context command contract check passed.
+  Generator/viewport contract check passed.
+  ImGui contract check passed.
+  UI compliance check passed.
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/core/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/3rdparty/lua/lua-5.4.8/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/visualizer/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/3rdparty/glfw/src/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/AI/CMakeLists.txt
+  lapi.c
+  gl3w.c
+  cmake_pch.cxx
+  imgui.cpp
+  context.c
+  lcode.c
+  lctype.c
+  ldebug.c
+  ldo.c
+  ldump.c
+  lfunc.c
+  lgc.c
+  llex.c
+  lmem.c
+  lobject.c
+  init.c
+  lopcodes.c
+  lparser.c
+  lstate.c
+  RogueCityGL3W.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\Debug\RogueCityGL3W.lib
+  lstring.c
+  ltable.c
+  ltm.c
+  lundump.c
+  lvm.c
+  input.c
+  lzio.c
+  Generating Code...
+  Compiling...
+  lauxlib.c
+  monitor.c
+  lbaselib.c
+  lcorolib.c
+  imgui_draw.cpp
+  ldblib.c
+  liolib.c
+  lmathlib.c
+  loadlib.c
+  platform.c
+  Vec2.cpp
+  CityTypes.cpp
+  imgui_widgets.cpp
+  loslib.c
+  vulkan.c
+  lstrlib.c
+  ltablib.c
+  lutf8lib.c
+  linit.c
+  Generating Code...
+  window.c
+  TensorTypes.cpp
+  imgui_tables.cpp
+  CitySpec.cpp
+  CoordinateSystem.cpp
+  egl_context.c
+  lua_548.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\3rdparty\lua\lua-5.4.8\Debug\lua_548.lib
+  imgui_demo.cpp
+  osmesa_context.c
+  TextureSpace.cpp
+  Generating Code...
+  null_init.c
+  null_monitor.c
+  null_window.c
+  PolygonOps.cpp
+  RogueCityImGui.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\AI\Debug\RogueCityImGui.lib
+  null_joystick.c
+  win32_module.c
+  win32_time.c
+  FrontageMarkov.cpp
+  win32_thread.c
+  win32_init.c
+  TextureReplayHash.cpp
+  win32_joystick.c
+  win32_monitor.c
+  win32_window.c
+  Infomatrix.cpp
+  Generating Code...
+  Compiling...
+  wgl_context.c
+  Generating Code...
+  EditorState.cpp
+  glfw.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\glfw\src\Debug\glfw3.lib
+  GlobalState.cpp
+  StableIDRegistry.cpp
+  ViewportIndex.cpp
+  TerrainBrush.cpp
+  TexturePainting.cpp
+  EditorUtils.cpp
+  SimulationPipeline.cpp
+  SIMDProcessor.cpp
+  TextureProcessor.cpp
+  Generating Code...
+  Compiling...
+  EditorIntegrity.cpp
+  EditorOverlayValidation.cpp
+  DeterminismHash.cpp
+  AiTelemetry.cpp
+  clipper.engine.cpp
+  clipper.offset.cpp
+  clipper.rectclip.cpp
+  clipper.triangulation.cpp
+  Generating Code...
+  RogueCityCore.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\core\Debug\RogueCityCore.lib
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/AI/CMakeLists.txt
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/generators/CMakeLists.txt
+  cmake_pch.cxx
+  cmake_pch.cxx
+  UiAgentProtocol.cpp
+  GeometryAdapter.cpp
+  HttpClient.cpp
+  Url.cpp
+  AiAssist.cpp
+  TensorFieldGenerator.cpp
+  BasisFields.cpp
+  AiConfig.cpp
+  TerminalFeatureApplier.cpp
+  AiBridgeRuntime.cpp
+  StreamlineTracer.cpp
+  RoadClassifier.cpp
+  AiAvailability.cpp
+  UiAgentClient.cpp
+  SegmentGridStorage.cpp
+  RoadNoder.cpp
+  CitySpecClient.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\AI\client\UiAgentClient.cpp(16,20): warning C4505: 'RogueCity::AI::TimestampForFilename': unreferenced function with internal linkage has been removed [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\AI\RogueCityAI.vcxproj]
+  (compiling source file '../../AI/client/UiAgentClient.cpp')
+  
+  GraphSimplify.cpp
+  FlowAndControl.cpp
+  UiDesignAssistant.cpp
+  Verticality.cpp
+  IntersectionTemplates.cpp
+  Generating Code...
+  Policies.cpp
+  RogueProfiler.cpp
+  RogueCityAI.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\AI\Debug\RogueCityAI.lib
+  GridAnalytics.cpp
+  AESPClassifier.cpp
+  FrontageProfiler.cpp
+  FrontageProfiles.cpp
+  Integrator.cpp
+  GridStorage.cpp
+  Generating Code...
+  Compiling...
+  PolygonUtil.cpp
+  Graph.cpp
+  GraphAlgorithms.cpp
+  PolygonFinder.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\generators\src\Generators\Urban\PolygonFinder.cpp(140,10): warning C4189: 'closed': local variable is initialized but not referenced [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Urban/PolygonFinder.cpp')
+  
+  RoadGenerator.cpp
+  DistrictGenerator.cpp
+  BlockGenerator.cpp
+  LotGenerator.cpp
+  SiteGenerator.cpp
+  CityGenerator.cpp
+  AxiomInteractionResolver.cpp
+  MajorConnectorGraph.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1417,42): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1417,42):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(102,27):
+          see reference to class template instantiation 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>' being compiled
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(509,35):
+          see reference to class template instantiation 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>' being compiled
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1526,35):
+          see reference to class template instantiation 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>' being compiled
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1329,10):
+          while compiling class template member function 'void boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss(const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,boost::polygon::detail::circle_event<double> &)'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1418,42): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1419,50): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1214,41): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1214,41):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1134,10):
+          while compiling class template member function 'void boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss(const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,int,boost::polygon::detail::circle_event<double> &)'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1472,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1215,41): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1216,49): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1316,41): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1317,41): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1318,49): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1124,44): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1124,44):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1047,10):
+          while compiling class template member function 'void boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pps(const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,int,boost::polygon::detail::circle_event<double> &)'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1460,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pps' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1125,44): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1126,52): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1037,44): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1037,44):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(995,10):
+          while compiling class template member function 'void boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::ppp(const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,boost::polygon::detail::circle_event<double> &)'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1455,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::ppp' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1038,44): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1039,52): warning C5055: operator '>': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(206,67): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(206,67):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1329,10):
+          while compiling class template member function 'void boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss(const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,const boost::polygon::detail::site_event<int> &,boost::polygon::detail::circle_event<double> &)'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1333,23):
+          see reference to class template instantiation 'boost::polygon::detail::robust_fpt<double>' being compiled
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(204,14):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> boost::polygon::detail::robust_fpt<double>::sqrt(void) const'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1351,50):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::sqrt' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(200,51): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(200,51):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(198,14):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> boost::polygon::detail::robust_fpt<double>::operator /(const boost::polygon::detail::robust_fpt<double> &) const'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1413,43):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator /' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(194,51): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(194,51):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(192,14):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> boost::polygon::detail::robust_fpt<double>::operator *(const boost::polygon::detail::robust_fpt<double> &) const'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1351,50):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator *' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(181,44): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(181,44):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(176,14):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> boost::polygon::detail::robust_fpt<double>::operator -(const boost::polygon::detail::robust_fpt<double> &) const'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1234,13):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator -' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1472,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(187,17): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(165,44): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(165,44):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(160,14):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> boost::polygon::detail::robust_fpt<double>::operator +(const boost::polygon::detail::robust_fpt<double> &) const'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1351,50):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator +' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(171,17): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(120,51): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(120,51):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(116,15):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> &boost::polygon::detail::robust_fpt<double>::operator +=(const boost::polygon::detail::robust_fpt<double> &)'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1232,13):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator +=' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1472,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(126,24): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(155,27): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(155,27):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(154,15):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> &boost::polygon::detail::robust_fpt<double>::operator /=(const boost::polygon::detail::robust_fpt<double> &)'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(323,21):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator /=' in 'boost::polygon::detail::robust_dif<boost::polygon::detail::robust_fpt<double>>::operator /='
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1200,11):
+              see the first reference to 'boost::polygon::detail::robust_dif<boost::polygon::detail::robust_fpt<double>>::operator /=' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1472,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::pss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(136,52): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(136,52):
+      the template instantiation context (the oldest one first) is
+          C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(132,15):
+          while compiling class template member function 'boost::polygon::detail::robust_fpt<double> &boost::polygon::detail::robust_fpt<double>::operator -=(const boost::polygon::detail::robust_fpt<double> &)'
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(289,21):
+              see the first reference to 'boost::polygon::detail::robust_fpt<double>::operator -=' in 'boost::polygon::detail::robust_dif<boost::polygon::detail::robust_fpt<double>>::operator -='
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1390,9):
+              see the first reference to 'boost::polygon::detail::robust_dif<boost::polygon::detail::robust_fpt<double>>::operator -=' in 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_predicates.hpp(1498,42):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>::sss' in 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(482,5):
+              see the first reference to 'boost::polygon::detail::voronoi_predicates<CTT>::circle_formation_predicate<boost::polygon::detail::site_event<int>,boost::polygon::detail::circle_event<double>,boost::polygon::detail::voronoi_predicates<CTT>::circle_existence_predicate<Site>,boost::polygon::detail::voronoi_predicates<CTT>::lazy_circle_formation_functor<Site,Circle>>::operator ()' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,
+              Site=boost::polygon::detail::site_event<int>,
+              Circle=boost::polygon::detail::circle_event<double>
+          ]
+          and
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(311,30):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::activate_circle_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi_builder.hpp(110,27):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::process_site_event' in 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+              C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\voronoi.hpp(104,20):
+              see the first reference to 'boost::polygon::voronoi_builder<boost::polygon::detail::int32,boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>,boost::polygon::detail::voronoi_predicates<CTT>>::construct' in 'boost::polygon::construct_voronoi'
+          with
+          [
+              CTT=boost::polygon::detail::voronoi_ctype_traits<boost::polygon::detail::int32>
+          ]
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\boost_1_87_0\boost\polygon\detail\voronoi_robust_fpt.hpp(142,24): warning C5055: operator '+': deprecated between enumerations and floating-point types [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\RogueCityGenerators.vcxproj]
+  (compiling source file '../../generators/src/Generators/Pipeline/MajorConnectorGraph.cpp')
+  
+  CitySpecAdapter.cpp
+  ZoningGenerator.cpp
+  TerrainConstraintGenerator.cpp
+  PlanValidatorGenerator.cpp
+  Generating Code...
+  RogueCityGenerators.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\generators\Debug\RogueCityGenerators.lib
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/app/CMakeLists.txt
+  cmake_pch.cxx
+  DesignSystem.cpp
+  ThemeManager.cpp
+  AxiomVisual.cpp
+  AxiomAnimationController.cpp
+  AxiomPlacementTool.cpp
+  RoadTool.cpp
+  DistrictTool.cpp
+  LotTool.cpp
+  BuildingTool.cpp
+  WaterTool.cpp
+  SplineManipulator.cpp
+  GeometryPolicy.cpp
+  AxiomIcon.cpp
+  ContextWindowPopup.cpp
+  CommandHistory.cpp
+  EditorManipulation.cpp
+  ViewportIndexBuilder.cpp
+  PrimaryViewport.cpp
+  MinimapViewport.cpp
+  ViewportSyncManager.cpp
+  Generating Code...
+  Compiling...
+  DockLayoutManager.cpp
+  CityOutputApplier.cpp
+  GenerationCoordinator.cpp
+  GeneratorBridge.cpp
+  RealTimePreview.cpp
+  ZoningBridge.cpp
+  Generating Code...
+  RogueCityApp.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\app\Debug\RogueCityApp.lib
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/visualizer/CMakeLists.txt
+  cmake_pch.cxx
+  rc_panel_tools.cpp
+  rc_panel_ai_console.cpp
+  rc_panel_ui_agent.cpp
+  rc_panel_city_spec.cpp
+  Generating Code...
+  RogueCityVisualizerFeaturePanels.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\Debug\RogueCityVisualizerFeaturePanels.lib
+  Building Custom Rule C:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/visualizer/CMakeLists.txt
+  cmake_pch.cxx
+  main_gui.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\main_gui.cpp(243,54): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/main_gui.cpp')
+  
+  rc_ui_anim.cpp
+  rc_ui_input_gate.cpp
+  rc_ui_root.cpp
+  rc_ui_theme.cpp
+  WorkspaceProfile.cpp
+  MockupTokenParser.cpp
+  MockupWatcher.cpp
+  rc_tool_contract.cpp
+  rc_tool_dispatcher.cpp
+  rc_tool_interaction_metrics.cpp
+  rc_context_command_registry.cpp
+  rc_context_menu_smart.cpp
+  rc_context_menu_pie.cpp
+  rc_command_palette.cpp
+  UiIntrospection.cpp
+  rc_panel_axiom_bar.cpp
+  rc_panel_axiom_editor.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(3013,18): warning C4456: declaration of 'resolve_contextual_action' hides previous local declaration [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2690,14):
+      see declaration of 'resolve_contextual_action'
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(4284,20): warning C4456: declaration of 'camera_pos' hides previous local declaration [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2579,14):
+      see declaration of 'camera_pos'
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(4298,20): warning C4456: declaration of 'camera_pos' hides previous local declaration [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2579,14):
+      see declaration of 'camera_pos'
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(4308,20): warning C4456: declaration of 'camera_pos' hides previous local declaration [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+      C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2579,14):
+      see declaration of 'camera_pos'
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2582,15): warning C4189: 'alert_color': local variable is initialized but not referenced [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2578,15): warning C4189: 'texture_space': local variable is initialized but not referenced [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\visualizer\src\ui\panels\rc_panel_axiom_editor.cpp(2581,14): warning C4189: 'active_lod': local variable is initialized but not referenced [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../visualizer/src/ui/panels/rc_panel_axiom_editor.cpp')
+  
+  rc_panel_system_map.cpp
+  rc_system_map_query.cpp
+  Generating Code...
+  Compiling...
+  rc_panel_log.cpp
+  rc_panel_telemetry.cpp
+  rc_panel_validation.cpp
+  rc_panel_inspector.cpp
+  rc_panel_ui_settings.cpp
+  rc_property_editor.cpp
+  rc_panel_district_index.cpp
+  rc_panel_road_index.cpp
+  rc_panel_lot_index.cpp
+  rc_panel_river_index.cpp
+  rc_panel_building_index.cpp
+  rc_panel_zoning_control.cpp
+  rc_panel_lot_control.cpp
+  rc_panel_building_control.cpp
+  rc_panel_water_control.cpp
+  rc_panel_dev_shell.cpp
+  rc_panel_road_editor.cpp
+  rc_panel_workspace.cpp
+  rc_panel_inspector_sidebar.cpp
+  IPanelDrawer.cpp
+  Generating Code...
+  Compiling...
+  PanelRegistry.cpp
+  RcMasterPanel.cpp
+  RcPanelDrawers.cpp
+  rc_viewport_overlays.cpp
+  rc_viewport_lod_policy.cpp
+  rc_scene_frame.cpp
+  rc_minimap_renderer.cpp
+  rc_minimap_interaction_math.cpp
+  rc_placement_system.cpp
+  rc_viewport_scene_controller.cpp
+  rc_viewport_handler_common.cpp
+  rc_viewport_domain_handlers.cpp
+  rc_viewport_road_handler.cpp
+  rc_viewport_district_handler.cpp
+  rc_viewport_lot_handler.cpp
+  rc_viewport_building_handler.cpp
+  rc_viewport_water_handler.cpp
+  rc_viewport_non_axiom_pipeline.cpp
+  rc_viewport_interaction.cpp
+  imgui_impl_glfw.cpp
+  Generating Code...
+  Compiling...
+  imgui_impl_opengl3.cpp
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\imgui\backends\imgui_impl_opengl3_loader.h(831,13): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../3rdparty/imgui/backends/imgui_impl_opengl3.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\imgui\backends\imgui_impl_opengl3.cpp(349,9): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../3rdparty/imgui/backends/imgui_impl_opengl3.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\imgui\backends\imgui_impl_opengl3.cpp(406,5): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../3rdparty/imgui/backends/imgui_impl_opengl3.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\imgui\backends\imgui_impl_opengl3.cpp(407,5): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../3rdparty/imgui/backends/imgui_impl_opengl3.cpp')
+  
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\3rdparty\imgui\backends\imgui_impl_opengl3.cpp(874,5): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\build_vs\visualizer\RogueCityVisualizerGui.vcxproj]
+  (compiling source file '../../3rdparty/imgui/backends/imgui_impl_opengl3.cpp')
+  
+  Generating Code...
+  RogueCityVisualizerGui.vcxproj -> C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\bin\RogueCityVisualizerGui.exe
+  	Copying RogueCityVisualizerGui.exe to repository root	Updating RogueCityVisualizerGui.lnk in repository root

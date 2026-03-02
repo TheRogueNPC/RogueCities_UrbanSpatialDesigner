@@ -87,15 +87,38 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         history.Redo();
         command_history_applied = true;
       }
-    } else if (ImGui::IsKeyPressed(ImGuiKey_G)) {
+    } else if (!io.KeyCtrl && !io.KeyAlt &&
+               ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
+      gs.tool_runtime.viewport_selection_mode =
+          RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+      gs.tool_runtime.viewport_edit_tool =
+          RogueCity::Core::Editor::ViewportEditTool::Auto;
+    } else if (!io.KeyCtrl && !io.KeyAlt &&
+               (ImGui::IsKeyPressed(ImGuiKey_W, false) ||
+                ImGui::IsKeyPressed(ImGuiKey_G, false))) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Translate;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
+      gs.tool_runtime.viewport_selection_mode =
+          RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+      gs.tool_runtime.viewport_edit_tool =
+          RogueCity::Core::Editor::ViewportEditTool::Move;
+    } else if (!io.KeyCtrl && !io.KeyAlt &&
+               ImGui::IsKeyPressed(ImGuiKey_E, false)) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Rotate;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_S)) {
+      gs.tool_runtime.viewport_selection_mode =
+          RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+      gs.tool_runtime.viewport_edit_tool =
+          RogueCity::Core::Editor::ViewportEditTool::Move;
+    } else if (!io.KeyCtrl && !io.KeyAlt &&
+               (ImGui::IsKeyPressed(ImGuiKey_R, false) ||
+                ImGui::IsKeyPressed(ImGuiKey_S, false))) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Scale;
+      gs.tool_runtime.viewport_selection_mode =
+          RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+      gs.tool_runtime.viewport_edit_tool =
+          RogueCity::Core::Editor::ViewportEditTool::Move;
     } else if (ImGui::IsKeyPressed(ImGuiKey_X)) {
       gs.gizmo.snapping = !gs.gizmo.snapping;
     } else if (ImGui::IsKeyPressed(ImGuiKey_1)) {
@@ -368,7 +391,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
   } else if (!consumed_interaction && start_lasso) {
     interaction_state->selection_drag.lasso_active = true;
     interaction_state->selection_drag.box_active = false;
-    interaction_state->selection_drag.box_add_mode = false;
+    interaction_state->selection_drag.box_add_mode = io.KeyShift && !io.KeyCtrl;
     interaction_state->selection_drag.box_toggle_mode = io.KeyCtrl;
     interaction_state->selection_drag.lasso_points.clear();
     interaction_state->selection_drag.lasso_points.push_back(result.world_pos);
@@ -404,13 +427,17 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
       const double max_y =
           std::max(interaction_state->selection_drag.box_start.y,
                    interaction_state->selection_drag.box_end.y);
+      RogueCity::Core::Bounds selection_bounds{};
+      selection_bounds.min = RogueCity::Core::Vec2(min_x, min_y);
+      selection_bounds.max = RogueCity::Core::Vec2(max_x, max_y);
 
       auto region_items = Handlers::QueryRegionFromViewportIndex(
           gs,
           [=](const RogueCity::Core::Vec2 &p) {
             return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
           },
-          true);
+          true,
+          &selection_bounds);
       apply_region_selection(std::move(region_items),
                              interaction_state->selection_drag.box_add_mode,
                              interaction_state->selection_drag.box_toggle_mode);
@@ -429,11 +456,33 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
       }
     }
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+      RogueCity::Core::Bounds selection_bounds{};
+      if (!interaction_state->selection_drag.lasso_points.empty()) {
+        const RogueCity::Core::Vec2 &first_point =
+            interaction_state->selection_drag.lasso_points.front();
+        double min_x = first_point.x;
+        double max_x = first_point.x;
+        double min_y = first_point.y;
+        double max_y = first_point.y;
+        for (const RogueCity::Core::Vec2 &p :
+             interaction_state->selection_drag.lasso_points) {
+          min_x = std::min(min_x, p.x);
+          max_x = std::max(max_x, p.x);
+          min_y = std::min(min_y, p.y);
+          max_y = std::max(max_y, p.y);
+        }
+        selection_bounds.min = RogueCity::Core::Vec2(min_x, min_y);
+        selection_bounds.max = RogueCity::Core::Vec2(max_x, max_y);
+      }
       auto region_items = Handlers::QueryRegionFromViewportIndex(
           gs, [&](const RogueCity::Core::Vec2 &p) {
             return Handlers::PointInPolygon(
                 p, interaction_state->selection_drag.lasso_points);
-          });
+          },
+          false,
+          interaction_state->selection_drag.lasso_points.empty()
+              ? nullptr
+              : &selection_bounds);
       apply_region_selection(std::move(region_items),
                              interaction_state->selection_drag.box_add_mode,
                              interaction_state->selection_drag.box_toggle_mode);
@@ -534,12 +583,16 @@ QueryRegionFromViewportIndexTestHook(
   const double max_x = std::max(world_min.x, world_max.x);
   const double min_y = std::min(world_min.y, world_max.y);
   const double max_y = std::max(world_min.y, world_max.y);
+  RogueCity::Core::Bounds query_bounds{};
+  query_bounds.min = RogueCity::Core::Vec2(min_x, min_y);
+  query_bounds.max = RogueCity::Core::Vec2(max_x, max_y);
   return Handlers::QueryRegionFromViewportIndex(
       gs,
       [=](const RogueCity::Core::Vec2 &p) {
         return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
       },
-      include_hidden);
+      include_hidden,
+      &query_bounds);
 }
 
 } // namespace RC_UI::Viewport

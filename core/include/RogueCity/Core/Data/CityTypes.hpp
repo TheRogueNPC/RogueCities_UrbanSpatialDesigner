@@ -2,484 +2,560 @@
 
 #include "RogueCity/Core/Math/Vec2.hpp"
 #include <algorithm>
-#include <vector>
 #include <array>
 #include <cstdint>
+#include <magic_enum/magic_enum.hpp>
 #include <random>
 #include <string>
-#include <magic_enum/magic_enum.hpp>
+#include <vector>
 
 namespace RogueCity::Core {
 
-    // ===== ENUMERATIONS =====
+// ===== ENUMERATIONS =====
 
-    /// Road classification hierarchy (from highways to driveways)
-    enum class RoadType : uint8_t {
-        Highway = 0,   // Major intercity routes
-        Arterial,      // Major city arteries
-        Avenue,        // Wide multi-lane roads
-        Boulevard,     // Scenic wide roads
-        Street,        // Standard city streets
-        Lane,          // Narrow residential streets
-        Alleyway,      // Service alleys
-        CulDeSac,      // Dead-end streets
-        Drive,         // Private roads
-        Driveway,      // Property access
-        M_Major,       // User-placed major road
-        M_Minor,       // User-placed minor road
-    };
-    constexpr size_t road_type_count = static_cast<size_t>(RoadType::M_Minor) + 1;
+/// Road classification hierarchy (from highways to driveways)
+enum class RoadType : uint8_t {
+  Highway = 0, // Major intercity routes
+  Arterial,    // Major city arteries
+  Avenue,      // Wide multi-lane roads
+  Boulevard,   // Scenic wide roads
+  Street,      // Standard city streets
+  Lane,        // Narrow residential streets
+  Alleyway,    // Service alleys
+  CulDeSac,    // Dead-end streets
+  Drive,       // Private roads
+  Driveway,    // Property access
+  M_Major,     // User-placed major road
+  M_Minor,     // User-placed minor road
+};
+constexpr size_t road_type_count = static_cast<size_t>(RoadType::M_Minor) + 1;
 
-    /// District classification based on AESP scoring (from research paper)
-    enum class DistrictType : uint8_t {
-        Mixed = 0,     // Mixed-use: 0.25(A + E + S + P)
-        Residential,   // Residential: 0.60P + 0.20A + 0.10S + 0.10E
-        Commercial,    // Commercial: 0.60E + 0.20A + 0.10S + 0.10P
-        Civic,         // Civic: 0.50E + 0.20A + 0.10S + 0.20P
-        Industrial     // Industrial: 0.60S + 0.25A + 0.10E + 0.05P
-    };
+/// District classification based on AESP scoring (from research paper)
+enum class DistrictType : uint8_t {
+  Mixed = 0,   // Mixed-use: 0.25(A + E + S + P)
+  Residential, // Residential: 0.60P + 0.20A + 0.10S + 0.10E
+  Commercial,  // Commercial: 0.60E + 0.20A + 0.10S + 0.10P
+  Civic,       // Civic: 0.50E + 0.20A + 0.10S + 0.20P
+  Industrial   // Industrial: 0.60S + 0.25A + 0.10E + 0.05P
+};
 
-    /// Lot type classification (building parcel types)
-    enum class LotType : uint8_t {
-        None = 0,
-        Residential,
-        RowhomeCompact,
-        RetailStrip,
-        MixedUse,
-        LogisticsIndustrial,
-        CivicCultural,
-        LuxuryScenic,
-        BufferStrip
-    };
+/// Lot type classification (building parcel types)
+enum class LotType : uint8_t {
+  None = 0,
+  Residential,
+  RowhomeCompact,
+  RetailStrip,
+  MixedUse,
+  LogisticsIndustrial,
+  CivicCultural,
+  LuxuryScenic,
+  BufferStrip
+};
 
-    /// Building type classification
-    enum class BuildingType : uint8_t {
-        None = 0,
-        Residential,
-        Rowhome,
-        Retail,
-        MixedUse,
-        Industrial,
-        Civic,
-        Luxury,
-        Utility
-    };
+/// Building type classification
+enum class BuildingType : uint8_t {
+  None = 0,
+  Residential,
+  Rowhome,
+  Retail,
+  MixedUse,
+  Industrial,
+  Civic,
+  Luxury,
+  Utility
+};
 
-    /// Authoritative ownership tag used by generation merge policy.
-    enum class GenerationTag : uint8_t {
-        Generated = 0,
-        M_user
-    };
+/// Authoritative ownership tag used by generation merge policy.
+enum class GenerationTag : uint8_t { Generated = 0, M_user };
 
-    // ===== GEOMETRIC PRIMITIVES =====
+// ===== GEOMETRIC PRIMITIVES =====
 
-    /// Ordered list of points forming a path or polyline
-    struct Polyline {
-        std::vector<Vec2> points;
+// Forward declaration: WorldConstraintField is defined later in this header.
+// Required here so Road::getElevationAtIndex can declare a const-reference
+// parameter before the full definition of WorldConstraintField is available.
+struct WorldConstraintField;
 
-        [[nodiscard]] size_t size() const { return points.size(); }
-        [[nodiscard]] bool empty() const { return points.empty(); }
-        void clear() { points.clear(); }
-    };
+/// Ordered list of points forming a path or polyline
+struct Polyline {
+  std::vector<Vec2> points;
 
-    /// Closed polygon (simple ring, no holes)
-    struct Polygon {
-        std::vector<Vec2> points;
-        uint32_t district_id{ 0 };
+  [[nodiscard]] size_t size() const { return points.size(); }
+  [[nodiscard]] bool empty() const { return points.empty(); }
+  void clear() { points.clear(); }
+};
 
-        [[nodiscard]] size_t size() const { return points.size(); }
-        [[nodiscard]] bool empty() const { return points.empty(); }
-    };
+/// Closed polygon (simple ring, no holes)
+struct Polygon {
+  std::vector<Vec2> points;
+  uint32_t district_id{0};
 
-    /// Block polygon with holes (for city blocks with courtyards)
-    struct BlockPolygon {
-        std::vector<Vec2> outer;
-        std::vector<std::vector<Vec2>> holes;
-        uint32_t district_id{ 0 };
+  [[nodiscard]] size_t size() const { return points.size(); }
+  [[nodiscard]] bool empty() const { return points.empty(); }
+};
 
-        [[nodiscard]] bool hasHoles() const { return !holes.empty(); }
-    };
+/// Block polygon with holes (for city blocks with courtyards)
+struct BlockPolygon {
+  std::vector<Vec2> outer;
+  std::vector<std::vector<Vec2>> holes;
+  uint32_t district_id{0};
 
-    /// Road segment with classification
-    struct Road {
-        std::vector<Vec2> points;
-        RoadType type{ RoadType::Street };
-        uint32_t id{ 0 };
-        int source_axiom_id{ -1 };
-        bool is_user_created{ false };  // True for M_Major/M_Minor
-        GenerationTag generation_tag{ GenerationTag::Generated };
-        bool generation_locked{ false };
+  [[nodiscard]] bool hasHoles() const { return !holes.empty(); }
+};
 
-        [[nodiscard]] double length() const;
-        [[nodiscard]] Vec2 startPoint() const { return points.empty() ? Vec2() : points.front(); }
-        [[nodiscard]] Vec2 endPoint() const { return points.empty() ? Vec2() : points.back(); }
-    };
+/// Road segment with classification and 3D metadata
+struct Road {
+  std::vector<Vec2> points;
+  RoadType type{RoadType::Street};
+  uint32_t id{0};
+  int source_axiom_id{-1};
+  bool is_user_created{false}; // True for M_Major/M_Minor
+  GenerationTag generation_tag{GenerationTag::Generated};
+  bool generation_locked{false};
 
-    // ===== CITY ELEMENTS =====
+  // 3D foundation metadata - preserves vertical/layer information
+  int layer_id{
+      0}; // Layer for grade separation (0=ground level, +/- for elevation)
+  std::vector<float>
+      elevation_offsets; // Height offset per point (meters above terrain)
+  bool has_grade_separation{
+      false}; // True if road crosses other roads at different levels
 
-    /// District (zone with AESP-based classification)
-    struct District {
-        uint32_t id{ 0 };
-        int primary_axiom_id{ -1 };
-        int secondary_axiom_id{ -1 };
-        DistrictType type{ DistrictType::Mixed };
-        std::vector<Vec2> border;
-        Vec2 orientation{};
-        float budget_allocated{ 0.0f };
-        uint32_t projected_population{ 0 };
-        float desirability{ 0.0f };
-        bool is_user_placed{ false };
-        GenerationTag generation_tag{ GenerationTag::Generated };
-        bool generation_locked{ false };
+  [[nodiscard]] double length() const;
+  [[nodiscard]] Vec2 startPoint() const {
+    return points.empty() ? Vec2() : points.front();
+  }
+  [[nodiscard]] Vec2 endPoint() const {
+    return points.empty() ? Vec2() : points.back();
+  }
 
-        [[nodiscard]] bool hasAxiom() const { return primary_axiom_id >= 0; }
-    };
+  // Get elevation-adjusted point (terrain height + road offset).
+  // Body defined after WorldConstraintField below — forward declaration only
+  // here to avoid use-before-definition of WorldConstraintField in the same TU.
+  [[nodiscard]] float
+  getElevationAtIndex(size_t idx, const WorldConstraintField &terrain) const;
+};
 
-    /// Lot token (AESP-scored building parcel)
-    struct LotToken {
-        uint32_t id{ 0 };
-        uint32_t district_id{ 0 };
-        Vec2 centroid{};
-        std::vector<Vec2> boundary;
-        RoadType primary_road{ RoadType::Street };
-        RoadType secondary_road{ RoadType::Street };
+// ===== CITY ELEMENTS =====
 
-        // AESP scores (Access, Exposure, Serviceability, Privacy)
-        float access{ 0.0f };
-        float exposure{ 0.0f };
-        float serviceability{ 0.0f };
-        float privacy{ 0.0f };
-        float area{ 0.0f };
-        float budget_allocation{ 0.0f };
+/// District (zone with AESP-based classification)
+struct District {
+  uint32_t id{0};
+  int primary_axiom_id{-1};
+  int secondary_axiom_id{-1};
+  DistrictType type{DistrictType::Mixed};
+  std::vector<Vec2> border;
+  Vec2 orientation{};
+  float budget_allocated{0.0f};
+  uint32_t projected_population{0};
+  float desirability{0.0f};
+  bool is_user_placed{false};
+  GenerationTag generation_tag{GenerationTag::Generated};
+  bool generation_locked{false};
 
-        LotType lot_type{ LotType::None };
-        bool is_user_placed{ false };
-        bool locked_type{ false };  // If true, generator won't override lot_type
-        GenerationTag generation_tag{ GenerationTag::Generated };
-        bool generation_locked{ false };
+  // 3D foundation metadata - topology and terrain adaptation
+  float average_elevation{0.0f}; // Average terrain elevation in meters
+  float slope_variance{0.0f};    // Standard deviation of slope within district
+  bool requires_terracing{
+      false}; // True if steep slopes require special handling
 
-        [[nodiscard]] float aespScore() const {
-            return 0.25f * (access + exposure + serviceability + privacy);
-        }
-    };
+  [[nodiscard]] bool hasAxiom() const { return primary_axiom_id >= 0; }
+};
 
-    /// Building site (placed within a lot)
-    struct BuildingSite {
-        uint32_t id{ 0 };
-        uint32_t lot_id{ 0 };
-        uint32_t district_id{ 0 };
-        Vec2 position{};
-        float rotation_radians{ 0.0f };
-        float uniform_scale{ 1.0f };
-        BuildingType type{ BuildingType::None };
-        bool is_user_placed{ false };
-        bool locked_type{ false };
-        GenerationTag generation_tag{ GenerationTag::Generated };
-        bool generation_locked{ false };
-        float estimated_cost{ 0.0f };
-    };
+/// Lot token (AESP-scored building parcel)
+struct LotToken {
+  uint32_t id{0};
+  uint32_t district_id{0};
+  Vec2 centroid{};
+  std::vector<Vec2> boundary;
+  RoadType primary_road{RoadType::Street};
+  RoadType secondary_road{RoadType::Street};
 
-    // AI_INTEGRATION_TAG: V1_PASS1_TASK3_WATER_BODY
-    /// Water body types
-    enum class WaterType : uint8_t {
-        Lake = 0,
-        River,
-        Ocean,
-        Pond
-    };
+  // AESP scores (Access, Exposure, Serviceability, Privacy)
+  float access{0.0f};
+  float exposure{0.0f};
+  float serviceability{0.0f};
+  float privacy{0.0f};
+  float area{0.0f};
+  float budget_allocation{0.0f};
 
-    /// Water body feature (lakes, rivers, oceans)
-    struct WaterBody {
-        uint32_t id{ 0 };
-        WaterType type{ WaterType::Lake };
-        std::vector<Vec2> boundary;  // Polygon for lakes, polyline for rivers
-        float depth{ 5.0f };          // Meters
-        bool generate_shore{ true };  // Generate coastal detail
-        bool is_user_placed{ false };
-        GenerationTag generation_tag{ GenerationTag::Generated };
-        bool generation_locked{ false };
-        
-        [[nodiscard]] bool empty() const { return boundary.empty(); }
-        [[nodiscard]] size_t size() const { return boundary.size(); }
-    };
+  LotType lot_type{LotType::None};
+  bool is_user_placed{false};
+  bool locked_type{false}; // If true, generator won't override lot_type
+  GenerationTag generation_tag{GenerationTag::Generated};
+  bool generation_locked{false};
 
-    /// History/legacy overlays used to bias district classification and validation.
-    enum class HistoryTag : uint8_t {
-        None = 0,
-        Brownfield = 1u << 0,   // Legacy dumps / industrial remnants
-        SacredSite = 1u << 1,   // No-build cultural zones
-        UtilityLegacy = 1u << 2, // Old buried lines/wells
-        Contaminated = 1u << 3  // Hazard remediation zones
-    };
+  // 3D foundation metadata - terrain and access
+  float ground_elevation{0.0f}; // Base terrain elevation at centroid (meters)
+  float road_elevation_delta{
+      0.0f}; // Height difference from ground to primary road (meters)
+  float maximum_slope{0.0f}; // Max slope across lot boundary (degrees)
+  bool needs_retaining_walls{
+      false}; // True if steep slope requires structural support
 
-    [[nodiscard]] constexpr uint8_t ToHistoryMask(HistoryTag tag) {
-        return static_cast<uint8_t>(tag);
+  [[nodiscard]] float aespScore() const {
+    return 0.25f * (access + exposure + serviceability + privacy);
+  }
+};
+
+/// Building site (placed within a lot)
+struct BuildingSite {
+  uint32_t id{0};
+  uint32_t lot_id{0};
+  uint32_t district_id{0};
+  Vec2 position{};
+  float rotation_radians{0.0f};
+  float uniform_scale{1.0f};
+  BuildingType type{BuildingType::None};
+  bool is_user_placed{false};
+  bool locked_type{false};
+  GenerationTag generation_tag{GenerationTag::Generated};
+  bool generation_locked{false};
+  float estimated_cost{0.0f};
+
+  // 3D foundation metadata - building placement and form
+  float foundation_elevation{
+      0.0f}; // Building foundation height above terrain (meters)
+  float suggested_height{
+      0.0f}; // Suggested building height based on context (meters)
+  float footprint_area{0.0f}; // Building footprint area (square meters)
+  bool basement_feasible{
+      false}; // True if soil/slope allows basement construction
+
+  std::vector<Vec2> outline; // Explicit footprint polygon
+};
+
+// AI_INTEGRATION_TAG: V1_PASS1_TASK3_WATER_BODY
+/// Water body types
+enum class WaterType : uint8_t { Lake = 0, River, Ocean, Pond };
+
+/// Water body feature (lakes, rivers, oceans)
+struct WaterBody {
+  uint32_t id{0};
+  WaterType type{WaterType::Lake};
+  std::vector<Vec2> boundary; // Polygon for lakes, polyline for rivers
+  float depth{5.0f};          // Meters
+  bool generate_shore{true};  // Generate coastal detail
+  bool is_user_placed{false};
+  GenerationTag generation_tag{GenerationTag::Generated};
+  bool generation_locked{false};
+
+  [[nodiscard]] bool empty() const { return boundary.empty(); }
+  [[nodiscard]] size_t size() const { return boundary.size(); }
+};
+
+/// Junction archetype for grade-separated intersections
+enum class JunctionArchetype : uint8_t {
+  None = 0,
+  Diamond,
+  FoldedDiamond,
+  Cloverleaf,
+  DirectionalT,
+  Stack,
+  CompactRoundabout
+};
+
+/// Intersection template with 3D infrastructure
+struct IntersectionTemplate {
+  uint32_t id{0};
+  Vec2 center{};
+  float radius{0.0f};
+  float rotation{0.0f};
+  JunctionArchetype archetype{JunctionArchetype::None};
+  std::vector<Polygon> paved_areas;        // Road surface geometry
+  std::vector<Polygon> keep_out_islands;   // No-build zones for infrastructure
+  std::vector<Polygon> support_footprints; // Bridge/overpass support locations
+  std::vector<Polygon> greenspace_candidates; // Landscaping opportunities
+  bool has_grade_separation{false};           // True if multi-level interchange
+  float vertical_clearance{4.5f}; // Minimum clearance height (meters)
+};
+
+/// History/legacy overlays used to bias district classification and validation.
+enum class HistoryTag : uint8_t {
+  None = 0,
+  Brownfield = 1u << 0,    // Legacy dumps / industrial remnants
+  SacredSite = 1u << 1,    // No-build cultural zones
+  UtilityLegacy = 1u << 2, // Old buried lines/wells
+  Contaminated = 1u << 3   // Hazard remediation zones
+};
+
+[[nodiscard]] constexpr uint8_t ToHistoryMask(HistoryTag tag) {
+  return static_cast<uint8_t>(tag);
+}
+
+[[nodiscard]] constexpr bool HasHistoryTag(uint8_t mask, HistoryTag tag) {
+  return (mask & static_cast<uint8_t>(tag)) != 0;
+}
+
+/// Runtime generation mode selected from terrain/policy diagnostics.
+enum class GenerationMode : uint8_t {
+  Standard = 0,
+  HillTown,
+  ConservationOnly,
+  BrownfieldCore,
+  CompromisePlan,
+  Patchwork
+};
+
+/// Validation issue type produced after pipeline generation.
+enum class PlanViolationType : uint8_t {
+  None = 0,
+  NoBuildEncroachment,
+  SlopeTooHigh,
+  FloodRisk,
+  SoilTooWeak,
+  PolicyConflict
+};
+
+/// Entity category attached to plan violations.
+enum class PlanEntityType : uint8_t { None = 0, Global, Road, Lot, District };
+
+/// Rasterized world constraints sampled by tensor/road and validation stages.
+struct WorldConstraintField {
+  int width{0};
+  int height{0};
+  double cell_size{10.0};
+
+  std::vector<float> height_meters;   // Authoritative terrain height in meters.
+  std::vector<float> slope_degrees;   // Terrain slope in degrees.
+  std::vector<uint8_t> flood_mask;    // 0 none, 1 minor, 2 severe.
+  std::vector<float> soil_strength;   // 0..1.
+  std::vector<uint8_t> no_build_mask; // 0/1 hard no-build.
+  std::vector<float> nature_score;    // 0..1 ecology intensity.
+  std::vector<uint8_t> history_tags;  // Bitmask from HistoryTag.
+
+  void resize(int w, int h, double cell) {
+    width = std::max(0, w);
+    height = std::max(0, h);
+    cell_size = cell;
+    const size_t cells =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+    height_meters.assign(cells, 0.0f);
+    slope_degrees.assign(cells, 0.0f);
+    flood_mask.assign(cells, 0u);
+    soil_strength.assign(cells, 1.0f);
+    no_build_mask.assign(cells, 0u);
+    nature_score.assign(cells, 0.0f);
+    history_tags.assign(cells, 0u);
+  }
+
+  [[nodiscard]] bool isValid() const {
+    if (width <= 0 || height <= 0 || cell_size <= 0.0) {
+      return false;
     }
+    const size_t cells =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+    return height_meters.size() == cells && slope_degrees.size() == cells &&
+           flood_mask.size() == cells && soil_strength.size() == cells &&
+           no_build_mask.size() == cells && nature_score.size() == cells &&
+           history_tags.size() == cells;
+  }
 
-    [[nodiscard]] constexpr bool HasHistoryTag(uint8_t mask, HistoryTag tag) {
-        return (mask & static_cast<uint8_t>(tag)) != 0;
+  [[nodiscard]] size_t cellCount() const {
+    return static_cast<size_t>(width) * static_cast<size_t>(height);
+  }
+
+  [[nodiscard]] bool worldToGrid(const Vec2 &world, int &gx, int &gy) const {
+    if (width <= 0 || height <= 0 || cell_size <= 0.0) {
+      gx = 0;
+      gy = 0;
+      return false;
     }
+    gx = static_cast<int>(world.x / cell_size);
+    gy = static_cast<int>(world.y / cell_size);
+    return gx >= 0 && gx < width && gy >= 0 && gy < height;
+  }
 
-    /// Runtime generation mode selected from terrain/policy diagnostics.
-    enum class GenerationMode : uint8_t {
-        Standard = 0,
-        HillTown,
-        ConservationOnly,
-        BrownfieldCore,
-        CompromisePlan,
-        Patchwork
-    };
+  [[nodiscard]] int toIndex(int gx, int gy) const { return (gy * width) + gx; }
 
-    /// Validation issue type produced after pipeline generation.
-    enum class PlanViolationType : uint8_t {
-        None = 0,
-        NoBuildEncroachment,
-        SlopeTooHigh,
-        FloodRisk,
-        SoilTooWeak,
-        PolicyConflict
-    };
+  [[nodiscard]] float sampleSlopeDegrees(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 0.0f;
+    }
+    return slope_degrees[static_cast<size_t>(toIndex(gx, gy))];
+  }
 
-    /// Entity category attached to plan violations.
-    enum class PlanEntityType : uint8_t {
-        None = 0,
-        Global,
-        Road,
-        Lot,
-        District
-    };
+  [[nodiscard]] float sampleHeightMeters(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 0.0f;
+    }
+    return height_meters[static_cast<size_t>(toIndex(gx, gy))];
+  }
 
-    /// Rasterized world constraints sampled by tensor/road and validation stages.
-    struct WorldConstraintField {
-        int width{ 0 };
-        int height{ 0 };
-        double cell_size{ 10.0 };
+  [[nodiscard]] uint8_t sampleFloodMask(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 0u;
+    }
+    return flood_mask[static_cast<size_t>(toIndex(gx, gy))];
+  }
 
-        std::vector<float> height_meters;      // Authoritative terrain height in meters.
-        std::vector<float> slope_degrees;      // Terrain slope in degrees.
-        std::vector<uint8_t> flood_mask;       // 0 none, 1 minor, 2 severe.
-        std::vector<float> soil_strength;      // 0..1.
-        std::vector<uint8_t> no_build_mask;    // 0/1 hard no-build.
-        std::vector<float> nature_score;       // 0..1 ecology intensity.
-        std::vector<uint8_t> history_tags;     // Bitmask from HistoryTag.
+  [[nodiscard]] float sampleSoilStrength(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 1.0f;
+    }
+    return soil_strength[static_cast<size_t>(toIndex(gx, gy))];
+  }
 
-        void resize(int w, int h, double cell) {
-            width = std::max(0, w);
-            height = std::max(0, h);
-            cell_size = cell;
-            const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
-            height_meters.assign(cells, 0.0f);
-            slope_degrees.assign(cells, 0.0f);
-            flood_mask.assign(cells, 0u);
-            soil_strength.assign(cells, 1.0f);
-            no_build_mask.assign(cells, 0u);
-            nature_score.assign(cells, 0.0f);
-            history_tags.assign(cells, 0u);
-        }
+  [[nodiscard]] bool sampleNoBuild(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return true;
+    }
+    return no_build_mask[static_cast<size_t>(toIndex(gx, gy))] != 0u;
+  }
 
-        [[nodiscard]] bool isValid() const {
-            if (width <= 0 || height <= 0 || cell_size <= 0.0) {
-                return false;
-            }
-            const size_t cells = static_cast<size_t>(width) * static_cast<size_t>(height);
-            return height_meters.size() == cells &&
-                slope_degrees.size() == cells &&
-                flood_mask.size() == cells &&
-                soil_strength.size() == cells &&
-                no_build_mask.size() == cells &&
-                nature_score.size() == cells &&
-                history_tags.size() == cells;
-        }
+  [[nodiscard]] float sampleNatureScore(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 0.0f;
+    }
+    return nature_score[static_cast<size_t>(toIndex(gx, gy))];
+  }
 
-        [[nodiscard]] size_t cellCount() const {
-            return static_cast<size_t>(width) * static_cast<size_t>(height);
-        }
+  [[nodiscard]] uint8_t sampleHistoryTags(const Vec2 &world) const {
+    int gx = 0;
+    int gy = 0;
+    if (!worldToGrid(world, gx, gy)) {
+      return 0u;
+    }
+    return history_tags[static_cast<size_t>(toIndex(gx, gy))];
+  }
+};
 
-        [[nodiscard]] bool worldToGrid(const Vec2& world, int& gx, int& gy) const {
-            if (width <= 0 || height <= 0 || cell_size <= 0.0) {
-                gx = 0;
-                gy = 0;
-                return false;
-            }
-            gx = static_cast<int>(world.x / cell_size);
-            gy = static_cast<int>(world.y / cell_size);
-            return gx >= 0 && gx < width && gy >= 0 && gy < height;
-        }
+// Out-of-line inline definition — WorldConstraintField is now fully defined
+// above. Terrain height at a point plus the road's own elevation offset for
+// that polyline index. Units: meters above sea level. Returns 0.0f for
+// out-of-range or empty roads.
+inline float
+Road::getElevationAtIndex(size_t idx,
+                          const WorldConstraintField &terrain) const {
+  if (points.empty() || idx >= points.size())
+    return 0.0f;
+  const float terrain_height = terrain.sampleHeightMeters(points[idx]);
+  const float road_offset =
+      (!elevation_offsets.empty() && idx < elevation_offsets.size())
+          ? elevation_offsets[idx]
+          : 0.0f;
+  return terrain_height + road_offset;
+}
 
-        [[nodiscard]] int toIndex(int gx, int gy) const {
-            return (gy * width) + gx;
-        }
+/// Site diagnostics produced from world constraints before city generation.
+struct SiteProfile {
+  float buildable_fraction{1.0f};
+  float average_buildable_slope{0.0f};
+  float buildable_fragmentation{0.0f};
+  float policy_friction{0.0f};
 
-        [[nodiscard]] float sampleSlopeDegrees(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 0.0f;
-            }
-            return slope_degrees[static_cast<size_t>(toIndex(gx, gy))];
-        }
+  bool hostile_terrain{false};
+  bool policy_vs_physics{false};
+  bool awkward_geometry{false};
+  bool brownfield_pockets{false};
 
-        [[nodiscard]] float sampleHeightMeters(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 0.0f;
-            }
-            return height_meters[static_cast<size_t>(toIndex(gx, gy))];
-        }
+  GenerationMode mode{GenerationMode::Standard};
+};
 
-        [[nodiscard]] uint8_t sampleFloodMask(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 0u;
-            }
-            return flood_mask[static_cast<size_t>(toIndex(gx, gy))];
-        }
+/// Validation finding from post-generation checks.
+struct PlanViolation {
+  PlanViolationType type{PlanViolationType::None};
+  PlanEntityType entity_type{PlanEntityType::None};
+  uint32_t entity_id{0};
+  float severity{0.0f}; // 0..1
+  Vec2 location{};
+  std::string message;
+};
 
-        [[nodiscard]] float sampleSoilStrength(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 1.0f;
-            }
-            return soil_strength[static_cast<size_t>(toIndex(gx, gy))];
-        }
+// ===== UTILITY STRUCTURES =====
 
-        [[nodiscard]] bool sampleNoBuild(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return true;
-            }
-            return no_build_mask[static_cast<size_t>(toIndex(gx, gy))] != 0u;
-        }
+/// Axis-aligned bounding box
+struct Bounds {
+  Vec2 min;
+  Vec2 max;
 
-        [[nodiscard]] float sampleNatureScore(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 0.0f;
-            }
-            return nature_score[static_cast<size_t>(toIndex(gx, gy))];
-        }
+  [[nodiscard]] double width() const { return max.x - min.x; }
+  [[nodiscard]] double height() const { return max.y - min.y; }
+  [[nodiscard]] Vec2 center() const {
+    return Vec2((min.x + max.x) * 0.5, (min.y + max.y) * 0.5);
+  }
+  [[nodiscard]] bool contains(const Vec2 &p) const {
+    return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y;
+  }
+};
 
-        [[nodiscard]] uint8_t sampleHistoryTags(const Vec2& world) const {
-            int gx = 0;
-            int gy = 0;
-            if (!worldToGrid(world, gx, gy)) {
-                return 0u;
-            }
-            return history_tags[static_cast<size_t>(toIndex(gx, gy))];
-        }
-    };
+/// Simple deterministic RNG wrapper
+struct RNG {
+  explicit RNG(uint32_t seed = 1) : gen(seed) {}
 
-    /// Site diagnostics produced from world constraints before city generation.
-    struct SiteProfile {
-        float buildable_fraction{ 1.0f };
-        float average_buildable_slope{ 0.0f };
-        float buildable_fragmentation{ 0.0f };
-        float policy_friction{ 0.0f };
+  double uniform() { return dist01(gen); }
+  double uniform(double max) { return dist01(gen) * max; }
+  double uniform(double min, double max) {
+    return min + dist01(gen) * (max - min);
+  }
+  int uniformInt(int min, int max) {
+    return min + static_cast<int>(dist01(gen) * (max - min + 1));
+  }
 
-        bool hostile_terrain{ false };
-        bool policy_vs_physics{ false };
-        bool awkward_geometry{ false };
-        bool brownfield_pockets{ false };
+private:
+  std::mt19937_64 gen;
+  std::uniform_real_distribution<double> dist01{0.0, 1.0};
+};
 
-        GenerationMode mode{ GenerationMode::Standard };
-    };
+// ===== DEBUG STATISTICS =====
 
-    /// Validation finding from post-generation checks.
-    struct PlanViolation {
-        PlanViolationType type{ PlanViolationType::None };
-        PlanEntityType entity_type{ PlanEntityType::None };
-        uint32_t entity_id{ 0 };
-        float severity{ 0.0f }; // 0..1
-        Vec2 location{};
-        std::string message;
-    };
+/// Block extraction debug statistics
+struct BlockDebugStats {
+  uint32_t road_inputs{0};
+  uint32_t faces_found{0};
+  uint32_t valid_blocks{0};
+  uint32_t intersections{0};
+  uint32_t segments{0};
+  uint32_t input_lines{0};
+  uint32_t snapped_lines{0};
+  uint32_t healed_lines{0};
+  uint32_t pruned_lines{0};
+  uint32_t invalid_polygons{0};
+  uint32_t repaired_polygons{0};
+  uint32_t skipped_polygons{0};
+};
 
-    // ===== UTILITY STRUCTURES =====
+/// Canonical runtime generation parameters (normalized from legacy CityParams)
+struct CityGenerationParams {
+  uint32_t seed{1};
+  int width{2000};
+  int height{2000};
+  double cell_size{10.0};
 
-    /// Axis-aligned bounding box
-    struct Bounds {
-        Vec2 min;
-        Vec2 max;
+  int min_lot_width{10};
+  int max_lot_width{50};
+  int min_lot_depth{15};
+  int max_lot_depth{60};
+  int min_lots_per_road_side{1};
 
-        [[nodiscard]] double width() const { return max.x - min.x; }
-        [[nodiscard]] double height() const { return max.y - min.y; }
-        [[nodiscard]] Vec2 center() const {
-            return Vec2((min.x + max.x) * 0.5, (min.y + max.y) * 0.5);
-        }
-        [[nodiscard]] bool contains(const Vec2& p) const {
-            return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y;
-        }
-    };
+  uint32_t max_road_segments{10000};
+  uint32_t max_districts{500};
+  uint32_t max_lots{50000};
+  uint32_t max_buildings{100000};
 
-    /// Simple deterministic RNG wrapper
-    struct RNG {
-        explicit RNG(uint32_t seed = 1) : gen(seed) {}
+  uint32_t rogueworker_threshold{100};
+  // Runtime tuning for streamline tracing exposed to UI.
+  float streamline_major_tensor_tolerance_degrees{25.0f};
+};
 
-        double uniform() { return dist01(gen); }
-        double uniform(double max) { return dist01(gen) * max; }
-        double uniform(double min, double max) { return min + dist01(gen) * (max - min); }
-        int uniformInt(int min, int max) {
-            return min + static_cast<int>(dist01(gen) * (max - min + 1));
-        }
-
-    private:
-        std::mt19937_64 gen;
-        std::uniform_real_distribution<double> dist01{ 0.0, 1.0 };
-    };
-
-    // ===== DEBUG STATISTICS =====
-
-    /// Block extraction debug statistics
-    struct BlockDebugStats {
-        uint32_t road_inputs{ 0 };
-        uint32_t faces_found{ 0 };
-        uint32_t valid_blocks{ 0 };
-        uint32_t intersections{ 0 };
-        uint32_t segments{ 0 };
-        uint32_t input_lines{ 0 };
-        uint32_t snapped_lines{ 0 };
-        uint32_t healed_lines{ 0 };
-        uint32_t pruned_lines{ 0 };
-        uint32_t invalid_polygons{ 0 };
-        uint32_t repaired_polygons{ 0 };
-        uint32_t skipped_polygons{ 0 };
-    };
-
-    /// Canonical runtime generation parameters (normalized from legacy CityParams)
-    struct CityGenerationParams {
-        uint32_t seed{ 1 };
-        int width{ 2000 };
-        int height{ 2000 };
-        double cell_size{ 10.0 };
-
-        int min_lot_width{ 10 };
-        int max_lot_width{ 50 };
-        int min_lot_depth{ 15 };
-        int max_lot_depth{ 60 };
-        int min_lots_per_road_side{ 1 };
-
-        uint32_t max_road_segments{ 10000 };
-        uint32_t max_districts{ 500 };
-        uint32_t max_lots{ 50000 };
-        uint32_t max_buildings{ 100000 };
-
-        uint32_t rogueworker_threshold{ 100 };
-        // Runtime tuning for streamline tracing exposed to UI.
-        float streamline_major_tensor_tolerance_degrees{ 25.0f };
-    };
-
-    struct GenerationStats {
-        uint32_t roads_generated{ 0 };
-        uint32_t districts_generated{ 0 };
-        uint32_t lots_generated{ 0 };
-        uint32_t buildings_generated{ 0 };
-        float generation_time_ms{ 0.0f };
-        bool used_parallelization{ false };
-    };
+struct GenerationStats {
+  uint32_t roads_generated{0};
+  uint32_t districts_generated{0};
+  uint32_t lots_generated{0};
+  uint32_t buildings_generated{0};
+  float generation_time_ms{0.0f};
+  bool used_parallelization{false};
+};
 
 } // namespace RogueCity::Core

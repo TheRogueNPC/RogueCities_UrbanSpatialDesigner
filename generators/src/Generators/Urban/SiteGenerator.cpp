@@ -2,109 +2,200 @@
 #include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 
 #include <algorithm>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/strategies/strategies.hpp>
 
 namespace RogueCity::Generators::Urban {
 
-    namespace {
+namespace {
 
-        // Maps lot program to primary building archetype.
-        Core::BuildingType mapBuildingType(Core::LotType lot_type) {
-            switch (lot_type) {
-                case Core::LotType::Residential: return Core::BuildingType::Residential;
-                case Core::LotType::RowhomeCompact: return Core::BuildingType::Rowhome;
-                case Core::LotType::RetailStrip: return Core::BuildingType::Retail;
-                case Core::LotType::MixedUse: return Core::BuildingType::MixedUse;
-                case Core::LotType::LogisticsIndustrial: return Core::BuildingType::Industrial;
-                case Core::LotType::CivicCultural: return Core::BuildingType::Civic;
-                case Core::LotType::LuxuryScenic: return Core::BuildingType::Luxury;
-                case Core::LotType::BufferStrip: return Core::BuildingType::Utility;
-                default: return Core::BuildingType::None;
-            }
-        }
+// Maps lot program to primary building archetype.
+Core::BuildingType mapBuildingType(Core::LotType lot_type) {
+  switch (lot_type) {
+  case Core::LotType::Residential:
+    return Core::BuildingType::Residential;
+  case Core::LotType::RowhomeCompact:
+    return Core::BuildingType::Rowhome;
+  case Core::LotType::RetailStrip:
+    return Core::BuildingType::Retail;
+  case Core::LotType::MixedUse:
+    return Core::BuildingType::MixedUse;
+  case Core::LotType::LogisticsIndustrial:
+    return Core::BuildingType::Industrial;
+  case Core::LotType::CivicCultural:
+    return Core::BuildingType::Civic;
+  case Core::LotType::LuxuryScenic:
+    return Core::BuildingType::Luxury;
+  case Core::LotType::BufferStrip:
+    return Core::BuildingType::Utility;
+  default:
+    return Core::BuildingType::None;
+  }
+}
 
-        // Coarse cost model per building archetype.
-        float estimateCost(Core::BuildingType type) {
-            switch (type) {
-                case Core::BuildingType::Industrial: return 3.0f;
-                case Core::BuildingType::Civic: return 4.0f;
-                case Core::BuildingType::Luxury: return 8.0f;
-                case Core::BuildingType::Retail:
-                case Core::BuildingType::MixedUse:
-                    return 2.0f;
-                case Core::BuildingType::Rowhome:
-                case Core::BuildingType::Residential:
-                case Core::BuildingType::Utility:
-                default:
-                    return 1.0f;
-            }
-        }
+// Coarse cost model per building archetype.
+float estimateCost(Core::BuildingType type) {
+  switch (type) {
+  case Core::BuildingType::Industrial:
+    return 3.0f;
+  case Core::BuildingType::Civic:
+    return 4.0f;
+  case Core::BuildingType::Luxury:
+    return 8.0f;
+  case Core::BuildingType::Retail:
+  case Core::BuildingType::MixedUse:
+    return 2.0f;
+  case Core::BuildingType::Rowhome:
+  case Core::BuildingType::Residential:
+  case Core::BuildingType::Utility:
+  default:
+    return 1.0f;
+  }
+}
 
-        // Deterministic per-lot building count heuristic.
-        int buildingsPerLot(const Core::LotToken& lot, Core::RNG& rng) {
-            switch (lot.lot_type) {
-                case Core::LotType::RowhomeCompact: return rng.uniformInt(2, 5);
-                case Core::LotType::MixedUse: return rng.uniformInt(1, 2);
-                case Core::LotType::RetailStrip: return rng.uniformInt(1, 2);
-                case Core::LotType::BufferStrip: return (rng.uniform() < 0.35) ? 1 : 0;
-                default: return 1;
-            }
-        }
+// Deterministic per-lot building count heuristic.
+int buildingsPerLot(const Core::LotToken &lot, Core::RNG &rng) {
+  switch (lot.lot_type) {
+  case Core::LotType::RowhomeCompact:
+    return rng.uniformInt(2, 5);
+  case Core::LotType::MixedUse:
+    return rng.uniformInt(1, 2);
+  case Core::LotType::RetailStrip:
+    return rng.uniformInt(1, 2);
+  case Core::LotType::BufferStrip:
+    return (rng.uniform() < 0.35) ? 1 : 0;
+  default:
+    return 1;
+  }
+}
 
-    } // namespace
+} // namespace
 
-    // Emits building sites for lots with deterministic RNG seeded by lot ID.
-    // Positions are centroid-based with optional jitter constrained by lot boundary extents.
-    siv::Vector<Core::BuildingSite> SiteGenerator::generate(
-        const std::vector<Core::LotToken>& lots,
-        const Config& config,
-        uint32_t seed) {
-        siv::Vector<Core::BuildingSite> buildings;
-        buildings.reserve(std::min<uint32_t>(config.max_buildings, static_cast<uint32_t>(lots.size() * 2)));
+// Emits building sites for lots with deterministic RNG seeded by lot ID.
+// Positions are centroid-based with optional jitter constrained by lot boundary
+// extents. Adds an explicit footprint outline generated by calculating lot
+// boundary insets.
+siv::Vector<Core::BuildingSite>
+SiteGenerator::generate(const std::vector<Core::LotToken> &lots,
+                        const Config &config, uint32_t seed) {
+  siv::Vector<Core::BuildingSite> buildings;
+  buildings.reserve(std::min<uint32_t>(config.max_buildings,
+                                       static_cast<uint32_t>(lots.size() * 2)));
 
-        uint32_t id = 1;
-        for (const auto& lot : lots) {
-            if (id > config.max_buildings) {
-                break;
-            }
-
-            Core::RNG rng(seed ^ (lot.id * 2654435761u));
-            const int n = buildingsPerLot(lot, rng);
-            const Core::BuildingType type = mapBuildingType(lot.lot_type);
-            if (type == Core::BuildingType::None) {
-                continue;
-            }
-
-            // Emit one or more sites for this lot depending on archetype.
-            for (int i = 0; i < n && id <= config.max_buildings; ++i) {
-                Core::BuildingSite site;
-                site.id = id++;
-                site.lot_id = lot.id;
-                site.district_id = lot.district_id;
-                site.type = type;
-                site.estimated_cost = estimateCost(type);
-
-                Core::Vec2 pos = lot.centroid;
-                if (config.randomize_sites && !lot.boundary.empty()) {
-                    const auto bounds = PolygonUtil::bounds(lot.boundary);
-                    const double half_w = std::abs(bounds.max.x - bounds.min.x) * 0.5;
-                    const double half_h = std::abs(bounds.max.y - bounds.min.y) * 0.5;
-                    const double j = std::clamp(static_cast<double>(config.jitter), 0.0, 0.95);
-                    for (int attempt = 0; attempt < 8; ++attempt) {
-                        Core::Vec2 candidate = lot.centroid;
-                        candidate.x += rng.uniform(-half_w * j, half_w * j);
-                        candidate.y += rng.uniform(-half_h * j, half_h * j);
-                        if (PolygonUtil::insidePolygon(candidate, lot.boundary)) {
-                            pos = candidate;
-                            break;
-                        }
-                    }
-                }
-                site.position = pos;
-                buildings.push_back(site);
-            }
-        }
-
-        return buildings;
+  uint32_t id = 1;
+  for (const auto &lot : lots) {
+    if (id > config.max_buildings) {
+      break;
     }
+
+    Core::RNG rng(seed ^ (lot.id * 2654435761u));
+    const int n = buildingsPerLot(lot, rng);
+    const Core::BuildingType type = mapBuildingType(lot.lot_type);
+    if (type == Core::BuildingType::None) {
+      continue;
+    }
+
+    // Calculate setback based on type (meters)
+    float setback = 2.5f;
+    switch (type) {
+    case Core::BuildingType::Industrial:
+      setback = 5.0f;
+      break;
+    case Core::BuildingType::Civic:
+      setback = 8.0f;
+      break;
+    case Core::BuildingType::Luxury:
+      setback = 10.0f;
+      break;
+    case Core::BuildingType::Retail:
+    case Core::BuildingType::MixedUse:
+      setback = 1.0f;
+      break;
+    case Core::BuildingType::Rowhome:
+      setback = 0.5f;
+      break;
+    default:
+      break;
+    }
+
+    // Generate the outline by deflating the lot boundary.
+    std::vector<Core::Vec2> outline;
+    bool valid_inset = false;
+
+    if (lot.boundary.size() >= 3) {
+      namespace bg = boost::geometry;
+      using point_t = bg::model::d2::point_xy<double>;
+      using polygon_t = bg::model::polygon<point_t, false, false>; // CCW, open
+
+      polygon_t lot_poly;
+      for (const auto &pt : lot.boundary) {
+        bg::append(lot_poly.outer(), point_t(pt.x, pt.y));
+      }
+      bg::correct(lot_poly);
+
+      bg::strategy::buffer::distance_symmetric<double> distance_strategy(
+          -setback);
+      bg::strategy::buffer::join_miter join_strategy(2.0);
+      bg::strategy::buffer::end_flat end_strategy;
+      bg::strategy::buffer::point_square point_strategy;
+      bg::strategy::buffer::side_straight side_strategy;
+
+      bg::model::multi_polygon<polygon_t> result;
+      bg::buffer(lot_poly, result, distance_strategy, side_strategy,
+                 join_strategy, end_strategy, point_strategy);
+
+      if (!result.empty() && !result.front().outer().empty()) {
+        for (auto it = boost::begin(bg::exterior_ring(result.front()));
+             it != boost::end(bg::exterior_ring(result.front())); ++it) {
+          outline.emplace_back(bg::get<0>(*it), bg::get<1>(*it));
+        }
+        if (PolygonUtil::area(outline) > 10.0) { // Minimum valid area
+          valid_inset = true;
+        }
+      }
+    }
+
+    // Emit one or more sites for this lot depending on archetype.
+    for (int i = 0; i < n && id <= config.max_buildings; ++i) {
+      Core::BuildingSite site;
+      site.id = id++;
+      site.lot_id = lot.id;
+      site.district_id = lot.district_id;
+      site.type = type;
+      site.estimated_cost = estimateCost(type);
+
+      Core::Vec2 pos = lot.centroid;
+      if (config.randomize_sites && !lot.boundary.empty()) {
+        const auto bounds = PolygonUtil::bounds(lot.boundary);
+        const double half_w = std::abs(bounds.max.x - bounds.min.x) * 0.5;
+        const double half_h = std::abs(bounds.max.y - bounds.min.y) * 0.5;
+        const double j =
+            std::clamp(static_cast<double>(config.jitter), 0.0, 0.95);
+        for (int attempt = 0; attempt < 8; ++attempt) {
+          Core::Vec2 candidate = lot.centroid;
+          candidate.x += rng.uniform(-half_w * j, half_w * j);
+          candidate.y += rng.uniform(-half_h * j, half_h * j);
+          if (PolygonUtil::insidePolygon(candidate, lot.boundary)) {
+            pos = candidate;
+            break;
+          }
+        }
+      }
+
+      site.position = pos;
+      site.outline = valid_inset ? outline : std::vector<Core::Vec2>();
+      if (valid_inset) {
+        site.footprint_area =
+            static_cast<float>(std::abs(PolygonUtil::area(outline)));
+      }
+
+      buildings.push_back(site);
+    }
+  }
+
+  return buildings;
+}
 
 } // namespace RogueCity::Generators::Urban

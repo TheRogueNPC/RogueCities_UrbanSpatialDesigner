@@ -145,6 +145,10 @@ public:
         std::vector<PlanViolation> plan_violations;
         GridQualityReport grid_quality;
         bool plan_approved{ true };
+
+        // 3D foundation additions - preserve intersection template output as first-class data
+        std::vector<IntersectionTemplate> intersection_templates; // Grade separation and junction infrastructure
+        bool has_3d_metadata{ true }; // Flag indicating presence of vertical/layer data
     };
 
     struct StageOptions {
@@ -218,6 +222,9 @@ private:
         GridQualityReport grid_quality{};
         bool plan_approved{ true };
 
+        // 3D foundation additions - cache intersection templates as first-class data
+        std::vector<IntersectionTemplate> intersection_templates{};
+
         StageMask valid_stages{};
     };
 
@@ -285,9 +292,13 @@ private:
 
     void updateGridAnalytics(const fva::Container<Road>& roads);
 
+    // Helper to get intersection templates from last road generation
+    [[nodiscard]] std::vector<IntersectionTemplate> getLastIntersectionTemplates() const;
+
     Config config_{};
     RNG rng_{ 12345 };
     StageCache cache_{};
+    mutable Urban::RoadGenerator road_generator_{}; // Stateful road generator to capture intersection templates
 };
 
 } // namespace RogueCity::Generators

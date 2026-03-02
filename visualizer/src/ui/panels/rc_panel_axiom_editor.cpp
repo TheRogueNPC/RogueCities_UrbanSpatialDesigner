@@ -2,6 +2,7 @@
 // Full axiom placement workflow and minimap controls
 
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/App/Integration/CityOutputApplier.hpp"
@@ -18,6 +19,7 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "ui/commands/rc_command_palette.h"
@@ -44,11 +46,13 @@
 #include <cstring>
 #include <deque>
 #include <imgui.h>
+#include <iterator>
 #include <numeric>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace RC_UI::Panels::AxiomEditor {
 
@@ -402,6 +406,181 @@ BuildNonAxiomContextCue(const RogueCity::Core::Editor::GlobalState &gs) {
 }
 
 } // namespace
+
+template <typename T, typename Predicate>
+void EraseIfFva(fva::Container<T> &container, Predicate &&predicate) {
+  for (size_t data_index = container.size(); data_index > 0; --data_index) {
+    const size_t idx = data_index - 1;
+    auto it = container.begin();
+    std::advance(it, static_cast<std::ptrdiff_t>(idx));
+    if (!predicate(*it)) {
+      continue;
+    }
+    auto handle = container.createHandleFromData(idx);
+    container.remove(handle);
+  }
+}
+
+template <typename T>
+void RestoreFva(fva::Container<T> &container,
+                const std::vector<T> &snapshot_items) {
+  container.clear();
+  for (const auto &item : snapshot_items) {
+    container.add(item);
+  }
+}
+
+template <typename T>
+void RestoreVector(siv::Vector<T> &container,
+                   const std::vector<T> &snapshot_items) {
+  container.clear();
+  for (const auto &item : snapshot_items) {
+    container.push_back(item);
+  }
+}
+
+void MarkStructuralSelectionDirty(RogueCity::Core::Editor::GlobalState &gs) {
+  using RogueCity::Core::Editor::DirtyLayer;
+  gs.dirty_layers.MarkDirty(DirtyLayer::Roads);
+  gs.dirty_layers.MarkDirty(DirtyLayer::Districts);
+  gs.dirty_layers.MarkDirty(DirtyLayer::Lots);
+  gs.dirty_layers.MarkDirty(DirtyLayer::Buildings);
+  gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+}
+
+// Undoable command that deletes currently selected entities with dependency
+// cleanup (district -> lots/buildings/blocks, lot -> buildings).
+struct DeleteSelectionCommand : public RogueCity::App::ICommand {
+  std::string description{"Delete Selected"};
+  std::vector<RogueCity::Core::Editor::SelectionItem> selected_items{};
+
+  std::vector<RogueCity::Core::Road> roads_snapshot{};
+  std::vector<RogueCity::Core::District> districts_snapshot{};
+  std::vector<RogueCity::Core::LotToken> lots_snapshot{};
+  std::vector<RogueCity::Core::BuildingSite> buildings_snapshot{};
+  std::vector<RogueCity::Core::WaterBody> water_snapshot{};
+  std::vector<RogueCity::Core::BlockPolygon> blocks_snapshot{};
+
+  void Execute() override {
+    auto &gs = RogueCity::Core::Editor::GetGlobalState();
+
+    roads_snapshot.clear();
+    for (const auto &road : gs.roads) {
+      roads_snapshot.push_back(road);
+    }
+    districts_snapshot.clear();
+    for (const auto &district : gs.districts) {
+      districts_snapshot.push_back(district);
+    }
+    lots_snapshot.clear();
+    for (const auto &lot : gs.lots) {
+      lots_snapshot.push_back(lot);
+    }
+    buildings_snapshot.clear();
+    for (const auto &building : gs.buildings) {
+      buildings_snapshot.push_back(building);
+    }
+    water_snapshot.clear();
+    for (const auto &water : gs.waterbodies) {
+      water_snapshot.push_back(water);
+    }
+    blocks_snapshot.clear();
+    for (const auto &block : gs.blocks) {
+      blocks_snapshot.push_back(block);
+    }
+
+    std::unordered_set<uint32_t> road_ids;
+    std::unordered_set<uint32_t> district_ids;
+    std::unordered_set<uint32_t> lot_ids;
+    std::unordered_set<uint32_t> building_ids;
+    std::unordered_set<uint32_t> water_ids;
+    for (const auto &item : selected_items) {
+      using RogueCity::Core::Editor::VpEntityKind;
+      switch (item.kind) {
+      case VpEntityKind::Road:
+        road_ids.insert(item.id);
+        break;
+      case VpEntityKind::District:
+        district_ids.insert(item.id);
+        break;
+      case VpEntityKind::Lot:
+        lot_ids.insert(item.id);
+        break;
+      case VpEntityKind::Building:
+        building_ids.insert(item.id);
+        break;
+      case VpEntityKind::Water:
+        water_ids.insert(item.id);
+        break;
+      default:
+        break;
+      }
+    }
+
+    if (!district_ids.empty()) {
+      EraseIfFva(gs.blocks, [&](const RogueCity::Core::BlockPolygon &block) {
+        return district_ids.contains(block.district_id);
+      });
+    }
+
+    gs.buildings.remove_if([&](const RogueCity::Core::BuildingSite &building) {
+      if (building_ids.contains(building.id)) {
+        return true;
+      }
+      if (!district_ids.empty() && district_ids.contains(building.district_id)) {
+        return true;
+      }
+      if (!lot_ids.empty() && lot_ids.contains(building.lot_id)) {
+        return true;
+      }
+      return false;
+    });
+
+    EraseIfFva(gs.lots, [&](const RogueCity::Core::LotToken &lot) {
+      if (lot_ids.contains(lot.id)) {
+        return true;
+      }
+      return !district_ids.empty() && district_ids.contains(lot.district_id);
+    });
+
+    EraseIfFva(gs.districts, [&](const RogueCity::Core::District &district) {
+      return district_ids.contains(district.id);
+    });
+
+    EraseIfFva(gs.roads, [&](const RogueCity::Core::Road &road) {
+      return road_ids.contains(road.id);
+    });
+
+    EraseIfFva(gs.waterbodies, [&](const RogueCity::Core::WaterBody &water) {
+      return water_ids.contains(water.id);
+    });
+
+    gs.selection_manager.Clear();
+    RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
+    MarkStructuralSelectionDirty(gs);
+    gs.tool_runtime.last_viewport_status = "delete-trim-selection";
+    gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+  }
+
+  void Undo() override {
+    auto &gs = RogueCity::Core::Editor::GetGlobalState();
+
+    RestoreFva(gs.roads, roads_snapshot);
+    RestoreFva(gs.districts, districts_snapshot);
+    RestoreFva(gs.lots, lots_snapshot);
+    RestoreVector(gs.buildings, buildings_snapshot);
+    RestoreFva(gs.waterbodies, water_snapshot);
+    RestoreFva(gs.blocks, blocks_snapshot);
+
+    gs.selection_manager.SetItems(selected_items);
+    RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
+    MarkStructuralSelectionDirty(gs);
+    gs.tool_runtime.last_viewport_status = "delete-trim-undo";
+    gs.tool_runtime.last_viewport_status_frame = gs.frame_counter;
+  }
+
+  const char *GetDescription() const override { return description.c_str(); }
+};
 
 // === Clear Layer Command (Undoable) ===
 // ICommand implementation that snapshots selected layers before clearing them,
@@ -950,6 +1129,26 @@ void MarkAxiomChanged() {
   s_external_dirty = true;
   auto &gs = RogueCity::Core::Editor::GetGlobalState();
   gs.dirty_layers.MarkFromAxiomEdit();
+}
+
+void DeleteSelectedEntities(const char *description) {
+  if (!s_axiom_tool) {
+    return;
+  }
+
+  auto &gs = RogueCity::Core::Editor::GetGlobalState();
+  if (gs.selection_manager.Count() == 0) {
+    return;
+  }
+
+  auto cmd = std::make_unique<DeleteSelectionCommand>();
+  cmd->description = (description != nullptr && description[0] != '\0')
+                         ? description
+                         : "Delete Selected";
+  const auto selected_items = gs.selection_manager.Items();
+  cmd->selected_items.assign(selected_items.begin(), selected_items.end());
+  s_axiom_tool->push_command(std::move(cmd));
+  s_external_dirty = true;
 }
 
 // Clear layer operations (undoable)
@@ -2376,11 +2575,7 @@ void DrawContent(float dt) {
   }
 
   // Viewport/Minimap State (required for overlays)
-  const auto &texture_space = gs.textureSpace();
   const auto camera_pos = s_primary_viewport->get_camera_xy();
-  const float viewport_zoom = ComputeViewportZoomForLOD();
-  const auto active_lod = ActiveBaseMinimapLOD(viewport_zoom);
-  const ImU32 alert_color = GetNavAlertColor();
   ImGui::InvisibleButton("##ViewportCanvas", viewport_size);
   const bool viewport_canvas_hovered = ImGui::IsItemHovered();
   const bool viewport_canvas_active = ImGui::IsItemActive();
@@ -2449,7 +2644,26 @@ void DrawContent(float dt) {
       (mouse_pos.x >= chrome_min.x && mouse_pos.x <= chrome_max.x &&
        mouse_pos.y >= chrome_min.y && mouse_pos.y <= chrome_max.y);
 
-  const bool overlay_blocked_hovered = minimap_hovered || hud_hovered;
+  const float palette_top_offset = 126.0f;
+  const float palette_bottom_padding = 12.0f;
+  const float palette_max_width = 296.0f;
+  const float palette_open_ease_for_hit =
+      s_global_palette_open_lerp * s_global_palette_open_lerp *
+      (3.0f - 2.0f * s_global_palette_open_lerp);
+  const float palette_hit_width = palette_max_width * palette_open_ease_for_hit;
+  const float palette_hit_height =
+      std::max(120.0f, viewport_size.y - palette_top_offset - palette_bottom_padding);
+  const ImVec2 palette_hit_min(viewport_pos.x + 8.0f, viewport_pos.y + palette_top_offset);
+  const ImVec2 palette_hit_max(palette_hit_min.x + palette_hit_width,
+                               palette_hit_min.y + palette_hit_height);
+  const bool palette_hovered =
+      gs.config.feature_tool_palette_slideout &&
+      s_global_palette_open_lerp > 0.02f &&
+      mouse_pos.x >= palette_hit_min.x && mouse_pos.x <= palette_hit_max.x &&
+      mouse_pos.y >= palette_hit_min.y && mouse_pos.y <= palette_hit_max.y;
+
+  const bool overlay_blocked_hovered =
+      minimap_hovered || hud_hovered || palette_hovered;
   // Input gate centralizes "should viewport consume input?" policy so command
   // menus, overlays, and tools follow one consistent decision path.
   const UiInputGateState input_gate = RC_UI::BuildUiInputGateState(
@@ -2462,11 +2676,54 @@ void DrawContent(float dt) {
       RC_UI::AllowViewportKeyActions(input_gate);
   RC_UI::Tools::DispatchContext command_dispatch{&hfsm, &gs, &uiint,
                                                  "Viewport Commands"};
+  const auto dispatch_viewport_action = [&](RC_UI::Tools::ToolActionId action_id) {
+    RC_UI::Tools::DispatchContext action_dispatch = command_dispatch;
+    action_dispatch.apply_axiom_default = false;
+    std::string dispatch_status;
+    (void)RC_UI::Tools::DispatchToolAction(action_id, action_dispatch,
+                                           &dispatch_status);
+  };
+  const auto resolve_contextual_action = [&](RC_UI::Tools::ToolActionId road_action,
+                                             RC_UI::Tools::ToolActionId water_action,
+                                             RC_UI::Tools::ToolActionId district_action,
+                                             RC_UI::Tools::ToolActionId lot_action,
+                                             RC_UI::Tools::ToolActionId building_action) {
+    using RogueCity::Core::Editor::ToolDomain;
+    switch (gs.tool_runtime.active_domain) {
+    case ToolDomain::Water:
+    case ToolDomain::Flow:
+      return water_action;
+    case ToolDomain::District:
+    case ToolDomain::Zone:
+      return district_action;
+    case ToolDomain::Lot:
+      return lot_action;
+    case ToolDomain::Building:
+    case ToolDomain::FloorPlan:
+    case ToolDomain::Furnature:
+      return building_action;
+    case ToolDomain::Road:
+    case ToolDomain::Paths:
+    case ToolDomain::Axiom:
+    default:
+      return road_action;
+    }
+  };
+  const auto set_gizmo_operation =
+      [&](RogueCity::Core::Editor::GizmoOperation operation) {
+        gs.gizmo.enabled = true;
+        gs.gizmo.operation = operation;
+        gs.tool_runtime.viewport_selection_mode =
+            RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+        gs.tool_runtime.viewport_edit_tool =
+            RogueCity::Core::Editor::ViewportEditTool::Move;
+      };
   RC_UI::Viewport::ProcessViewportCommandTriggers(
       RC_UI::Viewport::CommandInteractionParams{
           input_gate,
           in_viewport,
           overlay_blocked_hovered,
+          true,
           mouse_pos,
           &gs.config,
           gs.tool_runtime.active_domain,
@@ -2476,6 +2733,158 @@ void DrawContent(float dt) {
           &s_pie_command_menu,
           &s_command_palette,
       });
+
+  if (allow_viewport_mouse_actions && in_viewport && !overlay_blocked_hovered &&
+      !ImGui::GetIO().KeyAlt && !ImGui::GetIO().KeyShift &&
+      !ImGui::GetIO().KeyCtrl &&
+      ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+    ImGui::OpenPopup("##viewport_context_actions");
+  }
+
+  if (ImGui::BeginPopup("##viewport_context_actions")) {
+    auto &editor_history = RogueCity::App::GetEditorCommandHistory();
+    const bool has_selection = gs.selection_manager.Count() > 0;
+    const char *undo_label = axiom_mode ? GetUndoLabel() : "Undo";
+    const char *redo_label = axiom_mode ? GetRedoLabel() : "Redo";
+    const bool can_undo = axiom_mode ? CanUndo() : editor_history.CanUndo();
+    const bool can_redo = axiom_mode ? CanRedo() : editor_history.CanRedo();
+
+    if (ImGui::MenuItem(undo_label, "Ctrl+Z", false, can_undo)) {
+      if (axiom_mode) {
+        Undo();
+      } else {
+        editor_history.Undo();
+      }
+    }
+    if (ImGui::MenuItem(redo_label, "Ctrl+Y", false, can_redo)) {
+      if (axiom_mode) {
+        Redo();
+      } else {
+        editor_history.Redo();
+      }
+    }
+
+    ImGui::Separator();
+    if (ImGui::MenuItem("Select Tool", "Q")) {
+      gs.tool_runtime.viewport_selection_mode =
+          RogueCity::Core::Editor::ViewportSelectionMode::Auto;
+      gs.tool_runtime.viewport_edit_tool =
+          RogueCity::Core::Editor::ViewportEditTool::Auto;
+    }
+    if (ImGui::MenuItem("Rectangle Select", "1")) {
+      dispatch_viewport_action(
+          RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect);
+    }
+    if (ImGui::MenuItem("Lasso Select", "2")) {
+      dispatch_viewport_action(
+          RC_UI::Tools::ToolActionId::Visualizer_LassoSelect);
+    }
+    if (ImGui::MenuItem("Paint Select")) {
+      dispatch_viewport_action(resolve_contextual_action(
+          RC_UI::Tools::ToolActionId::RoadSpline_Selection,
+          RC_UI::Tools::ToolActionId::WaterSpline_Selection,
+          RC_UI::Tools::ToolActionId::District_Select,
+          RC_UI::Tools::ToolActionId::Lot_Select,
+          RC_UI::Tools::ToolActionId::Building_Select));
+    }
+
+    if (ImGui::BeginMenu("Selection Target")) {
+      using RogueCity::Core::Editor::ViewportSelectionTarget;
+      auto draw_selection_target =
+          [&](const char *label, ViewportSelectionTarget target) {
+            const bool selected =
+                gs.tool_runtime.viewport_selection_target == target;
+            if (ImGui::MenuItem(label, nullptr, selected)) {
+              gs.tool_runtime.viewport_selection_target = target;
+            }
+          };
+      draw_selection_target("Nodes", ViewportSelectionTarget::Nodes);
+      draw_selection_target("Edges", ViewportSelectionTarget::Edges);
+      draw_selection_target("Faces/Blocks", ViewportSelectionTarget::Faces);
+      draw_selection_target("Lots/Parcels", ViewportSelectionTarget::Lots);
+      draw_selection_target("Districts", ViewportSelectionTarget::Districts);
+      ImGui::EndMenu();
+    }
+
+    ImGui::Separator();
+    if (ImGui::MenuItem("Move", "W",
+                        gs.gizmo.enabled &&
+                            gs.gizmo.operation ==
+                                RogueCity::Core::Editor::GizmoOperation::Translate)) {
+      set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Translate);
+    }
+    if (ImGui::MenuItem("Rotate", "E",
+                        gs.gizmo.enabled &&
+                            gs.gizmo.operation ==
+                                RogueCity::Core::Editor::GizmoOperation::Rotate)) {
+      set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Rotate);
+    }
+    if (ImGui::MenuItem("Scale", "R",
+                        gs.gizmo.enabled &&
+                            gs.gizmo.operation ==
+                                RogueCity::Core::Editor::GizmoOperation::Scale)) {
+      set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Scale);
+    }
+    if (ImGui::MenuItem("Handle Move", "4")) {
+      dispatch_viewport_action(RC_UI::Tools::ToolActionId::Visualizer_HandleMove);
+    }
+    if (ImGui::MenuItem("Snap", "X", gs.gizmo.snapping)) {
+      gs.gizmo.snapping = !gs.gizmo.snapping;
+    }
+
+    ImGui::Separator();
+    if (ImGui::MenuItem("Add / Split")) {
+      dispatch_viewport_action(resolve_contextual_action(
+          RC_UI::Tools::ToolActionId::RoadSpline_AddRemoveAnchor,
+          RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
+          RC_UI::Tools::ToolActionId::District_Split,
+          RC_UI::Tools::ToolActionId::Lot_Slice,
+          RC_UI::Tools::ToolActionId::Building_Assign));
+    }
+    if (ImGui::MenuItem("Merge / Snap")) {
+      dispatch_viewport_action(resolve_contextual_action(
+          RC_UI::Tools::ToolActionId::RoadSpline_SnapAlign,
+          RC_UI::Tools::ToolActionId::WaterSpline_SnapAlign,
+          RC_UI::Tools::ToolActionId::District_Merge,
+          RC_UI::Tools::ToolActionId::Lot_Merge,
+          RC_UI::Tools::ToolActionId::Building_Assign));
+    }
+    if (ImGui::MenuItem("Activate Trim Mode")) {
+      const RC_UI::Tools::ToolActionId trim_action = resolve_contextual_action(
+          RC_UI::Tools::ToolActionId::Road_Disconnect,
+          RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
+          RC_UI::Tools::ToolActionId::District_Select,
+          RC_UI::Tools::ToolActionId::Lot_Slice,
+          RC_UI::Tools::ToolActionId::Building_Select);
+      dispatch_viewport_action(trim_action);
+      using RogueCity::Core::Editor::ToolDomain;
+      if (gs.tool_runtime.active_domain == ToolDomain::District ||
+          gs.tool_runtime.active_domain == ToolDomain::Zone) {
+        gs.district_boundary_editor.enabled = true;
+        gs.district_boundary_editor.insert_mode = false;
+        gs.district_boundary_editor.delete_mode = true;
+      }
+    }
+
+    ImGui::Separator();
+    if (ImGui::MenuItem("Delete Selected", "Del", false, has_selection)) {
+      DeleteSelectedEntities("Delete Selected");
+    }
+    if (ImGui::MenuItem("Clear Selection", nullptr, false, has_selection)) {
+      gs.selection_manager.Clear();
+      RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
+    }
+
+    ImGui::EndPopup();
+  }
+
+  if (allow_viewport_key_actions && in_viewport && !overlay_blocked_hovered &&
+      !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
+      !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyAlt &&
+      (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
+       ImGui::IsKeyPressed(ImGuiKey_Backspace, false))) {
+    DeleteSelectedEntities("Delete Selected");
+  }
 
   if (gs.config.feature_tool_palette_slideout && viewport_canvas_hovered &&
       allow_viewport_key_actions && !ImGui::GetIO().KeyCtrl &&
@@ -2499,31 +2908,37 @@ void DrawContent(float dt) {
 
   if (gs.config.feature_tool_palette_slideout &&
       s_global_palette_open_lerp > 0.02f) {
-    const float panel_max_width = 296.0f;
-    const float panel_width = panel_max_width * s_global_palette_open_lerp;
-    const ImVec2 panel_min(viewport_pos.x + 8.0f, viewport_pos.y + 126.0f);
-    const ImVec2 panel_max(panel_min.x + panel_width,
-                           viewport_pos.y + viewport_size.y - 12.0f);
-    draw_list->AddRectFilled(panel_min, panel_max,
-                             TokenColor(UITokens::BackgroundDark, 224u), 8.0f);
-    draw_list->AddRect(panel_min, panel_max,
-                       TokenColor(UITokens::CyanAccent, 150u), 8.0f, 0, 1.2f);
+    const float panel_open_ease =
+        s_global_palette_open_lerp * s_global_palette_open_lerp *
+        (3.0f - 2.0f * s_global_palette_open_lerp);
+    const float panel_width = palette_max_width * panel_open_ease;
+    const float panel_height =
+        std::max(120.0f, viewport_size.y - palette_top_offset - palette_bottom_padding);
+    const float slide_offset = (1.0f - panel_open_ease) * 24.0f;
+    const ImVec2 panel_pos(viewport_pos.x + 8.0f - slide_offset,
+                           viewport_pos.y + palette_top_offset);
 
-    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 10.0f, panel_min.y + 8.0f));
-    ImGui::Dummy(ImVec2(panel_width - 18.0f, ImGui::GetFontSize())); // Register bounds with layout system
-    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 10.0f, panel_min.y + 8.0f));
-    ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 225u),
-                       "Visualizer Tools  [G]");
+    ImGui::SetCursorScreenPos(panel_pos);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_Alpha,
+        std::clamp(0.35f + panel_open_ease * 0.65f, 0.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Border,
+                          TokenColorF(UITokens::CyanAccent, 150u));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg,
+                          TokenColorF(UITokens::BackgroundDark, 235u));
+    if (ImGui::BeginChild("##global_tool_palette_overlay",
+                          ImVec2(panel_width, panel_height), true,
+                          ImGuiWindowFlags_NoNav |
+                              ImGuiWindowFlags_NoScrollbar |
+                              ImGuiWindowFlags_NoScrollWithMouse)) {
+      ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 225u),
+                         "Visualizer Tools  [G]");
+      ImGui::Separator();
 
-    const float usable_w = std::max(100.0f, panel_width - 18.0f);
-    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 8.0f, panel_min.y + 30.0f));
-    ImGui::Dummy(ImVec2(usable_w, std::max(100.0f, panel_max.y - panel_min.y - 38.0f))); // Register bounds with layout system
-    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 8.0f, panel_min.y + 30.0f));
-    if (ImGui::BeginChild(
-            "##global_tool_palette_slideout",
-            ImVec2(usable_w,
-                   std::max(100.0f, panel_max.y - panel_min.y - 38.0f)),
-            false, ImGuiWindowFlags_NoScrollbar)) {
+      const float usable_w =
+          std::max(20.0f, ImGui::GetContentRegionAvail().x - 4.0f);
       const auto dispatch_visualizer_action =
           [&](RC_UI::Tools::ToolActionId action_id) {
             RC_UI::Tools::DispatchContext action_dispatch = command_dispatch;
@@ -2591,15 +3006,283 @@ void DrawContent(float dt) {
             }
           };
 
-      const auto draw_placeholder_button = [&](const char *label,
-                                               float width = -1.0f) {
-        ImGui::BeginDisabled();
-        if (width > 0.0f) {
-          (void)ImGui::Button(label, ImVec2(width, 0.0f));
-        } else {
-          (void)ImGui::Button(label);
+      const auto draw_contextual_action_button =
+          [&](const char *label, RC_UI::Tools::ToolActionId road_action,
+              RC_UI::Tools::ToolActionId water_action,
+              RC_UI::Tools::ToolActionId district_action,
+              RC_UI::Tools::ToolActionId lot_action,
+              RC_UI::Tools::ToolActionId building_action,
+              float width = -1.0f) {
+            const RC_UI::Tools::ToolActionId action_id = resolve_contextual_action(
+                road_action, water_action, district_action, lot_action,
+                building_action);
+            const bool pressed =
+                (width > 0.0f) ? ImGui::Button(label, ImVec2(width, 0.0f))
+                               : ImGui::Button(label);
+            if (pressed) {
+              dispatch_visualizer_action(action_id);
+            }
+            if (ImGui::IsItemHovered()) {
+              if (const auto *spec = RC_UI::Tools::FindToolAction(action_id);
+                  spec != nullptr && spec->tooltip != nullptr &&
+                  spec->tooltip[0] != '\0') {
+                ImGui::SetTooltip("%s", spec->tooltip);
+              }
+            }
+          };
+
+      const auto draw_layer_toggle_button = [&](float width = -1.0f) {
+        const bool pressed =
+            (width > 0.0f)
+                ? ImGui::Button("Layer Toggles##g_tool_layer_toggles_btn",
+                                ImVec2(width, 0.0f))
+                : ImGui::Button("Layer Toggles##g_tool_layer_toggles_btn");
+        if (pressed) {
+          ImGui::OpenPopup("##g_tool_layer_toggles_popup");
         }
-        ImGui::EndDisabled();
+        if (ImGui::BeginPopup("##g_tool_layer_toggles_popup")) {
+          const auto set_all_layers_visible = [&](bool visible) {
+            gs.show_layer_axioms = visible;
+            gs.show_layer_water = visible;
+            gs.show_layer_roads = visible;
+            gs.show_layer_districts = visible;
+            gs.show_layer_lots = visible;
+            gs.show_layer_buildings = visible;
+            for (auto &layer : gs.layer_manager.layers) {
+              layer.visible = visible;
+            }
+          };
+
+          if (ImGui::Button("All On##g_tool_layers")) {
+            set_all_layers_visible(true);
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("All Off##g_tool_layers")) {
+            set_all_layers_visible(false);
+          }
+          ImGui::Separator();
+          ImGui::Checkbox("Axioms##g_tool_layers", &gs.show_layer_axioms);
+          ImGui::Checkbox("Water##g_tool_layers", &gs.show_layer_water);
+          ImGui::Checkbox("Roads##g_tool_layers", &gs.show_layer_roads);
+          ImGui::Checkbox("Districts##g_tool_layers", &gs.show_layer_districts);
+          ImGui::Checkbox("Lots##g_tool_layers", &gs.show_layer_lots);
+          ImGui::Checkbox("Buildings##g_tool_layers", &gs.show_layer_buildings);
+          ImGui::Separator();
+          ImGui::Checkbox("Dim Inactive##g_tool_layers",
+                          &gs.layer_manager.dim_inactive);
+          ImGui::Checkbox("See Through Hidden##g_tool_layers",
+                          &gs.layer_manager.allow_through_hidden);
+          ImGui::EndPopup();
+        }
+      };
+
+      const auto draw_query_select_button = [&](float width = -1.0f) {
+        const bool pressed =
+            (width > 0.0f)
+                ? ImGui::Button("Select By Query##g_tool_select_query_btn",
+                                ImVec2(width, 0.0f))
+                : ImGui::Button("Select By Query##g_tool_select_query_btn");
+        if (pressed) {
+          ImGui::OpenPopup("##g_tool_select_query_popup");
+        }
+        if (ImGui::BeginPopup("##g_tool_select_query_popup")) {
+          static int mode_filter = 0; // 0 Replace, 1 Add, 2 Toggle
+          static int kind_filter = 0; // 0 Any, 1 Road, 2 District, 3 Lot, 4 Building, 5 Water
+          static int id_min = -1;
+          static int id_max = -1;
+          static int district_filter = -1;
+          static bool user_only = false;
+          static bool visible_only = true;
+
+          const char *modes[] = {"Replace", "Add", "Toggle"};
+          const char *kinds[] = {"Any", "Road", "District", "Lot", "Building",
+                                 "Water"};
+
+          ImGui::SetNextItemWidth(140.0f);
+          ImGui::Combo("Mode##g_tool_query", &mode_filter, modes,
+                       IM_ARRAYSIZE(modes));
+          ImGui::SetNextItemWidth(140.0f);
+          ImGui::Combo("Kind##g_tool_query", &kind_filter, kinds,
+                       IM_ARRAYSIZE(kinds));
+          ImGui::SetNextItemWidth(110.0f);
+          ImGui::InputInt("ID Min##g_tool_query", &id_min);
+          ImGui::SetNextItemWidth(110.0f);
+          ImGui::InputInt("ID Max##g_tool_query", &id_max);
+          ImGui::SetNextItemWidth(110.0f);
+          ImGui::InputInt("District ID##g_tool_query", &district_filter);
+          ImGui::Checkbox("User-Created Only##g_tool_query", &user_only);
+          ImGui::Checkbox("Visible Only##g_tool_query", &visible_only);
+
+          if (ImGui::Button("Apply Query##g_tool_query", ImVec2(140.0f, 0.0f))) {
+            std::vector<SelectionItem> items;
+            items.reserve(gs.viewport_index.size());
+            auto id_in_range = [&](uint32_t id) {
+              if (id_min >= 0 && static_cast<int>(id) < id_min) {
+                return false;
+              }
+              if (id_max >= 0 && static_cast<int>(id) > id_max) {
+                return false;
+              }
+              return true;
+            };
+            auto passes_visibility = [&](VpEntityKind kind, uint32_t id) {
+              return !visible_only || gs.IsEntityVisible(kind, id);
+            };
+
+            if (kind_filter == 0 || kind_filter == 1) {
+              for (const auto &road : gs.roads) {
+                if (!id_in_range(road.id)) {
+                  continue;
+                }
+                if (user_only && !road.is_user_created) {
+                  continue;
+                }
+                if (!passes_visibility(VpEntityKind::Road, road.id)) {
+                  continue;
+                }
+                items.push_back({VpEntityKind::Road, road.id});
+              }
+            }
+            if (kind_filter == 0 || kind_filter == 2) {
+              for (const auto &district : gs.districts) {
+                if (!id_in_range(district.id)) {
+                  continue;
+                }
+                if (!passes_visibility(VpEntityKind::District, district.id)) {
+                  continue;
+                }
+                items.push_back({VpEntityKind::District, district.id});
+              }
+            }
+            if (kind_filter == 0 || kind_filter == 3) {
+              for (const auto &lot : gs.lots) {
+                if (!id_in_range(lot.id)) {
+                  continue;
+                }
+                if (district_filter >= 0 &&
+                    static_cast<int>(lot.district_id) != district_filter) {
+                  continue;
+                }
+                if (user_only && !lot.is_user_placed) {
+                  continue;
+                }
+                if (!passes_visibility(VpEntityKind::Lot, lot.id)) {
+                  continue;
+                }
+                items.push_back({VpEntityKind::Lot, lot.id});
+              }
+            }
+            if (kind_filter == 0 || kind_filter == 4) {
+              for (const auto &building : gs.buildings) {
+                if (!id_in_range(building.id)) {
+                  continue;
+                }
+                if (district_filter >= 0 &&
+                    static_cast<int>(building.district_id) != district_filter) {
+                  continue;
+                }
+                if (user_only && !building.is_user_placed) {
+                  continue;
+                }
+                if (!passes_visibility(VpEntityKind::Building, building.id)) {
+                  continue;
+                }
+                items.push_back({VpEntityKind::Building, building.id});
+              }
+            }
+            if (kind_filter == 0 || kind_filter == 5) {
+              for (const auto &water : gs.waterbodies) {
+                if (!id_in_range(water.id)) {
+                  continue;
+                }
+                if (user_only && !water.is_user_placed) {
+                  continue;
+                }
+                if (!passes_visibility(VpEntityKind::Water, water.id)) {
+                  continue;
+                }
+                items.push_back({VpEntityKind::Water, water.id});
+              }
+            }
+
+            if (mode_filter == 1) {
+              for (const auto &item : items) {
+                gs.selection_manager.Add(item.kind, item.id);
+              }
+            } else if (mode_filter == 2) {
+              for (const auto &item : items) {
+                gs.selection_manager.Toggle(item.kind, item.id);
+              }
+            } else {
+              gs.selection_manager.SetItems(std::move(items));
+            }
+
+            RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("Clear Selection##g_tool_query")) {
+            gs.selection_manager.Clear();
+            RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
+          }
+
+          ImGui::EndPopup();
+        }
+      };
+
+      const auto draw_delete_trim_button = [&](float width = -1.0f) {
+        const bool pressed =
+            (width > 0.0f)
+                ? ImGui::Button("Delete / Trim##g_tool_delete_trim_btn",
+                                ImVec2(width, 0.0f))
+                : ImGui::Button("Delete / Trim##g_tool_delete_trim_btn");
+        if (pressed) {
+          ImGui::OpenPopup("##g_tool_delete_trim_popup");
+        }
+        if (ImGui::BeginPopup("##g_tool_delete_trim_popup")) {
+          const RC_UI::Tools::ToolActionId trim_action =
+              resolve_contextual_action(
+                  RC_UI::Tools::ToolActionId::Road_Disconnect,
+                  RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
+                  RC_UI::Tools::ToolActionId::District_Select,
+                  RC_UI::Tools::ToolActionId::Lot_Slice,
+                  RC_UI::Tools::ToolActionId::Building_Select);
+
+          if (ImGui::Button("Activate Trim Mode##g_tool_delete_trim",
+                            ImVec2(180.0f, 0.0f))) {
+            dispatch_visualizer_action(trim_action);
+            using RogueCity::Core::Editor::ToolDomain;
+            if (gs.tool_runtime.active_domain == ToolDomain::District ||
+                gs.tool_runtime.active_domain == ToolDomain::Zone) {
+              gs.district_boundary_editor.enabled = true;
+              gs.district_boundary_editor.insert_mode = false;
+              gs.district_boundary_editor.delete_mode = true;
+            }
+            ImGui::CloseCurrentPopup();
+          }
+          if (ImGui::IsItemHovered()) {
+            if (const auto *spec = RC_UI::Tools::FindToolAction(trim_action);
+                spec != nullptr && spec->tooltip != nullptr &&
+                spec->tooltip[0] != '\0') {
+              ImGui::SetTooltip("%s", spec->tooltip);
+            }
+          }
+
+          const bool has_selection = gs.selection_manager.Count() > 0;
+          if (!has_selection) {
+            ImGui::BeginDisabled();
+          }
+          if (ImGui::Button("Delete Selected##g_tool_delete_trim",
+                            ImVec2(180.0f, 0.0f))) {
+            DeleteSelectedEntities("Delete Selected");
+            ImGui::CloseCurrentPopup();
+          }
+          if (!has_selection) {
+            ImGui::EndDisabled();
+            ImGui::TextDisabled("No selection");
+          }
+
+          ImGui::EndPopup();
+        }
       };
 
       ImGui::SeparatorText("Selection");
@@ -2607,7 +3290,12 @@ void DrawContent(float dt) {
                          "Rectangle Select", usable_w - 4.0f);
       draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_LassoSelect,
                          "Lasso Select", usable_w - 4.0f);
-      draw_placeholder_button("Paint Select (Planned)", usable_w - 4.0f);
+      draw_contextual_action_button(
+          "Paint Select", RC_UI::Tools::ToolActionId::RoadSpline_Selection,
+          RC_UI::Tools::ToolActionId::WaterSpline_Selection,
+          RC_UI::Tools::ToolActionId::District_Select,
+          RC_UI::Tools::ToolActionId::Lot_Select,
+          RC_UI::Tools::ToolActionId::Building_Select, usable_w - 4.0f);
 
       ImGui::SeparatorText("Transform");
       draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_MoveNodes,
@@ -2616,14 +3304,29 @@ void DrawContent(float dt) {
                          "Handle Move", usable_w - 4.0f);
 
       ImGui::SeparatorText("Edit / Topology");
-      draw_placeholder_button("Add / Split (Planned)", usable_w - 4.0f);
-      draw_placeholder_button("Delete / Trim (Planned)", usable_w - 4.0f);
-      draw_placeholder_button("Merge / Snap (Planned)", usable_w - 4.0f);
+      draw_contextual_action_button(
+          "Add / Split", RC_UI::Tools::ToolActionId::RoadSpline_AddRemoveAnchor,
+          RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
+          RC_UI::Tools::ToolActionId::District_Split,
+          RC_UI::Tools::ToolActionId::Lot_Slice,
+          RC_UI::Tools::ToolActionId::Building_Assign, usable_w - 4.0f);
+      draw_delete_trim_button(usable_w - 4.0f);
+      draw_contextual_action_button(
+          "Merge / Snap", RC_UI::Tools::ToolActionId::RoadSpline_SnapAlign,
+          RC_UI::Tools::ToolActionId::WaterSpline_SnapAlign,
+          RC_UI::Tools::ToolActionId::District_Merge,
+          RC_UI::Tools::ToolActionId::Lot_Merge,
+          RC_UI::Tools::ToolActionId::Building_Assign, usable_w - 4.0f);
 
       ImGui::SeparatorText("Attribute / View / Utility");
-      draw_placeholder_button("Attribute Paint (Planned)", usable_w - 4.0f);
-      draw_placeholder_button("Layer Toggles (Planned)", usable_w - 4.0f);
-      draw_placeholder_button("Select By Query (Planned)", usable_w - 4.0f);
+      draw_contextual_action_button(
+          "Attribute Paint", RC_UI::Tools::ToolActionId::Road_Inspect,
+          RC_UI::Tools::ToolActionId::Water_Inspect,
+          RC_UI::Tools::ToolActionId::District_Paint,
+          RC_UI::Tools::ToolActionId::Lot_Align,
+          RC_UI::Tools::ToolActionId::Building_Assign, usable_w - 4.0f);
+      draw_layer_toggle_button(usable_w - 4.0f);
+      draw_query_select_button(usable_w - 4.0f);
 
       ImGui::SeparatorText("G Options");
       ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 225u),
@@ -2660,7 +3363,14 @@ void DrawContent(float dt) {
                          "Tips: Shift=Add, Ctrl=Toggle, X=Snap, 1-4=Tools");
     }
     ImGui::EndChild();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
   }
+
+  const bool context_menu_open =
+      ImGui::IsPopupOpen("##viewport_context_actions");
+  const bool interaction_overlay_blocked =
+      overlay_blocked_hovered || context_menu_open;
 
   const RC_UI::Viewport::AxiomInteractionResult axiom_interaction =
       RC_UI::Viewport::ProcessAxiomViewportInteraction(
@@ -2686,7 +3396,7 @@ void DrawContent(float dt) {
           RC_UI::Viewport::NonAxiomInteractionParams{
               axiom_mode,
               in_viewport,
-              overlay_blocked_hovered,
+              interaction_overlay_blocked,
               allow_viewport_mouse_actions,
               allow_viewport_key_actions,
               mouse_pos,
@@ -2702,7 +3412,7 @@ void DrawContent(float dt) {
   }
   EnsureViewportDerivedIndices(gs);
 
-  if (!editor_hovered || !in_viewport || overlay_blocked_hovered ||
+  if (!editor_hovered || !in_viewport || interaction_overlay_blocked ||
       !allow_viewport_mouse_actions) {
     gs.hovered_entity.reset();
   }
@@ -3539,13 +4249,13 @@ void DrawContent(float dt) {
 
       const bool dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f);
       if (dragging) {
-        const auto camera_pos = s_primary_viewport->get_camera_xy();
+        const auto current_camera_pos = s_primary_viewport->get_camera_xy();
         const auto camera_z = s_primary_viewport->get_camera_z();
         const ImVec2 delta = io.MouseDelta;
         const double world_per_pixel =
             RC_UI::Viewport::ComputeMinimapWorldPerPixel(
                 kMinimapWorldSize, s_minimap_zoom, kMinimapSize);
-        RogueCity::Core::Vec2 next_camera = camera_pos;
+        RogueCity::Core::Vec2 next_camera = current_camera_pos;
         next_camera.x -= static_cast<double>(delta.x) * world_per_pixel;
         next_camera.y -= static_cast<double>(delta.y) * world_per_pixel;
         next_camera = ClampMinimapCameraToConstraints(
@@ -3553,19 +4263,20 @@ void DrawContent(float dt) {
         s_primary_viewport->set_camera_position(next_camera, camera_z);
       } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         // Click-to-jump camera centers the clicked minimap location.
-        const auto camera_pos = s_primary_viewport->get_camera_xy();
+        const auto current_camera_pos = s_primary_viewport->get_camera_xy();
         const auto camera_z = s_primary_viewport->get_camera_z();
         auto world_pos =
-            MinimapPixelToWorld(mouse_screen, minimap_interact_pos, camera_pos);
+            MinimapPixelToWorld(mouse_screen, minimap_interact_pos,
+                                current_camera_pos);
         world_pos = ClampMinimapCameraToConstraints(
             world_pos, gs, static_cast<double>(io.DeltaTime));
         s_primary_viewport->set_camera_position(world_pos, camera_z);
       } else if (gs.config.feature_camera_bounce_clamp &&
                  gs.tool_runtime.viewport_clamp_active) {
         const auto camera_z = s_primary_viewport->get_camera_z();
-        const auto camera_pos = s_primary_viewport->get_camera_xy();
+        const auto current_camera_pos = s_primary_viewport->get_camera_xy();
         const auto settled = ClampMinimapCameraToConstraints(
-            camera_pos, gs, static_cast<double>(io.DeltaTime));
+            current_camera_pos, gs, static_cast<double>(io.DeltaTime));
         s_primary_viewport->set_camera_position(settled, camera_z);
       }
     }

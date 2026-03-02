@@ -30,6 +30,7 @@ struct CommandInteractionParams {
     UiInputGateState input_gate{};
     bool in_viewport{ false };
     bool minimap_hovered{ false };
+    bool suppress_default_right_click_menu{ false };
     ImVec2 mouse_pos{ 0.0f, 0.0f };
     const RogueCity::Core::Editor::EditorConfig* editor_config{ nullptr };
     RogueCity::Core::Editor::ToolDomain active_domain{

@@ -987,6 +987,9 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
         output.plan_violations = cache_.plan_violations;
         output.grid_quality = cache_.grid_quality;
         output.plan_approved = cache_.plan_approved;
+        // Include 3D foundation data - intersection templates surfaced as first-class output
+        output.intersection_templates = cache_.intersection_templates;
+        output.has_3d_metadata = true; // Mark output as containing 3D metadata
     };
 
     // In "exact stage" mode (no cascade), hide non-requested artifacts from returned output.
@@ -1007,6 +1010,7 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
             output.roads.clear();
             output.connector_debug_edges.clear();
             output.grid_quality = GridQualityReport{};
+            output.intersection_templates.clear(); // Clear 3D intersection data when roads not requested
         }
         if (!IsStageDirty(dirty, GenerationStage::Districts)) {
             output.districts.clear();
@@ -1125,6 +1129,10 @@ CityGenerator::CityOutput CityGenerator::GenerateStages(
             context,
             global_state,
             &resolved_axioms);
+        
+        // Capture intersection templates from road generation (surface as first-class output)
+        cache_.intersection_templates = getLastIntersectionTemplates();
+        
         if (options.constrain_roads_to_axiom_bounds) {
             cache_.roads = ClipRoadsToAxiomInfluence(cache_.roads, resolved_axioms);
         }
@@ -1649,7 +1657,13 @@ fva::Container<Road> CityGenerator::traceRoads(
         }
     }
 
-    return Urban::RoadGenerator::generate(active_seeds, field, road_cfg);
+    // Use instance-based RoadGenerator to capture intersection templates
+    return road_generator_.generate(active_seeds, field, road_cfg);
+}
+
+// Helper to get intersection templates from last road generation
+std::vector<Core::IntersectionTemplate> CityGenerator::getLastIntersectionTemplates() const {
+    return road_generator_.getIntersectionTemplates();
 }
 
 // Generates district polygons from the road graph, then enriches district metadata
@@ -1722,7 +1736,38 @@ std::vector<BlockPolygon> CityGenerator::generateBlocks(
         }
 
         Urban::BlockGenerator::Config block_cfg;
-        block_cfg.prefer_road_cycles = false;
+        // Prefer road-cycle extraction when the road network is complex enough to
+        // form genuine block boundaries.  The threshold (>5 districts, non-empty roads)
+        // avoids the extra graph-build cost for trivially small cities.
+        const bool has_complex_road_network = districts.size() > 5 && cache_.roads.size() > 0;
+        block_cfg.prefer_road_cycles = has_complex_road_network;
+
+        // When road-cycle extraction is preferred, build a topology graph from the
+        // cached road polylines and pass it to BlockGenerator so PolygonFinder::fromGraph
+        // can filter district blocks to those actually backed by road network coverage.
+        // This eliminates the previous silent no-op where both branches of prefer_road_cycles
+        // called fromDistricts regardless of the config value.
+        if (block_cfg.prefer_road_cycles) {
+            Roads::NoderConfig noder_cfg{};
+            Roads::RoadNoder noder(noder_cfg);
+
+            std::vector<Roads::PolylineRoadCandidate> candidates;
+            candidates.reserve(cache_.roads.size());
+            for (const auto& road : cache_.roads) {
+                if (road.points.size() < 2) continue;
+                Roads::PolylineRoadCandidate c{};
+                c.pts      = road.points;
+                c.type_hint = road.type;
+                c.layer_hint = road.layer_id; // preserve layer for graph verticality
+                candidates.push_back(std::move(c));
+            }
+
+            Urban::Graph road_graph;
+            noder.buildGraph(candidates, road_graph);
+            return Urban::BlockGenerator::generate(districts, road_graph, block_cfg);
+        }
+
+        // No road-cycle preference: use fast district-polygon path.
         return Urban::BlockGenerator::generate(districts, block_cfg);
     }
 

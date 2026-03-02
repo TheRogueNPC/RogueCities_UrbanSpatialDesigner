@@ -1229,7 +1229,7 @@ void ProcessViewportCommandTriggers(
   const ImGuiIO &io = ImGui::GetIO();
 
   if (allow_viewport_mouse_actions && params.in_viewport &&
-      !params.minimap_hovered &&
+      !params.minimap_hovered && !params.suppress_default_right_click_menu &&
       ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !io.KeyAlt &&
       !io.KeyShift && !io.KeyCtrl) {
     RequestDefaultContextCommandMenu(*params.editor_config, params.mouse_pos,

@@ -110,9 +110,48 @@ namespace RogueCity::Generators::Urban {
             Roads::applyVerticality(graph, config.verticality);
         }
         const auto template_output = Roads::emitIntersectionTemplates(graph, Roads::TemplateConfig{});
-        (void)template_output;
+        
+        // Store intersection template output to return with roads (no longer throwaway)
+        stored_intersection_templates_.clear();
+        stored_intersection_templates_.reserve(template_output.interchanges.size() + 1u);
+
+        // Per-interchange entries carry positional / archetype data (grade-sep junctions only).
+        uint32_t next_tmpl_id = 0u;
+        for (const auto& interchange : template_output.interchanges) {
+            Core::IntersectionTemplate tmpl{};
+            tmpl.id     = next_tmpl_id++;
+            tmpl.center = interchange.center;
+            tmpl.radius = interchange.radius;
+            tmpl.rotation = interchange.rotation;
+            tmpl.archetype = static_cast<Core::JunctionArchetype>(interchange.archetype);
+            tmpl.has_grade_separation = (interchange.archetype != Roads::JunctionArchetype::None);
+            stored_intersection_templates_.push_back(std::move(tmpl));
+        }
+
+        // Aggregate template carries ALL polygon geometry (paved areas, keep-out islands,
+        // support footprints, greenspace) for every controlled intersection — not just
+        // grade-sep/interchange vertices.  emitIntersectionTemplates produces these for
+        // Intersection + Roundabout + Interchange + GradeSep vertices combined, so they
+        // must be preserved here or they are silently discarded (data-loss path eliminated).
+        // archetype == None tags this as the composite/summary record for visualizer/3D use.
+        if (!template_output.paved_areas.empty()) {
+            Core::IntersectionTemplate aggregate{};
+            aggregate.id = next_tmpl_id;    // id follows per-junction entries
+            aggregate.archetype = Core::JunctionArchetype::None;
+            aggregate.has_grade_separation  = false;
+            aggregate.vertical_clearance    = 4.5f; // standard minimum clearance (meters)
+            aggregate.paved_areas           = template_output.paved_areas;
+            aggregate.keep_out_islands      = template_output.keep_out_islands;
+            aggregate.support_footprints    = template_output.support_footprints;
+            aggregate.greenspace_candidates.reserve(template_output.greenspace_candidates.size());
+            for (const auto& gc : template_output.greenspace_candidates) {
+                aggregate.greenspace_candidates.push_back(gc.polygon);
+            }
+            stored_intersection_templates_.push_back(std::move(aggregate));
+        }
 
         // Export graph edges back into road records expected by downstream stages.
+        // PRESERVE 3D/vertical metadata from graph processing (no more data drops)
         uint32_t next_id = 0;
         for (const auto& edge : graph.edges()) {
             if (edge.shape.size() < 2) {
@@ -123,6 +162,17 @@ namespace RogueCity::Generators::Urban {
             road.type = edge.type;
             road.points = edge.shape;
             road.is_user_created = (road.type == Core::RoadType::M_Major || road.type == Core::RoadType::M_Minor);
+            
+            // Wire road verticality metadata from graph -> road output (preserve layer info)
+            road.layer_id = edge.layer_id;
+            road.has_grade_separation = (edge.layer_id != 0);
+            
+            // Initialize elevation offsets container (empty = ground level, filled = explicit offsets)
+            if (config.enable_verticality && road.has_grade_separation) {
+                // For grade-separated roads, create elevation offsets based on layer
+                road.elevation_offsets.resize(road.points.size(), static_cast<float>(edge.layer_id) * 4.5f); // 4.5m per layer
+            }
+            
             output.add(std::move(road));
         }
 

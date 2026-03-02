@@ -13,6 +13,7 @@ using json = nlohmann::json;
 
 namespace RogueCity::AI {
 
+#ifdef RC_FEATURE_AI_BRIDGE
 static std::string TimestampForFilename() {
     using namespace std::chrono;
     auto now = system_clock::now();
@@ -29,6 +30,7 @@ static std::string TimestampForFilename() {
     oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << std::setw(3) << std::setfill('0') << ms.count();
     return oss.str();
 }
+#endif
 
 std::vector<UiCommand> UiAgentClient::QueryAgent(
     const UiSnapshot& snapshot,

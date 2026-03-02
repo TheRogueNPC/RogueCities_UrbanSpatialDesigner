@@ -61,7 +61,8 @@ PickFromViewportIndex(
 QueryRegionFromViewportIndex(
     const RogueCity::Core::Editor::GlobalState &gs,
     const std::function<bool(const RogueCity::Core::Vec2 &)> &include_point,
-    bool include_hidden = false);
+    bool include_hidden = false,
+    const RogueCity::Core::Bounds *region_bounds = nullptr);
 
 [[nodiscard]] RogueCity::Core::Vec2
 ComputeSelectionPivot(const RogueCity::Core::Editor::GlobalState &gs);

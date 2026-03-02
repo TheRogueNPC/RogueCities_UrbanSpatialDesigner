@@ -205,6 +205,15 @@ struct SplineEditorState {
   float tension{0.5f};
 };
 
+struct FlowSimulationState {
+  bool enable_pedestrians{false};
+  bool enable_traffic{false};
+  float pedestrian_density{0.5f};
+  float traffic_density{0.5f};
+  float time_of_day{12.0f};
+  int simulation_speed{1};
+};
+
 struct SystemsMapRuntimeState {
   bool show_roads{true};
   bool show_districts{true};
@@ -338,17 +347,9 @@ enum class BuildingSubtool : uint8_t {
   Inspect
 };
 
-enum class ViewportSelectionMode : uint8_t {
-  Auto = 0,
-  Rectangle,
-  Lasso
-};
+enum class ViewportSelectionMode : uint8_t { Auto = 0, Rectangle, Lasso };
 
-enum class ViewportEditTool : uint8_t {
-  Auto = 0,
-  Move,
-  HandleMove
-};
+enum class ViewportEditTool : uint8_t { Auto = 0, Move, HandleMove };
 
 enum class ViewportSelectionTarget : uint8_t {
   Nodes = 0,
@@ -369,7 +370,8 @@ struct ToolRuntimeState {
   BuildingSubtool building_subtool{BuildingSubtool::Place};
   ViewportSelectionMode viewport_selection_mode{ViewportSelectionMode::Auto};
   ViewportEditTool viewport_edit_tool{ViewportEditTool::Auto};
-  ViewportSelectionTarget viewport_selection_target{ViewportSelectionTarget::Nodes};
+  ViewportSelectionTarget viewport_selection_target{
+      ViewportSelectionTarget::Nodes};
   std::string last_action_id{};
   std::string last_action_label{};
   std::string last_action_status{};
@@ -581,6 +583,7 @@ struct GlobalState {
   std::unordered_map<uint64_t, uint8_t> entity_layers{};
   DistrictBoundaryEditorState district_boundary_editor{};
   SplineEditorState spline_editor{};
+  FlowSimulationState flow_simulation{};
   ToolRuntimeState tool_runtime{};
   GenerationPolicyState generation_policy{};
   std::optional<CitySpec> active_city_spec{};
