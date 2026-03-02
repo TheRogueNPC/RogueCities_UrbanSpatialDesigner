@@ -29,7 +29,8 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
 
   auto &gs = *params.global_state;
   ImGuiIO &io = ImGui::GetIO();
-  const bool left_click_attempt = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+  const float box_select_drag_threshold_px = 3.0f;
+  const bool left_click_attempt = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
   result.active = true;
   result.has_world_pos = true;
   result.world_pos = params.primary_viewport->screen_to_world(params.mouse_pos);
@@ -158,9 +159,26 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
       io,
   };
 
+    const bool force_rectangle_select =
+      gs.tool_runtime.viewport_selection_mode ==
+      RogueCity::Core::Editor::ViewportSelectionMode::Rectangle;
+    const bool force_lasso_select =
+      gs.tool_runtime.viewport_selection_mode ==
+      RogueCity::Core::Editor::ViewportSelectionMode::Lasso;
+    const bool force_move_tool =
+      gs.tool_runtime.viewport_edit_tool ==
+      RogueCity::Core::Editor::ViewportEditTool::Move;
+    const bool force_handle_tool =
+      gs.tool_runtime.viewport_edit_tool ==
+      RogueCity::Core::Editor::ViewportEditTool::HandleMove;
+    const bool force_visualizer_tool =
+      force_rectangle_select || force_lasso_select || force_move_tool ||
+      force_handle_tool;
+
   bool consumed_interaction = navigation_pan_applied;
   if (!consumed_interaction) {
-    if (params.editor_state ==
+    if (!force_visualizer_tool &&
+      params.editor_state ==
             RogueCity::Core::Editor::EditorState::Editing_Roads &&
         params.road_tool) {
       if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -173,7 +191,8 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         params.road_tool->on_right_click(result.world_pos);
       consumed_interaction =
           true; // Tools now handle internal consumption check
-    } else if (params.editor_state ==
+    } else if (!force_visualizer_tool &&
+               params.editor_state ==
                    RogueCity::Core::Editor::EditorState::Editing_Water &&
                params.water_tool) {
       if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -186,8 +205,10 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         params.water_tool->on_right_click(result.world_pos);
       consumed_interaction = true;
     } else {
-      consumed_interaction = Handlers::HandleDomainPlacementStage(
-          interaction_context, *interaction_state);
+      if (!force_visualizer_tool) {
+        consumed_interaction = Handlers::HandleDomainPlacementStage(
+            interaction_context, *interaction_state);
+      }
     }
   }
 
@@ -304,14 +325,42 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         interaction_context, *interaction_state);
   }
 
-  const bool start_box =
-      io.KeyAlt && io.KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-  const bool start_lasso =
-      io.KeyAlt && !io.KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+  auto apply_region_selection =
+      [&](std::vector<RogueCity::Core::Editor::SelectionItem> region_items,
+          bool add_mode, bool toggle_mode) {
+        if (toggle_mode) {
+          for (const auto &item : region_items) {
+            gs.selection_manager.Toggle(item.kind, item.id);
+          }
+        } else if (add_mode) {
+          for (const auto &item : region_items) {
+            gs.selection_manager.Add(item.kind, item.id);
+          }
+        } else {
+          gs.selection_manager.SetItems(std::move(region_items));
+        }
+        RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
+        gs.hovered_entity.reset();
+        selection_click_applied = true;
+      };
 
-  if (!consumed_interaction && start_box) {
+    const bool start_box_legacy =
+      io.KeyAlt && io.KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    const bool start_lasso =
+      ((force_lasso_select && !io.KeyAlt) || (io.KeyAlt && !io.KeyShift)) &&
+      ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    const bool start_box_drag =
+      (!io.KeyAlt || force_rectangle_select) &&
+      !interaction_state->selection_drag.box_active &&
+      !interaction_state->selection_drag.lasso_active &&
+      ImGui::IsMouseDragging(ImGuiMouseButton_Left,
+                             box_select_drag_threshold_px);
+
+  if (!consumed_interaction && start_box_legacy) {
     interaction_state->selection_drag.box_active = true;
     interaction_state->selection_drag.lasso_active = false;
+    interaction_state->selection_drag.box_add_mode = false;
+    interaction_state->selection_drag.box_toggle_mode = false;
     interaction_state->selection_drag.box_start = result.world_pos;
     interaction_state->selection_drag.box_end = result.world_pos;
     gs.hovered_entity.reset();
@@ -319,8 +368,23 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
   } else if (!consumed_interaction && start_lasso) {
     interaction_state->selection_drag.lasso_active = true;
     interaction_state->selection_drag.box_active = false;
+    interaction_state->selection_drag.box_add_mode = false;
+    interaction_state->selection_drag.box_toggle_mode = io.KeyCtrl;
     interaction_state->selection_drag.lasso_points.clear();
     interaction_state->selection_drag.lasso_points.push_back(result.world_pos);
+    gs.hovered_entity.reset();
+    consumed_interaction = true;
+  } else if (!consumed_interaction && start_box_drag) {
+    const ImVec2 drag_delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+    const ImVec2 drag_start_screen(params.mouse_pos.x - drag_delta.x,
+                                   params.mouse_pos.y - drag_delta.y);
+    interaction_state->selection_drag.box_active = true;
+    interaction_state->selection_drag.lasso_active = false;
+    interaction_state->selection_drag.box_add_mode = io.KeyShift && !io.KeyCtrl;
+    interaction_state->selection_drag.box_toggle_mode = io.KeyCtrl;
+    interaction_state->selection_drag.box_start =
+        params.primary_viewport->screen_to_world(drag_start_screen);
+    interaction_state->selection_drag.box_end = result.world_pos;
     gs.hovered_entity.reset();
     consumed_interaction = true;
   }
@@ -347,10 +411,12 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
             return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
           },
           true);
-      gs.selection_manager.SetItems(std::move(region_items));
-      RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
-      gs.hovered_entity.reset();
+      apply_region_selection(std::move(region_items),
+                             interaction_state->selection_drag.box_add_mode,
+                             interaction_state->selection_drag.box_toggle_mode);
       interaction_state->selection_drag.box_active = false;
+      interaction_state->selection_drag.box_add_mode = false;
+      interaction_state->selection_drag.box_toggle_mode = false;
     }
   } else if (!consumed_interaction &&
              interaction_state->selection_drag.lasso_active) {
@@ -368,10 +434,12 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
             return Handlers::PointInPolygon(
                 p, interaction_state->selection_drag.lasso_points);
           });
-      gs.selection_manager.SetItems(std::move(region_items));
-      RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
-      gs.hovered_entity.reset();
+      apply_region_selection(std::move(region_items),
+                             interaction_state->selection_drag.box_add_mode,
+                             interaction_state->selection_drag.box_toggle_mode);
       interaction_state->selection_drag.lasso_active = false;
+      interaction_state->selection_drag.box_add_mode = false;
+      interaction_state->selection_drag.box_toggle_mode = false;
       interaction_state->selection_drag.lasso_points.clear();
     }
   } else if (!consumed_interaction) {
@@ -381,7 +449,7 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
         precision_pick_mode ? 0.6 : 1.8, !precision_pick_mode);
     gs.hovered_entity = hovered;
 
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
       if (hovered.has_value()) {
         if (io.KeyShift) {
           gs.selection_manager.Add(hovered->kind, hovered->id);

@@ -27,6 +27,7 @@ struct DispatchContext {
     RogueCity::Core::Editor::GlobalState* gs = nullptr;
     RogueCity::UIInt::UiIntrospector* introspector = nullptr;
     const char* panel_id = "Tool Library";
+    bool apply_axiom_default = true;
 };
 
 [[nodiscard]] DispatchResult DispatchToolAction(ToolActionId action, const DispatchContext& context, std::string* out_status = nullptr);

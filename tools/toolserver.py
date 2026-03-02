@@ -1721,6 +1721,7 @@ async def _ollama_generate_with_images(
     prompt: str,
     image_paths: List[str],
     timeout: float = 60.0,
+    num_predict: int = 256,
 ) -> str:
     images: List[str] = []
     for p in image_paths:
@@ -1732,7 +1733,7 @@ async def _ollama_generate_with_images(
         "prompt": prompt,
         "images": images,
         "stream": False,
-        "options": {"temperature": 0.1, "top_p": 0.8, "num_predict": 64},
+        "options": {"temperature": 0.1, "top_p": 0.8, "num_predict": num_predict},
     }
     body = await _ollama_post_json("/api/generate", payload, timeout=timeout)
     return str(body.get("response", ""))
@@ -1747,6 +1748,98 @@ def _ocr_confidence(text: str) -> str:
     if ratio < 0.45:
         return "low"
     if ratio < 0.60:
+        return "medium"
+    return "high"
+
+
+# ---------------------------------------------------------------------------
+# RC-aware prompts for vision and OCR models
+# ---------------------------------------------------------------------------
+
+_VISION_PROMPT = (
+    "You are analyzing a screenshot of the RogueCities Urban Spatial Designer cockpit.\n"
+    "The UI is divided into three columns:\n"
+    "  Left column: AxiomEditor, Tools\n"
+    "  Center column: Viewport (city preview)\n"
+    "  Right column: Inspector, SystemMap\n"
+    "Bottom-docked panels may include: ZoningControl, RoadEditor, LotControl, "
+    "BuildingControl, WaterControl, DevShell, AiConsole, Workspace.\n"
+    "Describe which panels are visible, their approximate positions (Left/Right/Center/Bottom), "
+    "and any notable content, labels, or warnings shown inside them. "
+    "Use one bullet per panel. Be concise."
+)
+
+_OCR_PROMPT = (
+    "Extract all visible text from this RogueCities Urban Spatial Designer screenshot.\n"
+    "Group the text under the panel it belongs to, using these panel names as headers: "
+    "Titlebar, AxiomEditor, Tools, Viewport, Inspector, SystemMap, "
+    "ZoningControl, RoadEditor, LotControl, BuildingControl, WaterControl, "
+    "DevShell, AiConsole, Workspace.\n"
+    "List one text item per line under each header. Omit panels with no visible text. "
+    "No commentary."
+)
+
+# ---------------------------------------------------------------------------
+# Vision spatial parsing helpers
+# ---------------------------------------------------------------------------
+
+# keyword (lowercase) → (canonical panel name, typical dock position)
+_KNOWN_PANEL_KEYWORDS: Dict[str, tuple] = {
+    "axiom editor":     ("AxiomEditor",     "Left"),
+    "axiom":            ("AxiomEditor",     "Left"),
+    "tools":            ("Tools",           "Left"),
+    "inspector":        ("Inspector",       "Right"),
+    "system map":       ("SystemMap",       "Right"),
+    "systemmap":        ("SystemMap",       "Right"),
+    "zoning control":   ("ZoningControl",   "Bottom"),
+    "zoning":           ("ZoningControl",   "Bottom"),
+    "road editor":      ("RoadEditor",      "Bottom"),
+    "road":             ("RoadEditor",      "Bottom"),
+    "lot control":      ("LotControl",      "Bottom"),
+    "building control": ("BuildingControl", "Bottom"),
+    "water control":    ("WaterControl",    "Bottom"),
+    "water":            ("WaterControl",    "Bottom"),
+    "dev shell":        ("DevShell",        "Bottom"),
+    "devshell":         ("DevShell",        "Bottom"),
+    "ai console":       ("AiConsole",       "Bottom"),
+    "aiconsole":        ("AiConsole",       "Bottom"),
+    "workspace":        ("Workspace",       "Right"),
+    "viewport":         ("Viewport",        "Center"),
+}
+
+# Spatial keywords used to score vision response quality
+_VISION_SPATIAL_KEYWORDS: frozenset = frozenset([
+    "left", "right", "top", "bottom", "center", "panel", "column",
+    "visible", "docked", "viewport", "axiom", "inspector", "zoning",
+    "road", "lot", "building", "water", "devshell", "aiconsole",
+])
+
+
+def _parse_vision_regions(text: str) -> "List[VisualRegion]":
+    """Scan vision model output for known RC panel names and return VisualRegion entries."""
+    found: Dict[str, VisualRegion] = {}
+    lower = text.lower()
+    # Sort by keyword length descending so multi-word matches take priority
+    for keyword in sorted(_KNOWN_PANEL_KEYWORDS, key=len, reverse=True):
+        panel_name, dock = _KNOWN_PANEL_KEYWORDS[keyword]
+        if keyword in lower and panel_name not in found:
+            found[panel_name] = VisualRegion(label=f"{panel_name}@{dock}")
+    return list(found.values())
+
+
+def _vision_confidence(text: str) -> str:
+    """Rate vision output quality by response length and spatial keyword density."""
+    s = text.strip()
+    if len(s) < 30:
+        return "low"
+    words = s.lower().split()
+    if not words:
+        return "low"
+    spatial_hits = sum(1 for w in words if w.rstrip(".,;:()") in _VISION_SPATIAL_KEYWORDS)
+    density = float(spatial_hits) / float(len(words))
+    if density < 0.05 or len(s) < 80:
+        return "low"
+    if density < 0.12 or len(s) < 200:
         return "medium"
     return "high"
 
@@ -1913,24 +2006,26 @@ async def _perception_observe_impl(req: PerceptionObserveRequest) -> PerceptionR
         if use_vision:
             jobs.append(
                 asyncio.create_task(
-                        _ollama_generate_with_images(
-                            models["vision_model"],
-                            "Summarize UI layout in short bullets.",
-                            screenshot_paths[:1],
-                            timeout=float(max(5, req.vision_timeout_sec)),
-                        )
+                    _ollama_generate_with_images(
+                        models["vision_model"],
+                        _VISION_PROMPT,
+                        screenshot_paths,
+                        timeout=float(max(5, req.vision_timeout_sec)),
+                        num_predict=384,
+                    )
                 )
             )
             labels.append("vision")
         if use_ocr:
             jobs.append(
                 asyncio.create_task(
-                        _ollama_generate_with_images(
-                            models["ocr_model"],
-                            "Return visible UI text lines only. No commentary.",
-                            screenshot_paths[:1],
-                            timeout=float(max(5, req.ocr_timeout_sec)),
-                        )
+                    _ollama_generate_with_images(
+                        models["ocr_model"],
+                        _OCR_PROMPT,
+                        screenshot_paths,
+                        timeout=float(max(5, req.ocr_timeout_sec)),
+                        num_predict=256,
+                    )
                 )
             )
             labels.append("ocr")
@@ -1941,13 +2036,17 @@ async def _perception_observe_impl(req: PerceptionObserveRequest) -> PerceptionR
                 continue
             if label == "vision":
                 vtxt = str(out)
+                regions = _parse_vision_regions(vtxt)
+                conf = _vision_confidence(vtxt)
+                if conf == "low":
+                    warnings.append("vision_low_confidence_output")
                 visual_evidence.append(
                     VisualEvidence(
                         source=models["vision_model"],
                         summary=vtxt[:900],
                         text_spans=[],
-                        ui_regions=[],
-                        confidence="medium" if vtxt.strip() else "low",
+                        ui_regions=regions,
+                        confidence=conf,
                     )
                 )
             else:

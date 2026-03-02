@@ -9,6 +9,7 @@ This is the new canonical documentation layout.
 - `docs/41_plans_todos` - Planned work, TODOs, checklists, roadmaps.
 - `docs/50_testing` - Testing docs and test guides.
 - `docs/60_operations` - Operational references.
+- `docs/30_runbooks/rc-console-runbook.md` - `rc-console` Dev Shell and TUI Command Guide.
 
 ## Most Important For Verification
 - `docs/41_plans_todos` (this is the clean TODO/planning bucket)

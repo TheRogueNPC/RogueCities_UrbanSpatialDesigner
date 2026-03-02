@@ -95,6 +95,42 @@ if (-not $env:RC_AI_BRIDGE_BASE_URL) {
     $env:RC_AI_BRIDGE_BASE_URL = "http://127.0.0.1:7077"
 }
 
+# ----------------------------------------------------------------------------------------------------------
+# VS Code / IDE Companion Environment Overrides (Matches settings.json terminal.integrated.env.windows)
+# ----------------------------------------------------------------------------------------------------------
+$ideEnvMap = @{
+    # vadimcn.vscode-lldb
+    CODELLDB_LAUNCH_CONNECT_FILE  = "c:\Users\teamc\AppData\Roaming\Antigravity\User\workspaceStorage\0eeab2f8f9b1993d251d2f79a7a77f75\vadimcn.vscode-lldb\rpcaddress.txt"
+
+    # google.gemini-cli-vscode-ide-companion
+    GEMINI_CLI_IDE_SERVER_PORT    = "61181"
+    GEMINI_CLI_IDE_WORKSPACE_PATH = "c:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner"
+    GEMINI_CLI_IDE_AUTH_TOKEN     = if ($env:GEMINI_CLI_IDE_AUTH_TOKEN) { $env:GEMINI_CLI_IDE_AUTH_TOKEN } else { "" }
+
+    # Claude Code
+    RC_ACTIVE_AGENT               = "claude-code"
+
+    # vscode.git
+    GIT_ASKPASS                   = "c:\Users\teamc\AppData\Local\Programs\Antigravity\resources\app\extensions\git\dist\askpass.sh"
+    VSCODE_GIT_ASKPASS_NODE       = "C:\Users\teamc\AppData\Local\Programs\Antigravity\Antigravity.exe"
+    VSCODE_GIT_ASKPASS_EXTRA_ARGS = ""
+    VSCODE_GIT_ASKPASS_MAIN       = "c:\Users\teamc\AppData\Local\Programs\Antigravity\resources\app\extensions\git\dist\askpass-main.js"
+    VSCODE_GIT_IPC_HANDLE         = "\\.\pipe\vscode-git-de8377d597-sock"
+    
+    # eamodio.gitlens
+    GK_GL_ADDR                    = "http://127.0.0.1:61180"
+    GK_GL_PATH                    = "C:\Users\teamc\AppData\Local\Temp\gitkraken\gitlens\gitlens-ipc-server-202872-61180.json"
+    
+    # ms-python.python
+    PYTHONSTARTUP                 = "c:\Users\teamc\AppData\Roaming\Antigravity\User\workspaceStorage\0eeab2f8f9b1993d251d2f79a7a77f75\ms-python.python\pythonrc.py"
+    PYTHON_BASIC_REPL             = "1"
+}
+foreach ($key in $ideEnvMap.Keys) {
+    Set-Item -Path "Env:$key" -Value $ideEnvMap[$key]
+}
+
+$env:PATH = "c:\Users\teamc\.antigravity\extensions\vadimcn.vscode-lldb-1.12.1\bin;$env:PATH"
+
 function rc-help {
     <#
     .SYNOPSIS
@@ -120,6 +156,7 @@ function rc-help {
     Write-Host "  rc-bld-core | rc-bld-gen | rc-bld-app | rc-bld-vis" -ForegroundColor DarkCyan
     Write-Host "  rc-tst-core | rc-tst-gen | rc-tst-app" -ForegroundColor DarkCyan
     Write-Host "  rc-bld-headless | rc-run-headless | rc-smoke-headless" -ForegroundColor DarkCyan
+    Write-Host "  rc-console   (Starts the interactive cyberpunk UI TUI/REPL)" -ForegroundColor DarkCyan
     Write-Host ""
     Write-Host "Advanced Tooling:" -ForegroundColor Cyan
     Write-Host "  rc-watch   [-Target RogueCityVisualizerGui]" -ForegroundColor Magenta
@@ -143,6 +180,11 @@ function rc-help {
     Write-Host "  rc-perception-audit [-Observations 3] [-Mode quick|full] [-IncludeReports] [-IncludeVision \$true] [-IncludeOcr \$true] [-LatencyGateP95Ms 8000]" -ForegroundColor DarkCyan
     Write-Host "  rc-full-smoke    [-Port 7222] [-Runs 2] (Commit-gate smoke/audit with strict checks)" -ForegroundColor DarkCyan
     Write-Host "  rc-cfg-ai        (Configures CMake with AI Bridge ON)" -ForegroundColor DarkCyan
+    Write-Host ""
+    Write-Host "Claude Code Agent:" -ForegroundColor Cyan
+    Write-Host "  rc-claude        [-Prompt '...'] (Open Claude Code; optional one-shot prompt)" -ForegroundColor Blue
+    Write-Host "  rc-claude-status (Show active agent config + memory snapshot)" -ForegroundColor Blue
+    Write-Host "  rc-claude-handoff [-Summary '...'] [-NextAgent gemini] (Write session brief to AI/collaboration/)" -ForegroundColor Blue
 }
 
 function rc-env {
@@ -252,6 +294,18 @@ function rc-run-headless {
         throw "Headless executable not found: $exe"
     }
     & $exe
+}
+
+function rc-console {
+    <#
+    .SYNOPSIS
+        Starts the cyberpunk interactive dev console (Headless UI).
+    #>
+    $exe = Join-Path $env:RC_ROOT "bin\RogueCityVisualizerHeadless.exe"
+    if (-not (Test-Path -LiteralPath $exe)) {
+        throw "Headless executable not found: $exe"
+    }
+    & $exe --interactive
 }
 
 function rc-smoke-headless {
@@ -525,6 +579,97 @@ function rc-index {
         Generates a symbolic index of the codebase for AI agents.
     #>
     Invoke-RCPythonTool -ScriptPath "tools\dev_index.py"
+}
+
+# ==============================================================================
+# Claude Code Agent Commands
+# ==============================================================================
+
+function rc-claude {
+    <#
+    .SYNOPSIS
+        Opens Claude Code in the project root, optionally with a one-shot prompt.
+    .PARAMETER Prompt
+        If provided, runs Claude Code in print mode with the given prompt.
+    #>
+    param([string]$Prompt = "")
+    Push-Location $env:RC_ROOT
+    try {
+        if ($Prompt) {
+            & claude --print $Prompt
+        } else {
+            & claude
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+function rc-claude-status {
+    <#
+    .SYNOPSIS
+        Prints Claude Code active agent config and first 40 lines of its memory file.
+    #>
+    Write-Host "RC_ACTIVE_AGENT    = $env:RC_ACTIVE_AGENT" -ForegroundColor Cyan
+    Write-Host "RC_AI_BRIDGE_URL   = $env:RC_AI_BRIDGE_BASE_URL" -ForegroundColor Cyan
+    Write-Host "RC_AI_PIPELINE_V2  = $env:RC_AI_PIPELINE_V2" -ForegroundColor Cyan
+
+    $memPath = Join-Path $env:USERPROFILE ".claude\projects\C--Users-teamc-Documents-Rogue-Cities-RogueCities-UrbanSpatialDesigner\memory\MEMORY.md"
+    if (Test-Path -LiteralPath $memPath) {
+        Write-Host "`nClaude Memory (MEMORY.md - first 40 lines):" -ForegroundColor Yellow
+        Get-Content -LiteralPath $memPath | Select-Object -First 40 | ForEach-Object {
+            Write-Host "  $_" -ForegroundColor Gray
+        }
+    } else {
+        Write-Warning "Claude memory file not found: $memPath"
+    }
+}
+
+function rc-claude-handoff {
+    <#
+    .SYNOPSIS
+        Writes a Claude Code session handoff brief to AI/collaboration/ for the next agent.
+    .PARAMETER Summary
+        Short summary of what was accomplished this session.
+    .PARAMETER NextAgent
+        The agent expected to read this brief (default: gemini).
+    #>
+    param(
+        [string]$Summary = "(no summary provided)",
+        [string]$NextAgent = "gemini"
+    )
+    $date = Get-Date -Format "yyyy-MM-dd"
+    $filename = "claude_${date}_handoff.md"
+    $outPath = Join-Path $env:RC_ROOT "AI\collaboration\$filename"
+
+    $commands = (Get-Command rc-* -CommandType Function).Name -join ", "
+    $content = @"
+# Claude Code Handoff Brief - $date
+
+## Summary
+$Summary
+
+## Environment Snapshot
+- Active Agent : $env:RC_ACTIVE_AGENT
+- AI Bridge URL: $env:RC_AI_BRIDGE_BASE_URL
+- RC Root      : $env:RC_ROOT
+- Pipeline V2  : $env:RC_AI_PIPELINE_V2
+
+## Available RC Commands
+$commands
+
+## Recommended Next Steps for $NextAgent
+- Read ``AI/collaboration/`` for prior session briefs
+- Run ``rc-ai-harden`` to confirm AI stack health
+- Run ``rc-mcp-smoke`` to validate bridge + MCP
+- Run ``rc-perceive-ui`` to capture current UI snapshot
+
+## Memory Reference
+Claude Code project memory: ``.claude\projects\C--Users-teamc-Documents-Rogue-Cities-RogueCities-UrbanSpatialDesigner\memory\MEMORY.md``
+"@
+    Set-Content -LiteralPath $outPath -Value $content -Encoding UTF8
+    Write-Host "Handoff brief written: $outPath" -ForegroundColor Green
+    Write-Host "Share with ${NextAgent}: AI/collaboration/$filename" -ForegroundColor Cyan
 }
 
 # ==============================================================================
@@ -1934,4 +2079,12 @@ function rc-full-smoke {
     }
 }
 
-Write-Host "RogueCities dev shell loaded. Run rc-help for commands." -ForegroundColor Green
+Write-Host ""
+Write-Host "    ____  ____  ____  __  __  ____    ___  ____  ____  _  _    ____  ____  ___  ____  ____  __ _  ____  ____ " -ForegroundColor Red
+Write-Host "   (  _ \(  _ \(  __)(  )(  )(  __)  / __)(_  _)(_  _)( \/ )  (  _ \(  __)/ __)(_  _)(  _ \(  ( \(  __)(  _ \" -ForegroundColor Red
+Write-Host "    )   / )(_) ))_)   )(__)(  ) _)  ( (__  _)(_   )(   \  /    )(_) ))_) \__ \  _)(_  ) _ (/    / ) _)  )   /" -ForegroundColor Red
+Write-Host "   (_)\_)(____/(____)(______)(____)  \___)(____) (__)  (__)   (____/(____)(___/(____)(____/\_)__)(____)(_)\_)" -ForegroundColor Red
+Write-Host ""
+Write-Host "   [:: HYPER-REACTIVE DEV CONSOLE ONLINE ::]" -ForegroundColor Yellow
+Write-Host "   [:: Dev Shell Loaded. Type 'rc-help' for commands or 'rc-console' to start TUI. ::]" -ForegroundColor DarkYellow
+Write-Host ""

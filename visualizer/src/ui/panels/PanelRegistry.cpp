@@ -132,6 +132,12 @@ IPanelDrawer *CreateDrawer();
 namespace DevShell {
 IPanelDrawer *CreateDrawer();
 }
+namespace Validation {
+IPanelDrawer *CreateDrawer();
+}
+namespace WorkspaceSettings {
+IPanelDrawer *CreateDrawer();
+}
 #if defined(ROGUE_AI_DLC_ENABLED)
 namespace AiConsole {
 IPanelDrawer *CreateDrawer();
@@ -177,6 +183,10 @@ void InitializePanelRegistry() {
   registry.Register(std::unique_ptr<IPanelDrawer>(Inspector::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(SystemMap::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(DevShell::CreateDrawer()));
+  registry.Register(
+      std::unique_ptr<IPanelDrawer>(Validation::CreateDrawer()));
+  registry.Register(
+      std::unique_ptr<IPanelDrawer>(WorkspaceSettings::CreateDrawer()));
 
   // Register AI panels (feature-gated)
 #if defined(ROGUE_AI_DLC_ENABLED)

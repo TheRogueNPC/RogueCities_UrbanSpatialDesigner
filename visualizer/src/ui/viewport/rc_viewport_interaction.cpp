@@ -1219,6 +1219,9 @@ void ProcessViewportCommandTriggers(
     return;
   }
 
+  const ToolLibrary domain_library =
+      RC_UI::Commands::CommandLibraryForDomain(params.active_domain);
+
   const bool allow_viewport_mouse_actions =
       RC_UI::AllowViewportMouseActions(params.input_gate);
   const bool allow_viewport_key_actions =
@@ -1230,7 +1233,7 @@ void ProcessViewportCommandTriggers(
       ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !io.KeyAlt &&
       !io.KeyShift && !io.KeyCtrl) {
     RequestDefaultContextCommandMenu(*params.editor_config, params.mouse_pos,
-                                     state_bundle);
+                                     state_bundle, domain_library);
   }
 
   const bool allow_command_hotkeys =
@@ -1259,7 +1262,7 @@ void ProcessViewportCommandTriggers(
       ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
     if (state_bundle.smart_menu != nullptr) {
       RC_UI::Commands::RequestOpenSmartMenu(*state_bundle.smart_menu,
-                                            params.mouse_pos);
+                                            params.mouse_pos, domain_library);
     }
   }
 
@@ -1269,7 +1272,7 @@ void ProcessViewportCommandTriggers(
        ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))) {
     if (state_bundle.pie_menu != nullptr) {
       RC_UI::Commands::RequestOpenPieMenu(*state_bundle.pie_menu,
-                                          params.mouse_pos);
+                                          params.mouse_pos, domain_library);
     }
   }
 

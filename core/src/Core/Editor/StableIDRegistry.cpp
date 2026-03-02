@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <unordered_set>
 
 namespace RogueCity::Core::Editor {
 
@@ -87,6 +88,10 @@ namespace {
     return kind != VpEntityKind::Unknown;
 }
 
+[[nodiscard]] bool IsKnownKind(uint8_t kind_u8) {
+    return kind_u8 <= static_cast<uint8_t>(VpEntityKind::Block);
+}
+
 } // namespace
 
 StableID StableIDRegistry::AllocateStableID(VpEntityKind kind, uint32_t viewport_id) {
@@ -116,6 +121,34 @@ std::optional<ViewportEntityID> StableIDRegistry::GetViewportID(const StableID& 
     if (const auto it = stable_to_viewport_.find(stable_id); it != stable_to_viewport_.end()) {
         return it->second;
     }
+
+    uint64_t canonical_id = stable_id.id;
+    std::unordered_set<uint64_t> visited;
+    visited.reserve(8u);
+    while (true) {
+        if (!visited.insert(canonical_id).second) {
+            break;
+        }
+        const auto alias_it = aliases_.find(canonical_id);
+        if (alias_it == aliases_.end() || alias_it->second == canonical_id) {
+            break;
+        }
+        canonical_id = alias_it->second;
+    }
+
+    if (canonical_id != stable_id.id) {
+        const StableID canonical{ canonical_id, stable_id.version };
+        if (const auto it = stable_to_viewport_.find(canonical); it != stable_to_viewport_.end()) {
+            return it->second;
+        }
+
+        for (const auto& [stable, viewport] : stable_to_viewport_) {
+            if (stable.id == canonical_id) {
+                return viewport;
+            }
+        }
+    }
+
     return std::nullopt;
 }
 
@@ -152,10 +185,17 @@ void StableIDRegistry::RebuildMapping(const std::vector<ViewportEntityID>& activ
         new_stable_to_viewport.emplace(stable, viewport_id);
     }
 
-    for (const auto& [viewport_id, stable] : viewport_to_stable_) {
-        (void)viewport_id;
-        if (new_stable_to_viewport.find(stable) == new_stable_to_viewport.end()) {
-            aliases_[stable.id] = stable.id; // migration placeholder
+    std::unordered_set<uint64_t> active_stable_ids;
+    active_stable_ids.reserve(new_stable_to_viewport.size());
+    for (const auto& [stable, viewport] : new_stable_to_viewport) {
+        (void)viewport;
+        active_stable_ids.insert(stable.id);
+    }
+    for (auto it = aliases_.begin(); it != aliases_.end();) {
+        if (it->first == it->second || active_stable_ids.find(it->second) == active_stable_ids.end()) {
+            it = aliases_.erase(it);
+        } else {
+            ++it;
         }
     }
 
@@ -202,8 +242,14 @@ std::string StableIDRegistry::Serialize() const {
 bool StableIDRegistry::Deserialize(std::string_view serialized) {
     Clear();
 
+    uint64_t parsed_next_id = 1u;
+    std::unordered_map<ViewportEntityID, StableID, ViewportEntityIDHasher> parsed_viewport_to_stable;
+    std::unordered_map<StableID, ViewportEntityID, StableIDHasher> parsed_stable_to_viewport;
+    std::unordered_map<uint64_t, uint64_t> parsed_aliases;
+
     std::istringstream in{ std::string(serialized) };
     std::string line;
+    bool ok = true;
 
     while (std::getline(in, line)) {
         line = Trim(std::move(line));
@@ -213,16 +259,19 @@ bool StableIDRegistry::Deserialize(std::string_view serialized) {
 
         const auto eq = line.find('=');
         if (eq == std::string::npos) {
-            continue;
+            ok = false;
+            break;
         }
 
         const std::string key = Trim(line.substr(0, eq));
         const std::string value = Trim(line.substr(eq + 1));
         if (key == "next") {
             uint64_t parsed_next = 0;
-            if (ParseU64(value, parsed_next) && parsed_next > 0u) {
-                next_stable_id_ = parsed_next;
+            if (!ParseU64(value, parsed_next) || parsed_next == 0u) {
+                ok = false;
+                break;
             }
+            parsed_next_id = parsed_next;
             continue;
         }
 
@@ -234,7 +283,8 @@ bool StableIDRegistry::Deserialize(std::string_view serialized) {
                 parts.push_back(Trim(token));
             }
             if (parts.size() != 4) {
-                continue;
+                ok = false;
+                break;
             }
 
             uint8_t kind_u8 = 0;
@@ -245,18 +295,35 @@ bool StableIDRegistry::Deserialize(std::string_view serialized) {
                 !ParseU32(parts[1], viewport_id) ||
                 !ParseU64(parts[2], stable_id) ||
                 !ParseU32(parts[3], version)) {
-                continue;
+                ok = false;
+                break;
+            }
+            if (!IsKnownKind(kind_u8) || viewport_id == 0u || stable_id == 0u) {
+                ok = false;
+                break;
             }
 
             const ViewportEntityID viewport{
                 static_cast<VpEntityKind>(kind_u8),
                 viewport_id
             };
+            if (!IsMappableKind(viewport.kind)) {
+                ok = false;
+                break;
+            }
             const StableID stable{ stable_id, version == 0u ? 1u : version };
 
-            viewport_to_stable_[viewport] = stable;
-            stable_to_viewport_[stable] = viewport;
-            next_stable_id_ = std::max(next_stable_id_, stable_id + 1u);
+            const auto [vp_it, vp_inserted] = parsed_viewport_to_stable.emplace(viewport, stable);
+            if (!vp_inserted && vp_it->second != stable) {
+                ok = false;
+                break;
+            }
+            const auto [stable_it, stable_inserted] = parsed_stable_to_viewport.emplace(stable, viewport);
+            if (!stable_inserted && !(stable_it->second == viewport)) {
+                ok = false;
+                break;
+            }
+            parsed_next_id = std::max(parsed_next_id, stable_id + 1u);
             continue;
         }
 
@@ -265,17 +332,35 @@ bool StableIDRegistry::Deserialize(std::string_view serialized) {
             std::string left;
             std::string right;
             if (!std::getline(value_stream, left, ',') || !std::getline(value_stream, right)) {
-                continue;
+                ok = false;
+                break;
             }
             uint64_t legacy_id = 0;
             uint64_t canonical_id = 0;
-            if (ParseU64(Trim(left), legacy_id) && ParseU64(Trim(right), canonical_id)) {
-                aliases_[legacy_id] = canonical_id;
+            if (!ParseU64(Trim(left), legacy_id) ||
+                !ParseU64(Trim(right), canonical_id) ||
+                legacy_id == 0u ||
+                canonical_id == 0u) {
+                ok = false;
+                break;
             }
+            parsed_aliases[legacy_id] = canonical_id;
             continue;
         }
+
+        ok = false;
+        break;
     }
 
+    if (!ok) {
+        Clear();
+        return false;
+    }
+
+    next_stable_id_ = std::max<uint64_t>(1u, parsed_next_id);
+    viewport_to_stable_ = std::move(parsed_viewport_to_stable);
+    stable_to_viewport_ = std::move(parsed_stable_to_viewport);
+    aliases_ = std::move(parsed_aliases);
     return true;
 }
 

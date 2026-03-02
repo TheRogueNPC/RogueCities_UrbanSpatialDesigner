@@ -1,0 +1,105 @@
+{
+  "actions": [],
+  "active_mode": "ROAD",
+  "app_name": "RogueCity Visualizer",
+  "context_tags": [
+    "mode:ROAD",
+    "devshell:inactive"
+  ],
+  "panels": [
+    {
+      "dock_area": "Top",
+      "id": "Rogue Titlebar",
+      "owner_module": "visualizer/src/ui/rc_ui_root.cpp",
+      "role": "titlebar",
+      "tags": [
+        "titlebar",
+        "chrome",
+        "runtime"
+      ],
+      "title": "Titlebar",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "titlebar.brand",
+          "label": "Titlebar Brand",
+          "tags": [
+            "titlebar"
+          ],
+          "type": "text"
+        },
+        {
+          "binding": "titlebar.mode",
+          "label": "Mode Indicator",
+          "tags": [
+            "titlebar"
+          ],
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "dock_area": "Bottom",
+      "id": "Rogue Status Bar",
+      "owner_module": "visualizer/src/ui/rc_ui_root.cpp",
+      "role": "status",
+      "tags": [
+        "status",
+        "runtime"
+      ],
+      "title": "Status Bar",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "status.summary",
+          "label": "Status Summary",
+          "tags": [
+            "status"
+          ],
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "dock_area": "Left",
+      "id": "Master Panel",
+      "owner_module": "visualizer/src/ui/panels/RcMasterPanel.cpp",
+      "role": "container",
+      "tags": [
+        "master",
+        "router",
+        "tabs"
+      ],
+      "title": "Master Panel",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "dev.mode_enabled",
+          "label": "Enable Dev Mode",
+          "tags": [
+            "dev",
+            "features"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "uiint.include_dock_tree",
+          "label": "Include dock_tree",
+          "tags": [
+            "dev"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "uiint.output_dir",
+          "label": "Output dir",
+          "tags": [
+            "dev"
+          ],
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "protocol_version": "ui-introspect-v1"
+}

@@ -31,6 +31,15 @@ void ApplySelectionModifier(SelectionManager &selection, VpEntityKind kind,
   }
 }
 
+// Shared: clear all entity-type selection handles before setting the new one.
+// Called at the start of every OnEntitySelected in Road/District/Lot/Building traits.
+void ClearAllSelections(RogueCity::Core::Editor::GlobalState &gs) {
+  gs.selection.selected_road = {};
+  gs.selection.selected_district = {};
+  gs.selection.selected_lot = {};
+  gs.selection.selected_building = {};
+}
+
 template <typename T, typename Predicate>
 void EraseIfFva(fva::Container<T> &container, Predicate &&predicate) {
   for (size_t data_index = container.size(); data_index > 0; --data_index) {
@@ -118,10 +127,8 @@ struct RoadIndexTraits {
 
   static void OnEntitySelected(EntityType &road, size_t index) {
     auto &gs = GetGlobalState();
+    ClearAllSelections(gs);
     gs.selection.selected_road = gs.roads.createHandleFromData(index);
-    gs.selection.selected_district = {};
-    gs.selection.selected_lot = {};
-    gs.selection.selected_building = {};
     ApplySelectionModifier(gs.selection_manager, VpEntityKind::Road, road.id);
     if (!road.points.empty()) {
       const auto midpoint = road.points[road.points.size() / 2];
@@ -233,10 +240,8 @@ struct DistrictIndexTraits {
 
   static void OnEntitySelected(EntityType &district, size_t index) {
     auto &gs = GetGlobalState();
-    gs.selection.selected_road = {};
+    ClearAllSelections(gs);
     gs.selection.selected_district = gs.districts.createHandleFromData(index);
-    gs.selection.selected_lot = {};
-    gs.selection.selected_building = {};
     ApplySelectionModifier(gs.selection_manager, VpEntityKind::District,
                            district.id);
     if (!district.border.empty()) {
@@ -319,10 +324,8 @@ struct LotIndexTraits {
 
   static void OnEntitySelected(EntityType &lot, size_t index) {
     auto &gs = GetGlobalState();
-    gs.selection.selected_road = {};
-    gs.selection.selected_district = {};
+    ClearAllSelections(gs);
     gs.selection.selected_lot = gs.lots.createHandleFromData(index);
-    gs.selection.selected_building = {};
     ApplySelectionModifier(gs.selection_manager, VpEntityKind::Lot, lot.id);
     RC_UI::Viewport::GetViewportOverlays().SetSelectedLot(lot.centroid);
   }
@@ -410,9 +413,7 @@ struct BuildingIndexTraits {
 
   static void OnEntitySelected(EntityType &building, size_t index) {
     auto &gs = GetGlobalState();
-    gs.selection.selected_road = {};
-    gs.selection.selected_district = {};
-    gs.selection.selected_lot = {};
+    ClearAllSelections(gs);
     gs.selection.selected_building = gs.buildings.createHandleFromData(index);
     ApplySelectionModifier(gs.selection_manager, VpEntityKind::Building,
                            building.id);

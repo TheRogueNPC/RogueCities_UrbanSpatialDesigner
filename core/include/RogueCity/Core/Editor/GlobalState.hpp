@@ -338,6 +338,26 @@ enum class BuildingSubtool : uint8_t {
   Inspect
 };
 
+enum class ViewportSelectionMode : uint8_t {
+  Auto = 0,
+  Rectangle,
+  Lasso
+};
+
+enum class ViewportEditTool : uint8_t {
+  Auto = 0,
+  Move,
+  HandleMove
+};
+
+enum class ViewportSelectionTarget : uint8_t {
+  Nodes = 0,
+  Edges,
+  Faces,
+  Lots,
+  Districts
+};
+
 struct ToolRuntimeState {
   ToolDomain active_domain{ToolDomain::Road};
   WaterSubtool water_subtool{WaterSubtool::Flow};
@@ -347,6 +367,9 @@ struct ToolRuntimeState {
   DistrictSubtool district_subtool{DistrictSubtool::Zone};
   LotSubtool lot_subtool{LotSubtool::Plot};
   BuildingSubtool building_subtool{BuildingSubtool::Place};
+  ViewportSelectionMode viewport_selection_mode{ViewportSelectionMode::Auto};
+  ViewportEditTool viewport_edit_tool{ViewportEditTool::Auto};
+  ViewportSelectionTarget viewport_selection_target{ViewportSelectionTarget::Nodes};
   std::string last_action_id{};
   std::string last_action_label{};
   std::string last_action_status{};
@@ -357,7 +380,7 @@ struct ToolRuntimeState {
   bool explicit_generation_pending{false};
 
   // Viewport chrome/runtime UI state.
-  bool viewport_scene_stats_collapsed{false};
+  bool viewport_scene_stats_collapsed{true};
   bool viewport_global_palette_visible{false};
   std::string viewport_warning_text{};
   float viewport_warning_ttl_seconds{0.0f};

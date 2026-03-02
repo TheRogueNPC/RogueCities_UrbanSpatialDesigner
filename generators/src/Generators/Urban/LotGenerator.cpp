@@ -1,15 +1,23 @@
 #include "RogueCity/Generators/Urban/LotGenerator.hpp"
 
+#include "RogueCity/Core/Geometry/PolygonOps.hpp"
 #include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
 #include "RogueCity/Generators/Urban/FrontageProfiles.hpp"
 #include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_map>
 
 namespace RogueCity::Generators::Urban {
 
     namespace {
+
+        using GeoPolygon = Core::Geometry::Polygon;
+        using GeoRegion = Core::Geometry::PolygonRegion;
+        using GeoOps = Core::Geometry::PolygonOps;
+
+        constexpr double kGeomEpsilon = 1e-6;
 
         // Tracks nearest and second-nearest road types for AESP-style lot context.
         struct NearestRoads {
@@ -95,6 +103,82 @@ namespace RogueCity::Generators::Urban {
             }
         }
 
+        [[nodiscard]] bool IsFinite(const Core::Vec2& point) {
+            return std::isfinite(point.x) && std::isfinite(point.y);
+        }
+
+        [[nodiscard]] GeoPolygon ToGeoPolygon(const std::vector<Core::Vec2>& ring) {
+            GeoPolygon poly{};
+            poly.vertices = ring;
+            return poly;
+        }
+
+        [[nodiscard]] bool BuildBuildableRegion(const Core::BlockPolygon& block, GeoRegion& out_region) {
+            GeoRegion raw{};
+            raw.outer = ToGeoPolygon(block.outer);
+            raw.holes.reserve(block.holes.size());
+            for (const auto& hole_ring : block.holes) {
+                raw.holes.push_back(ToGeoPolygon(hole_ring));
+            }
+            out_region = GeoOps::SimplifyRegion(raw, kGeomEpsilon);
+            return GeoOps::IsValidRegion(out_region, kGeomEpsilon);
+        }
+
+        [[nodiscard]] bool PointInsideBuildable(
+            const Core::Vec2& point,
+            const GeoRegion& region) {
+            if (!PolygonUtil::insidePolygon(point, region.outer.vertices)) {
+                return false;
+            }
+            for (const auto& hole : region.holes) {
+                if (PolygonUtil::insidePolygon(point, hole.vertices)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        [[nodiscard]] GeoPolygon CandidateRect(const Core::Vec2& center, double width, double depth) {
+            GeoPolygon candidate{};
+            candidate.vertices = {
+                { center.x - width * 0.5, center.y - depth * 0.5 },
+                { center.x + width * 0.5, center.y - depth * 0.5 },
+                { center.x + width * 0.5, center.y + depth * 0.5 },
+                { center.x - width * 0.5, center.y + depth * 0.5 },
+            };
+            return candidate;
+        }
+
+        [[nodiscard]] bool ExtractLargestIntersection(
+            const GeoPolygon& candidate,
+            const GeoRegion& buildable_region,
+            GeoPolygon& out_polygon,
+            double& out_area_abs) {
+            out_area_abs = 0.0;
+            out_polygon.vertices.clear();
+
+            GeoRegion candidate_region{};
+            candidate_region.outer = candidate;
+            const auto clipped_regions = GeoOps::ClipRegions(candidate_region, buildable_region);
+            for (const auto& region : clipped_regions) {
+                if (!region.holes.empty()) {
+                    continue;
+                }
+                const GeoPolygon& poly = region.outer;
+                if (!GeoOps::IsValidPolygon(poly, kGeomEpsilon)) {
+                    continue;
+                }
+                const double area_abs = std::abs(PolygonUtil::area(poly.vertices));
+                if (area_abs <= out_area_abs + kGeomEpsilon) {
+                    continue;
+                }
+                out_polygon = poly;
+                out_area_abs = area_abs;
+            }
+
+            return out_area_abs > kGeomEpsilon;
+        }
+
     } // namespace
 
     // Generates lot tokens by packing candidate rectangles within block polygons.
@@ -124,25 +208,34 @@ namespace RogueCity::Generators::Urban {
                 break;
             }
 
+            GeoRegion buildable_region{};
+            if (!BuildBuildableRegion(block, buildable_region)) {
+                continue;
+            }
+
             const auto bbox = PolygonUtil::bounds(block.outer);
             for (double y = bbox.min.y + lot_d * 0.5; y < bbox.max.y; y += lot_d) {
                 for (double x = bbox.min.x + lot_w * 0.5; x < bbox.max.x; x += lot_w) {
                     if (lots.size() >= config.max_lots) {
                         break;
                     }
-                    // Reject candidate centers outside polygon shell or inside any hole.
                     const Core::Vec2 c{ x, y };
-                    if (!PolygonUtil::insidePolygon(c, block.outer)) {
+                    if (!PointInsideBuildable(c, buildable_region)) {
                         continue;
                     }
-                    bool in_hole = false;
-                    for (const auto& hole : block.holes) {
-                        if (PolygonUtil::insidePolygon(c, hole)) {
-                            in_hole = true;
-                            break;
-                        }
+
+                    const GeoPolygon candidate = CandidateRect(c, lot_w, lot_d);
+                    GeoPolygon clipped_lot{};
+                    double clipped_area = 0.0;
+                    if (!ExtractLargestIntersection(candidate, buildable_region, clipped_lot, clipped_area)) {
+                        continue;
                     }
-                    if (in_hole) {
+
+                    const double target_tile_area = lot_w * lot_d;
+                    const double min_area = std::min(static_cast<double>(config.min_lot_area), target_tile_area);
+                    const double max_area = std::max(static_cast<double>(config.max_lot_area), target_tile_area);
+                    if (clipped_area + kGeomEpsilon < min_area ||
+                        clipped_area > max_area + kGeomEpsilon) {
                         continue;
                     }
 
@@ -155,20 +248,19 @@ namespace RogueCity::Generators::Urban {
                     Core::LotToken lot;
                     lot.id = next_id++;
                     lot.district_id = block.district_id;
-                    lot.centroid = c;
+                    lot.centroid = PolygonUtil::centroid(clipped_lot.vertices);
+                    if (!IsFinite(lot.centroid) ||
+                        !PolygonUtil::insidePolygon(lot.centroid, clipped_lot.vertices)) {
+                        lot.centroid = c;
+                    }
                     lot.primary_road = near_roads.primary;
                     lot.secondary_road = near_roads.has_secondary ? near_roads.secondary : near_roads.primary;
                     lot.access = aesp.access;
                     lot.exposure = aesp.exposure;
                     lot.serviceability = aesp.serviceability;
                     lot.privacy = aesp.privacy;
-                    lot.area = static_cast<float>(lot_w * lot_d);
-                    lot.boundary = {
-                        { c.x - lot_w * 0.5, c.y - lot_d * 0.5 },
-                        { c.x + lot_w * 0.5, c.y - lot_d * 0.5 },
-                        { c.x + lot_w * 0.5, c.y + lot_d * 0.5 },
-                        { c.x - lot_w * 0.5, c.y + lot_d * 0.5 },
-                    };
+                    lot.area = static_cast<float>(clipped_area);
+                    lot.boundary = std::move(clipped_lot.vertices);
 
                     // Blend district archetype with AESP to pick final lot program.
                     auto it = district_types.find(lot.district_id);

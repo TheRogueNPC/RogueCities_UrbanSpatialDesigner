@@ -16,7 +16,6 @@
 #include <magic_enum/magic_enum.hpp>
 #include <unordered_map>
 
-
 namespace RC_UI::Viewport {
 
 namespace {
@@ -462,7 +461,15 @@ void ViewportOverlays::Render(RogueCity::Core::Editor::GlobalState &gs,
     RenderCompassGimbalHUD(config.compass_parented, config.compass_center,
                            config.compass_radius);
   }
-  RenderFlightDeckHUD(gs);
+  // RenderFlightDeckHUD(gs); // Replaced by RenderToolBadgeHUD for Phase 2
+  // mockup
+
+  Render2DCursorHUD(gs);
+  // Tool badge only shown when unified chrome is disabled to avoid overlap
+  if (!gs.config.feature_ui_chrome_unification) {
+    RenderToolBadgeHUD(gs);
+  }
+
   RenderSelectionOutlines(gs);
   RenderHighlights();
 
@@ -560,12 +567,11 @@ void FormatDistance(char *out, size_t out_sz, float meters) {
 void ViewportOverlays::RenderScaleRulerHUD(
     const RogueCity::Core::Editor::GlobalState &gs) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
-  const float padding = 16.0f;
-  const float minimap_h = 180.0f + 12.0f; // kMinimapSize + kMinimapPadding
-  const ImVec2 base_pt =
-      ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x -
-                 padding,
-             view_transform_.viewport_pos.y + minimap_h + 32.0f);
+  const float padding_bottom = 32.0f;
+  const ImVec2 base_pt = ImVec2(
+      view_transform_.viewport_pos.x + view_transform_.viewport_size.x * 0.5f,
+      view_transform_.viewport_pos.y + view_transform_.viewport_size.y -
+          padding_bottom);
 
   const double mpp =
       gs.HasTextureSpace()
@@ -578,17 +584,27 @@ void ViewportOverlays::RenderScaleRulerHUD(
   const float nice_m = SnapNiceMeters(meters);
   const float px_len = std::max(6.0f, nice_m * ppm);
 
-  const ImU32 col = TokenColor(UITokens::TextSecondary, 200u);
-  const ImVec2 a = ImVec2(base_pt.x - px_len, base_pt.y - 6.0f);
-  const ImVec2 b = ImVec2(base_pt.x, base_pt.y - 6.0f);
-  dl->AddLine(a, b, col, 2.5f);
+  // Neon glowing lines matching CSS mockup
+  const ImU32 col = IM_COL32(0, 255, 255, 255); // --rc-cyan
+  const ImU32 col_glow = IM_COL32(0, 255, 255, 60);
+
+  const ImVec2 a = ImVec2(base_pt.x - px_len * 0.5f, base_pt.y - 6.0f);
+  const ImVec2 b = ImVec2(base_pt.x + px_len * 0.5f, base_pt.y - 6.0f);
+
+  // Glow strokes
+  dl->AddLine(a, b, col_glow, 6.0f);
+  dl->AddLine(ImVec2(a.x, a.y - 6.0f), ImVec2(a.x, a.y + 6.0f), col_glow, 6.0f);
+  dl->AddLine(ImVec2(b.x, b.y - 6.0f), ImVec2(b.x, b.y + 6.0f), col_glow, 6.0f);
+
+  // Core strokes
+  dl->AddLine(a, b, col, 2.0f);
   dl->AddLine(ImVec2(a.x, a.y - 6.0f), ImVec2(a.x, a.y + 6.0f), col, 2.0f);
   dl->AddLine(ImVec2(b.x, b.y - 6.0f), ImVec2(b.x, b.y + 6.0f), col, 2.0f);
 
   char buf[64];
   FormatDistance(buf, sizeof(buf), nice_m);
   ImVec2 text_sz = ImGui::CalcTextSize(buf);
-  dl->AddText(ImVec2(b.x - text_sz.x, a.y - 20.0f), col, buf);
+  dl->AddText(ImVec2(base_pt.x - (text_sz.x * 0.5f), a.y - 20.0f), col, buf);
 }
 
 void ViewportOverlays::RenderFlightDeckHUD(
@@ -642,6 +658,8 @@ void ViewportOverlays::RenderFlightDeckHUD(
   // 2. Context Cue / Terminal Input
   const float input_start_x = mode_max.x + 16.0f;
   if (s_terminal_mode_active) {
+    ImGui::SetCursorScreenPos(ImVec2(input_start_x, bar_pos.y + 4.0f));
+    ImGui::Dummy(ImVec2(bar_end.x - input_start_x - 16.0f, 18.0f)); // Register bounds with layout system
     ImGui::SetCursorScreenPos(ImVec2(input_start_x, bar_pos.y + 4.0f));
     ImGui::PushItemWidth(bar_end.x - input_start_x - 16.0f);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 100));
@@ -705,14 +723,20 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
   ImDrawList *dl = ImGui::GetWindowDrawList();
   const float padding = 16.0f;
   const float r = std::max(18.0f, radius);
+  const float right_offset = 90.0f;
   const ImVec2 hud_center =
       parented ? center
                : ImVec2(view_transform_.viewport_pos.x +
-                            view_transform_.viewport_size.x - padding - r,
+                            view_transform_.viewport_size.x - right_offset - r,
                         view_transform_.viewport_pos.y + padding + r);
-  const ImU32 bg = IM_COL32(24, 24, 28, 220);
-  const ImU32 ring = IM_COL32(240, 240, 240, 200);
+
+  // Mockup-inspired compass background
+  const ImU32 bg = IM_COL32(10, 16, 20, 200);
+  const ImU32 ring = IM_COL32(0, 255, 255, 120);
+  const ImU32 ring_glow = IM_COL32(0, 255, 255, 40);
+
   dl->AddCircleFilled(hud_center, r, bg);
+  dl->AddCircle(hud_center, r, ring_glow, 24, 6.0f);
   dl->AddCircle(hud_center, r, ring, 24, 2.0f);
 
   const float ang = -view_transform_.yaw;
@@ -728,7 +752,7 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
   const ImVec2 dir_w = rotate_dir(ImVec2(-1.0f, 0.0f));
 
   const float label_radius = std::max(8.0f, r - 10.0f);
-  const ImU32 label_col = IM_COL32(220, 220, 220, 220);
+  const ImU32 label_col = IM_COL32(0, 255, 255, 200);
   auto draw_label = [&](const char *text, const ImVec2 &dir) {
     const ImVec2 text_size = ImGui::CalcTextSize(text);
     const ImVec2 pos(hud_center.x + dir.x * label_radius - text_size.x * 0.5f,
@@ -741,10 +765,11 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
   draw_label("S", dir_s);
   draw_label("W", dir_w);
 
-  // North needle (red).
+  // North needle (Amber glow like mockup alerts).
   const ImVec2 needle_tip = ImVec2(hud_center.x + dir_n.x * (r - 10.0f),
                                    hud_center.y + dir_n.y * (r - 10.0f));
-  dl->AddLine(hud_center, needle_tip, IM_COL32(220, 60, 60, 240), 3.0f);
+  dl->AddLine(hud_center, needle_tip, IM_COL32(255, 180, 0, 80), 6.0f);
+  dl->AddLine(hud_center, needle_tip, IM_COL32(255, 180, 0, 255), 2.0f);
 
   // Interaction: click + drag on compass ring to steer camera yaw.
   const ImVec2 mp = ImGui::GetIO().MousePos;
@@ -778,6 +803,102 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
     const float desired = ang_click + (3.14159265f * 0.5f);
     requested_yaw_ = desired;
   }
+}
+
+void ViewportOverlays::Render2DCursorHUD(
+    const RogueCity::Core::Editor::GlobalState &gs) {
+  (void)gs;
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  const ImVec2 center_idle = ImVec2(
+      view_transform_.viewport_pos.x + view_transform_.viewport_size.x * 0.5f,
+      view_transform_.viewport_pos.y + view_transform_.viewport_size.y * 0.5f);
+  const ImVec2 viewport_min = view_transform_.viewport_pos;
+  const ImVec2 viewport_max =
+      ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x,
+             view_transform_.viewport_pos.y + view_transform_.viewport_size.y);
+  const ImVec2 mouse = ImGui::GetMousePos();
+  const bool mouse_in_viewport =
+      mouse.x >= viewport_min.x && mouse.x <= viewport_max.x &&
+      mouse.y >= viewport_min.y && mouse.y <= viewport_max.y;
+  const ImVec2 center = mouse_in_viewport ? mouse : center_idle;
+
+  if (mouse_in_viewport) {
+    ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+  }
+
+  const float time = static_cast<float>(ImGui::GetTime());
+  const float pulse = (std::sin(time * 4.0f) * 0.5f + 0.5f);
+
+  const float base_r = mouse_in_viewport ? 8.0f : 12.0f;
+  const float pulse_r = base_r + pulse * (mouse_in_viewport ? 2.0f : 4.0f);
+
+  const ImU32 col_glow =
+      mouse_in_viewport
+          ? IM_COL32(0, 255, 255, static_cast<int>(70.0f + 45.0f * pulse))
+          : IM_COL32(0, 255, 255, static_cast<int>(50.0f * pulse));
+  const ImU32 col = mouse_in_viewport ? IM_COL32(0, 255, 255, 235)
+                                      : IM_COL32(0, 255, 255, 180);
+
+  // Outer pulsing brackets
+  dl->AddLine(ImVec2(center.x - pulse_r, center.y - 4.0f),
+              ImVec2(center.x - pulse_r, center.y + 4.0f), col_glow, 4.0f);
+  dl->AddLine(ImVec2(center.x - pulse_r, center.y - 4.0f),
+              ImVec2(center.x - pulse_r, center.y + 4.0f), col, 1.5f);
+
+  dl->AddLine(ImVec2(center.x + pulse_r, center.y - 4.0f),
+              ImVec2(center.x + pulse_r, center.y + 4.0f), col_glow, 4.0f);
+  dl->AddLine(ImVec2(center.x + pulse_r, center.y - 4.0f),
+              ImVec2(center.x + pulse_r, center.y + 4.0f), col, 1.5f);
+
+  dl->AddLine(ImVec2(center.x - 4.0f, center.y - pulse_r),
+              ImVec2(center.x + 4.0f, center.y - pulse_r), col_glow, 4.0f);
+  dl->AddLine(ImVec2(center.x - 4.0f, center.y - pulse_r),
+              ImVec2(center.x + 4.0f, center.y - pulse_r), col, 1.5f);
+
+  dl->AddLine(ImVec2(center.x - 4.0f, center.y + pulse_r),
+              ImVec2(center.x + 4.0f, center.y + pulse_r), col_glow, 4.0f);
+  dl->AddLine(ImVec2(center.x - 4.0f, center.y + pulse_r),
+              ImVec2(center.x + 4.0f, center.y + pulse_r), col, 1.5f);
+
+  // Center dot
+  dl->AddCircleFilled(center, 1.5f, IM_COL32(255, 255, 255, 200));
+
+}
+
+void ViewportOverlays::RenderToolBadgeHUD(
+    const RogueCity::Core::Editor::GlobalState &gs) {
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+
+  const ImVec2 pos = ImVec2(view_transform_.viewport_pos.x + 16.0f,
+                            view_transform_.viewport_pos.y + 16.0f);
+
+  char badge_text[128];
+  const auto active_domain_name =
+      magic_enum::enum_name(gs.tool_runtime.active_domain);
+  if (active_domain_name.empty()) {
+    std::snprintf(badge_text, sizeof(badge_text), "SYS_OP :: VIEWPORT");
+  } else {
+    std::snprintf(badge_text, sizeof(badge_text), "SYS_OP :: %.*s",
+                  static_cast<int>(active_domain_name.size()),
+                  active_domain_name.data());
+  }
+
+  const ImVec2 text_sz = ImGui::CalcTextSize(badge_text);
+
+  // Angled LCARS shape
+  const float h = text_sz.y + 16.0f;
+  const float w = text_sz.x + 32.0f;
+
+  const ImVec2 p1 = pos;
+  const ImVec2 p2 = ImVec2(pos.x + w, pos.y);
+  const ImVec2 p3 = ImVec2(pos.x + w + 12.0f, pos.y + h);
+  const ImVec2 p4 = ImVec2(pos.x, pos.y + h);
+
+  dl->AddQuadFilled(p1, p2, p3, p4, IM_COL32(0, 150, 255, 120));
+  dl->AddQuad(p1, p2, p3, p4, IM_COL32(0, 255, 255, 255), 1.5f);
+
+  dl->AddText(ImVec2(pos.x + 12.0f, pos.y + 8.0f), IM_COL32(255, 255, 255, 255),
+              badge_text);
 }
 
 void ViewportOverlays::RenderAESPHeatmap(

@@ -168,6 +168,36 @@ static AI::UiSnapshot BuildEnhancedSnapshot() {
     snapshot.state.state_model["lots.count"] = std::to_string(globalState.lots.size());
     snapshot.state.state_model["mode.active"] = ActiveModeFromHFSM();
 
+    const std::vector<RC_UI::WorkspacePresetMetadata> preset_metadata =
+        RC_UI::ListWorkspacePresetMetadata();
+    snapshot.state.state_model["workspace.presets.count"] =
+        std::to_string(preset_metadata.size());
+
+    const size_t reported_presets = std::min<size_t>(preset_metadata.size(), 8u);
+    snapshot.state.state_model["workspace.presets.reported"] =
+        std::to_string(reported_presets);
+    for (size_t i = 0; i < reported_presets; ++i) {
+        const auto& preset = preset_metadata[i];
+        const std::string prefix =
+            "workspace.preset." + std::to_string(i) + ".";
+        snapshot.state.state_model[prefix + "name"] = preset.name;
+        snapshot.state.state_model[prefix + "theme"] =
+            preset.has_theme ? preset.theme_name : "";
+        snapshot.state.state_model[prefix + "saved_at_utc"] =
+            preset.saved_at_utc;
+        snapshot.state.state_model[prefix + "monitor_count"] =
+            std::to_string(std::max(1, preset.monitor_count));
+        snapshot.state.state_model[prefix + "docking_enabled"] =
+            preset.docking_enabled ? "1" : "0";
+        snapshot.state.state_model[prefix + "multi_viewport_enabled"] =
+            preset.multi_viewport_enabled ? "1" : "0";
+        if (preset.has_viewport_size) {
+            snapshot.state.state_model[prefix + "viewport_size"] =
+                std::to_string(static_cast<int>(preset.viewport_size.x)) + "x" +
+                std::to_string(static_cast<int>(preset.viewport_size.y));
+        }
+    }
+
     snapshot.logTail.push_back("Mode: " + ActiveModeFromHFSM());
     snapshot.logTail.push_back("LivePreview: " + std::string(snapshot.state.livePreview ? "on" : "off"));
     snapshot.logTail.push_back("Seed: " + std::to_string(snapshot.state.seed));

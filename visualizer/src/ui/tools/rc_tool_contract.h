@@ -101,6 +101,11 @@ enum class ToolActionId : uint16_t {
     Future_Flow,
     Future_Furnature,
 
+    Visualizer_RectangleSelect,
+    Visualizer_LassoSelect,
+    Visualizer_MoveNodes,
+    Visualizer_HandleMove,
+
     Count
 };
 

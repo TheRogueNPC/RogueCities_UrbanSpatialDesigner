@@ -439,6 +439,59 @@ void DrawGizmoControls(GlobalState& gs) {
     ImGui::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.01f, 0.5f, "%.2f");
 }
 
+// -------------------------------------------------------------------------
+// Shared entity flag helpers — extracted from 4 DrawSingle* functions.
+// Each replaced ~17+10+5 = 32 lines of copy-paste per entity type.
+// -------------------------------------------------------------------------
+
+// User Placed/Created flag + GenerationTag sync, called before GenLocked.
+template<typename T>
+static void DrawUserFlagBlock(
+    CommandHistory& history, GlobalState& gs, T& e,
+    VpEntityKind kind, bool T::*flag_field,
+    const char* label, const char* commit_desc) {
+    const bool before = e.*flag_field;
+    if (ImGui::Checkbox(label, &(e.*flag_field))) {
+        const bool after = e.*flag_field;
+        if (after) {
+            e.generation_tag = RogueCity::Core::GenerationTag::M_user;
+            e.generation_locked = true;
+        } else if (e.generation_tag == RogueCity::Core::GenerationTag::M_user) {
+            e.generation_tag = RogueCity::Core::GenerationTag::Generated;
+            e.generation_locked = false;
+        }
+        CommitValueChange(history, commit_desc, before, after,
+            [&e, flag_field](bool v) { e.*flag_field = v; });
+        MarkDirtyForKind(gs, kind);
+    }
+    ImGui::Text("Generation Tag: %s", GenerationTagName(e.generation_tag));
+}
+
+// Generation Locked checkbox.
+template<typename T>
+static void DrawGenerationLocked(
+    CommandHistory& history, GlobalState& gs, T& e,
+    VpEntityKind kind, const char* commit_desc) {
+    const bool before = e.generation_locked;
+    if (ImGui::Checkbox("Generation Locked", &e.generation_locked)) {
+        const bool after = e.generation_locked;
+        CommitValueChange(history, commit_desc, before, after,
+            [&e](bool v) { e.generation_locked = v; });
+        MarkDirtyForKind(gs, kind);
+    }
+}
+
+// Layer assignment input widget.
+static void DrawLayerAssignment(GlobalState& gs, VpEntityKind kind, uint32_t id) {
+    const uint8_t current_layer = gs.GetEntityLayer(kind, id);
+    int layer_idx = static_cast<int>(current_layer);
+    if (ImGui::InputInt("Layer", &layer_idx)) {
+        layer_idx = std::clamp(layer_idx, 0, 255);
+        gs.SetEntityLayer(kind, id, static_cast<uint8_t>(layer_idx));
+        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+    }
+}
+
 void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
     auto& history = PropertyHistory();
     ImGui::Text("Selection: Road");
@@ -459,50 +512,13 @@ void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
         }
     }
 
-    {
-        const bool before = road.is_user_created;
-        if (ImGui::Checkbox("User Created", &road.is_user_created)) {
-            const bool after = road.is_user_created;
-            if (after) {
-                road.generation_tag = RogueCity::Core::GenerationTag::M_user;
-                road.generation_locked = true;
-            } else if (road.generation_tag == RogueCity::Core::GenerationTag::M_user) {
-                road.generation_tag = RogueCity::Core::GenerationTag::Generated;
-                road.generation_locked = false;
-            }
-            CommitValueChange(
-                history,
-                "Road User Flag",
-                before,
-                after,
-                [&road](bool v) { road.is_user_created = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Road);
-        }
-    }
-    ImGui::Text("Generation Tag: %s", GenerationTagName(road.generation_tag));
-    {
-        const bool before = road.generation_locked;
-        if (ImGui::Checkbox("Generation Locked", &road.generation_locked)) {
-            const bool after = road.generation_locked;
-            CommitValueChange(
-                history,
-                "Road Generation Lock",
-                before,
-                after,
-                [&road](bool v) { road.generation_locked = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Road);
-        }
-    }
+    DrawUserFlagBlock(history, gs, road, VpEntityKind::Road,
+        &RogueCity::Core::Road::is_user_created, "User Created", "Road User Flag");
+    DrawGenerationLocked(history, gs, road, VpEntityKind::Road, "Road Generation Lock");
 
     ImGui::Text("Point Count: %zu", road.points.size());
 
-    const uint8_t current_layer = gs.GetEntityLayer(VpEntityKind::Road, road.id);
-    int layer_idx = static_cast<int>(current_layer);
-    if (ImGui::InputInt("Layer", &layer_idx)) {
-        layer_idx = std::clamp(layer_idx, 0, 255);
-        gs.SetEntityLayer(VpEntityKind::Road, road.id, static_cast<uint8_t>(layer_idx));
-        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-    }
+    DrawLayerAssignment(gs, VpEntityKind::Road, road.id);
 
     ImGui::SeparatorText("Curve / Spline");
     ImGui::Checkbox("Enable Spline Tool", &gs.spline_editor.enabled);
@@ -553,40 +569,9 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
     }
-    {
-        const bool before = district.is_user_placed;
-        if (ImGui::Checkbox("User Placed", &district.is_user_placed)) {
-            const bool after = district.is_user_placed;
-            if (after) {
-                district.generation_tag = RogueCity::Core::GenerationTag::M_user;
-                district.generation_locked = true;
-            } else if (district.generation_tag == RogueCity::Core::GenerationTag::M_user) {
-                district.generation_tag = RogueCity::Core::GenerationTag::Generated;
-                district.generation_locked = false;
-            }
-            CommitValueChange(
-                history,
-                "District User Flag",
-                before,
-                after,
-                [&district](bool v) { district.is_user_placed = v; });
-            MarkDirtyForKind(gs, VpEntityKind::District);
-        }
-    }
-    ImGui::Text("Generation Tag: %s", GenerationTagName(district.generation_tag));
-    {
-        const bool before = district.generation_locked;
-        if (ImGui::Checkbox("Generation Locked", &district.generation_locked)) {
-            const bool after = district.generation_locked;
-            CommitValueChange(
-                history,
-                "District Generation Lock",
-                before,
-                after,
-                [&district](bool v) { district.generation_locked = v; });
-            MarkDirtyForKind(gs, VpEntityKind::District);
-        }
-    }
+    DrawUserFlagBlock(history, gs, district, VpEntityKind::District,
+        &RogueCity::Core::District::is_user_placed, "User Placed", "District User Flag");
+    DrawGenerationLocked(history, gs, district, VpEntityKind::District, "District Generation Lock");
 
     {
         ImGui::InputFloat("Budget Allocated", &district.budget_allocated);
@@ -623,13 +608,7 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
 
     ImGui::Text("Border Points: %zu", district.border.size());
 
-    const uint8_t current_layer = gs.GetEntityLayer(VpEntityKind::District, district.id);
-    int layer_idx = static_cast<int>(current_layer);
-    if (ImGui::InputInt("Layer", &layer_idx)) {
-        layer_idx = std::clamp(layer_idx, 0, 255);
-        gs.SetEntityLayer(VpEntityKind::District, district.id, static_cast<uint8_t>(layer_idx));
-        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-    }
+    DrawLayerAssignment(gs, VpEntityKind::District, district.id);
 
     ImGui::SeparatorText("Boundary Editor");
     ImGui::Checkbox("Enable Boundary Edit", &gs.district_boundary_editor.enabled);
@@ -728,40 +707,9 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
         }
     }
 
-    {
-        const bool before = lot.is_user_placed;
-        if (ImGui::Checkbox("User Placed", &lot.is_user_placed)) {
-            const bool after = lot.is_user_placed;
-            if (after) {
-                lot.generation_tag = RogueCity::Core::GenerationTag::M_user;
-                lot.generation_locked = true;
-            } else if (lot.generation_tag == RogueCity::Core::GenerationTag::M_user) {
-                lot.generation_tag = RogueCity::Core::GenerationTag::Generated;
-                lot.generation_locked = false;
-            }
-            CommitValueChange(
-                history,
-                "Lot User Flag",
-                before,
-                after,
-                [&lot](bool v) { lot.is_user_placed = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Lot);
-        }
-    }
-    ImGui::Text("Generation Tag: %s", GenerationTagName(lot.generation_tag));
-    {
-        const bool before = lot.generation_locked;
-        if (ImGui::Checkbox("Generation Locked", &lot.generation_locked)) {
-            const bool after = lot.generation_locked;
-            CommitValueChange(
-                history,
-                "Lot Generation Lock",
-                before,
-                after,
-                [&lot](bool v) { lot.generation_locked = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Lot);
-        }
-    }
+    DrawUserFlagBlock(history, gs, lot, VpEntityKind::Lot,
+        &RogueCity::Core::LotToken::is_user_placed, "User Placed", "Lot User Flag");
+    DrawGenerationLocked(history, gs, lot, VpEntityKind::Lot, "Lot Generation Lock");
 
     {
         const bool before = lot.locked_type;
@@ -777,13 +725,7 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
         }
     }
 
-    const uint8_t current_layer = gs.GetEntityLayer(VpEntityKind::Lot, lot.id);
-    int layer_idx = static_cast<int>(current_layer);
-    if (ImGui::InputInt("Layer", &layer_idx)) {
-        layer_idx = std::clamp(layer_idx, 0, 255);
-        gs.SetEntityLayer(VpEntityKind::Lot, lot.id, static_cast<uint8_t>(layer_idx));
-        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-    }
+    DrawLayerAssignment(gs, VpEntityKind::Lot, lot.id);
 
     ImGui::SeparatorText("AESP Scores");
     ImGui::Text("Access: %.2f", lot.access);
@@ -830,40 +772,9 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
         }
     }
 
-    {
-        const bool before = building.is_user_placed;
-        if (ImGui::Checkbox("User Placed", &building.is_user_placed)) {
-            const bool after = building.is_user_placed;
-            if (after) {
-                building.generation_tag = RogueCity::Core::GenerationTag::M_user;
-                building.generation_locked = true;
-            } else if (building.generation_tag == RogueCity::Core::GenerationTag::M_user) {
-                building.generation_tag = RogueCity::Core::GenerationTag::Generated;
-                building.generation_locked = false;
-            }
-            CommitValueChange(
-                history,
-                "Building User Flag",
-                before,
-                after,
-                [&building](bool v) { building.is_user_placed = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Building);
-        }
-    }
-    ImGui::Text("Generation Tag: %s", GenerationTagName(building.generation_tag));
-    {
-        const bool before = building.generation_locked;
-        if (ImGui::Checkbox("Generation Locked", &building.generation_locked)) {
-            const bool after = building.generation_locked;
-            CommitValueChange(
-                history,
-                "Building Generation Lock",
-                before,
-                after,
-                [&building](bool v) { building.generation_locked = v; });
-            MarkDirtyForKind(gs, VpEntityKind::Building);
-        }
-    }
+    DrawUserFlagBlock(history, gs, building, VpEntityKind::Building,
+        &RogueCity::Core::BuildingSite::is_user_placed, "User Placed", "Building User Flag");
+    DrawGenerationLocked(history, gs, building, VpEntityKind::Building, "Building Generation Lock");
 
     {
         const bool before = building.locked_type;
@@ -914,13 +825,7 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
         }
     }
 
-    const uint8_t current_layer = gs.GetEntityLayer(VpEntityKind::Building, building.id);
-    int layer_idx = static_cast<int>(current_layer);
-    if (ImGui::InputInt("Layer", &layer_idx)) {
-        layer_idx = std::clamp(layer_idx, 0, 255);
-        gs.SetEntityLayer(VpEntityKind::Building, building.id, static_cast<uint8_t>(layer_idx));
-        gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-    }
+    DrawLayerAssignment(gs, VpEntityKind::Building, building.id);
 }
 
 template <typename TEntity, typename TFind, typename TApply, typename TValue>
@@ -1251,8 +1156,6 @@ void PropertyEditor::Draw(GlobalState& gs) {
         }
     }
 
-    DrawToolRuntime(gs);
-
     const auto selection_count = gs.selection_manager.Count();
     if (selection_count > 1) {
         const auto items = gs.selection_manager.Items();
@@ -1288,9 +1191,6 @@ void PropertyEditor::Draw(GlobalState& gs) {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::TextSecondary, 217u)), "No selection");
     }
 
-    DrawGizmoControls(gs);
-    DrawLayerManager(gs);
-    DrawValidationOverlayControls(gs);
     DrawQuerySelection(gs);
 }
 

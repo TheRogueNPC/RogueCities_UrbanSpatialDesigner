@@ -2466,5 +2466,97 @@
       "type": "enum",
       "name": "WorkspacePersona"
     }
+  ],
+  "AI/protocol/UiAgentProtocol.h": [
+    { "type": "class/struct", "name": "UiPanelInfo" },
+    { "type": "class/struct", "name": "UiHeaderInfo" },
+    { "type": "class/struct", "name": "UiStateInfo" },
+    { "type": "class/struct", "name": "UiSnapshot" },
+    { "type": "class/struct", "name": "UiCommand" },
+    { "type": "class/struct", "name": "UiAgentJson" }
+  ],
+  "AI/config/AiConfig.h": [
+    { "type": "class/struct", "name": "AiConfig" },
+    { "type": "class/struct", "name": "AiConfigManager" }
+  ],
+  "AI/client/CitySpecClient.h": [
+    { "type": "class/struct", "name": "CitySpecClient" }
+  ],
+  "AI/client/UiAgentClient.h": [
+    { "type": "class/struct", "name": "UiAgentClient" }
+  ],
+  "AI/client/UiDesignAssistant.h": [
+    { "type": "class/struct", "name": "UiDesignAssistant" }
+  ],
+  "AI/integration/AiAssist.h": [
+    { "type": "class/struct", "name": "AiAssist" }
+  ],
+  "AI/runtime/AiBridgeRuntime.h": [
+    { "type": "class/struct", "name": "AiBridgeRuntime" }
+  ],
+  "AI/runtime/AiAvailability.h": [
+    { "type": "class/struct", "name": "AiAvailability" }
+  ],
+  "AI/tools/Url.h": [
+    { "type": "class/struct", "name": "ParsedUrl" },
+    { "type": "function", "name": "ParseUrl" },
+    { "type": "function", "name": "JoinUrlPath" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_inspector.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Inspector" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_inspector_sidebar.h": [
+    { "type": "class/struct", "name": "RcInspectorSidebar" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_workspace.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Workspace" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_dev_shell.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::DevShell" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_building_control.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::BuildingControl" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_lot_control.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::LotControl" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_water_control.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::WaterControl" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_tools.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Tools" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_system_map.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::SystemMap" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_log.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Log" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_telemetry.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Telemetry" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_axiom_bar.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::AxiomBar" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_ui_settings.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::UiSettings" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_validation.h": [
+    { "type": "namespace", "name": "RC_UI::Panels::Validation" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_building_index.h": [
+    { "type": "class/struct", "name": "RcDataIndexPanel<BuildingSite, BuildingIndexTraits>" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_district_index.h": [
+    { "type": "class/struct", "name": "RcDataIndexPanel<District, DistrictIndexTraits>" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_lot_index.h": [
+    { "type": "class/struct", "name": "RcDataIndexPanel<Lot, LotIndexTraits>" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_road_index.h": [
+    { "type": "class/struct", "name": "RcDataIndexPanel<Road, RoadIndexTraits>" }
+  ],
+  "visualizer/src/ui/panels/rc_panel_river_index.h": [
+    { "type": "class/struct", "name": "RcDataIndexPanel<River, RiverIndexTraits>" }
   ]
 }

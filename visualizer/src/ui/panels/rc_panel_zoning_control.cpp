@@ -41,28 +41,43 @@ void DrawContent(float dt) {
     auto& gs = GetGlobalState();
     auto& state = GetPanelState();
     auto& bridge = state.bridge;
-    //todo consider adding a preview section with a mini-map or schematic representation of the generated zones and buildings, which updates in real-time as parameters are adjusted, providing immediate visual feedback to the user and enhancing the interactivity of the panel. This could be implemented using ImGui's drawing API to render a simplified top-down view of the city layout, with color-coded zones and building footprints, allowing users to quickly understand the impact of their parameter changes before generating the full city.
     // === PARAMETER SLIDERS ===
-    ImGui::SeparatorText("Lot Sizing");
-    
     bool changed = false;
-    changed |= ImGui::SliderInt("Min Lot Width", &state.config.min_lot_width, 5, 30);
-    changed |= ImGui::SliderInt("Max Lot Width", &state.config.max_lot_width, 30, 80);
-    changed |= ImGui::SliderInt("Min Lot Depth", &state.config.min_lot_depth, 10, 40);
-    changed |= ImGui::SliderInt("Max Lot Depth", &state.config.max_lot_depth, 40, 100);
-    
-    ImGui::SeparatorText("Building Constraints");
-    changed |= ImGui::SliderFloat("Min Coverage", &state.config.min_building_coverage, 0.2f, 0.6f, "%.1f%%");
-    changed |= ImGui::SliderFloat("Max Coverage", &state.config.max_building_coverage, 0.6f, 0.95f, "%.1f%%");
-    
-    ImGui::SeparatorText("Budget & Population");
-    changed |= ImGui::SliderFloat("Budget per Capita", &state.config.budget_per_capita, 50000.0f, 200000.0f, "$%.0f");
-    changed |= ImGui::SliderInt("Target Population", &state.config.target_population, 10000, 100000);
-    
-    ImGui::SeparatorText("Performance");
-    changed |= ImGui::Checkbox("Auto Threading", &state.config.auto_threading);
-    if (state.config.auto_threading) {
-        changed |= ImGui::SliderInt("Thread Threshold", &state.config.threading_threshold, 50, 500);
+
+    if (Components::DrawSectionHeader("Lot Sizing", UITokens::CyanAccent)) {
+        ImGui::Indent();
+        changed |= ImGui::SliderInt("Min Lot Width", &state.config.min_lot_width, 5, 30);
+        changed |= ImGui::SliderInt("Max Lot Width", &state.config.max_lot_width, 30, 80);
+        changed |= ImGui::SliderInt("Min Lot Depth", &state.config.min_lot_depth, 10, 40);
+        changed |= ImGui::SliderInt("Max Lot Depth", &state.config.max_lot_depth, 40, 100);
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
+
+    if (Components::DrawSectionHeader("Building Constraints", UITokens::CyanAccent)) {
+        ImGui::Indent();
+        changed |= ImGui::SliderFloat("Min Coverage", &state.config.min_building_coverage, 0.2f, 0.6f, "%.1f%%");
+        changed |= ImGui::SliderFloat("Max Coverage", &state.config.max_building_coverage, 0.6f, 0.95f, "%.1f%%");
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
+
+    if (Components::DrawSectionHeader("Budget & Population", UITokens::AmberGlow)) {
+        ImGui::Indent();
+        changed |= ImGui::SliderFloat("Budget per Capita", &state.config.budget_per_capita, 50000.0f, 200000.0f, "$%.0f");
+        changed |= ImGui::SliderInt("Target Population", &state.config.target_population, 10000, 100000);
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
+
+    if (Components::DrawSectionHeader("Performance", UITokens::GreenHUD)) {
+        ImGui::Indent();
+        changed |= ImGui::Checkbox("Auto Threading", &state.config.auto_threading);
+        if (state.config.auto_threading) {
+            changed |= ImGui::SliderInt("Thread Threshold", &state.config.threading_threshold, 50, 500);
+        }
+        ImGui::Unindent();
+        ImGui::Spacing();
     }
     
     state.parameters_changed = changed;
@@ -125,30 +140,26 @@ void DrawContent(float dt) {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "%s", state.last_error.c_str());
     }
 
-    if (gs.world_constraints.isValid()) {
-        ImGui::SeparatorText("Site Diagnostics");
+    if (gs.world_constraints.isValid() &&
+        Components::DrawSectionHeader("Site Diagnostics", UITokens::YellowWarning)) {
+        ImGui::Indent();
         ImGui::BulletText("Mode: %s", GenerationModeLabel(gs.site_profile.mode));
         ImGui::BulletText("Buildable Area: %.1f%%", gs.site_profile.buildable_fraction * 100.0f);
         ImGui::BulletText("Avg Buildable Slope: %.1f deg", gs.site_profile.average_buildable_slope);
         ImGui::BulletText("Fragmentation: %.2f", gs.site_profile.buildable_fragmentation);
         ImGui::BulletText("Policy Friction: %.2f", gs.site_profile.policy_friction);
-
         const ImVec4 status_color = ImGui::ColorConvertU32ToFloat4(
             gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed);
-        ImGui::TextColored(
-            status_color,
-            "Plan %s (%zu violations)",
-            gs.plan_approved ? "APPROVED" : "NEEDS REVIEW",
-            gs.plan_violations.size());
-
+        ImGui::TextColored(status_color, "Plan %s (%zu violations)",
+            gs.plan_approved ? "APPROVED" : "NEEDS REVIEW", gs.plan_violations.size());
         const int max_preview = 5;
         for (int i = 0; i < static_cast<int>(gs.plan_violations.size()) && i < max_preview; ++i) {
             const auto& violation = gs.plan_violations[static_cast<size_t>(i)];
-            ImGui::BulletText(
-                "[%.2f] %s",
-                violation.severity,
+            ImGui::BulletText("[%.2f] %s", violation.severity,
                 violation.message.empty() ? "Validation issue" : violation.message.c_str());
         }
+        ImGui::Unindent();
+        ImGui::Spacing();
     }
     
 }

@@ -55,6 +55,13 @@ namespace RC_UI::Panels::AxiomEditor {
 using namespace RogueCity::Core::Editor;
 
 namespace {
+// This compilation unit owns the integrated editor viewport experience:
+// - tool state for axiom and non-axiom domains,
+// - live/incremental generation requests,
+// - minimap rendering + interaction,
+// - editor chrome overlays and command surfaces.
+// Most helpers in this anonymous namespace are pure presentation or
+// translation glue between UI widgets and GlobalState/runtime systems.
 [[nodiscard]] ImU32 TokenColor(ImU32 base, uint8_t alpha = 255u) {
   return WithAlpha(base, alpha);
 }
@@ -100,6 +107,8 @@ static int s_minimap_high_fps_streak = 0;
 static int s_minimap_fps_degrade_steps = 0;
 static std::string s_minimap_lod_status_text = "LOD: Auto (1)";
 
+// Converts command registry action ids into concrete axiom types.
+// This is used by UI command dispatch and palette widgets.
 [[nodiscard]] bool
 TryAxiomTypeFromActionId(RC_UI::Tools::ToolActionId action_id,
                          RogueCity::App::AxiomType &out_type) {
@@ -141,6 +150,8 @@ TryAxiomTypeFromActionId(RC_UI::Tools::ToolActionId action_id,
   return false;
 }
 
+// Reverse lookup for dispatching back into the shared tool action system after
+// direct axiom type edits in the library UI.
 [[nodiscard]] bool
 TryActionIdFromAxiomType(RogueCity::App::AxiomType type,
                          RC_UI::Tools::ToolActionId &out_action) {
@@ -187,6 +198,8 @@ struct AxiomTerminalCue {
   std::array<RogueCity::App::AxiomType, 3> alternates;
 };
 
+// Returns context text + suggested alternates used by the "Terminal" segment
+// of the axiom library panel.
 [[nodiscard]] AxiomTerminalCue
 TerminalCueForAxiomType(RogueCity::App::AxiomType type) {
   using RogueCity::App::AxiomType;
@@ -235,6 +248,8 @@ TerminalCueForAxiomType(RogueCity::App::AxiomType type) {
   }
 }
 
+// Draws a compact, phase-aware status ribbon for live generation so the user
+// can differentiate "idle", "sweeping", and completion/cancel transitions.
 void DrawAxiomModeStatus(const Preview &preview, ImVec2 pos) {
   ImGui::SetCursorScreenPos(pos);
 
@@ -277,6 +292,8 @@ void DrawAxiomModeStatus(const Preview &preview, ImVec2 pos) {
                      "AXIOM MODE ACTIVE");
 }
 
+// Produces short domain/subtool-specific hints shown in viewport chrome when
+// the user is outside axiom mode.
 std::string
 BuildNonAxiomContextCue(const RogueCity::Core::Editor::GlobalState &gs) {
   using RogueCity::Core::Editor::BuildingSubtool;
@@ -387,6 +404,8 @@ BuildNonAxiomContextCue(const RogueCity::Core::Editor::GlobalState &gs) {
 } // namespace
 
 // === Clear Layer Command (Undoable) ===
+// ICommand implementation that snapshots selected layers before clearing them,
+// so each clear operation can be undone atomically.
 struct ClearLayerCommand : public RogueCity::App::ICommand {
   enum LayerMask : uint32_t {
     None = 0,
@@ -490,7 +509,7 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
       }
     }
 
-    // Perform the clear
+    // Perform the clear after snapshot capture so Undo can fully restore.
     if (layers & Axioms) {
       if (auto *axiom_tool = RC_UI::Panels::AxiomEditor::GetAxiomTool()) {
         axiom_tool->clear_axioms();
@@ -530,7 +549,7 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
   void Undo() override {
     auto &gs = RogueCity::Core::Editor::GetGlobalState();
 
-    // Restore from snapshots
+    // Restore each cleared layer from Execute-time snapshots.
     if (layers & Axioms) {
       if (auto *axiom_tool = RC_UI::Panels::AxiomEditor::GetAxiomTool()) {
         axiom_tool->clear_axioms();
@@ -597,7 +616,8 @@ struct ClearLayerCommand : public RogueCity::App::ICommand {
   const char *GetDescription() const override { return description.c_str(); }
 };
 
-// Singleton instances (owned by this panel)
+// Panel-owned singletons and runtime flags. These are intentionally kept local
+// to this translation unit so the panel can be initialized/shutdown as a unit.
 static std::unique_ptr<RogueCity::App::PrimaryViewport> s_primary_viewport;
 static std::unique_ptr<RogueCity::App::ViewportSyncManager> s_sync_manager;
 static std::unique_ptr<RogueCity::App::AxiomPlacementTool> s_axiom_tool;
@@ -611,7 +631,9 @@ static float s_debounce_seconds = 0.30f;
 static float s_flow_rate = 1.0f;
 static uint32_t s_seed = 42u;
 static std::string s_validation_error;
+// Set when UI mutations happened outside normal axiom-tool dirty tracking.
 static bool s_external_dirty = false;
+// Latches edits from the axiom library panel for the next generation tick.
 static bool s_library_modified = false;
 static RC_UI::Viewport::SceneFrame s_scene_frame{};
 static RC_UI::Commands::SmartMenuState s_smart_command_menu{};
@@ -619,14 +641,34 @@ static RC_UI::Commands::PieMenuState s_pie_command_menu{};
 static RC_UI::Commands::CommandPaletteState s_command_palette{};
 
 static RC_UI::Viewport::NonAxiomInteractionState s_non_axiom_interaction{};
-static RC_UI::ToolLibrary s_global_palette_library = RC_UI::ToolLibrary::Axiom;
 static float s_global_palette_open_lerp = 0.0f;
 static std::optional<RogueCity::Generators::TerminalFeature>
     s_terminal_hover_feature{};
 static float s_terminal_hover_elapsed = 0.0f;
 static constexpr float kTerminalHoverDelaySeconds = 0.45f;
+// Reused buffer to avoid per-frame allocations while drawing polylines.
 static std::vector<ImVec2> s_overlay_scratch_screen_points{};
 
+const char *SelectionTargetLabel(
+    RogueCity::Core::Editor::ViewportSelectionTarget target) {
+  using RogueCity::Core::Editor::ViewportSelectionTarget;
+  switch (target) {
+  case ViewportSelectionTarget::Nodes:
+    return "Nodes";
+  case ViewportSelectionTarget::Edges:
+    return "Edges";
+  case ViewportSelectionTarget::Faces:
+    return "Faces/Blocks";
+  case ViewportSelectionTarget::Lots:
+    return "Lots/Parcels";
+  case ViewportSelectionTarget::Districts:
+    return "Districts";
+  }
+  return "Nodes";
+}
+
+// Converts visual axiom enum values into the editor model enum consumed by the
+// generation pipeline and dirty-layer logic.
 RogueCity::Core::Editor::EditorAxiom::Type
 ToEditorAxiomType(RogueCity::App::AxiomVisual::AxiomType type) {
   using RogueCity::App::AxiomVisual;
@@ -660,6 +702,8 @@ ToEditorAxiomType(RogueCity::App::AxiomVisual::AxiomType type) {
   return EditorAxiom::Type::Grid;
 }
 
+// Keeps GlobalState::axioms synchronized with the interactive axiom tool so
+// every downstream system (validation, overlays, generation) reads one source.
 void SyncToolAxiomsToGlobalState() {
   if (!s_axiom_tool) {
     return;
@@ -686,6 +730,7 @@ void SyncToolAxiomsToGlobalState() {
   }
 }
 
+// Mean-centroid helper for minimap anchors and UI selection cues.
 RogueCity::Core::Vec2
 PolygonCentroid(const std::vector<RogueCity::Core::Vec2> &points) {
   RogueCity::Core::Vec2 centroid{};
@@ -699,6 +744,8 @@ PolygonCentroid(const std::vector<RogueCity::Core::Vec2> &points) {
   return centroid;
 }
 
+// Chooses a representative anchor point for an entity id/kind pair so
+// selection indicators can be rendered consistently in minimap space.
 bool ResolveSelectionAnchor(const RogueCity::Core::Editor::GlobalState &gs,
                             RogueCity::Core::Editor::VpEntityKind kind,
                             uint32_t id, RogueCity::Core::Vec2 &out_anchor) {
@@ -743,6 +790,8 @@ bool ResolveSelectionAnchor(const RogueCity::Core::Editor::GlobalState &gs,
   }
 }
 
+// Rebuilds viewport acceleration/index data only when required. This keeps
+// picking/overlay behavior correct while avoiding unnecessary full rebuilds.
 void EnsureViewportDerivedIndices(RogueCity::Core::Editor::GlobalState &gs) {
   using RogueCity::Core::Editor::DirtyLayer;
 
@@ -773,6 +822,7 @@ void EnsureViewportDerivedIndices(RogueCity::Core::Editor::GlobalState &gs) {
   // API.
 }
 
+// Allocates and wires panel runtime services once.
 void Initialize() {
   if (s_initialized)
     return;
@@ -827,6 +877,7 @@ void Initialize() {
   s_initialized = true;
 }
 
+// Releases panel-owned services in reverse dependency order.
 void Shutdown() {
   s_generation_coordinator.reset();
   s_axiom_tool.reset();
@@ -902,6 +953,8 @@ void MarkAxiomChanged() {
 }
 
 // Clear layer operations (undoable)
+// Wraps clear actions in an undoable command and applies extra resets for a
+// full world wipe (validation flags, connector debug data, preview output).
 void ClearLayer(uint32_t layer_mask, const char *description) {
   if (!s_axiom_tool)
     return;
@@ -950,8 +1003,8 @@ void ClearBuildings() {
 
 void ClearAllData() { ClearLayer(ClearLayerCommand::All, "Clear All Data"); }
 
-// this function is called by the AxiomPlacementTool when axioms are modified,
-// to trigger validation and preview updates
+// Builds generator inputs from current axiom tool state and derives a config
+// sized to the current world bounds + user seed/flow settings.
 static bool BuildInputs(
     std::vector<RogueCity::Generators::CityGenerator::AxiomInput> &out_inputs,
     RogueCity::Generators::CityGenerator::Config &out_config) {
@@ -998,6 +1051,8 @@ bool CanGenerate() {
   return !s_axiom_tool->axioms().empty();
 }
 
+// Explicit generation command from UI actions (e.g. "Generate now"). Prefers
+// incremental execution when placement dirtiness says a partial rebuild is safe.
 void ForceGenerate() {
   if (!s_generation_coordinator)
     return;
@@ -1144,6 +1199,8 @@ void SetMinimapVisible(bool visible) { s_minimap_visible = visible; }
 
 void ToggleMinimapVisible() { s_minimap_visible = !s_minimap_visible; }
 
+// External entry point used by other panels/systems to trigger generation with
+// prebuilt axioms/config values.
 bool ApplyGeneratorRequest(
     const std::vector<RogueCity::Generators::CityGenerator::AxiomInput> &axioms,
     const RogueCity::Generators::CityGenerator::Config &config,
@@ -1189,6 +1246,9 @@ bool ApplyGeneratorRequest(
 const char *GetValidationError() { return s_validation_error.c_str(); }
 
 // === ROGUENAV MINIMAP RENDERING ===
+// The minimap is rendered as an overlay layered on top of the primary
+// viewport. It uses the shared SceneFrame output to stay synchronized with
+// generation and camera state.
 static ImU32 GetNavAlertColor() {
   switch (s_nav_alert_level) {
   case RogueNavAlert::Alert:
@@ -1231,6 +1291,8 @@ static bool
 TryCityBoundaryBounds(const RogueCity::Core::Editor::GlobalState &gs,
                       RogueCity::Core::Vec2 &out_min,
                       RogueCity::Core::Vec2 &out_max) {
+  // World bounds are derived from texture resolution + meters-per-pixel and
+  // treated as authoritative camera constraints for minimap navigation.
   const RogueCity::Core::Bounds b = RogueCity::Core::Editor::ComputeWorldBounds(
       gs.city_texture_size, gs.city_meters_per_pixel);
   out_min = b.min;
@@ -1242,6 +1304,9 @@ static RogueCity::Core::Vec2
 ClampMinimapCameraToConstraints(const RogueCity::Core::Vec2 &camera_pos,
                                 RogueCity::Core::Editor::GlobalState &gs,
                                 double delta_seconds) {
+  // Two clamp modes are supported:
+  // - hard clamp: camera is immediately clipped to bounds.
+  // - spring clamp: camera can overscroll and settles with velocity damping.
   if (!gs.config.feature_camera_bounce_clamp) {
     RogueCity::Core::Vec2 min_bound{};
     RogueCity::Core::Vec2 max_bound{};
@@ -1271,6 +1336,8 @@ ClampMinimapCameraToConstraints(const RogueCity::Core::Vec2 &camera_pos,
 }
 
 static int MinimapLODLevel(MinimapLOD lod) {
+  // Lower number = finer detail. This ordering is used by keybinds + status
+  // text and intentionally matches UI labels (0/1/2).
   switch (lod) {
   case MinimapLOD::Detail:
     return 0; // Full detail
@@ -1296,6 +1363,8 @@ static MinimapLOD MinimapLODFromLevel(int level) {
 
 static MinimapLOD ComputeAutoMinimapLOD(float viewport_zoom,
                                         float minimap_zoom) {
+  // Primary driver is viewport zoom (what the user is inspecting). Minimap
+  // zoom can nudge one level for better readability without overriding intent.
   MinimapLOD lod = MinimapLOD::Detail;
   if (viewport_zoom <= 0.85f) {
     lod = MinimapLOD::Strategic;
@@ -1329,6 +1398,8 @@ static MinimapLOD CoarsenMinimapLOD(MinimapLOD lod) {
 }
 
 static void UpdateMinimapFPSPressure(float current_fps) {
+  // Uses a short moving window and hysteresis streaks to avoid noisy LOD
+  // oscillation from momentary FPS spikes/dips.
   s_minimap_fps_history.push_back(current_fps);
   if (s_minimap_fps_history.size() > 60u) {
     s_minimap_fps_history.pop_front();
@@ -1383,6 +1454,8 @@ CountDirtyTextureLayers(const RogueCity::Core::Editor::GlobalState &gs) {
 static MinimapLOD
 ComputeAdaptiveMinimapLOD(MinimapLOD base_lod,
                           const RogueCity::Core::Editor::GlobalState &gs) {
+  // Adaptive quality is only active in auto mode. Manual LOD acts as a hard
+  // user override.
   if (!s_minimap_adaptive_quality || !s_minimap_auto_lod) {
     return base_lod;
   }
@@ -1420,6 +1493,7 @@ static float ComputeViewportZoomForLOD() {
 }
 
 static int OverlayStrideForLOD(MinimapLOD lod) {
+  // Larger stride at coarser LOD lowers sampling cost for debug fields.
   switch (lod) {
   case MinimapLOD::Detail:
     return 1;
@@ -1457,6 +1531,7 @@ static RoadDetailClass ClassifyRoadDetail(RogueCity::Core::RoadType type) {
 
 static bool ShouldRenderRoadForLOD(RogueCity::Core::RoadType type,
                                    MinimapLOD lod) {
+  // Coarser minimap levels aggressively drop local geometry for readability.
   const RoadDetailClass detail = ClassifyRoadDetail(type);
   if (lod == MinimapLOD::Detail) {
     return true;
@@ -1474,6 +1549,8 @@ static const char *MinimapLODStatusText() {
 static void RenderMinimapSelectionHighlights(
     ImDrawList *draw_list, const RogueCity::Core::Editor::GlobalState &gs,
     const RogueCity::Core::Vec2 &camera_pos, const ImVec2 &minimap_pos) {
+  // Selection rings render independently from geometry LOD so users do not
+  // lose selection context when zooming out.
   if (gs.selection_manager.Count() == 0) {
     return;
   }
@@ -1527,6 +1604,7 @@ RenderHeightOverlay(ImDrawList *draw_list,
                     const RogueCity::Core::Data::TextureSpace &texture_space,
                     const RogueCity::Core::Vec2 &camera_pos,
                     const ImVec2 &minimap_pos, MinimapLOD lod) {
+  // Height is drawn as a coarse pseudo-heatmap directly in minimap space.
   const int lod_stride = OverlayStrideForLOD(lod);
   const int sample_step = 4 * lod_stride;
   for (int py = 0; py < static_cast<int>(kMinimapSize); py += sample_step) {
@@ -1558,6 +1636,8 @@ RenderTensorOverlay(ImDrawList *draw_list,
                     const RogueCity::Core::Data::TextureSpace &texture_space,
                     const RogueCity::Core::Vec2 &camera_pos,
                     const ImVec2 &minimap_pos, MinimapLOD lod) {
+  // Tensor field is visualized as short direction segments sampled at a
+  // configurable stride.
   const int lod_stride = OverlayStrideForLOD(lod);
   const int sample_step = 24 * lod_stride;
   for (int py = sample_step / 2; py < static_cast<int>(kMinimapSize);
@@ -1594,6 +1674,9 @@ RenderTensorOverlay(ImDrawList *draw_list,
 static void RenderMinimapOverlay(ImDrawList *draw_list,
                                  const ImVec2 &viewport_pos,
                                  const ImVec2 &viewport_size) {
+  // Layout order:
+  // 1) scale ruler (always, even when minimap window is hidden),
+  // 2) minimap frame/chrome, 3) world payload, 4) view frustum + cursor readout.
   // Always compute minimap bounds to parent the scale bar correctly
   const ImVec2 minimap_pos =
       ImVec2(viewport_pos.x + viewport_size.x - kMinimapSize - kMinimapPadding,
@@ -1696,6 +1779,8 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
 
   // RogueNav label (top-left corner, inside border)
   ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8, minimap_pos.y + 8));
+  ImGui::Dummy(ImVec2(80.0f, ImGui::GetFontSize())); // Register bounds with layout system
+  ImGui::SetCursorScreenPos(ImVec2(minimap_pos.x + 8, minimap_pos.y + 8));
   ImGui::PushStyleColor(ImGuiCol_Text, alert_color);
   ImGui::Text("ROGUENAV");
   if (ImGui::IsItemClicked()) {
@@ -1725,6 +1810,9 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
   ImVec2 mode_text_size = ImGui::CalcTextSize(mode_text);
   ImGui::SetCursorScreenPos(ImVec2(
       minimap_pos.x + kMinimapSize - mode_text_size.x - 8, minimap_pos.y + 8));
+  ImGui::Dummy(ImVec2(mode_text_size.x, ImGui::GetFontSize())); // Register bounds with layout system
+  ImGui::SetCursorScreenPos(ImVec2(
+      minimap_pos.x + kMinimapSize - mode_text_size.x - 8, minimap_pos.y + 8));
   ImGui::PushStyleColor(
       ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
   ImGui::Text("%s", mode_text);
@@ -1735,6 +1823,8 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
   const MinimapLOD base_lod = ActiveBaseMinimapLOD(viewport_zoom);
   const MinimapLOD active_lod = ComputeAdaptiveMinimapLOD(base_lod, gs);
   s_minimap_effective_lod = active_lod;
+  // Mirror active minimap policy into GlobalState so external HUD/tools can
+  // display the same mode without re-deriving it.
   gs.minimap_manual_lod = !s_minimap_auto_lod;
   gs.minimap_lod_level = static_cast<uint8_t>(MinimapLODLevel(active_lod));
 
@@ -1754,6 +1844,9 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
     s_minimap_lod_status_text = status.str();
   }
 
+  ImGui::SetCursorScreenPos(
+      ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + 24.0f));
+  ImGui::Dummy(ImVec2(100.0f, ImGui::GetFontSize())); // Register bounds with layout system
   ImGui::SetCursorScreenPos(
       ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + 24.0f));
   ImGui::PushStyleColor(
@@ -1778,6 +1871,10 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
     break;
   }
   ImVec2 alert_text_size = ImGui::CalcTextSize(alert_text);
+  ImGui::SetCursorScreenPos(
+      ImVec2(minimap_pos.x + kMinimapSize - alert_text_size.x - 8,
+             minimap_pos.y + kMinimapSize - 20));
+  ImGui::Dummy(ImVec2(alert_text_size.x, ImGui::GetFontSize())); // Register bounds with layout system
   ImGui::SetCursorScreenPos(
       ImVec2(minimap_pos.x + kMinimapSize - alert_text_size.x - 8,
              minimap_pos.y + kMinimapSize - 20));
@@ -2005,6 +2102,9 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
 
   ImGui::SetCursorScreenPos(
       ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + kMinimapSize - 36.0f));
+  ImGui::Dummy(ImVec2(120.0f, ImGui::GetFontSize())); // Register bounds with layout system
+  ImGui::SetCursorScreenPos(
+      ImVec2(minimap_pos.x + 8.0f, minimap_pos.y + kMinimapSize - 36.0f));
   ImGui::PushStyleColor(
       ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
   ImGui::Text("CUR %.0f, %.0f", static_cast<float>(cursor_world.x),
@@ -2013,6 +2113,7 @@ static void RenderMinimapOverlay(ImDrawList *draw_list,
 }
 
 void DrawAxiomLibraryContent() {
+  // Embedded library UI for axiom defaults + selection edits.
   if (s_axiom_tool == nullptr) {
     return;
   }
@@ -2037,6 +2138,9 @@ void DrawAxiomLibraryContent() {
   const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
   auto *selected_axiom = s_axiom_tool->get_selected_axiom();
 
+  // Applies a chosen type either to the selected axiom (Ctrl modifier) or to
+  // the default type used for subsequent placements. The dispatch call keeps
+  // HFSM/tool telemetry in sync with direct UI clicks.
   const auto apply_axiom_type = [&](RogueCity::App::AxiomType axiom_type) {
     if (apply_to_selected) {
       if (selected_axiom != nullptr) {
@@ -2056,8 +2160,8 @@ void DrawAxiomLibraryContent() {
       return;
     }
     std::string dispatch_status;
-    RC_UI::Tools::DispatchContext dispatch_context{&hfsm, &gs, &uiint,
-                                                   "Axiom Library"};
+    RC_UI::Tools::DispatchContext dispatch_context{
+        &hfsm, &gs, &uiint, "Axiom Library", !apply_to_selected};
     (void)RC_UI::Tools::DispatchToolAction(action_id, dispatch_context,
                                            &dispatch_status);
   };
@@ -2138,6 +2242,8 @@ void DrawAxiomLibraryContent() {
   const auto allowed_features =
       RogueCity::Generators::featuresForAxiomType(focus_type);
 
+  // Hovering a terminal feature can preview influence on the selected axiom
+  // after a short delay to avoid distracting flicker while cursoring.
   bool any_feature_hovered = false;
   for (const auto feature : allowed_features) {
     bool enabled = feature_set.has(feature);
@@ -2229,6 +2335,10 @@ void DrawAxiomLibraryContent() {
 }
 
 void DrawContent(float dt) {
+  // Main frame update for the center viewport panel:
+  // - update scene controller + generation scheduler
+  // - process input and domain tools
+  // - render viewport, overlays, minimap, and command surfaces
   Initialize();
   if (s_primary_viewport == nullptr) {
     return;
@@ -2276,6 +2386,7 @@ void DrawContent(float dt) {
   const bool viewport_canvas_active = ImGui::IsItemActive();
   const ImVec2 viewport_min = ImGui::GetItemRectMin();
   const ImVec2 viewport_max = ImGui::GetItemRectMax();
+  // Everything that follows until PopClipRect is clipped to the viewport canvas.
   draw_list->PushClipRect(viewport_min, viewport_max, true);
 
   // Background (Y2K grid pattern)
@@ -2310,9 +2421,8 @@ void DrawContent(float dt) {
   // ---------------------------------------------------------------------
   // Viewport mouse interaction (placement + manipulation)
   // ---------------------------------------------------------------------
-  // TODO(hfsm-context): Route right-click context actions through HFSM command
-  // maps, then expose user-customizable context->ribbon transforms for
-  // workspace tailoring.
+  // Right-click and command hotkeys are scoped by active HFSM domain so context
+  // actions open on the matching command map/library.
   const ImVec2 mouse_pos = ImGui::GetMousePos();
   const bool in_viewport = viewport_canvas_hovered;
   const bool editor_hovered =
@@ -2340,6 +2450,8 @@ void DrawContent(float dt) {
        mouse_pos.y >= chrome_min.y && mouse_pos.y <= chrome_max.y);
 
   const bool overlay_blocked_hovered = minimap_hovered || hud_hovered;
+  // Input gate centralizes "should viewport consume input?" policy so command
+  // menus, overlays, and tools follow one consistent decision path.
   const UiInputGateState input_gate = RC_UI::BuildUiInputGateState(
       editor_hovered, viewport_canvas_hovered, viewport_canvas_active,
       any_item_active, overlay_blocked_hovered);
@@ -2357,6 +2469,7 @@ void DrawContent(float dt) {
           overlay_blocked_hovered,
           mouse_pos,
           &gs.config,
+          gs.tool_runtime.active_domain,
       },
       RC_UI::Viewport::CommandMenuStateBundle{
           &s_smart_command_menu,
@@ -2377,6 +2490,8 @@ void DrawContent(float dt) {
   const float palette_target =
       gs.tool_runtime.viewport_global_palette_visible ? 1.0f : 0.0f;
   const float palette_blend = 1.0f - std::exp(-10.0f * dt);
+  // Exponential smoothing for palette animation gives frame-rate-independent
+  // open/close motion.
   s_global_palette_open_lerp +=
       (palette_target - s_global_palette_open_lerp) * palette_blend;
   s_global_palette_open_lerp =
@@ -2395,85 +2510,154 @@ void DrawContent(float dt) {
                        TokenColor(UITokens::CyanAccent, 150u), 8.0f, 0, 1.2f);
 
     ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 10.0f, panel_min.y + 8.0f));
+    ImGui::Dummy(ImVec2(panel_width - 18.0f, ImGui::GetFontSize())); // Register bounds with layout system
+    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 10.0f, panel_min.y + 8.0f));
     ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 225u),
-                       "Global Tool Palette  [G]");
+                       "Visualizer Tools  [G]");
 
     const float usable_w = std::max(100.0f, panel_width - 18.0f);
+    ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 8.0f, panel_min.y + 30.0f));
+    ImGui::Dummy(ImVec2(usable_w, std::max(100.0f, panel_max.y - panel_min.y - 38.0f))); // Register bounds with layout system
     ImGui::SetCursorScreenPos(ImVec2(panel_min.x + 8.0f, panel_min.y + 30.0f));
     if (ImGui::BeginChild(
             "##global_tool_palette_slideout",
             ImVec2(usable_w,
                    std::max(100.0f, panel_max.y - panel_min.y - 38.0f)),
             false, ImGuiWindowFlags_NoScrollbar)) {
-      for (const auto library : RC_UI::kToolLibraryOrder) {
-        const bool is_active = library == s_global_palette_library;
-        const char *library_label = "Tool";
-        switch (library) {
-        case RC_UI::ToolLibrary::Axiom:
-          library_label = "Axiom";
-          break;
-        case RC_UI::ToolLibrary::Water:
-          library_label = "Water";
-          break;
-        case RC_UI::ToolLibrary::Road:
-          library_label = "Road";
-          break;
-        case RC_UI::ToolLibrary::District:
-          library_label = "District";
-          break;
-        case RC_UI::ToolLibrary::Lot:
-          library_label = "Lot";
-          break;
-        case RC_UI::ToolLibrary::Building:
-          library_label = "Building";
-          break;
-        }
-        if (is_active) {
-          ImGui::PushStyleColor(ImGuiCol_Button,
-                                TokenColorF(UITokens::InfoBlue, 178u));
-        }
-        if (ImGui::Button(library_label,
-                          ImVec2(usable_w / 2.0f - 6.0f, 0.0f))) {
-          s_global_palette_library = library;
-        }
-        if (is_active) {
-          ImGui::PopStyleColor();
-        }
-        if ((static_cast<int>(library) % 2) == 0) {
-          ImGui::SameLine();
+      const auto dispatch_visualizer_action =
+          [&](RC_UI::Tools::ToolActionId action_id) {
+            RC_UI::Tools::DispatchContext action_dispatch = command_dispatch;
+            action_dispatch.apply_axiom_default = false;
+            std::string dispatch_status;
+            (void)RC_UI::Tools::DispatchToolAction(action_id, action_dispatch,
+                                                   &dispatch_status);
+          };
+
+      if (allow_viewport_key_actions && !ImGui::GetIO().KeyCtrl) {
+        if (ImGui::IsKeyPressed(ImGuiKey_1, false)) {
+          dispatch_visualizer_action(
+              RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect);
+        } else if (ImGui::IsKeyPressed(ImGuiKey_2, false)) {
+          dispatch_visualizer_action(
+              RC_UI::Tools::ToolActionId::Visualizer_LassoSelect);
+        } else if (ImGui::IsKeyPressed(ImGuiKey_3, false)) {
+          dispatch_visualizer_action(
+              RC_UI::Tools::ToolActionId::Visualizer_MoveNodes);
+        } else if (ImGui::IsKeyPressed(ImGuiKey_4, false)) {
+          dispatch_visualizer_action(
+              RC_UI::Tools::ToolActionId::Visualizer_HandleMove);
         }
       }
 
-      ImGui::Separator();
-      const auto actions =
-          RC_UI::Tools::GetToolActionsForLibrary(s_global_palette_library);
-      for (const auto &action : actions) {
-        if (!RC_UI::Tools::IsToolActionEnabled(action)) {
-          continue;
+      const auto is_action_active = [&](RC_UI::Tools::ToolActionId action_id) {
+        using RogueCity::Core::Editor::RoadSplineSubtool;
+        using RogueCity::Core::Editor::ViewportEditTool;
+        using RogueCity::Core::Editor::ViewportSelectionMode;
+        switch (action_id) {
+        case RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect:
+          return gs.tool_runtime.viewport_selection_mode ==
+                 ViewportSelectionMode::Rectangle;
+        case RC_UI::Tools::ToolActionId::Visualizer_LassoSelect:
+          return gs.tool_runtime.viewport_selection_mode ==
+                 ViewportSelectionMode::Lasso;
+        case RC_UI::Tools::ToolActionId::Visualizer_MoveNodes:
+          return gs.tool_runtime.viewport_edit_tool == ViewportEditTool::Move;
+        case RC_UI::Tools::ToolActionId::Visualizer_HandleMove:
+          return gs.tool_runtime.viewport_edit_tool ==
+                     ViewportEditTool::HandleMove ||
+                 gs.tool_runtime.road_spline_subtool ==
+                     RoadSplineSubtool::HandleTangents;
+        default:
+          return false;
         }
-        if (ImGui::Button(action.label, ImVec2(usable_w - 4.0f, 0.0f))) {
-          RogueCity::App::AxiomType axiom_type =
-              RogueCity::App::AxiomType::Grid;
-          if (TryAxiomTypeFromActionId(action.id, axiom_type) &&
-              s_axiom_tool != nullptr) {
-            if (ImGui::GetIO().KeyCtrl) {
-              if (auto *selected = s_axiom_tool->get_selected_axiom()) {
-                selected->set_type(axiom_type);
-                selected->set_terminal_features(
-                    s_axiom_tool->default_terminal_features(axiom_type));
-                selected->set_radial_ring_rotation(
-                    s_axiom_tool->default_radial_ring_rotation(axiom_type));
-                s_library_modified = true;
-              }
-            } else {
-              s_axiom_tool->set_default_axiom_type(axiom_type);
+      };
+
+      const auto draw_action_button =
+          [&](RC_UI::Tools::ToolActionId action_id, const char *label,
+              float width = -1.0f) {
+            const bool active = is_action_active(action_id);
+            if (active) {
+              ImGui::PushStyleColor(ImGuiCol_Button,
+                                    TokenColorF(UITokens::InfoBlue, 178u));
             }
-          }
-          std::string dispatch_status;
-          (void)RC_UI::Tools::DispatchToolAction(action.id, command_dispatch,
-                                                 &dispatch_status);
+            const bool pressed =
+                (width > 0.0f) ? ImGui::Button(label, ImVec2(width, 0.0f))
+                               : ImGui::Button(label);
+            if (active) {
+              ImGui::PopStyleColor();
+            }
+            if (pressed) {
+              dispatch_visualizer_action(action_id);
+            }
+          };
+
+      const auto draw_placeholder_button = [&](const char *label,
+                                               float width = -1.0f) {
+        ImGui::BeginDisabled();
+        if (width > 0.0f) {
+          (void)ImGui::Button(label, ImVec2(width, 0.0f));
+        } else {
+          (void)ImGui::Button(label);
+        }
+        ImGui::EndDisabled();
+      };
+
+      ImGui::SeparatorText("Selection");
+      draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect,
+                         "Rectangle Select", usable_w - 4.0f);
+      draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_LassoSelect,
+                         "Lasso Select", usable_w - 4.0f);
+      draw_placeholder_button("Paint Select (Planned)", usable_w - 4.0f);
+
+      ImGui::SeparatorText("Transform");
+      draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_MoveNodes,
+                         "Move", usable_w - 4.0f);
+      draw_action_button(RC_UI::Tools::ToolActionId::Visualizer_HandleMove,
+                         "Handle Move", usable_w - 4.0f);
+
+      ImGui::SeparatorText("Edit / Topology");
+      draw_placeholder_button("Add / Split (Planned)", usable_w - 4.0f);
+      draw_placeholder_button("Delete / Trim (Planned)", usable_w - 4.0f);
+      draw_placeholder_button("Merge / Snap (Planned)", usable_w - 4.0f);
+
+      ImGui::SeparatorText("Attribute / View / Utility");
+      draw_placeholder_button("Attribute Paint (Planned)", usable_w - 4.0f);
+      draw_placeholder_button("Layer Toggles (Planned)", usable_w - 4.0f);
+      draw_placeholder_button("Select By Query (Planned)", usable_w - 4.0f);
+
+      ImGui::SeparatorText("G Options");
+      ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 225u),
+                         "Selection Target");
+      if (ImGui::Button(SelectionTargetLabel(
+              gs.tool_runtime.viewport_selection_target),
+                        ImVec2(usable_w - 4.0f, 0.0f))) {
+        using RogueCity::Core::Editor::ViewportSelectionTarget;
+        switch (gs.tool_runtime.viewport_selection_target) {
+        case ViewportSelectionTarget::Nodes:
+          gs.tool_runtime.viewport_selection_target =
+              ViewportSelectionTarget::Edges;
+          break;
+        case ViewportSelectionTarget::Edges:
+          gs.tool_runtime.viewport_selection_target =
+              ViewportSelectionTarget::Faces;
+          break;
+        case ViewportSelectionTarget::Faces:
+          gs.tool_runtime.viewport_selection_target =
+              ViewportSelectionTarget::Lots;
+          break;
+        case ViewportSelectionTarget::Lots:
+          gs.tool_runtime.viewport_selection_target =
+              ViewportSelectionTarget::Districts;
+          break;
+        case ViewportSelectionTarget::Districts:
+          gs.tool_runtime.viewport_selection_target =
+              ViewportSelectionTarget::Nodes;
+          break;
         }
       }
+
+      ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 215u),
+                         "Tips: Shift=Add, Ctrl=Toggle, X=Snap, 1-4=Tools");
     }
     ImGui::EndChild();
   }
@@ -2527,7 +2711,10 @@ void DrawContent(float dt) {
   s_axiom_tool->update(dt, *s_primary_viewport);
   SyncToolAxiomsToGlobalState();
 
-  // Build generation inputs/config for preview
+  // Build generation inputs/config for preview.
+  // Two generation paths are used:
+  // - axiom dirty: request axiom-bounds preview to keep interaction responsive.
+  // - placement dirty: request incremental full-pipeline updates when safe.
   std::vector<RogueCity::Generators::CityGenerator::AxiomInput> axiom_inputs;
   RogueCity::Generators::CityGenerator::Config config;
   const bool inputs_ok = BuildInputs(axiom_inputs, config);
@@ -2595,8 +2782,9 @@ void DrawContent(float dt) {
   // Unified top-left chrome (mode + status + stats).
   if (gs.config.feature_ui_chrome_unification) {
     const float uni_chrome_w = 420.0f;
+    // Dynamic height: collapsed shows mode/status only, expanded includes attribution + stats
     const float uni_chrome_h =
-        gs.tool_runtime.viewport_scene_stats_collapsed ? 64.0f : 240.0f;
+        gs.tool_runtime.viewport_scene_stats_collapsed ? 64.0f : 280.0f;
     const ImVec2 uni_chrome_min(viewport_pos.x + 12.0f, viewport_pos.y + 12.0f);
     const ImVec2 uni_chrome_max(uni_chrome_min.x + uni_chrome_w,
                                 uni_chrome_min.y + uni_chrome_h);
@@ -2661,10 +2849,40 @@ void DrawContent(float dt) {
     ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 180u), "| %s",
                        revealed_status.c_str());
 
+    // Stats toggle — small hit-tested label at bottom-left of chrome header
+    {
+      const ImVec2 tog_min(uni_chrome_min.x + 8.0f, uni_chrome_min.y + 44.0f);
+      const ImVec2 tog_max(uni_chrome_min.x + 56.0f, uni_chrome_min.y + 60.0f);
+      const ImVec2 mp_t = ImGui::GetMousePos();
+      const bool tog_hov = mp_t.x >= tog_min.x && mp_t.x <= tog_max.x &&
+                           mp_t.y >= tog_min.y && mp_t.y <= tog_max.y;
+      if (tog_hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        gs.tool_runtime.viewport_scene_stats_collapsed =
+            !gs.tool_runtime.viewport_scene_stats_collapsed;
+      }
+      draw_list->AddText(
+          ImVec2(tog_min.x, tog_min.y + 1.0f),
+          tog_hov ? TokenColor(UITokens::CyanAccent, 220u)
+                  : TokenColor(UITokens::TextSecondary, 90u),
+          gs.tool_runtime.viewport_scene_stats_collapsed ? "[ stats ]"
+                                                         : "[ hide  ]");
+    }
+
     // Consolidate Scene Stats here
     if (!gs.tool_runtime.viewport_scene_stats_collapsed) {
+      // Calculate centering for attribution content
+      // Top section (mode + status) reserves ~66px
+      const float top_reserved = 66.0f;        // Mode, status, and toggle button height
+      const float bottom_margin = 12.0f;        // Bottom padding
+      const float available_height = uni_chrome_h - top_reserved - bottom_margin;
+
+      // Estimate content height: ~7 lines of text at ~16px per line = ~112px
+      const float estimated_content_height = 112.0f;
+      const float vertical_offset =
+          top_reserved + (available_height - estimated_content_height) / 2.0f;
+
       ImGui::SetCursorScreenPos(
-          ImVec2(uni_chrome_min.x + 12.0f, uni_chrome_min.y + 42.0f));
+          ImVec2(uni_chrome_min.x + 12.0f, uni_chrome_min.y + vertical_offset));
       ImGui::PushTextWrapPos(uni_chrome_min.x + uni_chrome_w - 12.0f);
 
       const auto &viewport_render = gs.tool_runtime.viewport_render_telemetry;
@@ -2708,11 +2926,14 @@ void DrawContent(float dt) {
           viewport_render.fallback_full_scan_count, frame_correlation_label);
       ImGui::TextColored(
           TokenColorF(UITokens::TextSecondary, 230u),
-          "Dedups: R:%u Z:%u A:%u RL:%u W:%u B:%u L:%u",
+          "Dedups: Road:%u Zone:%u AESP:%u Labels:%u",
           deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::RoadNetwork),
           deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::ZoneColors),
           deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::AESPHeatmap),
-          deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::RoadLabels),
+          deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::RoadLabels));
+      ImGui::TextColored(
+          TokenColorF(UITokens::TextSecondary, 230u),
+          "  Water:%u Buildings:%u Lots:%u",
           deduped_at(RogueCity::Core::Editor::ViewportRenderLayer::WaterBodies),
           deduped_at(
               RogueCity::Core::Editor::ViewportRenderLayer::BuildingSites),
@@ -2744,6 +2965,12 @@ void DrawContent(float dt) {
                                 uni_chrome_min.y + 22.0f);
     RC_UI::Viewport::GetViewportOverlays().RenderCompassGimbalHUD(
         true, compass_center, 18.0f);
+
+    // Anchor: register the full chrome extent with ImGui so the parent window
+    // expands correctly (suppresses SetCursorScreenPos boundary warning).
+    ImGui::SetCursorScreenPos(
+        ImVec2(uni_chrome_min.x, uni_chrome_max.y - 1.0f));
+    ImGui::Dummy(ImVec2(uni_chrome_w, 1.0f));
   }
 
   // Editor-local validation overlay payload.
@@ -3042,6 +3269,8 @@ void DrawContent(float dt) {
   overlays.SetViewTransform(transform);
 
   RC_UI::Viewport::OverlayConfig overlay_config{};
+  // Overlay visibility is derived from both active editor mode and per-layer
+  // toggles in GlobalState.
   overlay_config.show_zone_colors =
       gs.districts.size() != 0 && gs.show_layer_districts;
   overlay_config.show_road_labels = gs.roads.size() != 0 && gs.show_layer_roads;
@@ -3096,17 +3325,29 @@ void DrawContent(float dt) {
   }
 
   if (s_non_axiom_interaction.selection_drag.box_active) {
+    ImU32 drag_color = TokenColor(UITokens::CyanAccent, 220u);
+    if (s_non_axiom_interaction.selection_drag.box_toggle_mode) {
+      drag_color = TokenColor(UITokens::AmberGlow, 220u);
+    } else if (s_non_axiom_interaction.selection_drag.box_add_mode) {
+      drag_color = TokenColor(UITokens::SuccessGreen, 220u);
+    }
     const ImVec2 a = s_primary_viewport->world_to_screen(
         s_non_axiom_interaction.selection_drag.box_start);
     const ImVec2 b = s_primary_viewport->world_to_screen(
         s_non_axiom_interaction.selection_drag.box_end);
     draw_list->AddRect(ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)),
                        ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)),
-                       TokenColor(UITokens::CyanAccent, 220u), 0.0f, 0, 2.0f);
+                       drag_color, 0.0f, 0, 2.0f);
   }
 
   if (s_non_axiom_interaction.selection_drag.lasso_active &&
       s_non_axiom_interaction.selection_drag.lasso_points.size() >= 2) {
+    ImU32 drag_color = TokenColor(UITokens::CyanAccent, 220u);
+    if (s_non_axiom_interaction.selection_drag.box_toggle_mode) {
+      drag_color = TokenColor(UITokens::AmberGlow, 220u);
+    } else if (s_non_axiom_interaction.selection_drag.box_add_mode) {
+      drag_color = TokenColor(UITokens::SuccessGreen, 220u);
+    }
     s_overlay_scratch_screen_points.clear();
     s_overlay_scratch_screen_points.reserve(
         s_non_axiom_interaction.selection_drag.lasso_points.size());
@@ -3117,7 +3358,7 @@ void DrawContent(float dt) {
     draw_list->AddPolyline(
         s_overlay_scratch_screen_points.data(),
         static_cast<int>(s_overlay_scratch_screen_points.size()),
-        TokenColor(UITokens::CyanAccent, 220u), false, 2.0f);
+        drag_color, false, 2.0f);
   }
 
   const bool inspect_mode =
@@ -3230,8 +3471,7 @@ void DrawContent(float dt) {
     }
   }
 
-  // === ROGUENAV MINIMAP OVERLAY ===
-  // Render minimap as overlay in top-right corner
+  // Re-render minimap last so it remains above dense overlay payloads.
   RenderMinimapOverlay(draw_list, viewport_pos, viewport_size);
 
   // === MINIMAP INTERACTION (only if viewport window is hovered) ===
@@ -3265,6 +3505,10 @@ void DrawContent(float dt) {
 
       const ImGuiIO &io = ImGui::GetIO();
       if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_L)) {
+        // LOD hotkey behavior:
+        // - Shift+L: return to auto LOD,
+        // - L in auto: pin current effective level to manual mode,
+        // - L in manual: cycle manual level.
         if (io.KeyShift) {
           // Release manual pin and return to auto LOD switching.
           s_minimap_auto_lod = true;
@@ -3308,7 +3552,7 @@ void DrawContent(float dt) {
             next_camera, gs, static_cast<double>(io.DeltaTime));
         s_primary_viewport->set_camera_position(next_camera, camera_z);
       } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        // Click to jump camera
+        // Click-to-jump camera centers the clicked minimap location.
         const auto camera_pos = s_primary_viewport->get_camera_xy();
         const auto camera_z = s_primary_viewport->get_camera_z();
         auto world_pos =
@@ -3350,6 +3594,8 @@ void DrawContent(float dt) {
 }
 
 void Draw(float dt) {
+  // Public panel entry: owns the dockable window shell and delegates the
+  // content pass to DrawContent.
   static RC_UI::DockableWindowState s_viewport_window;
   if (!RC_UI::BeginDockableWindow(
           "[/ / / RC_VISUALIZER / / /]", s_viewport_window, "Center",

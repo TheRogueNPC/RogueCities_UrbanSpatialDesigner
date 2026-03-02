@@ -8,6 +8,8 @@
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
 // Include all existing panel headers
+#include "ui/panels/rc_panel_validation.h"
+#include "ui/panels/rc_panel_workspace.h"
 #include "ui/panels/rc_panel_axiom_bar.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/panels/rc_panel_building_control.h"
@@ -37,121 +39,119 @@
 namespace RC_UI::Panels {
 
 // ============================================================================
-// INDEX PANEL DRAWERS (Template-based)
+// DRAWER MACROS
+// Collapse the 18-line boilerplate class+factory for the two common patterns.
+// Complex drawers (state overrides, namespace mismatch) remain hand-written.
 // ============================================================================
 
-namespace RoadIndex {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::RoadIndex; }
-  const char *display_name() const override { return "Road Index"; }
-  PanelCategory category() const override { return PanelCategory::Indices; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_road_index.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"index", "road", "data"};
-  }
+// RC_DEFINE_INDEX_DRAWER — for RcDataIndexPanel<T> panels:
+//   draw() calls GetPanel().DrawContent(ctx.global_state, ctx.introspector)
+#define RC_DEFINE_INDEX_DRAWER(NS, TYPE, DISPLAY, FILE, ...)          \
+namespace NS {                                                          \
+class Drawer : public IPanelDrawer {                                    \
+public:                                                                 \
+  PanelType type() const override { return PanelType::TYPE; }          \
+  const char* display_name() const override { return DISPLAY; }        \
+  PanelCategory category() const override { return PanelCategory::Indices; } \
+  const char* source_file() const override { return FILE; }            \
+  std::vector<std::string> tags() const override { return {__VA_ARGS__}; } \
+  void draw(DrawContext& ctx) override {                                \
+    GetPanel().DrawContent(ctx.global_state, ctx.introspector);         \
+  }                                                                     \
+};                                                                      \
+IPanelDrawer* CreateDrawer() { return new Drawer(); }                  \
+} /* namespace NS */
 
-  void draw(DrawContext &ctx) override {
-    auto &panel = RC_UI::Panels::RoadIndex::GetPanel();
-    panel.DrawContent(ctx.global_state, ctx.introspector);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace RoadIndex
-
-namespace DistrictIndex {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::DistrictIndex; }
-  const char *display_name() const override { return "District Index"; }
-  PanelCategory category() const override { return PanelCategory::Indices; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_district_index.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"index", "district", "data"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    auto &panel = RC_UI::Panels::DistrictIndex::GetPanel();
-    panel.DrawContent(ctx.global_state, ctx.introspector);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace DistrictIndex
-
-namespace LotIndex {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::LotIndex; }
-  const char *display_name() const override { return "Lot Index"; }
-  PanelCategory category() const override { return PanelCategory::Indices; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_lot_index.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"index", "lot", "data"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    auto &panel = RC_UI::Panels::LotIndex::GetPanel();
-    panel.DrawContent(ctx.global_state, ctx.introspector);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace LotIndex
-
-namespace RiverIndex {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::RiverIndex; }
-  const char *display_name() const override { return "River Index"; }
-  PanelCategory category() const override { return PanelCategory::Indices; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_river_index.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"index", "river", "water", "data"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    auto &panel = RC_UI::Panels::RiverIndex::GetPanel();
-    panel.DrawContent(ctx.global_state, ctx.introspector);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace RiverIndex
-
-namespace BuildingIndex {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::BuildingIndex; }
-  const char *display_name() const override { return "Building Index"; }
-  PanelCategory category() const override { return PanelCategory::Indices; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_building_index.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"index", "building", "data"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    auto &panel = RC_UI::Panels::BuildingIndex::GetPanel();
-    panel.DrawContent(ctx.global_state, ctx.introspector);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace BuildingIndex
+// RC_DEFINE_DRAWER — for panels with a plain DrawContent(float dt) function
+//   and no state-reactive visibility or non-standard overrides.
+#define RC_DEFINE_DRAWER(NS, TYPE, DISPLAY, CAT, FILE, ...)            \
+namespace NS {                                                          \
+class Drawer : public IPanelDrawer {                                    \
+public:                                                                 \
+  PanelType type() const override { return PanelType::TYPE; }          \
+  const char* display_name() const override { return DISPLAY; }        \
+  PanelCategory category() const override { return PanelCategory::CAT; } \
+  const char* source_file() const override { return FILE; }            \
+  std::vector<std::string> tags() const override { return {__VA_ARGS__}; } \
+  void draw(DrawContext& ctx) override { DrawContent(ctx.dt); }        \
+};                                                                      \
+IPanelDrawer* CreateDrawer() { return new Drawer(); }                  \
+} /* namespace NS */
 
 // ============================================================================
-// CONTROL PANEL DRAWERS
+// INDEX PANEL DRAWERS — 5 panels (RcDataIndexPanel<T> pattern)
+// ============================================================================
+
+RC_DEFINE_INDEX_DRAWER(RoadIndex, RoadIndex, "Road Index",
+    "visualizer/src/ui/panels/rc_panel_road_index.cpp",
+    "index", "road", "data")
+
+RC_DEFINE_INDEX_DRAWER(DistrictIndex, DistrictIndex, "District Index",
+    "visualizer/src/ui/panels/rc_panel_district_index.cpp",
+    "index", "district", "data")
+
+RC_DEFINE_INDEX_DRAWER(LotIndex, LotIndex, "Lot Index",
+    "visualizer/src/ui/panels/rc_panel_lot_index.cpp",
+    "index", "lot", "data")
+
+RC_DEFINE_INDEX_DRAWER(RiverIndex, RiverIndex, "River Index",
+    "visualizer/src/ui/panels/rc_panel_river_index.cpp",
+    "index", "river", "water", "data")
+
+RC_DEFINE_INDEX_DRAWER(BuildingIndex, BuildingIndex, "Building Index",
+    "visualizer/src/ui/panels/rc_panel_building_index.cpp",
+    "index", "building", "data")
+
+// ============================================================================
+// SIMPLE DRAWERS — 10 panels (plain DrawContent, no state overrides)
+// ============================================================================
+
+RC_DEFINE_DRAWER(LotControl, LotControl, "Lot Control", Hidden,
+    "visualizer/src/ui/panels/rc_panel_lot_control.cpp",
+    "control", "lot", "generator")
+
+RC_DEFINE_DRAWER(BuildingControl, BuildingControl, "Building Control", Hidden,
+    "visualizer/src/ui/panels/rc_panel_building_control.cpp",
+    "control", "building", "generator")
+
+RC_DEFINE_DRAWER(WaterControl, WaterControl, "Water Control", Hidden,
+    "visualizer/src/ui/panels/rc_panel_water_control.cpp",
+    "control", "water", "generator")
+
+RC_DEFINE_DRAWER(AxiomEditor, AxiomEditor, "Axiom Editor", Hidden,
+    "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+    "tool", "axiom", "editor")
+
+RC_DEFINE_DRAWER(Telemetry, Telemetry, "Telemetry", Controls,
+    "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
+    "system", "telemetry", "debug")
+
+RC_DEFINE_DRAWER(Tools, Tools, "Tools", Tools,
+    "visualizer/src/ui/panels/rc_panel_tools.cpp",
+    "tools", "workflow", "generator")
+
+RC_DEFINE_DRAWER(Inspector, Inspector, "Inspector", Hidden,
+    "visualizer/src/ui/panels/rc_panel_inspector.cpp",
+    "system", "inspector", "detail")
+
+RC_DEFINE_DRAWER(SystemMap, SystemMap, "System Map", Hidden,
+    "visualizer/src/ui/panels/rc_panel_system_map.cpp",
+    "system", "map")
+
+RC_DEFINE_DRAWER(Validation, Validation, "Validation", System,
+    "visualizer/src/ui/panels/rc_panel_validation.cpp",
+    "system", "validation", "errors")
+
+RC_DEFINE_DRAWER(DevShell, DevShell, "Dev Shell", System,
+    "visualizer/src/ui/panels/rc_panel_dev_shell.cpp",
+    "system", "dev", "shell")
+
+#undef RC_DEFINE_INDEX_DRAWER
+#undef RC_DEFINE_DRAWER
+
+// ============================================================================
+// COMPLEX DRAWERS — state-reactive visibility, non-standard draw calls,
+// feature gates, or namespace mismatches. Hand-written.
 // ============================================================================
 
 namespace ZoningControl {
@@ -185,124 +185,12 @@ public:
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
 } // namespace ZoningControl
 
-namespace LotControl {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::LotControl; }
-  const char *display_name() const override { return "Lot Control"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_lot_control.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"control", "lot", "generator"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::LotControl::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace LotControl
-
-namespace BuildingControl {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::BuildingControl; }
-  const char *display_name() const override { return "Building Control"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_building_control.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"control", "building", "generator"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::BuildingControl::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace BuildingControl
-
-namespace WaterControl {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::WaterControl; }
-  const char *display_name() const override { return "Water Control"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_water_control.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"control", "water", "generator"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::WaterControl::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace WaterControl
-
-// ============================================================================
-// TOOL PANEL DRAWERS
-// ============================================================================
-
-namespace AxiomBar {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::AxiomBar; }
-  const char *display_name() const override { return "Axiom Bar"; }
-  PanelCategory category() const override { return PanelCategory::Tools; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"tool", "axiom", "action"};
-  }
-  bool can_popout() const override {
-    return false;
-  } // Should stay docked as toolbar
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::AxiomBar::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace AxiomBar
-
-namespace AxiomEditor {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::AxiomEditor; }
-  const char *display_name() const override { return "Axiom Editor"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"tool", "axiom", "editor"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::AxiomEditor::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace AxiomEditor
-
 namespace RoadEditor {
 class Drawer : public IPanelDrawer {
 public:
   PanelType type() const override { return PanelType::RoadEditor; }
   const char *display_name() const override { return "Road Editor"; }
-  PanelCategory category() const override { return PanelCategory::Tools; }
+  PanelCategory category() const override { return PanelCategory::Hidden; }
   const char *source_file() const override {
     return "visualizer/src/ui/panels/rc_panel_road_editor.cpp";
   }
@@ -323,30 +211,48 @@ public:
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
 } // namespace RoadEditor
 
-// ============================================================================
-// SYSTEM PANEL DRAWERS
-// ============================================================================
-
-namespace Telemetry {
+namespace AxiomBar {
 class Drawer : public IPanelDrawer {
 public:
-  PanelType type() const override { return PanelType::Telemetry; }
-  const char *display_name() const override { return "Telemetry"; }
-  PanelCategory category() const override { return PanelCategory::Controls; }
+  PanelType type() const override { return PanelType::AxiomBar; }
+  const char *display_name() const override { return "Axiom Bar"; }
+  PanelCategory category() const override { return PanelCategory::Hidden; }
   const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_telemetry.cpp";
+    return "visualizer/src/ui/panels/rc_panel_axiom_bar.cpp";
   }
   std::vector<std::string> tags() const override {
-    return {"system", "telemetry", "debug"};
+    return {"tool", "axiom", "action"};
   }
+  bool can_popout() const override { return false; }
 
   void draw(DrawContext &ctx) override {
-    RC_UI::Panels::Telemetry::DrawContent(ctx.dt);
+    RC_UI::Panels::AxiomBar::DrawContent(ctx.dt);
   }
 };
 
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace Telemetry
+} // namespace AxiomBar
+
+namespace WorkspaceSettings {
+class Drawer : public IPanelDrawer {
+public:
+  PanelType type() const override { return PanelType::UISettings; }
+  const char *display_name() const override { return "UI Settings"; }
+  PanelCategory category() const override { return PanelCategory::System; }
+  const char *source_file() const override {
+    return "visualizer/src/ui/panels/rc_panel_workspace.cpp";
+  }
+  std::vector<std::string> tags() const override {
+    return {"system", "settings", "theme", "layout", "workspace"};
+  }
+
+  void draw(DrawContext &ctx) override {
+    RC_UI::Panels::Workspace::DrawContent(ctx.dt);
+  }
+};
+
+IPanelDrawer *CreateDrawer() { return new Drawer(); }
+} // namespace WorkspaceSettings
 
 namespace Log {
 class Drawer : public IPanelDrawer {
@@ -366,88 +272,6 @@ public:
 
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
 } // namespace Log
-
-namespace Tools {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::Tools; }
-  const char *display_name() const override { return "Tools"; }
-  PanelCategory category() const override { return PanelCategory::Tools; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_tools.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"tools", "workflow", "generator"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::Tools::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace Tools
-
-namespace Inspector {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::Inspector; }
-  const char *display_name() const override { return "Inspector"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_inspector.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"system", "inspector", "detail"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::Inspector::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace Inspector
-
-namespace SystemMap {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::SystemMap; }
-  const char *display_name() const override { return "System Map"; }
-  PanelCategory category() const override { return PanelCategory::Hidden; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_system_map.cpp";
-  }
-  std::vector<std::string> tags() const override { return {"system", "map"}; }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::SystemMap::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace SystemMap
-
-namespace DevShell {
-class Drawer : public IPanelDrawer {
-public:
-  PanelType type() const override { return PanelType::DevShell; }
-  const char *display_name() const override { return "Dev Shell"; }
-  PanelCategory category() const override { return PanelCategory::System; }
-  const char *source_file() const override {
-    return "visualizer/src/ui/panels/rc_panel_dev_shell.cpp";
-  }
-  std::vector<std::string> tags() const override {
-    return {"system", "dev", "shell"};
-  }
-
-  void draw(DrawContext &ctx) override {
-    RC_UI::Panels::DevShell::DrawContent(ctx.dt);
-  }
-};
-
-IPanelDrawer *CreateDrawer() { return new Drawer(); }
-} // namespace DevShell
 
 // ============================================================================
 // AI PANEL DRAWERS (Feature-gated)

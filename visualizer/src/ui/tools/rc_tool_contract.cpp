@@ -97,7 +97,14 @@ constexpr std::array<Spec, 8> kBuildingActions{ {
     {ToolActionId::Future_Furnature, ToolDomain::Furnature, ToolLibrary::Building, ToolActionGroup::FutureStub, "Furnature (Future)", "Interior/exterior decoration set tooling is planned but not wired yet.", ToolExecutionPolicy::Disabled, ToolAvailability::Disabled, "Planned module: Furnature (decoration sets)."},
 } };
 
-constexpr std::array<Spec, 65> kAllActions{ {
+constexpr std::array<Spec, 4> kVisualizerActions{ {
+    {ToolActionId::Visualizer_RectangleSelect, ToolDomain::Road, ToolLibrary::Road, ToolActionGroup::Primary, "Rectangle Select", "Drag to select entities in a screen-space rectangle. Shift adds, Ctrl toggles.", ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+    {ToolActionId::Visualizer_LassoSelect, ToolDomain::Road, ToolLibrary::Road, ToolActionGroup::Primary, "Lasso Select", "Drag a freeform lasso to select entities. Shift adds, Ctrl toggles.", ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+    {ToolActionId::Visualizer_MoveNodes, ToolDomain::Road, ToolLibrary::Road, ToolActionGroup::Primary, "Move", "Move selected entities with translate gizmo and optional snapping.", ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+    {ToolActionId::Visualizer_HandleMove, ToolDomain::Road, ToolLibrary::Road, ToolActionGroup::Primary, "Handle Move", "Adjust spline handles/vertices in handle tangent mode.", ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+} };
+
+constexpr std::array<Spec, 69> kAllActions{ {
     kAxiomActions[0], kAxiomActions[1], kAxiomActions[2], kAxiomActions[3], kAxiomActions[4],
     kAxiomActions[5], kAxiomActions[6], kAxiomActions[7], kAxiomActions[8], kAxiomActions[9],
 
@@ -115,7 +122,9 @@ constexpr std::array<Spec, 65> kAllActions{ {
     kLotActions[0], kLotActions[1], kLotActions[2], kLotActions[3], kLotActions[4], kLotActions[5],
 
     kBuildingActions[0], kBuildingActions[1], kBuildingActions[2], kBuildingActions[3], kBuildingActions[4],
-    kBuildingActions[5], kBuildingActions[6], kBuildingActions[7]
+    kBuildingActions[5], kBuildingActions[6], kBuildingActions[7],
+
+    kVisualizerActions[0], kVisualizerActions[1], kVisualizerActions[2], kVisualizerActions[3]
 } };
 
 } // namespace
@@ -238,6 +247,11 @@ const char* ToolActionName(ToolActionId id) {
         case ToolActionId::Future_Paths: return "Future_Paths";
         case ToolActionId::Future_Flow: return "Future_Flow";
         case ToolActionId::Future_Furnature: return "Future_Furnature";
+
+        case ToolActionId::Visualizer_RectangleSelect: return "Visualizer_RectangleSelect";
+        case ToolActionId::Visualizer_LassoSelect: return "Visualizer_LassoSelect";
+        case ToolActionId::Visualizer_MoveNodes: return "Visualizer_MoveNodes";
+        case ToolActionId::Visualizer_HandleMove: return "Visualizer_HandleMove";
 
         case ToolActionId::Count: return "Count";
     }

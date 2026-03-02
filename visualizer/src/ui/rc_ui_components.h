@@ -9,6 +9,66 @@
 
 namespace RC_UI::Components {
 
+/// DrawPanelFrame — overlays the Y2K corner-bracket decoration and top accent
+/// bar that the mockup uses (.panel::before + .panel-corner--*).
+///
+/// Call INSIDE an open ImGui::Begin() / BeginChild() block, before any content.
+/// Matches the mockup CSS:
+///   .panel::before  → top accent bar spanning 30%-left, gap, 30%-right
+///   .panel-corner   → 12px corner brackets at each corner (--secondary color)
+///
+/// Usage:
+///   if (ImGui::Begin("My Panel", ...)) {
+///       RC_UI::Components::DrawPanelFrame();
+///       // ... panel content ...
+///   }
+///   ImGui::End();
+inline void DrawPanelFrame(ImU32 accent_color = UITokens::CyanAccent,
+                           float corner_size = 12.0f, float bar_alpha = 0.60f,
+                           float border_w = UITokens::BorderNormal) {
+  ImDrawList *draw = ImGui::GetWindowDrawList();
+  const ImVec2 pmin = ImGui::GetWindowPos();
+  const ImVec2 sz = ImGui::GetWindowSize();
+  const ImVec2 pmax = ImVec2(pmin.x + sz.x, pmin.y + sz.y);
+
+  const ImU32 accent_dim =
+      WithAlpha(accent_color, static_cast<uint8_t>(bar_alpha * 255.0f));
+
+  // Top accent bar: 30% left segment, 40% gap, 30% right segment
+  // Matches: background: linear-gradient(90deg, --secondary 30%, transparent,
+  // --secondary 70%)
+  const float seg = sz.x * 0.30f;
+  draw->AddRectFilled(ImVec2(pmin.x, pmin.y),
+                      ImVec2(pmin.x + seg, pmin.y + border_w), accent_dim);
+  draw->AddRectFilled(ImVec2(pmax.x - seg, pmin.y),
+                      ImVec2(pmax.x, pmin.y + border_w), accent_dim);
+
+  // Corner brackets — 2px lines, 12px arms, full accent color
+  const float bw = border_w;
+  const float cs = corner_size;
+
+  // Top-left
+  draw->AddLine(ImVec2(pmin.x, pmin.y), ImVec2(pmin.x + cs, pmin.y),
+                accent_color, bw);
+  draw->AddLine(ImVec2(pmin.x, pmin.y), ImVec2(pmin.x, pmin.y + cs),
+                accent_color, bw);
+  // Top-right
+  draw->AddLine(ImVec2(pmax.x, pmin.y), ImVec2(pmax.x - cs, pmin.y),
+                accent_color, bw);
+  draw->AddLine(ImVec2(pmax.x, pmin.y), ImVec2(pmax.x, pmin.y + cs),
+                accent_color, bw);
+  // Bottom-left
+  draw->AddLine(ImVec2(pmin.x, pmax.y), ImVec2(pmin.x + cs, pmax.y),
+                accent_color, bw);
+  draw->AddLine(ImVec2(pmin.x, pmax.y), ImVec2(pmin.x, pmax.y - cs),
+                accent_color, bw);
+  // Bottom-right
+  draw->AddLine(ImVec2(pmax.x, pmax.y), ImVec2(pmax.x - cs, pmax.y),
+                accent_color, bw);
+  draw->AddLine(ImVec2(pmax.x, pmax.y), ImVec2(pmax.x, pmax.y - cs),
+                accent_color, bw);
+}
+
 inline bool
 BeginTokenPanel(const char *title, ImU32 border_color = UITokens::YellowWarning,
                 bool *p_open = nullptr,
@@ -19,13 +79,41 @@ BeginTokenPanel(const char *title, ImU32 border_color = UITokens::YellowWarning,
   ImGui::PushStyleColor(ImGuiCol_Border, ImGui::ColorConvertU32ToFloat4(
                                              WithAlpha(border_color, 180)));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, UITokens::BorderNormal);
-  return ImGui::Begin(title, p_open, flags);
+
+  bool open = ImGui::Begin(title, p_open, flags);
+  if (open) {
+    DrawPanelFrame(border_color);
+  }
+  return open;
 }
 
 inline void EndTokenPanel() {
   ImGui::End();
   ImGui::PopStyleVar();
   ImGui::PopStyleColor(2);
+}
+
+// Draw a CSS-like neon glow using stacked semi-transparent primitives
+inline void DrawNeonBoxShadow(ImDrawList *draw, const ImVec2 &min_p,
+                              const ImVec2 &max_p, ImU32 color, float rounding,
+                              float intensity, int layers = 4) {
+  if (intensity <= 0.01f)
+    return;
+
+  // Extract base color components to build fading layers
+  const ImVec4 col_f = ImGui::ColorConvertU32ToFloat4(color);
+  for (int i = 1; i <= layers; ++i) {
+    // Expand outward and reduce alpha
+    const float expand = static_cast<float>(i) * 2.0f;
+    const float alpha = (intensity * 0.4f) / static_cast<float>(i);
+
+    ImU32 layer_color = ImGui::ColorConvertFloat4ToU32(
+        ImVec4(col_f.x, col_f.y, col_f.z, std::clamp(alpha, 0.0f, 1.0f)));
+
+    draw->AddRect(ImVec2(min_p.x - expand, min_p.y - expand),
+                  ImVec2(max_p.x + expand, max_p.y + expand), layer_color,
+                  rounding + expand, 0, 2.0f);
+  }
 }
 
 inline bool AnimatedActionButton(const char *id, const char *label,
@@ -51,9 +139,14 @@ inline bool AnimatedActionButton(const char *id, const char *label,
     const ImVec2 pmin = ImGui::GetItemRectMin();
     const ImVec2 pmax = ImGui::GetItemRectMax();
     const float glow = feedback.GetGlowIntensity();
+
+    // Draw stacked geometric box shadow (Mockup Phase 3 Stylization)
+    DrawNeonBoxShadow(draw_list, pmin, pmax, UITokens::CyanAccent,
+                      UITokens::RoundingButton, glow);
+
+    // Draw exact-fit inner border
     draw_list->AddRect(pmin, pmax, GetHoverGlow(UITokens::CyanAccent, glow),
-                       UITokens::RoundingButton, 0,
-                       UITokens::BorderThin + glow * 4.0f);
+                       UITokens::RoundingButton, 0, UITokens::BorderThin);
   }
   ImGui::PopID();
   return clicked;
@@ -174,150 +267,110 @@ inline void DraggableSectionDivider(const char *label, const char *popup_id) {
   ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + size.y + 4.0f));
 }
 
-/// DrawPanelFrame — overlays the Y2K corner-bracket decoration and top accent
-/// bar that the mockup uses (.panel::before + .panel-corner--*).
-///
-/// Call INSIDE an open ImGui::Begin() / BeginChild() block, before any content.
-/// Matches the mockup CSS:
-///   .panel::before  → top accent bar spanning 30%-left, gap, 30%-right
-///   .panel-corner   → 12px corner brackets at each corner (--secondary color)
-///
-/// Usage:
-///   if (ImGui::Begin("My Panel", ...)) {
-///       RC_UI::Components::DrawPanelFrame();
-///       // ... panel content ...
-///   }
-///   ImGui::End();
-inline void DrawPanelFrame(
-    ImU32 accent_color = UITokens::CyanAccent,
-    float corner_size  = 12.0f,
-    float bar_alpha    = 0.60f,
-    float border_w     = UITokens::BorderNormal)
-{
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    const ImVec2 pmin = ImGui::GetWindowPos();
-    const ImVec2 sz   = ImGui::GetWindowSize();
-    const ImVec2 pmax = ImVec2(pmin.x + sz.x, pmin.y + sz.y);
-
-    const ImU32 accent_dim = WithAlpha(accent_color, static_cast<uint8_t>(bar_alpha * 255.0f));
-
-    // Top accent bar: 30% left segment, 40% gap, 30% right segment
-    // Matches: background: linear-gradient(90deg, --secondary 30%, transparent, --secondary 70%)
-    const float seg = sz.x * 0.30f;
-    draw->AddRectFilled(
-        ImVec2(pmin.x,         pmin.y),
-        ImVec2(pmin.x + seg,   pmin.y + border_w),
-        accent_dim);
-    draw->AddRectFilled(
-        ImVec2(pmax.x - seg,   pmin.y),
-        ImVec2(pmax.x,         pmin.y + border_w),
-        accent_dim);
-
-    // Corner brackets — 2px lines, 12px arms, full accent color
-    const float bw = border_w;
-    const float cs = corner_size;
-
-    // Top-left
-    draw->AddLine(ImVec2(pmin.x,      pmin.y),      ImVec2(pmin.x + cs, pmin.y),      accent_color, bw);
-    draw->AddLine(ImVec2(pmin.x,      pmin.y),      ImVec2(pmin.x,      pmin.y + cs), accent_color, bw);
-    // Top-right
-    draw->AddLine(ImVec2(pmax.x,      pmin.y),      ImVec2(pmax.x - cs, pmin.y),      accent_color, bw);
-    draw->AddLine(ImVec2(pmax.x,      pmin.y),      ImVec2(pmax.x,      pmin.y + cs), accent_color, bw);
-    // Bottom-left
-    draw->AddLine(ImVec2(pmin.x,      pmax.y),      ImVec2(pmin.x + cs, pmax.y),      accent_color, bw);
-    draw->AddLine(ImVec2(pmin.x,      pmax.y),      ImVec2(pmin.x,      pmax.y - cs), accent_color, bw);
-    // Bottom-right
-    draw->AddLine(ImVec2(pmax.x,      pmax.y),      ImVec2(pmax.x - cs, pmax.y),      accent_color, bw);
-    draw->AddLine(ImVec2(pmax.x,      pmax.y),      ImVec2(pmax.x,      pmax.y - cs), accent_color, bw);
-}
+// drawpanelframe moved above
 
 /// DrawSectionHeader — draws a left color-bar LCARS-style section header,
 /// matching the mockup's .section-header::before stripe.
 /// Call where a CollapsingHeader would go; returns true if the section is open.
-inline bool DrawSectionHeader(const char* label, ImU32 bar_color,
-                              bool default_open = true)
-{
-    // Left accent stripe (4px wide, full item height)
-    const ImVec2 cursor = ImGui::GetCursorScreenPos();
-    const ImVec2 text_size = ImGui::CalcTextSize(label);
-    const float  h = text_size.y + 8.0f;    // ~FramePadding.y * 2 + text
+inline bool DrawSectionHeader(const char *label, ImU32 bar_color,
+                              bool default_open = true) {
+  // Left accent stripe (4px wide, full item height)
+  const ImVec2 cursor = ImGui::GetCursorScreenPos();
+  const ImVec2 text_size = ImGui::CalcTextSize(label);
+  const float h = text_size.y + 8.0f; // ~FramePadding.y * 2 + text
 
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(
-        cursor,
-        ImVec2(cursor.x + 4.0f, cursor.y + h),
-        WithAlpha(bar_color, 220));
+  ImDrawList *draw = ImGui::GetWindowDrawList();
+  draw->AddRectFilled(cursor, ImVec2(cursor.x + 4.0f, cursor.y + h),
+                      WithAlpha(bar_color, 220));
 
-    // Indent past the stripe, then draw a tree node
-    ImGui::SetCursorScreenPos(ImVec2(cursor.x + 8.0f, cursor.y));
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth;
-    if (default_open) flags |= ImGuiTreeNodeFlags_DefaultOpen;
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(bar_color));
-    const bool open = ImGui::TreeNodeEx(label, flags);
-    ImGui::PopStyleColor();
-    if (open) ImGui::TreePop();
+  // Indent past the stripe, then draw a tree node
+  ImGui::SetCursorScreenPos(ImVec2(cursor.x + 8.0f, cursor.y));
+  ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth;
+  if (default_open)
+    flags |= ImGuiTreeNodeFlags_DefaultOpen;
+  ImGui::PushStyleColor(ImGuiCol_Text,
+                        ImGui::ColorConvertU32ToFloat4(bar_color));
+  const bool open = ImGui::TreeNodeEx(label, flags);
+  ImGui::PopStyleColor();
+  if (open)
+    ImGui::TreePop();
 
-    // Restore cursor to below the header row
-    ImGui::SetCursorScreenPos(ImVec2(cursor.x, cursor.y + h + 2.0f));
-    return open;
+  // Restore cursor to below the header row; submit Dummy to register the
+  // claimed space (FAQ §usage-custom-shapes: after SetCursorScreenPos, always
+  // submit an item so ImGui tracks window/child boundaries correctly).
+  ImGui::SetCursorScreenPos(ImVec2(cursor.x, cursor.y + h + 2.0f));
+  ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 0.0f));
+  return open;
 }
 
-/// DrawMeter - renders a stylish, thin progress bar mimicking the mockup .meter-bar
-inline void DrawMeter(const char* label, float value, ImU32 fill_color, const char* value_text = nullptr) {
-    ImGui::PushID(label);
-    
-    // Label
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", label);
-    ImGui::SameLine(90.0f); // Fixed width for label (min-width: 80px in mockup)
-    
-    // Meter Bar
-    ImVec2 pos = ImGui::GetCursorScreenPos();
-    pos.y += (ImGui::GetTextLineHeight() - 6.0f) * 0.5f; // Center vertically
-    float bar_width = ImGui::GetContentRegionAvail().x - 45.0f; // Leave room for value text
-    
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    
-    // Background track
-    draw->AddRectFilled(pos, ImVec2(pos.x + bar_width, pos.y + 6.0f), 
-                        WithAlpha(UITokens::BackgroundDark, 200), UITokens::RoundingSubtle);
-    
-    // Fill
-    float fill_w = bar_width * std::clamp(value, 0.0f, 1.0f);
-    if (fill_w > 0) {
-        draw->AddRectFilled(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f), 
-                            fill_color, UITokens::RoundingSubtle);
-        
-        // Add glow effect if it's not a disabled/dim color
-        if (fill_color != UITokens::TextDisabled) {
-            draw->AddRect(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f), 
-                          WithAlpha(fill_color, 100), UITokens::RoundingSubtle, 0, 2.0f);
-        }
+/// DrawMeter - renders a stylish, thin progress bar mimicking the mockup
+/// .meter-bar
+inline void DrawMeter(const char *label, float value, ImU32 fill_color,
+                      const char *value_text = nullptr) {
+  ImGui::PushID(label);
+
+  // Label
+  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+                     "%s", label);
+  ImGui::SameLine(90.0f); // Fixed width for label (min-width: 80px in mockup)
+
+  // Meter Bar
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  pos.y += (ImGui::GetTextLineHeight() - 6.0f) * 0.5f; // Center vertically
+  float bar_width =
+      ImGui::GetContentRegionAvail().x - 45.0f; // Leave room for value text
+
+  ImDrawList *draw = ImGui::GetWindowDrawList();
+
+  // Background track
+  draw->AddRectFilled(pos, ImVec2(pos.x + bar_width, pos.y + 6.0f),
+                      WithAlpha(UITokens::BackgroundDark, 200),
+                      UITokens::RoundingSubtle);
+
+  // Fill
+  float fill_w = bar_width * std::clamp(value, 0.0f, 1.0f);
+  if (fill_w > 0) {
+    draw->AddRectFilled(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f), fill_color,
+                        UITokens::RoundingSubtle);
+
+    // Add glow effect if it's not a disabled/dim color
+    if (fill_color != UITokens::TextDisabled) {
+      draw->AddRect(pos, ImVec2(pos.x + fill_w, pos.y + 6.0f),
+                    WithAlpha(fill_color, 100), UITokens::RoundingSubtle, 0,
+                    2.0f);
     }
-    
-    ImGui::Dummy(ImVec2(bar_width, 6.0f));
-    
-    // Value text
-    ImGui::SameLine();
-    char buf[32];
-    if (!value_text) {
-        snprintf(buf, sizeof(buf), "%d%%", static_cast<int>(value * 100.0f));
-        value_text = buf;
-    }
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(value_text).x);
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", value_text);
-    
-    ImGui::PopID();
+  }
+
+  ImGui::Dummy(ImVec2(bar_width, 6.0f));
+
+  // Value text
+  ImGui::SameLine();
+  char buf[32];
+  if (!value_text) {
+    snprintf(buf, sizeof(buf), "%d%%", static_cast<int>(value * 100.0f));
+    value_text = buf;
+  }
+  ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                       ImGui::GetContentRegionAvail().x -
+                       ImGui::CalcTextSize(value_text).x);
+  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+                     "%s", value_text);
+
+  ImGui::PopID();
 }
 
 /// DrawDiagRow - renders a simple key-value diagnostic row
-inline void DrawDiagRow(const char* label, const char* value, ImU32 value_color = UITokens::TextPrimary) {
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", label);
-    ImGui::SameLine();
-    
-    float val_width = ImGui::CalcTextSize(value).x;
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - val_width);
-    
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(value_color), "%s", value);
+inline void DrawDiagRow(const char *label, const char *value,
+                        ImU32 value_color = UITokens::TextPrimary) {
+  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+                     "%s", label);
+  ImGui::SameLine();
+
+  float val_width = ImGui::CalcTextSize(value).x;
+  ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                       ImGui::GetContentRegionAvail().x - val_width);
+
+  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(value_color), "%s", value);
 }
 
 } // namespace RC_UI::Components

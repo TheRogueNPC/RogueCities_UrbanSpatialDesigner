@@ -28,40 +28,37 @@ void DrawContent(float dt)
     using namespace RogueCity::Core::Editor;
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
     
-    // === Building Parameters ===
-    ImGui::SeparatorText("Building Parameters");
-    
-    ImGui::SliderFloat("Min Coverage", &s_building_params.min_building_coverage, 0.2f, 0.6f, "%.1f%%");
-    uiint.RegisterWidget({"slider", "Min Coverage", "building.min_coverage", {"building", "sizing"}});
-    
-    ImGui::SliderFloat("Max Coverage", &s_building_params.max_building_coverage, 0.5f, 0.9f, "%.1f%%");
-    uiint.RegisterWidget({"slider", "Max Coverage", "building.max_coverage", {"building", "sizing"}});
-    
-    ImGui::Spacing();
-    
-    // === Budget & Population ===
-    ImGui::SeparatorText("Budget & Population");
-    
-    ImGui::SliderFloat("Budget per Capita", &s_building_params.budget_per_capita, 50000.0f, 200000.0f, "%.0f");
-    uiint.RegisterWidget({"slider", "Budget per Capita", "building.budget_per_capita", {"building", "economy"}});
-    
-    ImGui::SliderInt("Target Population", &s_building_params.target_population, 10000, 100000);
-    uiint.RegisterWidget({"slider", "Target Population", "building.target_population", {"building", "population"}});
-    
-    ImGui::Spacing();
-    
-    // === Performance Options ===
-    ImGui::SeparatorText("Performance");
-    
-    ImGui::Checkbox("Auto Threading", &s_building_params.auto_threading);
-    uiint.RegisterWidget({"checkbox", "Auto Threading", "building.auto_threading", {"building", "performance"}});
-    
-    if (!s_building_params.auto_threading) {
-        ImGui::SliderInt("Threading Threshold", &s_building_params.threading_threshold, 10, 500);
-        uiint.RegisterWidget({"slider", "Threading Threshold", "building.threading_threshold", {"building", "performance"}});
+    if (Components::DrawSectionHeader("Building Parameters", UITokens::CyanAccent)) {
+        ImGui::Indent();
+        ImGui::SliderFloat("Min Coverage", &s_building_params.min_building_coverage, 0.2f, 0.6f, "%.1f%%");
+        uiint.RegisterWidget({"slider", "Min Coverage", "building.min_coverage", {"building", "sizing"}});
+        ImGui::SliderFloat("Max Coverage", &s_building_params.max_building_coverage, 0.5f, 0.9f, "%.1f%%");
+        uiint.RegisterWidget({"slider", "Max Coverage", "building.max_coverage", {"building", "sizing"}});
+        ImGui::Unindent();
+        ImGui::Spacing();
     }
-    
-    ImGui::Spacing();
+
+    if (Components::DrawSectionHeader("Budget & Population", UITokens::AmberGlow)) {
+        ImGui::Indent();
+        ImGui::SliderFloat("Budget per Capita", &s_building_params.budget_per_capita, 50000.0f, 200000.0f, "%.0f");
+        uiint.RegisterWidget({"slider", "Budget per Capita", "building.budget_per_capita", {"building", "economy"}});
+        ImGui::SliderInt("Target Population", &s_building_params.target_population, 10000, 100000);
+        uiint.RegisterWidget({"slider", "Target Population", "building.target_population", {"building", "population"}});
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
+
+    if (Components::DrawSectionHeader("Performance", UITokens::GreenHUD)) {
+        ImGui::Indent();
+        ImGui::Checkbox("Auto Threading", &s_building_params.auto_threading);
+        uiint.RegisterWidget({"checkbox", "Auto Threading", "building.auto_threading", {"building", "performance"}});
+        if (!s_building_params.auto_threading) {
+            ImGui::SliderInt("Threading Threshold", &s_building_params.threading_threshold, 10, 500);
+            uiint.RegisterWidget({"slider", "Threading Threshold", "building.threading_threshold", {"building", "performance"}});
+        }
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
     
     // === Generation Button (Y2K pulse affordance) ===
     if (s_is_generating) {
@@ -89,25 +86,25 @@ void DrawContent(float dt)
     }
     
     ImGui::Spacing();
-    
-    // === Status Display ===
-    ImGui::SeparatorText("Status");
-    
-    GlobalState& gs = GetGlobalState();
-    ImGui::Text("Total Buildings: %zu", gs.buildings.size());
-    
-    // Show last generation stats
-    auto stats = s_zoning_bridge.GetLastStats();
-    if (stats.buildings_placed > 0) {
-        ImGui::Text("Last Generation:");
+
+    if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
         ImGui::Indent();
-        ImGui::Text("  Buildings Placed: %d", stats.buildings_placed);
-        ImGui::Text("  Projected Population: %d", stats.projected_population);
-        ImGui::Text("  Budget Allocated: %.2f", stats.total_budget_allocated);
-        ImGui::Text("  Generation Time: %.1f ms", stats.generation_time_ms);
+        GlobalState& gs = GetGlobalState();
+        ImGui::Text("Total Buildings: %zu", gs.buildings.size());
+        auto stats = s_zoning_bridge.GetLastStats();
+        if (stats.buildings_placed > 0) {
+            ImGui::Text("Last Generation:");
+            ImGui::Indent();
+            ImGui::Text("  Buildings Placed: %d", stats.buildings_placed);
+            ImGui::Text("  Projected Population: %d", stats.projected_population);
+            ImGui::Text("  Budget Allocated: %.2f", stats.total_budget_allocated);
+            ImGui::Text("  Generation Time: %.1f ms", stats.generation_time_ms);
+            ImGui::Unindent();
+        }
         ImGui::Unindent();
+        ImGui::Spacing();
     }
-    
+
 }
 
 void Draw(float dt)

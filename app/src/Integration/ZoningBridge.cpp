@@ -108,9 +108,16 @@ Generators::ZoningGenerator::Config ZoningBridge::TranslateConfig(const UiConfig
     cfg.minLotDepth = static_cast<float>(ui_cfg.min_lot_depth);
     cfg.maxLotDepth = static_cast<float>(ui_cfg.max_lot_depth);
     
-    // Building constraints (map UI percentage to generator ratio)
-    // UI config not directly mapped in current ZoningGenerator::Config
-    // This would need to be added to ZoningGenerator if required
+    // Building coverage controls feed per-domain density multipliers.
+    const float min_coverage =
+        std::clamp(ui_cfg.min_building_coverage, 0.05f, 0.95f);
+    const float max_coverage =
+        std::clamp(ui_cfg.max_building_coverage, min_coverage, 0.98f);
+    cfg.residentialDensity = min_coverage;
+    cfg.civicDensity = min_coverage;
+    cfg.industrialDensity = std::clamp(
+        (min_coverage + max_coverage) * 0.5f, 0.05f, 1.0f);
+    cfg.commercialDensity = max_coverage;
     
     // Budget/Population
     // Map to ZoningGenerator budget fields

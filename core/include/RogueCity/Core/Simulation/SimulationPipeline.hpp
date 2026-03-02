@@ -60,6 +60,7 @@ private:
   SimulationConfig config_{};
   float time_accumulator_{0.0f};
   uint64_t frame_counter_{0};
+  std::string last_stage_error_{};
 };
 
 } // namespace RogueCity::Core::Simulation

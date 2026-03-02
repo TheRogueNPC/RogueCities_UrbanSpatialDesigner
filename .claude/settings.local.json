@@ -3,7 +3,8 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(cmake:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(powershell.exe:*)"
     ]
   }
 }

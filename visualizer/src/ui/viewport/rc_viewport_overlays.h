@@ -123,6 +123,8 @@ public:
   void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState &gs);
 
   void RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState &gs);
+  void Render2DCursorHUD(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderToolBadgeHUD(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderCompassGimbalHUD(bool parented, const ImVec2 &center,
                               float radius);

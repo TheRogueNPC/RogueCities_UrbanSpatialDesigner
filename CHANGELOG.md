@@ -1,9 +1,111 @@
 # Changelog
 
-## [Unreleased] - 2026-02-25
+## [Unreleased] - 2026-03-01 (Visualizer G-Menu Tooling + Persistence)
+- Reworked the viewport `G` slideout into clustered visualizer tooling (`Selection`, `Transform`, `Edit/Topology`, `Attribute/View/Utility`) while keeping active runtime wiring for `Rectangle Select`, `Lasso Select`, `Move`, and `Handle Move` through the shared tool dispatcher and viewport interaction pipeline.
+- Added direct `G`-tool hotkeys (`1-4`) for fast switching of the four active visualizer tools and updated in-panel guidance to reflect the new shortcut flow.
+- Added workspace-preset persistence for `G` runtime state in `rc_ui_root.cpp` by serializing/restoring `viewport_selection_mode`, `viewport_edit_tool`, and `viewport_selection_target`, so saved workspace presets now restore last-used visualizer tool intent.
+
+## [Unreleased] - 2026-03-01 (UI Code Reduction — Zones 1–4)
+- Created `visualizer/src/ui/rc_ui_panel_macros.h` with `RC_PANEL_DRAW_IMPL` macro, collapsing the 17-line `Draw(float dt)` boilerplate in Variant A panels; applied to `rc_panel_validation.cpp`, `rc_panel_system_map.cpp`, and `rc_panel_telemetry.cpp` (~60 LOC removed).
+- Rewrote `RcPanelDrawers.cpp` with two internal macros (`RC_DEFINE_INDEX_DRAWER`, `RC_DEFINE_DRAWER`) that collapse 18-line drawer class definitions; replaced 15 of 23 drawers with macro calls (582 → ~290 LOC, ~50% reduction).
+- Extracted three shared helpers (`DrawUserFlagBlock<T>`, `DrawGenerationLocked<T>`, `DrawLayerAssignment`) in `rc_property_editor.cpp` to eliminate copy-pasted generation-flag and layer-assignment blocks across `DrawSingleRoad/District/Lot/Building` (~130 LOC removed).
+- Extracted `ClearAllSelections` helper in `rc_panel_data_index_traits.h` and applied to all four entity `OnEntitySelected` functions, removing the repeated 4-clear block (~12 LOC removed).
+
+## [Unreleased] - 2026-03-01 (Vision/OCR Pipeline Improvements)
+- Replaced generic `num_predict: 64` cap with per-task limits: vision=384 tokens, OCR=256 tokens, allowing complete spatial descriptions and grouped text extraction.
+- Replaced generic vision prompt with an RC-aware cockpit prompt naming all 12 cockpit panels by column (Left/Center/Right/Bottom) so `granite3.2-vision` produces structured, panel-referencing output.
+- Replaced generic OCR prompt with a panel-grouped extraction prompt so `glm-ocr` returns text organized under known panel headers (AxiomEditor, Inspector, ZoningControl, etc.).
+- Added `_parse_vision_regions()`: scans vision model output for 19 known RC panel keywords and populates `VisualEvidence.ui_regions` with `VisualRegion(label="PanelName@Dock")` entries (previously always empty).
+- Added `_vision_confidence()`: scores vision output quality by response length and spatial-keyword density (mirrors existing `_ocr_confidence` pattern); emits `vision_low_confidence_output` warning on low-quality responses.
+- Changed screenshot list from `screenshot_paths[:1]` to `screenshot_paths` so all captured frames are sent to both vision and OCR models when multiple screenshots are available.
+
+## [Unreleased] - 2026-03-01 (Gemma Suite Expansion)
+- Added 12 new test cases to `tests/test_ai.cpp` (17 total) covering all four codebase layers: core district/style-tag/seed vocabulary; generators Pipeline V2 model routing (controller/triage/synth_fast/synth_escalation/embedding/vision/ocr) and scale values; app cross-layer state_model keys and header mode/filter vocabulary; visualizer 12-panel role map, all 5 UiCommand types, and all 5 dock positions.
+- Expanded `AI/docs/symbol_index.json` with 29 new entries: full AI layer (UiSnapshot, UiCommand, AiConfig, AiConfigManager, CitySpecClient, AiAssist, AiBridgeRuntime, AiAvailability, ParsedUrl — 9 files completely absent before) and 20 missing visualizer panel files (Inspector, InspectorSidebar, Workspace, DevShell, BuildingControl, LotControl, WaterControl, Tools, SystemMap, Log, Telemetry, AxiomBar, UiSettings, Validation, and all 5 index panels).
+
+## [Unreleased] - 2026-03-01 (Core Audit Behavior Pass)
+- Hardened core geometry operations in `PolygonOps` by adding polygon sanitization/validity guards and new boolean operations (`difference`, `union`) plus simplification/validation helpers, and added a dedicated `test_polygon_ops` suite for deterministic area/shape regression coverage.
+- Implemented `Tensor2D::add(..., smooth=true)` smoothing behavior for near-opposing tensor blends (instead of ignoring the flag), preserving directional stability in cancellation-heavy blends while keeping weighted-add semantics for aligned fields.
+- Upgraded `SimulationPipeline` from placeholder stage stubs to active runtime behavior: finite-coordinate physics validation, selection/hover pruning in agent step, validation-overlay refresh in systems step, and explicit non-deterministic mode stepping semantics.
+- Reworked `EditorIntegrity` from no-op checks into executable integrity/spatial reporting with tagged plan-violation output (`[Integrity/Entity]`, `[Integrity/Spatial]`) and idempotent refresh semantics.
+- Hardened `StableIDRegistry` persistence by implementing alias-aware reverse lookup and strict deserialize validation (reject malformed/ambiguous records) with new regression checks in `test_stable_id_registry`.
+- Added and registered new core tests: `test_core`, `test_tensor2d_smoothing`, `test_polygon_ops`, and `test_editor_integrity`; expanded `test_simulation_pipeline` coverage for non-deterministic mode and runtime validation behavior.
+- Added a Clipper2 source fallback in `core/CMakeLists.txt` when a `Clipper2` target is not present, ensuring `PolygonOps` links reliably in standalone core/test builds.
+
+## [Unreleased] - 2026-03-01 (Phase 2 PolygonOps Generator Wiring)
+- Wired `PolygonOps` directly into lot subdivision so each candidate lot is polygon-clipped against sanitized block shells (instead of center-point-only acceptance), and lot `boundary/area/centroid` now derive from clipped geometry.
+- Added robust hole handling in lot subdivision by sanitizing block hole rings and rejecting hole-overlapping candidates, preventing lot geometry from crossing courtyard/no-build voids in downstream 3D paths.
+- Upgraded zoning setback placement to polygon-aware clamping: AABB setback intent is preserved, then clamped to a computed setback region built from lot polygon clips/insets for irregular lot boundaries.
+- Fixed `SiteGenerator` behavior so `randomize_sites=false` no longer jitters site positions, and randomization now respects polygon boundaries for non-rectangular lots.
+- Expanded regression coverage:
+  - `test_zoning_generator`: holed-block integration case validating lot validity and zero overlap with hole geometry.
+  - `test_polygon_ops`: deterministic robustness sweep and holed-difference area invariant coverage, with always-on `RC_EXPECT` checks in Release test runs.
+
+## [Unreleased] - 2026-03-01 (Phase 3 Polygon Region Ops + Tool Honor Pass)
+- Added first-class `PolygonRegion` (`outer + holes`) support to `PolygonOps` with new region APIs:
+  - `ClipPolygons(const Polygon&, const PolygonRegion&)`
+  - `DifferencePolygons(const Polygon&, const PolygonRegion&)`
+  - `SimplifyRegion(...)`
+  - `IsValidRegion(...)`
+- Implemented oriented clip-path execution for region operations so hole semantics are preserved as true no-build voids instead of relying on implicit flat-path winding behavior.
+- Rewired `LotGenerator` block handling to build/simplify/validate a `PolygonRegion` and clip lot candidates against that region directly, removing duplicated manual hole-overlap logic.
+- Updated generator-facing tool/runtime behavior to honor region semantics consistently in zoning subdivision paths, ensuring holed blocks remain hole-safe under production tool flows.
+- Expanded `test_polygon_ops` with explicit region-operation invariants and invalid-region checks to lock the new API behavior.
+
+## [Unreleased] - 2026-03-01 (Phase 4 Region Output Topology)
+- Added topology-preserving output APIs to `PolygonOps`:
+  - `ClipRegions(const PolygonRegion&, const PolygonRegion&)`
+  - `DifferenceRegions(const PolygonRegion&, const PolygonRegion&)`
+  - `UnionRegions(const std::vector<PolygonRegion>&)`
+- Implemented PolyTree-based region extraction so output now preserves explicit `outer + holes` hierarchy instead of flattening to orientation-only path sets.
+- Added region flatten bridge for legacy polygon-return APIs, keeping backward compatibility while exposing topology-safe outputs for 3D handoff paths.
+- Updated `LotGenerator` clipping selection to consume `ClipRegions(...)` and accept only simple region outers for `LotToken` emission, preventing hole-bearing candidate outputs from being misinterpreted as single-shell lots.
+- Expanded `test_polygon_ops` with explicit Phase 4 output-topology invariants for clip/difference/union region operations (including hole-count expectations and net-area checks).
+
+## [Unreleased] - 2026-03-01 (Generator Audit Phases)
+- Zoning budget accounting now uses the effective runtime config (including CitySpec overrides) and rescales per-lot allocations when type multipliers would oversubscribe city budget, keeping `totalBudgetUsed` strictly equal to summed lot allocations.
+- Wired `ZoningBridge` building-coverage UI controls into zoning-domain densities (`residential/civic=min`, `industrial=mid`, `commercial=max`) so the coverage sliders now drive zoning output.
+- Updated `ZoningGenerator` placement to apply deterministic density gating per lot program and clamp building sites to inset lot bounds from `frontSetback`, `sideSetback`, and `rearSetback`.
+- Synced placement/population helper paths by stamping `BuildingSite::estimated_cost` from runtime cost config and using shared population-density helpers during resident/worker rollup.
+- Added and registered `test_zoning_generator` coverage for budget invariants, zero-budget behavior, CitySpec budget override precedence, density sensitivity, setback enforcement, and CitySpec zoning override enforcement.
+
+## [Unreleased] - 2026-03-01 (Tool Wiring E2E)
+- Updated `Render2DCursorHUD` viewport behavior to hide the system cursor while hovering the visualizer viewport and removed the on-reticle `2D_Cursor` label, leaving only the precision 2D reticle.
+- Changed non-axiom selection flow so unmodified `click` now resolves on mouse release and `click-and-hold` starts default box selection after drag threshold; box/lasso region finalize now support expected modifiers (`Shift` add, `Ctrl` toggle, plain drag replace).
+- Added drag-selection preview color cues in the viewport (`cyan` replace, `green` add, `amber` toggle) to reflect active region-selection mode during box/lasso interaction.
+- Restored root-level shared tool-library rendering in `rc_ui_root.cpp` by adding a dedicated `DrawToolLibraryWindows()` pass from `DrawRoot()`, so activated libraries now render as actual windows again (including popout instances).
+- Rewired the Axiom library path to use `AxiomEditor::DrawAxiomLibraryContent()` in the shared library window flow, restoring per-axiom rich controls (type icons, terminal features, radial controls, and alternates) in the canonical panel route.
+- Centralized axiom default-type synchronization in `DispatchToolAction()` and extended `DispatchContext` with `apply_axiom_default`, making command palette/smart menu/pie executions consistently update placement default type.
+- Preserved Ctrl-based “apply to selected axiom” behavior by setting `apply_axiom_default=false` in axiom selection-only dispatch sites, preventing unintended default-type mutation during targeted edits.
+- Refactored the `Tools` drawer `TOOL DECK` area into an embedded library host with per-library tabs and in-panel action rendering, so users can work tool libraries in the master panel without a second duplicate tool surface.
+- Changed root library-window policy to embedded-by-default and popout-only for detached windows, so separate library windows appear only when explicitly requested via popout.
+- Renamed the viewport cursor overlay to `Render2DCursorHUD` and tied it to the live mouse position when hovering the viewport, introducing the `2D_Cursor` precision reticle while preserving center-idle fallback when not hovered.
+
+## [Unreleased] - 2026-02-28 (Phase 4 Updates)
+- Added `RogueCityVisualizerHeadless` `--interactive` mode, spawning a resilient, thread-safe REPL console with cyberpunk ANSI styling and a text-driven command queue (`dump_ui`, `hfsm`, `state`, `quit`) for unbuffered AI/shell introspection and control.
+- Upgraded the TUI console with a concurrent subprocess engine leveraging `_popen`, allowing native `dev-shell.ps1` tools (`build`, `ai_start`, `doctor`) to execute sequentially within the thread without freezing the main rendering loop.
+- Modified `rc_ui_root.cpp` to recline ImGui dock nodes into a distinct 3-column topology mirroring the mockups (Master Panel | Viewport | Inspector).
+- Restructured `DrawRoot` constraints restricting the global DockSpace to nest exactly within the pre-defined TitleBar / StatusBar top-bottom bounds.
+- Re-wrote `rc_panel_inspector.cpp` replacing its mock Property Editor layout with styled LCARS expandable sections reflecting Tool Domains, Gizmos, and Editor Layers.
+- Shifted the HUD compass overlay and bottom-scale ruler in `rc_viewport_overlays.cpp` to accurate `right: 90px` and `bottom/center` coordinates respecting the layout grid.
+
+## [Unreleased] - 2026-02-28 (Phase 3 Updates)
+- Added `RC_UI::Components::DrawNeonBoxShadow` utility to emulate CSS `box-shadow` layering for glowing components.
+- Integrated `DrawPanelFrame` inside `BeginTokenPanel` natively across all major UI container surfaces, mimicking the CSS `.panel::before` + `.panel-corner` border geometry.
+- Suppressed `RenderFlightDeckHUD` module permanently to prevent collisions with the `RenderToolBadgeHUD`.
+- *Build Note:* Hard dependency inclusion of `<magic_enum.hpp>` introduced safely to sidestep potential MSVC `enum_name().c_str()` fallout, preserving C2228 regression protection.
 - **UI Restoration (Regression Fix)**: Restored the primary viewport drawing call and re-enabled the Tool Library action icons by restoring their orphaned rendering loop. Corrected the Master Panel dock layout to include `Library` and `ToolDeck` nodes and categorized the `AxiomEditor` drawer as hidden to prevent UI tab redundancy.
 
 ### Added
+- **Mockup HUD Effects (Phase 2)**: Added new screen-space and viewport HUD metrics reflecting the HTML/CSS mockup style.
+  - Injected `DrawGlobalScanlines` into `rc_ui_root.cpp` background.
+  - Added `RenderCenterCursorHUD` and `RenderToolBadgeHUD` calls in `rc_viewport_overlays.cpp`.
+  - Refined `RenderScaleRulerHUD` and `RenderCompassGimbalHUD` styling with neon glows.
+  - *Regression Fix Note*: In `RenderToolBadgeHUD`, `active_domain` (enum `ToolDomain`) was incorrectly treated as a string (`.c_str()`), causing C2228. Codex fix uses `magic_enum::enum_name(...)` + empty fallback + bounded `%.*s` formatting.
+- **Build-Break Incident RCA Note (2026-02-28)**: Added `AI/collaboration/incident_tooldomain_cstr_buildbreak_2026-02-28.md` documenting that Gemini introduced a `ToolDomain` enum/string misuse in HUD code, Codex applied the compile fix, and shared enum-formatting edge-case prevention guidance for future agent work.
+- **Compile-Fix Collaboration Brief (2026-02-28)**: Added `AI/collaboration/codex_buildfix_tooldomain_badge_2026-02-28.md` documenting root cause, visualizer-layer-only scope, and validation artifacts for the ToolDomain HUD badge build fix.
+- **Cross-Agent Changelog Enforcement (2026-02-28)**: Added `AI/collaboration/CHANGELOG_MANDATE.md` and propagated explicit changelog-update requirements into collaboration handoff/SOP manifests so all agents in the shared workspace follow the same `CHANGELOG.md` discipline.
+- **AI Collaboration SOP + Handoff Artifacts (2026-02-28)**: Added shared coordination documentation in `AI/collaboration/` including a Codex session brief, a collaboration SOP manifest, and a Gemini handoff brief to initiate the next UI implementation phase with explicit validation gates.
 - **Architectural Refactor**: Migrated `GeometryPolicy` from the visualizer layer to the app layer (`app/src/Tools/GeometryPolicy.cpp`) to enforce strict layer boundaries. Updated `WaterTool` and `RoadTool` to utilize the dynamic `GeometryPolicy`, removing hardcoded geometric constants.
 - **Core Generator Logic**: 
   - Implemented `FrontageProfiler.cpp` to procedurally trace building facades along edge splines using a discrete `TransitionMatrix` (Markov Chain), including adaptive scaling and truncation handling for terminal modules.
@@ -32,6 +134,7 @@
     - CSS Classes -> ImGui Style Pushes / Helper functions
 
 ### Fixed
+- **Visualizer Debug Build Fix (2026-02-28)**: Fixed `rc_viewport_overlays.cpp` HUD badge formatting to treat `tool_runtime.active_domain` as `ToolDomain` (enum) instead of a string, removing invalid `.c_str()` usage and restoring `RogueCityVisualizerGui` Debug compilation.
 - **Gemma-First Pipeline V2 Staging (2026-02-28)**:
   - Added Toolserver pipeline endpoints: `POST /pipeline/query`, `POST /pipeline/eval`, and `POST /pipeline/index/build` with deterministic triage/retrieval/synthesis/verification flow.
   - Added pipeline schemas (`TriagedQueryPlan`, `ToolCall`, `VisualEvidence`, `EvidenceBundle`, `PipelineAnswer`) and audit-mode strict verification behavior (hard-fail in audit mode only).

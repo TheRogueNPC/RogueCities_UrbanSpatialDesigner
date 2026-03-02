@@ -7,6 +7,7 @@ int main() {
     using RogueCity::Core::Editor::GetProbeStableID;
     using RogueCity::Core::Editor::GetStableIDRegistry;
     using RogueCity::Core::Editor::RebuildStableIDMapping;
+    using RogueCity::Core::Editor::StableID;
     using RogueCity::Core::Editor::StableIDRegistry;
     using RogueCity::Core::Editor::VpEntityKind;
     using RogueCity::Core::Editor::VpProbeData;
@@ -59,6 +60,25 @@ int main() {
     assert(restored_road.has_value());
     assert(*restored_road == *registry.GetStableID(VpEntityKind::Road, 1u));
 
+    {
+        StableIDRegistry alias_registry{};
+        const std::string aliased =
+            "next=10\n"
+            "map=2,1,5,1\n"
+            "alias=3,5\n";
+        assert(alias_registry.Deserialize(aliased));
+        const auto alias_viewport = alias_registry.GetViewportID(StableID{ 3u, 1u });
+        assert(alias_viewport.has_value());
+        assert(alias_viewport->kind == VpEntityKind::Road);
+        assert(alias_viewport->id == 1u);
+    }
+
+    {
+        StableIDRegistry malformed{};
+        assert(!malformed.Deserialize("next=abc\n"));
+        assert(!malformed.Deserialize("map=2,1\n"));
+    }
+
     std::vector<VpProbeData> probes;
     VpProbeData road_probe{};
     road_probe.kind = VpEntityKind::Road;
@@ -77,6 +97,7 @@ int main() {
     const auto stable_probe = GetProbeStableID(probes[0]);
     assert(stable_probe != 0u);
     assert(stable_probe == probes[0].stable_id);
+    (void)stable_probe;
 
     registry.Clear();
     return 0;

@@ -39,20 +39,24 @@
 // MASTER PANEL ARCHITECTURE (RC-0.10)
 #include "ui/panels/PanelRegistry.h"
 #include "ui/panels/RcMasterPanel.h"
+#include "ui/panels/rc_panel_inspector_sidebar.h"
 
 #include "RogueCity/App/UI/ThemeManager.h"
 #include "ui/panels/rc_panel_workspace.h"
 
 #include <algorithm>
 #include <array>
+#include <ctime>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <sstream>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -65,6 +69,7 @@ namespace RC_UI {
 // Replaces individual panel windows with unified container + drawer registry
 namespace {
 static std::unique_ptr<RC_UI::Panels::RcMasterPanel> s_master_panel;
+static std::unique_ptr<RC_UI::Panels::RcInspectorSidebar> s_inspector_sidebar;
 static bool s_registry_initialized = false;
 
 // DEPRECATED: Old AI panel instances (will be removed after full drawer
@@ -112,12 +117,25 @@ static IndicesTabs s_indices_tabs{
     .building = true,
 };
 
-// Schema-2 preset entry: docking ini blob + theme snapshot.
-// Schema-1 files (plain string values) are still accepted on load.
+// Preset store entry: docking ini blob + optional theme snapshot + optional
+// runtime metadata used by UI agent layout suggestions.
 struct PresetEntry {
   std::string ini;
   RogueCity::UI::ThemeProfile theme;
   bool has_theme = false; // false for entries loaded from schema-1 files
+  bool has_metadata = false;
+  struct Metadata {
+    std::string saved_at_utc;
+    bool has_viewport_size = false;
+    ImVec2 viewport_size = ImVec2(0.0f, 0.0f);
+    int monitor_count = 1;
+    bool docking_enabled = true;
+    bool multi_viewport_enabled = false;
+    bool has_tool_runtime_state = false;
+    int viewport_selection_mode = 0;
+    int viewport_edit_tool = 0;
+    int viewport_selection_target = 0;
+  } metadata{};
 };
 
 struct WorkspacePresetStore {
@@ -129,40 +147,141 @@ struct WorkspacePresetStore {
 }
 
 // Serialize a ThemeProfile to a JSON object (matches ThemeManager field names).
-static nlohmann::json ThemeProfileToPresetJson(const RogueCity::UI::ThemeProfile &t) {
+static nlohmann::json
+ThemeProfileToPresetJson(const RogueCity::UI::ThemeProfile &t) {
   nlohmann::json j;
-  j["name"]            = t.name;
-  j["primary_accent"]  = t.primary_accent;
-  j["secondary_accent"]= t.secondary_accent;
-  j["success_color"]   = t.success_color;
-  j["warning_color"]   = t.warning_color;
-  j["error_color"]     = t.error_color;
+  j["name"] = t.name;
+  j["primary_accent"] = t.primary_accent;
+  j["secondary_accent"] = t.secondary_accent;
+  j["success_color"] = t.success_color;
+  j["warning_color"] = t.warning_color;
+  j["error_color"] = t.error_color;
   j["background_dark"] = t.background_dark;
-  j["panel_background"]= t.panel_background;
-  j["grid_overlay"]    = t.grid_overlay;
-  j["text_primary"]    = t.text_primary;
-  j["text_secondary"]  = t.text_secondary;
-  j["text_disabled"]   = t.text_disabled;
-  j["border_accent"]   = t.border_accent;
+  j["panel_background"] = t.panel_background;
+  j["grid_overlay"] = t.grid_overlay;
+  j["text_primary"] = t.text_primary;
+  j["text_secondary"] = t.text_secondary;
+  j["text_disabled"] = t.text_disabled;
+  j["border_accent"] = t.border_accent;
   return j;
 }
 
-static RogueCity::UI::ThemeProfile ThemeProfileFromPresetJson(const nlohmann::json &j) {
+static RogueCity::UI::ThemeProfile
+ThemeProfileFromPresetJson(const nlohmann::json &j) {
   RogueCity::UI::ThemeProfile t;
-  t.name             = j.value("name", "Custom");
-  t.primary_accent   = j.value("primary_accent",   ImU32{0});
+  t.name = j.value("name", "Custom");
+  t.primary_accent = j.value("primary_accent", ImU32{0});
   t.secondary_accent = j.value("secondary_accent", ImU32{0});
-  t.success_color    = j.value("success_color",    ImU32{0});
-  t.warning_color    = j.value("warning_color",    ImU32{0});
-  t.error_color      = j.value("error_color",      ImU32{0});
-  t.background_dark  = j.value("background_dark",  ImU32{0});
+  t.success_color = j.value("success_color", ImU32{0});
+  t.warning_color = j.value("warning_color", ImU32{0});
+  t.error_color = j.value("error_color", ImU32{0});
+  t.background_dark = j.value("background_dark", ImU32{0});
   t.panel_background = j.value("panel_background", ImU32{0});
-  t.grid_overlay     = j.value("grid_overlay",     ImU32{0});
-  t.text_primary     = j.value("text_primary",     ImU32{0xFFFFFFFF});
-  t.text_secondary   = j.value("text_secondary",   ImU32{0xFFAAAAAA});
-  t.text_disabled    = j.value("text_disabled",    ImU32{0xFF666666});
-  t.border_accent    = j.value("border_accent",    ImU32{0});
+  t.grid_overlay = j.value("grid_overlay", ImU32{0});
+  t.text_primary = j.value("text_primary", ImU32{0xFFFFFFFF});
+  t.text_secondary = j.value("text_secondary", ImU32{0xFFAAAAAA});
+  t.text_disabled = j.value("text_disabled", ImU32{0xFF666666});
+  t.border_accent = j.value("border_accent", ImU32{0});
   return t;
+}
+
+[[nodiscard]] static std::string CurrentUtcIso8601() {
+  const std::time_t now = std::time(nullptr);
+  std::tm tm{};
+#if defined(_WIN32)
+  gmtime_s(&tm, &now);
+#else
+  gmtime_r(&now, &tm);
+#endif
+  std::ostringstream out;
+  out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+  return out.str();
+}
+
+[[nodiscard]] static nlohmann::json
+PresetMetadataToJson(const PresetEntry::Metadata &metadata) {
+  nlohmann::json j;
+  if (!metadata.saved_at_utc.empty()) {
+    j["saved_at_utc"] = metadata.saved_at_utc;
+  }
+  if (metadata.has_viewport_size) {
+    j["viewport_size"] = {{"x", metadata.viewport_size.x},
+                          {"y", metadata.viewport_size.y}};
+  }
+  j["monitor_count"] = metadata.monitor_count;
+  j["docking_enabled"] = metadata.docking_enabled;
+  j["multi_viewport_enabled"] = metadata.multi_viewport_enabled;
+  if (metadata.has_tool_runtime_state) {
+    j["tool_runtime"] = {
+        {"viewport_selection_mode", metadata.viewport_selection_mode},
+        {"viewport_edit_tool", metadata.viewport_edit_tool},
+        {"viewport_selection_target", metadata.viewport_selection_target},
+    };
+  }
+  return j;
+}
+
+[[nodiscard]] static PresetEntry::Metadata
+PresetMetadataFromJson(const nlohmann::json &j) {
+  PresetEntry::Metadata metadata;
+  metadata.saved_at_utc = j.value("saved_at_utc", std::string{});
+  metadata.monitor_count = std::max(1, j.value("monitor_count", 1));
+  metadata.docking_enabled = j.value("docking_enabled", true);
+  metadata.multi_viewport_enabled = j.value("multi_viewport_enabled", false);
+
+  if (j.contains("viewport_size") && j["viewport_size"].is_object()) {
+    const auto &viewport = j["viewport_size"];
+    metadata.viewport_size.x = viewport.value("x", 0.0f);
+    metadata.viewport_size.y = viewport.value("y", 0.0f);
+    metadata.has_viewport_size =
+        metadata.viewport_size.x > 0.0f && metadata.viewport_size.y > 0.0f;
+  }
+
+  if (j.contains("tool_runtime") && j["tool_runtime"].is_object()) {
+    const auto &runtime = j["tool_runtime"];
+    metadata.has_tool_runtime_state = true;
+    metadata.viewport_selection_mode =
+        runtime.value("viewport_selection_mode", 0);
+    metadata.viewport_edit_tool = runtime.value("viewport_edit_tool", 0);
+    metadata.viewport_selection_target =
+        runtime.value("viewport_selection_target", 0);
+  }
+  return metadata;
+}
+
+[[nodiscard]] static PresetEntry::Metadata CapturePresetMetadata() {
+  PresetEntry::Metadata metadata;
+  metadata.saved_at_utc = CurrentUtcIso8601();
+
+  const auto &gs = RogueCity::Core::Editor::GetGlobalState();
+  metadata.has_tool_runtime_state = true;
+  metadata.viewport_selection_mode =
+    static_cast<int>(gs.tool_runtime.viewport_selection_mode);
+  metadata.viewport_edit_tool =
+    static_cast<int>(gs.tool_runtime.viewport_edit_tool);
+  metadata.viewport_selection_target =
+    static_cast<int>(gs.tool_runtime.viewport_selection_target);
+
+  if (const ImGuiViewport *viewport = ImGui::GetMainViewport();
+      viewport != nullptr && viewport->Size.x > 0.0f &&
+      viewport->Size.y > 0.0f) {
+    metadata.has_viewport_size = true;
+    metadata.viewport_size = viewport->Size;
+  }
+
+#if defined(IMGUI_HAS_DOCK)
+  ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
+  metadata.monitor_count = std::max(1, platform_io.Monitors.Size);
+#else
+  metadata.monitor_count = 1;
+#endif
+
+  const ImGuiIO &io = ImGui::GetIO();
+  metadata.docking_enabled =
+      (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) != 0;
+  metadata.multi_viewport_enabled =
+      (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0;
+  return metadata;
 }
 
 static void LoadWorkspacePresetStore(WorkspacePresetStore &store) {
@@ -187,11 +306,16 @@ static void LoadWorkspacePresetStore(WorkspacePresetStore &store) {
     for (const auto &item : j["presets"].items()) {
       PresetEntry entry;
       if (schema >= 2 && item.value().is_object()) {
-        // Schema 2: { "ini": "...", "theme": { ... } }
+        // Schema 2+: { "ini": "...", "theme": { ... }, "meta": { ... } }
         entry.ini = item.value().value("ini", std::string{});
-        if (item.value().contains("theme") && item.value()["theme"].is_object()) {
-          entry.theme     = ThemeProfileFromPresetJson(item.value()["theme"]);
+        if (item.value().contains("theme") &&
+            item.value()["theme"].is_object()) {
+          entry.theme = ThemeProfileFromPresetJson(item.value()["theme"]);
           entry.has_theme = true;
+        }
+        if (item.value().contains("meta") && item.value()["meta"].is_object()) {
+          entry.metadata = PresetMetadataFromJson(item.value()["meta"]);
+          entry.has_metadata = true;
         }
       } else if (item.value().is_string()) {
         // Schema 1 fallback: plain ini blob
@@ -213,13 +337,16 @@ static bool SaveWorkspacePresetStore(const WorkspacePresetStore &store,
     std::filesystem::create_directories(path.parent_path());
 
     nlohmann::json j;
-    j["schema"] = 2;
+    j["schema"] = 3;
     j["presets"] = nlohmann::json::object();
     for (const auto &[name, entry] : store.presets) {
       nlohmann::json e;
       e["ini"] = entry.ini;
       if (entry.has_theme) {
         e["theme"] = ThemeProfileToPresetJson(entry.theme);
+      }
+      if (entry.has_metadata) {
+        e["meta"] = PresetMetadataToJson(entry.metadata);
       }
       j["presets"][name] = e;
     }
@@ -244,18 +371,22 @@ static bool SaveWorkspacePresetStore(const WorkspacePresetStore &store,
 
 static std::array<bool, kToolLibraryOrder.size()> s_tool_library_open = {};
 static std::array<bool, kToolLibraryOrder.size()> s_tool_library_popout = {};
+static std::array<ToolLibraryIconRenderer, kToolLibraryOrder.size()>
+    s_tool_library_icon_renderers = {};
 static ToolLibrary s_active_library_tool = ToolLibrary::Water;
 static bool s_library_frame_open = false;
 static DockLayoutPreferences s_dock_layout_preferences =
     GetDefaultDockLayoutPreferences();
+static DockTreeProfile s_dock_tree_profile = DockTreeProfile::Adaptive;
 static UiInputGateState s_last_input_gate{};
 
-// Utility for drawing icons for the tool library entries.
-// TODO: Phase 2 - Refactor to use a more flexible icon system, potentially with
-// support for custom icons per tool and theming.
-static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
-                                const ImVec2 &center, float size) {
-  const ImU32 color = UITokens::TextPrimary;
+static size_t ToolLibraryIndex(ToolLibrary tool);
+
+// Default icon implementation for tool libraries. Individual tools may
+// override this via SetToolLibraryIconRenderer.
+static void DrawDefaultToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
+                                       const ImVec2 &center, float size,
+                                       ImU32 color) {
   const float half = size * 0.5f;
   switch (tool) {
   case ToolLibrary::Water:
@@ -295,6 +426,18 @@ static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
     draw_list->AddCircleFilled(center, half * 0.35f, color, 12);
     break;
   }
+}
+
+static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
+                                const ImVec2 &center, float size) {
+  const ImU32 color = UITokens::TextPrimary;
+  const ToolLibraryIconRenderer custom_renderer =
+      s_tool_library_icon_renderers[ToolLibraryIndex(tool)];
+  if (custom_renderer != nullptr) {
+    custom_renderer(draw_list, tool, center, size, color);
+    return;
+  }
+  DrawDefaultToolLibraryIcon(draw_list, tool, center, size, color);
 }
 
 [[nodiscard]] static bool
@@ -806,10 +949,15 @@ static void RenderToolLibraryWindow(
   Components::EndTokenPanel();
 }
 
-// Static minimap instance (Phase 5: Polish)
-// TODO: Phase 5 - Refactor to support multiple viewport types and dynamic
-// viewport management, with the minimap as a special case or plugin.
+enum class MinimapHostMode : uint8_t {
+  OverlayOnly = 0,
+  OverlayAndStandaloneWindow
+};
+
+// Viewport services (currently minimap) are centrally managed here so host
+// behavior can evolve without rewiring panel code.
 static std::unique_ptr<RogueCity::App::MinimapViewport> s_minimap;
+static MinimapHostMode s_minimap_host_mode = MinimapHostMode::OverlayOnly;
 static bool s_dock_built = false;
 static bool s_dock_layout_dirty = true;
 static bool s_legacy_window_settings_cleared = false;
@@ -821,6 +969,35 @@ constexpr int kDockBuildStableFrameCount = 3;
 constexpr float kDockSizeStabilityTolerancePx = 2.0f;
 constexpr float kDockBuildHardMinWidth = 64.0f;
 constexpr float kDockBuildHardMinHeight = 64.0f;
+
+[[nodiscard]] DockTreeProfile
+ResolveDockTreeProfile(const ImGuiViewport *viewport) {
+  if (s_dock_tree_profile != DockTreeProfile::Adaptive) {
+    return s_dock_tree_profile;
+  }
+  if (viewport == nullptr || viewport->Size.x <= 0.0f ||
+      viewport->Size.y <= 0.0f) {
+    return DockTreeProfile::StandardThreeColumn;
+  }
+
+  const float aspect = viewport->Size.x / std::max(1.0f, viewport->Size.y);
+  if (aspect < 1.35f) {
+    return DockTreeProfile::FocusViewport;
+  }
+
+#if defined(IMGUI_HAS_DOCK)
+  ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
+  const int monitor_count = std::max(1, platform_io.Monitors.Size);
+  if (monitor_count > 1 && aspect > 1.65f) {
+    return DockTreeProfile::WideCenter;
+  }
+#endif
+
+  if (aspect > 2.10f) {
+    return DockTreeProfile::WideCenter;
+  }
+  return DockTreeProfile::StandardThreeColumn;
+}
 
 struct DockBuildStabilityState {
   ImVec2 last_viewport_size{0.0f, 0.0f};
@@ -942,9 +1119,8 @@ static std::string ActiveModeFromHFSM() {
 
 // Utility function to generate a default dock tree layout for new workspaces or
 // when no saved layout is available.
-// TODO: Phase 4 - Refactor to support multiple dock tree configurations and
-// user-customizable default layouts, potentially with a visual layout editor.
-static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
+static RogueCity::UIInt::DockTreeNode
+DefaultDockTree(DockTreeProfile profile) {
   using RogueCity::UIInt::DockTreeNode;
   DockTreeNode root;
   root.id = "root";
@@ -958,28 +1134,39 @@ static RogueCity::UIInt::DockTreeNode DefaultDockTree() {
   center.id = "center";
   center.panel_id = "[/ / / RC_VISUALIZER / / /]";
 
-  DockTreeNode tool_deck;
-  tool_deck.id = "tool_deck";
-  tool_deck.panel_id = "Tool Deck";
+  DockTreeNode inspector;
+  inspector.id = "inspector";
+  inspector.panel_id = "Inspector";
 
-  DockTreeNode library;
-  library.id = "library";
-  library.panel_id = "Axiom Library";
+  if (profile == DockTreeProfile::FocusViewport) {
+    DockTreeNode center_column;
+    center_column.id = "center_column";
+    center_column.orientation = "vertical";
+    center_column.children = {center, inspector};
+    root.children = {left, center_column};
+    return root;
+  }
 
-  DockTreeNode right_column;
-  right_column.id = "right_column";
-  right_column.orientation = "vertical";
-  right_column.children = {tool_deck, library};
-
-  root.children = {left, center, right_column};
+  root.children = {left, center, inspector};
   return root;
 }
+
 // Initialization of the minimap viewport instance, with default settings.
-void InitializeMinim() {
+void EnsureMinimapService() {
   if (!s_minimap) {
     s_minimap = std::make_unique<RogueCity::App::MinimapViewport>();
     s_minimap->initialize();
     s_minimap->set_size(RogueCity::App::MinimapViewport::Size::Medium);
+  }
+}
+
+void UpdateViewportServices(float dt) {
+  if (s_minimap == nullptr) {
+    return;
+  }
+  s_minimap->update(dt);
+  if (s_minimap_host_mode == MinimapHostMode::OverlayAndStandaloneWindow) {
+    s_minimap->render();
   }
 }
 
@@ -1013,6 +1200,16 @@ void SetDockLayoutPreferences(const DockLayoutPreferences &preferences) {
   }
 
   s_dock_layout_preferences = clamped;
+  s_dock_layout_dirty = true;
+}
+
+DockTreeProfile GetDockTreeProfile() { return s_dock_tree_profile; }
+
+void SetDockTreeProfile(DockTreeProfile profile) {
+  if (s_dock_tree_profile == profile) {
+    return;
+  }
+  s_dock_tree_profile = profile;
   s_dock_layout_dirty = true;
 }
 
@@ -1063,6 +1260,19 @@ bool IsToolLibraryOpen(ToolLibrary tool) {
 
 bool IsToolLibraryPopoutOpen(ToolLibrary tool) {
   return s_tool_library_popout[ToolLibraryIndex(tool)];
+}
+
+void SetToolLibraryIconRenderer(ToolLibrary tool,
+                                ToolLibraryIconRenderer renderer) {
+  s_tool_library_icon_renderers[ToolLibraryIndex(tool)] = renderer;
+}
+
+void ClearToolLibraryIconRenderer(ToolLibrary tool) {
+  s_tool_library_icon_renderers[ToolLibraryIndex(tool)] = nullptr;
+}
+
+void ClearAllToolLibraryIconRenderers() {
+  s_tool_library_icon_renderers.fill(nullptr);
 }
 
 void ActivateToolLibrary(ToolLibrary tool) {
@@ -1149,20 +1359,25 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
   ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
   ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 
-  // Layout: viewport-centric center with persistent master panel on the left.
-  // Use a right-hand column for tool libraries and auxiliary stacks.
+  // Layout: selectable dock-tree profile with a viewport-centric default.
   ImGuiID dock_main = dockspace_id;
   ImGuiID dock_left = 0;
   ImGuiID dock_right = 0;
-  ImGuiID dock_tool_deck = 0;
-  ImGuiID dock_library = 0;
+  ImGuiID dock_bottom = 0;
+  ImGuiID dock_bottom_tabs = 0;
 
+  const DockTreeProfile profile = ResolveDockTreeProfile(viewport);
   float left_ratio =
       std::clamp(s_dock_layout_preferences.left_panel_ratio, 0.20f, 0.45f);
   float right_ratio =
       std::clamp(s_dock_layout_preferences.right_panel_ratio, 0.15f, 0.35f);
-  float tool_deck_ratio =
-      std::clamp(s_dock_layout_preferences.tool_deck_ratio, 0.18f, 0.45f);
+  if (profile == DockTreeProfile::WideCenter) {
+    left_ratio = std::min(left_ratio, 0.25f);
+    right_ratio = std::min(right_ratio, 0.19f);
+  } else if (profile == DockTreeProfile::FocusViewport) {
+    left_ratio = std::min(left_ratio, 0.30f);
+    right_ratio = 0.0f;
+  }
 
   const float max_side_total = 1.0f - kMinCenterRatio;
   if (left_ratio + right_ratio > max_side_total) {
@@ -1173,27 +1388,29 @@ static void BuildDockLayout(ImGuiID dockspace_id) {
 
   dock_left = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Left, left_ratio,
                                           nullptr, &dock_main);
-  dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right,
-                                           right_ratio, nullptr, &dock_main);
-  dock_library = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down,
-                                             1.0f - tool_deck_ratio, nullptr,
-                                             &dock_tool_deck);
+  if (profile == DockTreeProfile::FocusViewport) {
+    dock_bottom = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Down, 0.30f,
+                                              nullptr, &dock_main);
+    dock_bottom_tabs = dock_bottom;
+  } else {
+    dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right,
+                                             right_ratio, nullptr, &dock_main);
+  }
 
   ImGui::DockBuilderDockWindow("Master Panel", dock_left);
   ImGui::DockBuilderDockWindow("[/ / / RC_VISUALIZER / / /]", dock_main);
-  ImGui::DockBuilderDockWindow("Inspector", dock_right);
-  ImGui::DockBuilderDockWindow("System Map", dock_right);
-  ImGui::DockBuilderDockWindow("Tool Deck", dock_tool_deck);
-  ImGui::DockBuilderDockWindow("Axiom Library", dock_library);
+  ImGui::DockBuilderDockWindow(
+      "Inspector", profile == DockTreeProfile::FocusViewport ? dock_bottom
+                                                             : dock_right);
 
   s_dock_nodes.root = dockspace_id;
   s_dock_nodes.left = dock_left;
   s_dock_nodes.right = dock_right;
-  s_dock_nodes.tool_deck = dock_tool_deck;
-  s_dock_nodes.library = dock_library;
+  s_dock_nodes.tool_deck = 0;
+  s_dock_nodes.library = 0;
   s_dock_nodes.center = dock_main;
-  s_dock_nodes.bottom = 0;
-  s_dock_nodes.bottom_tabs = 0;
+  s_dock_nodes.bottom = dock_bottom;
+  s_dock_nodes.bottom_tabs = dock_bottom_tabs;
 #else
   (void)dockspace_id;
   s_dock_nodes = {};
@@ -1370,20 +1587,19 @@ static void DrawRuntimeTitlebar() {
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
-      ImGuiWindowFlags_NoInputs;
+      ImGuiWindowFlags_NoFocusOnAppearing |
+      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs;
 
   const bool open =
       ImGui::Begin("Rogue Titlebar###RC_RuntimeTitlebar", nullptr, flags);
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
   uiint.BeginPanel(
-      RogueCity::UIInt::PanelMeta{
-          "Rogue Titlebar",
-          "Titlebar",
-          "titlebar",
-          "Top",
-          "visualizer/src/ui/rc_ui_root.cpp",
-          {"titlebar", "chrome", "runtime"}},
+      RogueCity::UIInt::PanelMeta{"Rogue Titlebar",
+                                  "Titlebar",
+                                  "titlebar",
+                                  "Top",
+                                  "visualizer/src/ui/rc_ui_root.cpp",
+                                  {"titlebar", "chrome", "runtime"}},
       open);
 
   if (open) {
@@ -1391,8 +1607,10 @@ static void DrawRuntimeTitlebar() {
     ImGui::TextUnformatted("ROGUECITY URBAN SPATIAL DESIGNER");
     ImGui::SameLine();
     ImGui::TextDisabled("| Mode: %s", mode.c_str());
-    uiint.RegisterWidget({"text", "Titlebar Brand", "titlebar.brand", {"titlebar"}});
-    uiint.RegisterWidget({"text", "Mode Indicator", "titlebar.mode", {"titlebar"}});
+    uiint.RegisterWidget(
+        {"text", "Titlebar Brand", "titlebar.brand", {"titlebar"}});
+    uiint.RegisterWidget(
+        {"text", "Mode Indicator", "titlebar.mode", {"titlebar"}});
   }
 
   uiint.EndPanel();
@@ -1407,7 +1625,8 @@ static void DrawRuntimeStatusBar() {
 
   constexpr float kStatusHeight = 28.0f;
   ImGui::SetNextWindowPos(
-      ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - kStatusHeight),
+      ImVec2(viewport->Pos.x,
+             viewport->Pos.y + viewport->Size.y - kStatusHeight),
       ImGuiCond_Always);
   ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, kStatusHeight),
                            ImGuiCond_Always);
@@ -1418,20 +1637,19 @@ static void DrawRuntimeStatusBar() {
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
-      ImGuiWindowFlags_NoInputs;
+      ImGuiWindowFlags_NoFocusOnAppearing |
+      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs;
 
   const bool open =
       ImGui::Begin("Rogue Status Bar###RC_RuntimeStatusBar", nullptr, flags);
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
   uiint.BeginPanel(
-      RogueCity::UIInt::PanelMeta{
-          "Rogue Status Bar",
-          "Status Bar",
-          "status",
-          "Bottom",
-          "visualizer/src/ui/rc_ui_root.cpp",
-          {"status", "runtime"}},
+      RogueCity::UIInt::PanelMeta{"Rogue Status Bar",
+                                  "Status Bar",
+                                  "status",
+                                  "Bottom",
+                                  "visualizer/src/ui/rc_ui_root.cpp",
+                                  {"status", "runtime"}},
       open);
 
   if (open) {
@@ -1441,8 +1659,9 @@ static void DrawRuntimeStatusBar() {
     const bool validation_failed = Panels::Validation::HasValidationFailure();
     const bool dirty = gs.dirty_layers.AnyDirty();
 
-    const char *validation_state = validation_failed ? "REJECTED"
-                                  : (gs.plan_approved ? "APPROVED" : "PENDING");
+    const char *validation_state =
+        validation_failed ? "REJECTED"
+                          : (gs.plan_approved ? "APPROVED" : "PENDING");
 
     ImGui::Text("Status: %s", validation_state);
     ImGui::SameLine();
@@ -1451,30 +1670,86 @@ static void DrawRuntimeStatusBar() {
     ImGui::TextDisabled("| Log: %d", log_events);
     ImGui::SameLine();
     ImGui::TextDisabled("| Dirty: %s", dirty ? "yes" : "no");
-    uiint.RegisterWidget({"text", "Status Summary", "status.summary", {"status"}});
+    uiint.RegisterWidget(
+        {"text", "Status Summary", "status.summary", {"status"}});
   }
 
   uiint.EndPanel();
   ImGui::End();
 }
 
+static void DrawGlobalScanlines() {
+  ImDrawList *bg_draw = ImGui::GetBackgroundDrawList();
+  ImVec2 display_size = ImGui::GetIO().DisplaySize;
+  const float time_sec = static_cast<float>(ImGui::GetTime());
+
+  // Repeating scanlines mimicking the CSS linear-gradient
+  const float scroll = time_sec * 10.0f;
+  const float line_height = 6.0f;
+
+  // We offset by negative line_height to hide the pop-in wrap
+  for (float y = std::fmod(-scroll, line_height) - line_height;
+       y < display_size.y; y += line_height) {
+    bg_draw->AddRectFilled(ImVec2(0, y), ImVec2(display_size.x, y + 2.0f),
+                           IM_COL32(0, 0, 0, 45));
+  }
+}
+
+static void DrawToolLibraryWindows() {
+  constexpr bool kEmbedLibrariesInMasterPanel = true;
+  constexpr const char *kOwnerModule = "visualizer/src/ui/rc_ui_root.cpp";
+  for (const ToolLibrary tool : kToolLibraryOrder) {
+    const bool use_axiom_custom_content = (tool == ToolLibrary::Axiom);
+    const auto action_catalog = Tools::GetToolActionsForLibrary(tool);
+    const std::span<const Tools::ToolActionSpec> action_view =
+        use_axiom_custom_content ? std::span<const Tools::ToolActionSpec>{}
+                                 : action_catalog;
+    const ToolLibraryContentRenderer content_renderer =
+        use_axiom_custom_content
+            ? ToolLibraryContentRenderer{[]() {
+                Panels::AxiomEditor::DrawAxiomLibraryContent();
+              }}
+            : ToolLibraryContentRenderer{};
+
+    const char *window_name = ToolLibraryWindowName(tool);
+    if (!kEmbedLibrariesInMasterPanel) {
+      RenderToolLibraryWindow(tool, window_name, kOwnerModule, "Library",
+                              action_view, false, nullptr, content_renderer);
+    }
+
+    const size_t index = ToolLibraryIndex(tool);
+    bool *popout_state = &s_tool_library_popout[index];
+    if (*popout_state) {
+      const std::string popout_name =
+          std::string(window_name) + " (Popout)###ToolLibraryPopout_" +
+          std::to_string(static_cast<int>(tool));
+      RenderToolLibraryWindow(tool, popout_name.c_str(), kOwnerModule,
+                              "Floating", action_view, true, popout_state,
+                              content_renderer);
+    }
+  }
+}
+
 void DrawRoot(float dt) {
-  // Initialize minimap on first call
-  InitializeMinim();
+  // Global screen-space CRT FX
+  DrawGlobalScanlines();
+
+  // Initialize viewport services on first call.
+  EnsureMinimapService();
   ClearLegacyPanelWindowSettingsOnce();
+
+  // Dockspace host window
+  ImGuiViewport *viewport = ImGui::GetMainViewport();
+  if (viewport == nullptr) {
+    return;
+  }
 
   // Begin UI introspection for this frame (dev-only tooling).
   auto &introspector = RogueCity::UIInt::UiIntrospector::Instance();
   introspector.BeginFrame(ActiveModeFromHFSM(),
                           RC_UI::Panels::DevShell::IsOpen());
   if (!s_dock_built) {
-    introspector.SetDockTree(DefaultDockTree());
-  }
-
-  // Dockspace host window
-  ImGuiViewport *viewport = ImGui::GetMainViewport();
-  if (viewport == nullptr) {
-    return;
+    introspector.SetDockTree(DefaultDockTree(ResolveDockTreeProfile(viewport)));
   }
 
   const ViewportBounds viewport_bounds{viewport->Pos.x, viewport->Pos.y,
@@ -1484,8 +1759,12 @@ void DrawRoot(float dt) {
   }
 
 #if defined(IMGUI_HAS_DOCK)
-  ImGui::SetNextWindowPos(viewport->Pos);
-  ImGui::SetNextWindowSize(viewport->Size);
+  constexpr float kTitlebarHeight = 34.0f;
+  constexpr float kStatusHeight = 28.0f;
+  ImGui::SetNextWindowPos(
+      ImVec2(viewport->Pos.x, viewport->Pos.y + kTitlebarHeight));
+  ImGui::SetNextWindowSize(ImVec2(
+      viewport->Size.x, viewport->Size.y - kTitlebarHeight - kStatusHeight));
   ImGui::SetNextWindowViewport(viewport->ID);
 
   const ImGuiWindowFlags host_flags =
@@ -1524,6 +1803,7 @@ void DrawRoot(float dt) {
   if (!s_registry_initialized) {
     RC_UI::Panels::InitializePanelRegistry();
     s_master_panel = std::make_unique<RC_UI::Panels::RcMasterPanel>();
+    s_inspector_sidebar = std::make_unique<RC_UI::Panels::RcInspectorSidebar>();
     s_registry_initialized = true;
   }
 
@@ -1552,37 +1832,36 @@ void DrawRoot(float dt) {
     s_master_panel->Draw(dt);
   }
 
-  // Render tool library windows (Axiom, Water, Road, etc.)
-  // These are standalone windows that dock into the "Library" node.
-  for (const auto tool : kToolLibraryOrder) {
-    const auto actions = Tools::GetToolActionsForLibrary(tool);
-    RenderToolLibraryWindow(tool, ToolLibraryWindowName(tool), "Shared",
-                            "Library", actions);
-  }
-
   // DEPRECATED: Old individual panel calls (replaced by Master Panel)
   // Panels::AxiomBar::Draw(dt);
   // Primary viewport (AxiomEditor) owns the center workspace rendering
   Panels::AxiomEditor::Draw(dt);
-  Panels::Inspector::Draw(dt);
-  Panels::SystemMap::Draw(dt);
-  Panels::Workspace::Draw(dt);
+  if (s_inspector_sidebar) {
+    s_inspector_sidebar->Draw(dt);
+  }
+  DrawToolLibraryWindows();
   // Panels::Telemetry::Draw(dt);
   // ... (18 more panels)
 
-  // Minimap is now embedded as overlay in RogueVisualizer (no separate panel)
-  // TODO investigate potentially decoupleing the minimap from root to allow it
-  // to be used as a standalone veiwport in other contexte s (e.g. floating,
-  // secondary monitor) in the future. also to ensure that the mimimap redocks
-  // gracefully to the main veiwport Still update the minimap viewport for
-  // shared camera sync
-  if (s_minimap) {
-    s_minimap->update(dt);
-  }
+  // Update viewport services after UI composition. Minimap can run purely as an
+  // overlay service or as an additional standalone viewport window.
+  UpdateViewportServices(dt);
 }
 
 RogueCity::App::MinimapViewport *GetMinimapViewport() {
   return s_minimap.get();
+}
+
+void SetMinimapStandaloneWindowEnabled(bool enabled) {
+  s_minimap_host_mode = enabled ? MinimapHostMode::OverlayAndStandaloneWindow
+                                : MinimapHostMode::OverlayOnly;
+  if (enabled) {
+    QueueDockWindow("Minimap", "Right", true);
+  }
+}
+
+bool IsMinimapStandaloneWindowEnabled() {
+  return s_minimap_host_mode == MinimapHostMode::OverlayAndStandaloneWindow;
 }
 
 bool QueueDockWindow(const char *windowName, const char *dockArea,
@@ -1645,13 +1924,13 @@ bool SaveWorkspacePreset(const char *presetName, std::string *error) {
   LoadWorkspacePresetStore(store);
 
   PresetEntry entry;
-  entry.ini       = std::string(ini_data, ini_size);
-  entry.theme     = RogueCity::UI::ThemeManager::Instance().GetActiveTheme();
+  entry.ini = std::string(ini_data, ini_size);
+  entry.theme = RogueCity::UI::ThemeManager::Instance().GetActiveTheme();
   entry.has_theme = true;
+  entry.metadata = CapturePresetMetadata();
+  entry.has_metadata = true;
   store.presets[presetName] = std::move(entry);
 
-  // TODO(ai-layout): expose preset metadata to the UI agent for monitor-aware
-  // workspace suggestions.
   return SaveWorkspacePresetStore(store, error);
 }
 
@@ -1701,6 +1980,24 @@ bool LoadWorkspacePreset(const char *presetName, std::string *error) {
       tm.ApplyToImGui();
     }
   }
+
+  if (entry.has_metadata && entry.metadata.has_tool_runtime_state) {
+    auto &gs = RogueCity::Core::Editor::GetGlobalState();
+    const int selection_mode =
+      std::clamp(entry.metadata.viewport_selection_mode, 0, 2);
+    const int edit_tool = std::clamp(entry.metadata.viewport_edit_tool, 0, 2);
+    const int selection_target =
+      std::clamp(entry.metadata.viewport_selection_target, 0, 4);
+    gs.tool_runtime.viewport_selection_mode =
+        static_cast<RogueCity::Core::Editor::ViewportSelectionMode>(
+        selection_mode);
+    gs.tool_runtime.viewport_edit_tool =
+        static_cast<RogueCity::Core::Editor::ViewportEditTool>(
+        edit_tool);
+    gs.tool_runtime.viewport_selection_target =
+        static_cast<RogueCity::Core::Editor::ViewportSelectionTarget>(
+        selection_target);
+  }
   return true;
 }
 
@@ -1715,6 +2012,38 @@ std::vector<std::string> ListWorkspacePresets() {
   }
   std::sort(names.begin(), names.end());
   return names;
+}
+
+std::vector<WorkspacePresetMetadata> ListWorkspacePresetMetadata() {
+  WorkspacePresetStore store;
+  LoadWorkspacePresetStore(store);
+
+  std::vector<WorkspacePresetMetadata> metadata;
+  metadata.reserve(store.presets.size());
+  for (const auto &[name, entry] : store.presets) {
+    WorkspacePresetMetadata item;
+    item.name = name;
+    item.has_theme = entry.has_theme;
+    if (entry.has_theme) {
+      item.theme_name = entry.theme.name;
+    }
+    if (entry.has_metadata) {
+      item.saved_at_utc = entry.metadata.saved_at_utc;
+      item.has_viewport_size = entry.metadata.has_viewport_size;
+      item.viewport_size = entry.metadata.viewport_size;
+      item.monitor_count = std::max(1, entry.metadata.monitor_count);
+      item.docking_enabled = entry.metadata.docking_enabled;
+      item.multi_viewport_enabled = entry.metadata.multi_viewport_enabled;
+    }
+    metadata.push_back(std::move(item));
+  }
+
+  std::sort(
+      metadata.begin(), metadata.end(),
+      [](const WorkspacePresetMetadata &a, const WorkspacePresetMetadata &b) {
+        return a.name < b.name;
+      });
+  return metadata;
 }
 
 void NotifyDockedWindow(const char *windowName, const char *dockArea) {

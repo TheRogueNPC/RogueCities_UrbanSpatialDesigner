@@ -32,6 +32,8 @@ struct CommandInteractionParams {
     bool minimap_hovered{ false };
     ImVec2 mouse_pos{ 0.0f, 0.0f };
     const RogueCity::Core::Editor::EditorConfig* editor_config{ nullptr };
+    RogueCity::Core::Editor::ToolDomain active_domain{
+        RogueCity::Core::Editor::ToolDomain::Axiom };
 };
 
 void ProcessViewportCommandTriggers(
@@ -60,6 +62,8 @@ struct AxiomInteractionResult {
 struct SelectionDragState {
     bool lasso_active{ false };
     bool box_active{ false };
+    bool box_add_mode{ false };
+    bool box_toggle_mode{ false };
     RogueCity::Core::Vec2 box_start{};
     RogueCity::Core::Vec2 box_end{};
     std::vector<RogueCity::Core::Vec2> lasso_points{};

@@ -4,6 +4,7 @@
 #include "ui/panels/rc_panel_dev_shell.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/tools/rc_tool_contract.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"

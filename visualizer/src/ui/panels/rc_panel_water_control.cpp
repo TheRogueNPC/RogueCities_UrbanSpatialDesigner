@@ -76,12 +76,16 @@ void DrawContent(float dt)
         }
     }
 
-    ImGui::SeparatorText("Status");
-    ImGui::Text("Total Water Bodies: %zu", gs.waterbodies.size());
-    Components::StatusChip(gs.waterbodies.size() > 0 ? "ACTIVE" : "EMPTY",
-        gs.waterbodies.size() > 0 ? UITokens::SuccessGreen : UITokens::YellowWarning,
-        true);
-    ImGui::TextDisabled("Sample authoring is now live; spline/paint tools remain next.");
+    if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
+        ImGui::Indent();
+        ImGui::Text("Total Water Bodies: %zu", gs.waterbodies.size());
+        Components::StatusChip(gs.waterbodies.size() > 0 ? "ACTIVE" : "EMPTY",
+            gs.waterbodies.size() > 0 ? UITokens::SuccessGreen : UITokens::YellowWarning,
+            true);
+        ImGui::TextDisabled("Sample authoring is now live; spline/paint tools remain next.");
+        ImGui::Unindent();
+        ImGui::Spacing();
+    }
 }
 
 

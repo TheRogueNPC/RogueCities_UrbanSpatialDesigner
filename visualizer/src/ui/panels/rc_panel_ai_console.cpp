@@ -24,13 +24,18 @@ static void DrawUnlockFeaturesMock() {
     // Y2K styled lock icon area
     ImGui::PushStyleColor(ImGuiCol_ChildBg, DesignSystem::ToVec4(DesignTokens::PanelBackground));
     ImGui::BeginChild("LockArea", ImVec2(0, 120), true, ImGuiWindowFlags_NoScrollbar);
-    
+
+    ImGui::SetCursorPosY(20);
+    ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)); // Register bounds with layout system
     ImGui::SetCursorPosY(20);
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Increase font size if available
-    
+
     const char* lockIcon = "[ LOCKED ]";
     ImVec2 textSize = ImGui::CalcTextSize(lockIcon);
     ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - textSize.x) * 0.5f);
+    ImGui::Dummy(ImVec2(textSize.x, ImGui::GetFontSize())); // Register bounds with layout system
+    ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - textSize.x) * 0.5f);
+    ImGui::SetCursorPosY(20);
     ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::YellowWarning));
     ImGui::Text("%s", lockIcon);
     ImGui::PopStyleColor();

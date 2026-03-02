@@ -1,8 +1,12 @@
 #include "RogueCity/Generators/Pipeline/ZoningGenerator.hpp"
+#include "RogueCity/Core/Geometry/PolygonOps.hpp"
 #include "RogueCity/Generators/Scoring/RogueProfiler.hpp"
+#include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <unordered_map>
 
 namespace RogueCity::Generators {
 
@@ -66,6 +70,209 @@ namespace RogueCity::Generators {
         return config;
     }
 
+    float GetLotDensity(const ZoningGenerator::Config& config, LotType lot_type) {
+        switch (lot_type) {
+            case LotType::Residential:
+            case LotType::RowhomeCompact:
+            case LotType::LuxuryScenic:
+                return std::clamp(config.residentialDensity, 0.0f, 1.0f);
+            case LotType::MixedUse:
+            case LotType::RetailStrip:
+                return std::clamp(config.commercialDensity, 0.0f, 1.0f);
+            case LotType::LogisticsIndustrial:
+                return std::clamp(config.industrialDensity, 0.0f, 1.0f);
+            case LotType::CivicCultural:
+                return std::clamp(config.civicDensity, 0.0f, 1.0f);
+            case LotType::BufferStrip:
+                return std::clamp(config.civicDensity * 0.5f, 0.0f, 1.0f);
+            case LotType::None:
+            default:
+                return 0.0f;
+        }
+    }
+
+    float StableUnitSample(uint32_t seed, uint32_t lot_id, uint32_t site_index) {
+        uint32_t value = seed ^ 0x9e3779b9u;
+        value ^= lot_id + 0x85ebca6bu + (value << 6) + (value >> 2);
+        value ^= (site_index + 1u) * 0xc2b2ae35u;
+        value ^= value >> 16;
+        value *= 0x7feb352du;
+        value ^= value >> 15;
+        value *= 0x846ca68bu;
+        value ^= value >> 16;
+        return static_cast<float>(value & 0x00ffffffu) / 16777215.0f;
+    }
+
+    [[nodiscard]] bool IsFinite(const Vec2& point) {
+        return std::isfinite(point.x) && std::isfinite(point.y);
+    }
+
+    [[nodiscard]] Core::Geometry::Polygon ToGeoPolygon(const std::vector<Vec2>& ring) {
+        Core::Geometry::Polygon poly{};
+        poly.vertices = ring;
+        return poly;
+    }
+
+    [[nodiscard]] Vec2 ClosestPointOnSegment(const Vec2& point, const Vec2& a, const Vec2& b) {
+        const Vec2 ab = b - a;
+        const double ab_len_sq = ab.lengthSquared();
+        if (ab_len_sq <= 1e-12) {
+            return a;
+        }
+        const double t = std::clamp((point - a).dot(ab) / ab_len_sq, 0.0, 1.0);
+        return a + (ab * t);
+    }
+
+    [[nodiscard]] std::vector<Core::Geometry::Polygon> BuildSetbackRegion(
+        const LotToken& lot,
+        double inset_min_x,
+        double inset_max_x,
+        double inset_min_y,
+        double inset_max_y,
+        const ZoningGenerator::Config& config) {
+        constexpr double kEpsilon = 1e-6;
+        using GeoOps = Core::Geometry::PolygonOps;
+
+        Core::Geometry::Polygon lot_poly = GeoOps::SimplifyPolygon(ToGeoPolygon(lot.boundary), kEpsilon);
+        if (!GeoOps::IsValidPolygon(lot_poly, kEpsilon)) {
+            return {};
+        }
+
+        std::vector<Core::Geometry::Polygon> regions;
+        if ((inset_max_x - inset_min_x) > kEpsilon && (inset_max_y - inset_min_y) > kEpsilon) {
+            Core::Geometry::Polygon inset_rect{};
+            inset_rect.vertices = {
+                { inset_min_x, inset_min_y },
+                { inset_max_x, inset_min_y },
+                { inset_max_x, inset_max_y },
+                { inset_min_x, inset_max_y },
+            };
+            regions = GeoOps::ClipPolygons(lot_poly, inset_rect);
+        }
+
+        if (regions.empty()) {
+            const double uniform_inset = std::max(
+                0.0,
+                std::min({
+                    static_cast<double>(std::max(0.0f, config.sideSetback)),
+                    static_cast<double>(std::max(0.0f, config.frontSetback)),
+                    static_cast<double>(std::max(0.0f, config.rearSetback)),
+                }));
+            if (uniform_inset > kEpsilon) {
+                regions = GeoOps::InsetPolygon(lot_poly, uniform_inset);
+            }
+        }
+
+        if (regions.empty()) {
+            regions.push_back(std::move(lot_poly));
+        }
+
+        std::vector<Core::Geometry::Polygon> cleaned;
+        cleaned.reserve(regions.size());
+        for (auto& region : regions) {
+            region = GeoOps::SimplifyPolygon(region, kEpsilon);
+            if (GeoOps::IsValidPolygon(region, kEpsilon)) {
+                cleaned.push_back(std::move(region));
+            }
+        }
+        return cleaned;
+    }
+
+    void ClampToSetbackRegion(Vec2& position, const std::vector<Core::Geometry::Polygon>& regions) {
+        if (regions.empty()) {
+            return;
+        }
+
+        for (const auto& region : regions) {
+            if (Urban::PolygonUtil::insidePolygon(position, region.vertices)) {
+                return;
+            }
+        }
+
+        double best_dist_sq = std::numeric_limits<double>::infinity();
+        Vec2 best_point = position;
+        for (const auto& region : regions) {
+            if (region.vertices.size() < 2) {
+                continue;
+            }
+            for (size_t i = 0; i < region.vertices.size(); ++i) {
+                const Vec2& a = region.vertices[i];
+                const Vec2& b = region.vertices[(i + 1u) % region.vertices.size()];
+                const Vec2 candidate = ClosestPointOnSegment(position, a, b);
+                const double dist_sq = (candidate - position).lengthSquared();
+                if (dist_sq < best_dist_sq) {
+                    best_dist_sq = dist_sq;
+                    best_point = candidate;
+                }
+            }
+        }
+
+        if (std::isfinite(best_dist_sq)) {
+            position = best_point;
+            return;
+        }
+
+        position = Urban::PolygonUtil::centroid(regions.front().vertices);
+    }
+
+    void ApplySetbacksToPosition(
+        Vec2& position,
+        const LotToken& lot,
+        const ZoningGenerator::Config& config) {
+        if (lot.boundary.empty()) {
+            return;
+        }
+
+        double min_x = lot.boundary.front().x;
+        double max_x = lot.boundary.front().x;
+        double min_y = lot.boundary.front().y;
+        double max_y = lot.boundary.front().y;
+        for (const auto& point : lot.boundary) {
+            min_x = std::min(min_x, point.x);
+            max_x = std::max(max_x, point.x);
+            min_y = std::min(min_y, point.y);
+            max_y = std::max(max_y, point.y);
+        }
+
+        const double side = static_cast<double>(std::max(0.0f, config.sideSetback));
+        const double front = static_cast<double>(std::max(0.0f, config.frontSetback));
+        const double rear = static_cast<double>(std::max(0.0f, config.rearSetback));
+
+        double inset_min_x = min_x + side;
+        double inset_max_x = max_x - side;
+        if (inset_min_x > inset_max_x) {
+            const double center_x = (min_x + max_x) * 0.5;
+            inset_min_x = center_x;
+            inset_max_x = center_x;
+        }
+
+        double inset_min_y = min_y + front;
+        double inset_max_y = max_y - rear;
+        if (inset_min_y > inset_max_y) {
+            const double center_y = (min_y + max_y) * 0.5;
+            inset_min_y = center_y;
+            inset_max_y = center_y;
+        }
+
+        position.x = std::clamp(position.x, inset_min_x, inset_max_x);
+        position.y = std::clamp(position.y, inset_min_y, inset_max_y);
+
+        const auto setback_regions = BuildSetbackRegion(
+            lot,
+            inset_min_x,
+            inset_max_x,
+            inset_min_y,
+            inset_max_y,
+            config);
+        if (!setback_regions.empty()) {
+            ClampToSetbackRegion(position, setback_regions);
+        }
+
+        if (!IsFinite(position)) {
+            position = lot.centroid;
+        }
+    }
+
     } // namespace
 
     // End-to-end zoning/materialization pass:
@@ -100,7 +307,7 @@ namespace RogueCity::Generators {
         classifyLots(lots);
         
         // Stage 3: Allocate building budget across lots
-        output.totalBudgetUsed = allocateBudget(lots, config.totalBuildingBudget);
+        output.totalBudgetUsed = allocateBudget(lots, config_.totalBuildingBudget);
         
         // Stage 4: Place buildings on lots
         output.buildings = placeBuildings(lots, rng);
@@ -199,10 +406,10 @@ namespace RogueCity::Generators {
             return 0.0f;
         }
 
-        float budgetUsed = 0.0f;
-        
+        totalBudget = std::max(0.0f, totalBudget);
         const float budgetPerLot = totalBudget / static_cast<float>(lots.size());
-        
+        float rawBudgetUsed = 0.0f;
+
         for (auto& lot : lots) {
             // Assign budget based on lot type
             float lotBudget = budgetPerLot;
@@ -229,10 +436,19 @@ namespace RogueCity::Generators {
                     break;
             }
             lot.budget_allocation = lotBudget;
-            budgetUsed += lotBudget;
+            rawBudgetUsed += lotBudget;
         }
-        
-        return std::min(budgetUsed, totalBudget);
+
+        // Keep per-lot allocations and returned aggregate strictly consistent.
+        if (rawBudgetUsed > totalBudget && rawBudgetUsed > 0.0f) {
+            const float scale = totalBudget / rawBudgetUsed;
+            for (auto& lot : lots) {
+                lot.budget_allocation *= scale;
+            }
+            return totalBudget;
+        }
+
+        return rawBudgetUsed;
     }
 
     // Generates building sites from lots with deterministic seed and configured caps.
@@ -244,7 +460,47 @@ namespace RogueCity::Generators {
         Urban::SiteGenerator::Config site_cfg;
         site_cfg.max_buildings = config_.maxBuildings;
         site_cfg.randomize_sites = false;
-        return Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
+        auto generated_sites = Urban::SiteGenerator::generate(lots, site_cfg, config_.seed);
+        if (generated_sites.empty()) {
+            return generated_sites;
+        }
+
+        std::unordered_map<uint32_t, const LotToken*> lots_by_id;
+        lots_by_id.reserve(lots.size());
+        for (const auto& lot : lots) {
+            lots_by_id[lot.id] = &lot;
+        }
+
+        std::unordered_map<uint32_t, uint32_t> emitted_per_lot;
+        emitted_per_lot.reserve(lots.size());
+
+        siv::Vector<BuildingSite> filtered_sites;
+        filtered_sites.reserve(generated_sites.size());
+
+        for (auto site : generated_sites) {
+            const auto lot_it = lots_by_id.find(site.lot_id);
+            if (lot_it == lots_by_id.end()) {
+                continue;
+            }
+
+            const LotToken& lot = *lot_it->second;
+            uint32_t& local_index = emitted_per_lot[lot.id];
+            const float density = GetLotDensity(config_, lot.lot_type);
+            const float sample = StableUnitSample(config_.seed, lot.id, local_index);
+            local_index += 1u;
+            if (sample > density) {
+                continue;
+            }
+
+            ApplySetbacksToPosition(site.position, lot, config_);
+            site.estimated_cost = getBuildingCost(site.type);
+            filtered_sites.push_back(site);
+        }
+
+        for (size_t i = 0; i < filtered_sites.size(); ++i) {
+            filtered_sites[i].id = static_cast<uint32_t>(i + 1u);
+        }
+        return filtered_sites;
     }
 
     // Converts building inventory into aggregate residents/workers counts.
@@ -259,33 +515,13 @@ namespace RogueCity::Generators {
         
         for (size_t i = 0; i < buildings.size(); ++i) {
             const auto& building = buildings[i];
-            
-            switch (building.type) {
-                case BuildingType::Residential:
-                    totalResidents += config_.residentialDensityPop;
-                    break;
-                case BuildingType::Rowhome:
-                    totalResidents += config_.rowhomeDensityPop;
-                    break;
-                case BuildingType::MixedUse:
-                    totalResidents += config_.mixedUseDensityPop;
-                    totalWorkers += config_.commercialWorkers * 0.5f; // Half commercial
-                    break;
-                case BuildingType::Retail:
-                    totalWorkers += config_.commercialWorkers;
-                    break;
-                case BuildingType::Industrial:
-                    totalWorkers += config_.industrialWorkers;
-                    break;
-                case BuildingType::Civic:
-                    totalWorkers += config_.civicWorkers;
-                    break;
-                case BuildingType::Luxury:
-                    totalResidents += config_.luxuryDensityPop;
-                    break;
-                default:
-                    break;
+
+            totalResidents += getPopulationDensity(building.type, true);
+            float workers = getPopulationDensity(building.type, false);
+            if (building.type == BuildingType::MixedUse) {
+                workers *= 0.5f; // Keep mixed-use half-commercial worker contribution.
             }
+            totalWorkers += workers;
         }
         
         outResidents = static_cast<uint32_t>(totalResidents);

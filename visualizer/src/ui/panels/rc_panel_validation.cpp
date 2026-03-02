@@ -4,6 +4,7 @@
 #include "ui/panels/rc_panel_validation.h"
 #include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/rc_ui_panel_macros.h"
 #include "ui/rc_ui_theme.h"
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
@@ -38,32 +39,12 @@ void DrawContent(float dt) {
     uiint.RegisterWidget({"tree", "ValidationStream", "validation.tail", {"validation"}});
 }
 
-void Draw(float dt) {
-    const bool open = Components::BeginTokenPanel("Validation", UITokens::AmberGlow);
-    auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel(
-        RogueCity::UIInt::PanelMeta{
-            "Validation",
-            "Validation",
-            "validation",
-            "Bottom",
-            "visualizer/src/ui/panels/rc_panel_validation.cpp",
-            {"validation", "runtime"}
-        },
-        open
-    );
-
-    if (!open) {
-        uiint.EndPanel();
-        Components::EndTokenPanel();
-        return;
-    }
-
-    DrawContent(dt);
-
-    uiint.EndPanel();
-    Components::EndTokenPanel();
-}
+RC_PANEL_DRAW_IMPL(
+    "Validation", "Validation", "validation", "Bottom",
+    UITokens::AmberGlow,
+    "visualizer/src/ui/panels/rc_panel_validation.cpp",
+    "validation", "runtime"
+)
 
 int GetValidationEventCount() {
     auto& gs = RogueCity::Core::Editor::GetGlobalState();

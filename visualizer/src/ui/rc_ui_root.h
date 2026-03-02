@@ -31,6 +31,9 @@ void DrawRoot(float dt);
 void ApplyTheme();
 
 enum class ToolLibrary { Axiom, Water, Road, District, Lot, Building };
+using ToolLibraryIconRenderer =
+    void (*)(ImDrawList *draw_list, ToolLibrary tool, const ImVec2 &center,
+             float size, ImU32 color);
 
 // ---[BEGIN: NEW TYPE
 // SCHEMA]--------------------------------------------------- WHY: Decouple
@@ -66,6 +69,10 @@ void ToggleToolLibrary(ToolLibrary tool);
 void ActivateToolLibrary(ToolLibrary tool);
 void PopoutToolLibrary(ToolLibrary tool);
 [[nodiscard]] bool IsToolLibraryPopoutOpen(ToolLibrary tool);
+void SetToolLibraryIconRenderer(ToolLibrary tool,
+                                ToolLibraryIconRenderer renderer);
+void ClearToolLibraryIconRenderer(ToolLibrary tool);
+void ClearAllToolLibraryIconRenderers();
 
 void ApplyUnifiedWindowSchema(const ImVec2 &baseSize = ImVec2(540.0f, 720.0f),
                               float padding = 16.0f);
@@ -82,9 +89,18 @@ struct DockLayoutPreferences {
   float tool_deck_ratio = 0.24f;
 };
 
+enum class DockTreeProfile {
+  Adaptive = 0,
+  StandardThreeColumn,
+  WideCenter,
+  FocusViewport
+};
+
 [[nodiscard]] DockLayoutPreferences GetDockLayoutPreferences();
 [[nodiscard]] DockLayoutPreferences GetDefaultDockLayoutPreferences();
 void SetDockLayoutPreferences(const DockLayoutPreferences &preferences);
+[[nodiscard]] DockTreeProfile GetDockTreeProfile();
+void SetDockTreeProfile(DockTreeProfile profile);
 
 // Axiom Deck -> Axiom Library toggle.
 [[nodiscard]] bool IsAxiomLibraryOpen();
@@ -92,6 +108,8 @@ void ToggleAxiomLibrary();
 
 // Get minimap viewport for camera sync (Phase 5: Polish)
 RogueCity::App::MinimapViewport *GetMinimapViewport();
+void SetMinimapStandaloneWindowEnabled(bool enabled);
+[[nodiscard]] bool IsMinimapStandaloneWindowEnabled();
 
 // Queue a dock reassignment request for an existing panel/window.
 bool QueueDockWindow(const char *windowName, const char *dockArea,
@@ -109,6 +127,20 @@ void ResetDockLayout();
 bool SaveWorkspacePreset(const char *presetName, std::string *error = nullptr);
 bool LoadWorkspacePreset(const char *presetName, std::string *error = nullptr);
 std::vector<std::string> ListWorkspacePresets();
+
+struct WorkspacePresetMetadata {
+  std::string name{};
+  bool has_theme{false};
+  std::string theme_name{};
+  std::string saved_at_utc{};
+  bool has_viewport_size{false};
+  ImVec2 viewport_size{0.0f, 0.0f};
+  int monitor_count{1};
+  bool docking_enabled{true};
+  bool multi_viewport_enabled{false};
+};
+
+std::vector<WorkspacePresetMetadata> ListWorkspacePresetMetadata();
 
 // Track last docked area for windows (for re-docking on close).
 void NotifyDockedWindow(const char *windowName, const char *dockArea);

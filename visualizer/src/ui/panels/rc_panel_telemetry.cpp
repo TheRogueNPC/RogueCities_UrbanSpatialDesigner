@@ -5,6 +5,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
+#include "ui/rc_ui_panel_macros.h"
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 
@@ -103,31 +104,11 @@ void DrawContent(float dt) {
       {"property_editor", "Flow Rate", "metrics.flow_rate", {"metrics"}});
 }
 
-void Draw(float dt) {
-  const bool open =
-      Components::BeginTokenPanel("Analytics", UITokens::CyanAccent);
-
-  auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
-  uiint.BeginPanel(
-      RogueCity::UIInt::PanelMeta{
-          "Analytics",
-          "Analytics",
-          "analytics",
-          "ToolDeck",
-          "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
-          {"analytics", "metrics"}},
-      open);
-
-  if (!open) {
-    uiint.EndPanel();
-    Components::EndTokenPanel();
-    return;
-  }
-
-  DrawContent(dt);
-
-  uiint.EndPanel();
-  Components::EndTokenPanel();
-}
+RC_PANEL_DRAW_IMPL(
+    "Analytics", "Analytics", "analytics", "ToolDeck",
+    UITokens::CyanAccent,
+    "visualizer/src/ui/panels/rc_panel_telemetry.cpp",
+    "analytics", "metrics"
+)
 
 } // namespace RC_UI::Panels::Telemetry

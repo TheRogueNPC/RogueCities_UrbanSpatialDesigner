@@ -72,6 +72,18 @@ set(CORE_SOURCES
 # === LIBRARY TARGET ===
 add_library(RogueCityCore STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 
+if(NOT TARGET Clipper2)
+    set(CLIPPER2_SRC_DIR "${CMAKE_SOURCE_DIR}/3rdparty/Clipper2/CPP/Clipper2Lib/src")
+    if(EXISTS "${CLIPPER2_SRC_DIR}/clipper.engine.cpp")
+        target_sources(RogueCityCore PRIVATE
+            "${CLIPPER2_SRC_DIR}/clipper.engine.cpp"
+            "${CLIPPER2_SRC_DIR}/clipper.offset.cpp"
+            "${CLIPPER2_SRC_DIR}/clipper.rectclip.cpp"
+            "${CLIPPER2_SRC_DIR}/clipper.triangulation.cpp"
+        )
+    endif()
+endif()
+
 # === PUBLIC INTERFACE ===
 target_include_directories(RogueCityCore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -1,4 +1,5 @@
 #include "RogueCity/Generators/Urban/SiteGenerator.hpp"
+#include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 
 #include <algorithm>
 
@@ -83,14 +84,20 @@ namespace RogueCity::Generators::Urban {
                 site.estimated_cost = estimateCost(type);
 
                 Core::Vec2 pos = lot.centroid;
-                if (!lot.boundary.empty()) {
-                    const auto& a = lot.boundary.front();
-                    const auto& c = lot.boundary[2 % lot.boundary.size()];
-                    const double half_w = std::abs(c.x - a.x) * 0.5;
-                    const double half_h = std::abs(c.y - a.y) * 0.5;
+                if (config.randomize_sites && !lot.boundary.empty()) {
+                    const auto bounds = PolygonUtil::bounds(lot.boundary);
+                    const double half_w = std::abs(bounds.max.x - bounds.min.x) * 0.5;
+                    const double half_h = std::abs(bounds.max.y - bounds.min.y) * 0.5;
                     const double j = std::clamp(static_cast<double>(config.jitter), 0.0, 0.95);
-                    pos.x += rng.uniform(-half_w * j, half_w * j);
-                    pos.y += rng.uniform(-half_h * j, half_h * j);
+                    for (int attempt = 0; attempt < 8; ++attempt) {
+                        Core::Vec2 candidate = lot.centroid;
+                        candidate.x += rng.uniform(-half_w * j, half_w * j);
+                        candidate.y += rng.uniform(-half_h * j, half_h * j);
+                        if (PolygonUtil::insidePolygon(candidate, lot.boundary)) {
+                            pos = candidate;
+                            break;
+                        }
+                    }
                 }
                 site.position = pos;
                 buildings.push_back(site);
