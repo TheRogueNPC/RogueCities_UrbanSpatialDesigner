@@ -203,39 +203,39 @@ void ApplyCityOutputToGlobalState(
 
     std::vector<RogueCity::Core::Road> generated_roads;
     generated_roads.reserve(output.roads.size());
-    for (auto road : output.roads) {
+    for (const auto& road_source : output.roads) {
+        auto& road = generated_roads.emplace_back(road_source);
         road.is_user_created = false;
         MarkGenerated(road);
-        generated_roads.push_back(std::move(road));
     }
 
     std::vector<RogueCity::Core::District> generated_districts;
     if (apply_district_bounds) {
         generated_districts.reserve(output.districts.size());
-        for (auto district : output.districts) {
+        for (const auto& district_source : output.districts) {
+            auto& district = generated_districts.emplace_back(district_source);
             district.is_user_placed = false;
             MarkGenerated(district);
-            generated_districts.push_back(std::move(district));
         }
     }
 
     std::vector<RogueCity::Core::LotToken> generated_lots;
     if (apply_lots_buildings) {
         generated_lots.reserve(output.lots.size());
-        for (auto lot : output.lots) {
+        for (const auto& lot_source : output.lots) {
+            auto& lot = generated_lots.emplace_back(lot_source);
             lot.is_user_placed = false;
             MarkGenerated(lot);
-            generated_lots.push_back(std::move(lot));
         }
     }
 
     std::vector<RogueCity::Core::BuildingSite> generated_buildings;
     if (apply_lots_buildings) {
         generated_buildings.reserve(output.buildings.size());
-        for (auto building : output.buildings) {
+        for (const auto& building_source : output.buildings) {
+            auto& building = generated_buildings.emplace_back(building_source);
             building.is_user_placed = false;
             MarkGenerated(building);
-            generated_buildings.push_back(std::move(building));
         }
     }
 
