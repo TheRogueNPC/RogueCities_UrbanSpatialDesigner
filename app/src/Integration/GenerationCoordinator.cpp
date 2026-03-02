@@ -1,5 +1,8 @@
 #include "RogueCity/App/Integration/GenerationCoordinator.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
 
+#include <iostream>
+#include <sstream>
 #include <utility>
 
 namespace RogueCity::App {
@@ -16,12 +19,31 @@ void GenerationCoordinator::Update(float delta_time) {
         inflight_serial_ = scheduled_serial_;
         inflight_reason_ = scheduled_reason_;
         inflight_depth_ = scheduled_depth_;
+
+        std::ostringstream ss;
+        ss << "[GEN] Starting generation serial #" << inflight_serial_
+           << " (Reason: " << ReasonName(inflight_reason_) << ")";
+        LogEvent(ss.str());
     }
 
     if (was_generating && !is_generating && inflight_serial_ > completed_serial_) {
         completed_serial_ = inflight_serial_;
         completed_reason_ = inflight_reason_;
         completed_depth_ = inflight_depth_;
+
+        std::ostringstream ss;
+        ss << "[GEN] Completed generation serial #" << completed_serial_;
+
+        const auto* output = preview_.get_output();
+        if (output) {
+            if (output->plan_approved) {
+                ss << " [SUCCESS]";
+            } else {
+                ss << " [REJECTED] - " << output->plan_violations.size() << " violations";
+            }
+        }
+
+        LogEvent(ss.str());
     }
 
 }
@@ -42,6 +64,12 @@ void GenerationCoordinator::RequestRegeneration(
     ++scheduled_serial_;
     scheduled_reason_ = reason;
     scheduled_depth_ = depth;
+
+    std::ostringstream ss;
+    ss << "[GEN] Requesting regeneration serial #" << scheduled_serial_
+       << " (Reason: " << ReasonName(reason) << ")";
+    LogEvent(ss.str());
+
     preview_.request_regeneration(axioms, config, depth);
 }
 
@@ -54,6 +82,12 @@ void GenerationCoordinator::RequestRegenerationIncremental(
     ++scheduled_serial_;
     scheduled_reason_ = reason;
     scheduled_depth_ = depth;
+
+    std::ostringstream ss;
+    ss << "[GEN] Requesting incremental regeneration serial #" << scheduled_serial_
+       << " (Reason: " << ReasonName(reason) << ")";
+    LogEvent(ss.str());
+
     preview_.request_regeneration_incremental(axioms, config, dirty_stages, depth);
 }
 
@@ -65,6 +99,12 @@ void GenerationCoordinator::ForceRegeneration(
     ++scheduled_serial_;
     scheduled_reason_ = reason;
     scheduled_depth_ = depth;
+
+    std::ostringstream ss;
+    ss << "[GEN] Forcing regeneration serial #" << scheduled_serial_
+       << " (Reason: " << ReasonName(reason) << ")";
+    LogEvent(ss.str());
+
     preview_.force_regeneration(axioms, config, depth);
 }
 
@@ -77,14 +117,22 @@ void GenerationCoordinator::ForceRegenerationIncremental(
     ++scheduled_serial_;
     scheduled_reason_ = reason;
     scheduled_depth_ = depth;
+
+    std::ostringstream ss;
+    ss << "[GEN] Forcing incremental regeneration serial #" << scheduled_serial_
+       << " (Reason: " << ReasonName(reason) << ")";
+    LogEvent(ss.str());
+
     preview_.force_regeneration_incremental(axioms, config, dirty_stages, depth);
 }
 
 void GenerationCoordinator::CancelGeneration() {
+    LogEvent("[GEN] Cancelling generation");
     preview_.cancel_generation();
 }
 
 void GenerationCoordinator::ClearOutput() {
+    LogEvent("[GEN] Clearing generation output");
     preview_.clear_output();
     scheduled_serial_ = 0;
     inflight_serial_ = 0;
@@ -161,6 +209,12 @@ RealTimePreview* GenerationCoordinator::Preview() {
 
 const RealTimePreview* GenerationCoordinator::Preview() const {
     return &preview_;
+}
+
+void GenerationCoordinator::LogEvent(const std::string& msg) {
+    std::cout << msg << std::endl;
+    RogueCity::Core::Editor::GetGlobalState().infomatrix.pushEvent(
+        RogueCity::Core::Editor::InfomatrixEvent::Category::Runtime, msg);
 }
 
 } // namespace RogueCity::App
