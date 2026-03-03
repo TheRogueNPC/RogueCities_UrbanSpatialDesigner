@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] - 2026-03-02 (Lucide SVG Icon System)
+- Added `nanosvg` + `nanosvgrast` (header-only) to `3rdparty/nanosvg/` for runtime SVG parsing and RGBA rasterization with no external dependencies.
+- Vendored 1950 Lucide SVG icons (`lucide-static` v0.x) into `visualizer/assets/icons/lucide/` as the canonical icon asset source.
+- Introduced `RC::SvgTextureCache` (`visualizer/include/.../SvgTextureCache.hpp` + `visualizer/src/ui/SvgTextureCache.cpp`): a singleton that lazily loads and OpenGL-uploads SVG files keyed by `(path, size_px)`, returning `ImTextureID` for direct use with `ImGui::Image` / `ImageButton`.
+- Added `LucideIcons.hpp` with 33 named path constants (`LC::Home`, `LC::Settings`, `LC::Building`, `LC::Bot`, etc.) grouped by Navigation, Tools, Status, City, and AI/Dev categories.
+- Wired `SvgTextureCache.cpp` and the `3rdparty/nanosvg` include path into both `RogueCityVisualizerHeadless` and `RogueCityVisualizerGui` targets in `visualizer/CMakeLists.txt`.
+- Added `RC::SvgTextureCache::Get().Clear()` teardown calls in `main.cpp` (before `ShutdownScreenshotRuntime`) and `main_gui.cpp` (before `ImGui_ImplOpenGL3_Shutdown`) to safely release GL textures before context destruction.
+
 ## [Unreleased] - 2026-03-01 (3D Viewport & Editor Architecture)
 - **True 3D Viewport**: Modernized renderer backend and `WorldToScreen`/`ScreenToWorld` math utilizing `glm::perspective` and `glm::inverse` to support `pitch` and `is_3d` camera modes.
 - **Authoritative Footprints**: Migrated footprint generation into `SiteGenerator` as explicit `Boost.Geometry` buffered polygon insets stored natively on `BuildingSite::outline`.

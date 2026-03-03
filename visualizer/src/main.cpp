@@ -5,6 +5,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
+#include <RogueCity/Visualizer/SvgTextureCache.hpp>
 
 #include <algorithm>
 #include <array>
@@ -692,6 +693,7 @@ int main(int argc, char **argv) {
 
 #if defined(ROGUECITY_HEADLESS_GL_SCREENSHOT)
   if (wants_screenshot) {
+    RC::SvgTextureCache::Get().Clear();
     ShutdownScreenshotRuntime(screenshot_ctx);
   }
 #endif
