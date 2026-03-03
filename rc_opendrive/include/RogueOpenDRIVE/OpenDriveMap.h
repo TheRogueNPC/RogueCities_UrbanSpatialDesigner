@@ -1,5 +1,6 @@
 #pragma once
 #include "Junction.h"
+#include "Railroad.h"
 #include "Road.h"
 #include "RoadNetworkMesh.h"
 #include "RoutingGraph.h"
@@ -46,6 +47,7 @@ public:
 
   std::map<std::string, Road> id_to_road;
   std::map<std::string, Junction> id_to_junction;
+  std::vector<Station> stations; ///< § 15.4
 };
 
 } // namespace odr

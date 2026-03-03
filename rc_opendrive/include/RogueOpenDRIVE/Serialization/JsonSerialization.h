@@ -10,6 +10,7 @@
 #include "RogueOpenDRIVE/LaneSection.h"
 #include "RogueOpenDRIVE/LaneValidityRecord.h"
 #include "RogueOpenDRIVE/OpenDriveMap.h"
+#include "RogueOpenDRIVE/Railroad.h" // RailroadTrack, RailroadPartner, RailroadSwitch
 #include "RogueOpenDRIVE/RefLine.h"
 #include "RogueOpenDRIVE/Road.h"
 #include "RogueOpenDRIVE/RoadMark.h"
@@ -162,6 +163,22 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaneSection, road_id, s0, id_to_lane)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObjectMaterial, friction, roughness,
                                    surface, road_mark_color)
 
+// RoadObjectRepeat - §11.2.2 repeat element
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObjectRepeat, s0, length, distance,
+                                   t_start, t_end, width_start, width_end,
+                                   height_start, height_end, z_offset_start,
+                                   z_offset_end)
+
+// RoadObjectCorner / RoadObjectOutline - §11.2.3 outline element
+NLOHMANN_JSON_SERIALIZE_ENUM(
+    RoadObjectCorner::Type,
+    {{RoadObjectCorner::Type::Local_RelZ, "local_relz"},
+     {RoadObjectCorner::Type::Local_AbsZ, "local_absz"},
+     {RoadObjectCorner::Type::Road, "road"}})
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObjectCorner, id, pt, height, type)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObjectOutline, id, fill_type, lane_type,
+                                   outer, closed, outline)
+
 NLOHMANN_JSON_SERIALIZE_ENUM(
     RoadObjectParkingSpace::Access,
     {{RoadObjectParkingSpace::Access::All, "all"},
@@ -204,6 +221,15 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObjectSkeleton, id, vertices)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ObjectReference, id, s, t, z_offset,
                                    valid_length, orientation)
 
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadSignalDependency, id, type)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadSignalReference, element_id,
+                                   element_type, type)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SignalReference, id, s, t, orientation)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadSignalPositionRoad, road_id, s, t,
+                                   z_offset, h_offset, pitch, roll)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadSignalPositionInertial, x, y, z, hdg,
+                                   pitch, roll)
+
 NLOHMANN_JSON_SERIALIZE_ENUM(RoadTunnel::Type,
                              {{RoadTunnel::Type::Standard, "standard"},
                               {RoadTunnel::Type::Underpass, "underpass"}})
@@ -229,9 +255,17 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadObject, road_id, id, type, name,
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadSignal, road_id, id, name, s0, t0,
                                    is_dynamic, zOffset, value, height, width,
                                    hOffset, pitch, roll, orientation, country,
-                                   type, subtype, unit, text, lane_validities)
+                                   country_revision, type, subtype, unit, text,
+                                   lane_validities, dependencies, references,
+                                   position_road, position_inertial)
 
 // 7. Road Links and Metadata
+// Railroad types - §15.3
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RailroadTrack, id, s, dir)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RailroadPartner, id, name)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RailroadSwitch, id, name, position,
+                                   main_track, side_track, partners)
+
 NLOHMANN_JSON_SERIALIZE_ENUM(Crossfall::Side,
                              {{Crossfall::Side::Both, "Both"},
                               {Crossfall::Side::Left, "Left"},
@@ -251,13 +285,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RoadNeighbor, id, side, direction)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SpeedRecord, max, unit)
 
 // 8. Road
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Road, length, id, junction, name,
-                                   left_hand_traffic, predecessor, successor,
-                                   neighbors, lane_offset, superelevation,
-                                   crossfall, ref_line, s_to_lanesection,
-                                   s_to_type, s_to_speed, id_to_object,
-                                   id_to_signal, object_references, tunnels,
-                                   bridges)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+    Road, length, id, junction, name, left_hand_traffic, predecessor, successor,
+    neighbors, lane_offset, superelevation, crossfall, ref_line,
+    s_to_lanesection, s_to_type, s_to_speed, id_to_object, id_to_signal,
+    object_references, signal_references, tunnels, bridges, railroad_switches)
 
 // 9. Junctions
 NLOHMANN_JSON_SERIALIZE_ENUM(JunctionConnection::ContactPoint,

@@ -90,4 +90,54 @@ JunctionTrafficIsland::JunctionTrafficIsland(std::string id, std::string name,
 Junction::Junction(std::string name, std::string id, std::string type)
     : name(std::move(name)), id(std::move(id)), type(std::move(type)) {}
 
+// ---------------------------------------------------------------------------
+// R-OADG Builder APIs
+// ---------------------------------------------------------------------------
+
+JunctionConnection &
+Junction::add_connection(std::string id, std::string incoming_road,
+                         std::string connecting_road,
+                         JunctionConnection::ContactPoint contact_point) {
+  JunctionConnection conn(id, std::move(incoming_road),
+                          std::move(connecting_road), contact_point);
+  auto [it, inserted] =
+      id_to_connection.insert_or_assign(std::move(id), std::move(conn));
+  return it->second;
+}
+
+void Junction::add_slip_lane(std::string connection_id,
+                             std::string incoming_road,
+                             std::string connecting_road, int from_lane,
+                             int to_lane) {
+  JunctionConnection &conn = add_connection(
+      std::move(connection_id), std::move(incoming_road),
+      std::move(connecting_road), JunctionConnection::ContactPoint::Start);
+  conn.lane_links.insert(JunctionLaneLink(from_lane, to_lane));
+}
+
+void Junction::add_furniture(
+    std::string id, std::string name, double height, double z_offset,
+    std::string fill_type,
+    const std::vector<JunctionCornerLocal> &local_outline) {
+  JunctionTrafficIsland island(std::move(id), std::move(name), height, z_offset,
+                               std::move(fill_type));
+  island.outline = local_outline;
+  traffic_islands.push_back(std::move(island));
+}
+
+void Junction::add_multi_lane_setup(const std::string &connection_id,
+                                    int start_lane, int end_lane) {
+  auto it = id_to_connection.find(connection_id);
+  if (it != id_to_connection.end()) {
+    int step = (start_lane <= end_lane) ? 1 : -1;
+    int current = start_lane;
+    while (true) {
+      it->second.lane_links.insert(JunctionLaneLink(current, current));
+      if (current == end_lane)
+        break;
+      current += step;
+    }
+  }
+}
+
 } // namespace odr

@@ -1,7 +1,16 @@
 #include "RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp"
 
 #include <boost/polygon/point_data.hpp>
+// Boost 1.87 polygon/voronoi uses enum-to-float comparisons that trigger C5055.
+// This is a known upstream issue; suppress at the inclusion boundary.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5055)
+#endif
 #include <boost/polygon/voronoi.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <algorithm>
 #include <cmath>

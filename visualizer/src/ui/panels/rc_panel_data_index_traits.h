@@ -32,7 +32,8 @@ void ApplySelectionModifier(SelectionManager &selection, VpEntityKind kind,
 }
 
 // Shared: clear all entity-type selection handles before setting the new one.
-// Called at the start of every OnEntitySelected in Road/District/Lot/Building traits.
+// Called at the start of every OnEntitySelected in Road/District/Lot/Building
+// traits.
 void ClearAllSelections(RogueCity::Core::Editor::GlobalState &gs) {
   gs.selection.selected_road = {};
   gs.selection.selected_district = {};
@@ -69,7 +70,7 @@ struct RoadIndexTraits {
     return gs.roads;
   }
 
-  static int GetColumnCount() { return 3; }
+  static int GetColumnCount() { return 4; }
   static const char *GetColumnHeader(int column) {
     switch (column) {
     case 0:
@@ -78,6 +79,8 @@ struct RoadIndexTraits {
       return "Type";
     case 2:
       return "Points";
+    case 3:
+      return "ASAM Data";
     default:
       return "";
     }
@@ -94,13 +97,47 @@ struct RoadIndexTraits {
     case 2:
       ImGui::Text("%zu", road.points.size());
       break;
+    case 3:
+      if (road.asam_json_payload.empty()) {
+        ImGui::TextDisabled("None");
+      } else {
+        std::string btn_label = "View JSON##" + std::to_string(road.id);
+        if (ImGui::SmallButton(btn_label.c_str())) {
+          ImGui::OpenPopup(("JSONViewer##" + std::to_string(road.id)).c_str());
+        }
+
+        if (ImGui::BeginPopup(
+                ("JSONViewer##" + std::to_string(road.id)).c_str())) {
+          ImGui::Text("ASAM OpenDRIVE Properties (Spline %u)", road.id);
+          if (road.contains_signal)
+            ImGui::TextColored(ImVec4(1, 1, 0, 1), "[Contains Signal]");
+          if (road.contains_crosswalk)
+            ImGui::TextColored(ImVec4(0, 1, 1, 1), "[Contains Crosswalk]");
+          if (road.layer_id != 0)
+            ImGui::TextColored(ImVec4(1, 0, 1, 1), "[Layer: %d]",
+                               road.layer_id);
+
+          ImGui::Separator();
+          // Need a non-const buffer for InputText if we wanted to edit, but for
+          // now just read-only text wrapped or a read-only InputTextMultiline.
+          // Let's use a read-only input text multiline.
+          ImGui::InputTextMultiline(
+              "##json_view", (char *)road.asam_json_payload.c_str(),
+              road.asam_json_payload.size() + 1, ImVec2(600, 400),
+              ImGuiInputTextFlags_ReadOnly);
+          ImGui::EndPopup();
+        }
+      }
+      break;
     }
   }
 
   static const char *GetPanelTitle() { return "Road Index"; }
   static const char *GetDataName() { return "Roads"; }
 
-  static std::vector<std::string> GetTags() { return {"roads", "index"}; }
+  static std::vector<std::string> GetTags() {
+    return {"roads", "index", "asam"};
+  }
 
   static bool FilterEntity(const EntityType &road, const std::string &filter) {
     std::string id_str = std::to_string(road.id);

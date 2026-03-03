@@ -3,6 +3,7 @@
 #include "LaneSection.h"
 #include "Math.hpp"
 #include "Mesh.h"
+#include "Railroad.h" // RailroadSwitch used by Road::railroad_switches (§ 15.3)
 #include "RefLine.h"
 #include "RoadObject.h"
 #include "RoadSignal.h"
@@ -128,8 +129,10 @@ public:
   std::map<std::string, RoadObject> id_to_object;
   std::map<std::string, RoadSignal> id_to_signal;
   std::vector<ObjectReference> object_references;
+  std::vector<SignalReference> signal_references; ///< § 14.5
   std::vector<RoadTunnel> tunnels;
   std::vector<RoadBridge> bridges;
+  std::vector<RailroadSwitch> railroad_switches; ///< § 15.3
 };
 
 } // namespace odr

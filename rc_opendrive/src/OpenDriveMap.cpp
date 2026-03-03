@@ -993,6 +993,46 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
                          signal_node.attribute("text").as_string("none"))})
                 .first->second;
 
+        road_signal.country_revision =
+            signal_node.attribute("countryRevision").as_string("");
+
+        for (pugi::xml_node dep_node : signal_node.children("dependency")) {
+          road_signal.dependencies.emplace_back(
+              dep_node.attribute("id").as_string(""),
+              dep_node.attribute("type").as_string(""));
+        }
+
+        for (pugi::xml_node ref_node : signal_node.children("reference")) {
+          road_signal.references.emplace_back(
+              ref_node.attribute("elementId").as_string(""),
+              ref_node.attribute("elementType").as_string(""),
+              ref_node.attribute("type").as_string(""));
+        }
+
+        if (pugi::xml_node pos_road_node = signal_node.child("positionRoad")) {
+          RoadSignalPositionRoad pos;
+          pos.road_id = pos_road_node.attribute("roadId").as_string("");
+          pos.s = pos_road_node.attribute("s").as_double(0.0);
+          pos.t = pos_road_node.attribute("t").as_double(0.0);
+          pos.z_offset = pos_road_node.attribute("zOffset").as_double(0.0);
+          pos.h_offset = pos_road_node.attribute("hOffset").as_double(0.0);
+          pos.pitch = pos_road_node.attribute("pitch").as_double(0.0);
+          pos.roll = pos_road_node.attribute("roll").as_double(0.0);
+          road_signal.position_road = pos;
+        }
+
+        if (pugi::xml_node pos_inertial_node =
+                signal_node.child("positionInertial")) {
+          RoadSignalPositionInertial pos;
+          pos.x = pos_inertial_node.attribute("x").as_double(0.0);
+          pos.y = pos_inertial_node.attribute("y").as_double(0.0);
+          pos.z = pos_inertial_node.attribute("z").as_double(0.0);
+          pos.hdg = pos_inertial_node.attribute("hdg").as_double(0.0);
+          pos.pitch = pos_inertial_node.attribute("pitch").as_double(0.0);
+          pos.roll = pos_inertial_node.attribute("roll").as_double(0.0);
+          road_signal.position_inertial = pos;
+        }
+
         for (auto [val_name, val_ptr] :
              {std::pair{"s", &(road_signal.s0)},
               std::pair{"height", &(road_signal.height)},
@@ -1006,6 +1046,16 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
 
         road_signal.lane_validities =
             extract_lane_validity_records(signal_node);
+      }
+
+      /* parse signalReference (§ 14.5) */
+      for (pugi::xml_node sig_ref_node :
+           road_node.child("signals").children("signalReference")) {
+        road.signal_references.emplace_back(
+            sig_ref_node.attribute("id").as_string(""),
+            sig_ref_node.attribute("s").as_double(0.0),
+            sig_ref_node.attribute("t").as_double(0.0),
+            sig_ref_node.attribute("orientation").as_string("none"));
       }
     }
 
@@ -1049,6 +1099,62 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
       bridge.lane_validities = extract_lane_validity_records(bridge_node);
       road.bridges.push_back(std::move(bridge));
     }
+
+    /* parse railroad switches - ASAM OpenDRIVE § 15.3 */
+    if (pugi::xml_node railroad_node = road_node.child("railroad")) {
+      for (pugi::xml_node switch_node : railroad_node.children("switch")) {
+        RailroadSwitch r_switch(
+            switch_node.attribute("id").as_string(""),
+            switch_node.attribute("name").as_string(""),
+            switch_node.attribute("position").as_string(""));
+
+        if (pugi::xml_node main_track_node = switch_node.child("mainTrack")) {
+          r_switch.main_track =
+              RailroadTrack(main_track_node.attribute("id").as_string(""),
+                            main_track_node.attribute("s").as_double(0.0),
+                            main_track_node.attribute("dir").as_string(""));
+        }
+
+        if (pugi::xml_node side_track_node = switch_node.child("sideTrack")) {
+          r_switch.side_track =
+              RailroadTrack(side_track_node.attribute("id").as_string(""),
+                            side_track_node.attribute("s").as_double(0.0),
+                            side_track_node.attribute("dir").as_string(""));
+        }
+
+        for (pugi::xml_node partner_node : switch_node.children("partner")) {
+          r_switch.partners.emplace_back(
+              partner_node.attribute("id").as_string(""),
+              partner_node.attribute("name").as_string(""));
+        }
+
+        road.railroad_switches.push_back(r_switch);
+      }
+    }
+
+    this->id_to_road[road.id] = std::move(road);
+  }
+
+  /* parse stations - ASAM OpenDRIVE § 15.4 */
+  for (pugi::xml_node station_node : odr_node.children("station")) {
+    Station station(station_node.attribute("id").as_string(""),
+                    station_node.attribute("name").as_string(""),
+                    station_node.attribute("type").as_string(""));
+
+    for (pugi::xml_node platform_node : station_node.children("platform")) {
+      StationPlatform platform(platform_node.attribute("id").as_string(""),
+                               platform_node.attribute("name").as_string(""));
+
+      for (pugi::xml_node segment_node : platform_node.children("segment")) {
+        platform.segments.emplace_back(
+            segment_node.attribute("roadId").as_string(""),
+            segment_node.attribute("sStart").as_double(0.0),
+            segment_node.attribute("sEnd").as_double(0.0),
+            segment_node.attribute("side").as_string(""));
+      }
+      station.platforms.push_back(platform);
+    }
+    this->stations.push_back(station);
   }
 }
 

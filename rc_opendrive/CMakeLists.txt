@@ -44,10 +44,22 @@ if(RC_OPENDRIVE_SOURCES)
         target_compile_definitions(rc_opendrive PRIVATE _CRT_SECURE_NO_WARNINGS)
     endif()
 
+    install(TARGETS rc_opendrive
+        EXPORT RogueCitiesTargets
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+
     message(STATUS "[rc_opendrive] Configured as static library (RogueCity::OpenDRIVE)")
 else()
     add_library(rc_opendrive INTERFACE)
     target_include_directories(rc_opendrive INTERFACE ${RC_OPENDRIVE_PUBLIC_INCLUDE_DIRS})
+    
+    install(TARGETS rc_opendrive
+        EXPORT RogueCitiesTargets
+    )
+    
     message(WARNING "[rc_opendrive] No src/*.cpp found; configuring include-only stub target.")
 endif()
 

@@ -261,6 +261,58 @@ public:
   // ASAM Common Junction advanced features
   std::vector<JunctionCrossPath> cross_paths;         ///< § 6.3.3 / Code 24
   std::vector<JunctionTrafficIsland> traffic_islands; ///< § 6.5   / Code 32
+
+  // R-OADG Builder APIs
+  /**
+   * @brief Adds a standard vehicle connection through the junction.
+   * @param id Unique ID for this connection.
+   * @param incoming_road ID of the road entering the junction.
+   * @param connecting_road ID of the virtual path inside the junction.
+   * @param contact_point "Start" or "End" of the connecting road.
+   * @return A reference to the newly created connection for chaining or adding
+   * lane links.
+   */
+  JunctionConnection &
+  add_connection(std::string id, std::string incoming_road,
+                 std::string connecting_road,
+                 JunctionConnection::ContactPoint contact_point);
+
+  /**
+   * @brief Helper to configure a dedicated slip lane (free-flow right turn,
+   * etc). Automatically creates a connection with a 1:1 lane mapping.
+   * @param connection_id Unique ID for the slip lane connection.
+   * @param incoming_road ID of the approaching road.
+   * @param connecting_road ID of the virtual geometry road for the slip lane.
+   * @param from_lane The specific lane ID yielding into the slip.
+   * @param to_lane The specific lane ID on the connecting slip road.
+   */
+  void add_slip_lane(std::string connection_id, std::string incoming_road,
+                     std::string connecting_road, int from_lane, int to_lane);
+
+  /**
+   * @brief Adds structural "furniture" to the junction, such as traffic islands
+   * or raised curbs.
+   * @param id Unique identifier across the map.
+   * @param name Human-readable label (e.g., "North_Island").
+   * @param height Height of the furniture above the road surface [m].
+   * @param z_offset Vertical placement offset [m].
+   * @param fill_type Material mapping (e.g., "concrete", "grass").
+   * @param local_outline Set of polygon contour vertices in junction-local
+   * coords.
+   */
+  void add_furniture(std::string id, std::string name, double height,
+                     double z_offset, std::string fill_type,
+                     const std::vector<JunctionCornerLocal> &local_outline);
+
+  /**
+   * @brief Batch helper for routing multiple lanes from an incoming road
+   * directly into a connecting road.
+   * @param connection_id The connection to populate.
+   * @param start_lane Start of the lane ID range (inclusive).
+   * @param end_lane End of the lane ID range (inclusive).
+   */
+  void add_multi_lane_setup(const std::string &connection_id, int start_lane,
+                            int end_lane);
 };
 
 } // namespace odr
