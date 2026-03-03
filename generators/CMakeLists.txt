@@ -32,6 +32,7 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/PolygonUtil.cpp
     src/Generators/Urban/Graph.cpp
     src/Generators/Urban/GraphAlgorithms.cpp
+    src/Generators/Urban/RoutingLibrary.cpp
     src/Generators/Urban/PolygonFinder.cpp
     src/Generators/Urban/RoadGenerator.cpp
     src/Generators/Urban/DistrictGenerator.cpp
@@ -75,6 +76,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/PolygonUtil.hpp
     include/RogueCity/Generators/Urban/Graph.hpp
     include/RogueCity/Generators/Urban/GraphAlgorithms.hpp
+    include/RogueCity/Generators/Urban/RoutingLibrary.hpp
     include/RogueCity/Generators/Urban/PolygonFinder.hpp
     include/RogueCity/Generators/Urban/RoadGenerator.hpp
     include/RogueCity/Generators/Urban/DistrictGenerator.hpp

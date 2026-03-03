@@ -289,6 +289,10 @@ if(BUILD_TESTING)
     target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_generators PRIVATE cxx_std_20)
 
+    add_executable(test_routing_library tests/test_routing_library.cpp)
+    target_link_libraries(test_routing_library PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_routing_library PRIVATE cxx_std_20)
+
     add_executable(test_geometry_adapter tests/test_geometry_adapter.cpp)
     target_link_libraries(test_geometry_adapter PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_geometry_adapter PRIVATE cxx_std_20)

@@ -42,3 +42,4 @@ imgui.ini
 # Python cache artifacts
 __pycache__/
 *.pyc
+_codeql_detected_source_root
