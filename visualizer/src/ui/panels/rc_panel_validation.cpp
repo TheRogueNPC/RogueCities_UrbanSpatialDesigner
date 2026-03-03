@@ -6,6 +6,7 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_panel_macros.h"
 #include "ui/rc_ui_theme.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 #include <RogueCity/Core/Infomatrix.hpp>
@@ -26,7 +27,13 @@ void DrawContent(float dt) {
 
     for (const auto& ev : es.data) {
         if (ev.cat == InfomatrixEvent::Category::Validation) {
-            ImU32 color = ev.msg.find("rejected") != std::string::npos ? UITokens::ErrorRed : UITokens::GreenHUD;
+            const bool is_fail = ev.msg.find("rejected") != std::string::npos
+                              || ev.msg.find("ERROR")    != std::string::npos;
+            ImU32 color = is_fail ? UITokens::ErrorRed : UITokens::GreenHUD;
+            const char* ico_path = is_fail ? LC::XCircle : LC::CheckCircle;
+            if (auto ico = RC::SvgTextureCache::Get().Load(ico_path, 12.f)) {
+                ImGui::Image(ico, ImVec2(12, 12)); ImGui::SameLine(0, 4);
+            }
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color));
             ImGui::TextUnformatted(ev.msg.c_str());
             ImGui::PopStyleColor();

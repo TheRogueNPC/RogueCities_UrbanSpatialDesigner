@@ -46,6 +46,7 @@ set(GENERATOR_SOURCES
     src/Generators/Pipeline/ZoningGenerator.cpp
     src/Generators/Pipeline/TerrainConstraintGenerator.cpp
     src/Generators/Pipeline/PlanValidatorGenerator.cpp
+    src/Generators/Import/OpenDriveBridge.cpp
 )
 
 # Header files (for IDE integration)
@@ -92,6 +93,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
     include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp
     include/RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp
+    include/RogueCity/Generators/Import/OpenDriveBridge.hpp
 )
 
 # Create static library
@@ -188,6 +190,7 @@ target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
         Clipper2::Clipper2
+        RogueCity::OpenDRIVE
 )
 
 if(ROGUECITY_ENABLE_FASTNOISE2)

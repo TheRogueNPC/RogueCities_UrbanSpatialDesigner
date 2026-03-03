@@ -38,6 +38,16 @@ imgui.ini
 
 # Local scratch files
 /nul
+/tmpclaude-*-cwd
+/audit_build*.log
+/audit_locals_after*.log
+/build.log
+/build_log.txt
+/refresh_build.log
+/__rc_*.log
+/rc_env_context_test.log
+/visualizer.jsonl
+/.Temp/root_cleanup_archive/
 
 # Python cache artifacts
 __pycache__/

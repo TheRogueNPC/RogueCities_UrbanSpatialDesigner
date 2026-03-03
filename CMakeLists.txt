@@ -195,6 +195,12 @@ add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
 
+# === R-OADG AXIOM SYSTEM (Phase 4) ===
+# Standalone ASAM OpenDRIVE parser and serialization library
+if(EXISTS "${CMAKE_SOURCE_DIR}/rc_opendrive/CMakeLists.txt")
+    add_subdirectory(rc_opendrive)
+endif()
+
 # === AI PROTOCOL LAYER ===
 # AI-driven UI control for editor automation
 add_subdirectory(AI)
@@ -515,6 +521,11 @@ if(BUILD_TESTING)
     # endif()
     message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage needs fix)")
 
+    add_executable(test_opendrive_serialization tests/test_opendrive_serialization.cpp)
+    target_link_libraries(test_opendrive_serialization PRIVATE rc_opendrive)
+    target_compile_features(test_opendrive_serialization PRIVATE cxx_std_20)
+
+    add_test(NAME test_opendrive_serialization COMMAND test_opendrive_serialization)
     add_test(NAME test_core COMMAND test_core)
     add_test(NAME test_tensor2d_smoothing COMMAND test_tensor2d_smoothing)
     add_test(NAME test_polygon_ops COMMAND test_polygon_ops)

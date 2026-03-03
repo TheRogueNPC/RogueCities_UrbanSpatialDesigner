@@ -6,6 +6,7 @@
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_panel_macros.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 
@@ -42,7 +43,8 @@ void DrawContent(float dt) {
   fill.Update(dt);
 
   // Runtime Pressure Section
-  if (Components::DrawSectionHeader("Runtime", UITokens::CyanAccent)) {
+  if (Components::DrawSectionHeader("Runtime", UITokens::CyanAccent, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
       Components::DrawMeter("Pressure", fill.v, fill.v > 0.8f ? UITokens::ErrorRed : (fill.v > 0.5f ? UITokens::YellowWarning : UITokens::SuccessGreen));
       
       char fps_str[32];
@@ -58,12 +60,17 @@ void DrawContent(float dt) {
       Components::DrawDiagRow("Entities", ent_str);
       
       ImGui::Spacing();
+      if (auto ico = RC::SvgTextureCache::Get().Load(
+              gs.plan_approved ? LC::CheckCircle : LC::XCircle, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+      }
       Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED", gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed, true);
       ImGui::Spacing();
   }
 
   // Grid Quality Index Section
-  if (Components::DrawSectionHeader("Grid Quality Index", UITokens::CyanAccent)) {
+  if (Components::DrawSectionHeader("Grid Quality Index", UITokens::CyanAccent, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Grid, 14.f))) {
       auto &gq = gs.grid_quality;
       
       Components::DrawMeter("Composite", gq.composite_index, UITokens::SuccessGreen);
@@ -75,7 +82,8 @@ void DrawContent(float dt) {
   }
 
   // Urban Hell Diagnostics Section
-  if (Components::DrawSectionHeader("Urban Hell Diagnostics", UITokens::YellowWarning)) {
+  if (Components::DrawSectionHeader("Urban Hell Diagnostics", UITokens::YellowWarning, true,
+                                    RC::SvgTextureCache::Get().Load(LC::AlertTriangle, 14.f))) {
       auto &gq = gs.grid_quality;
 
       if (gq.island_count > 1) {

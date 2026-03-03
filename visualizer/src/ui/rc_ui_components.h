@@ -3,7 +3,9 @@
 #pragma once
 
 #include "ui/rc_ui_tokens.h"
+#include <RogueCity/Visualizer/SvgTextureCache.hpp>
 
+#include <algorithm>
 #include <cstdarg>
 #include <imgui.h>
 
@@ -272,19 +274,35 @@ inline void DraggableSectionDivider(const char *label, const char *popup_id) {
 /// DrawSectionHeader — draws a left color-bar LCARS-style section header,
 /// matching the mockup's .section-header::before stripe.
 /// Call where a CollapsingHeader would go; returns true if the section is open.
+/// Pass a non-zero `icon` (from RC::SvgTextureCache::Get().Load()) to render a
+/// small Lucide icon to the left of the label text.
 inline bool DrawSectionHeader(const char *label, ImU32 bar_color,
-                              bool default_open = true) {
+                              bool default_open = true,
+                              ImTextureID icon = 0,
+                              float icon_size = 14.0f) {
   // Left accent stripe (4px wide, full item height)
   const ImVec2 cursor = ImGui::GetCursorScreenPos();
   const ImVec2 text_size = ImGui::CalcTextSize(label);
-  const float h = text_size.y + 8.0f; // ~FramePadding.y * 2 + text
+  const float content_h = (icon != 0 && icon_size > 0.0f)
+                              ? std::max(text_size.y, icon_size)
+                              : text_size.y;
+  const float h = content_h + 8.0f; // ~FramePadding.y * 2 + content
 
   ImDrawList *draw = ImGui::GetWindowDrawList();
   draw->AddRectFilled(cursor, ImVec2(cursor.x + 4.0f, cursor.y + h),
                       WithAlpha(bar_color, 220));
 
-  // Indent past the stripe, then draw a tree node
-  ImGui::SetCursorScreenPos(ImVec2(cursor.x + 8.0f, cursor.y));
+  if (icon != 0 && icon_size > 0.0f) {
+    // Render the icon then let SameLine position the tree node after it
+    const float icon_y = cursor.y + (h - icon_size) * 0.5f;
+    ImGui::SetCursorScreenPos(ImVec2(cursor.x + 8.0f, icon_y));
+    ImGui::Image(icon, ImVec2(icon_size, icon_size));
+    ImGui::SameLine(0.0f, 4.0f);
+  } else {
+    // No icon: indent past the stripe as before
+    ImGui::SetCursorScreenPos(ImVec2(cursor.x + 8.0f, cursor.y));
+  }
+
   ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth;
   if (default_open)
     flags |= ImGuiTreeNodeFlags_DefaultOpen;

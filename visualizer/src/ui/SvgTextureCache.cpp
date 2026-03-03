@@ -23,8 +23,9 @@ ImTextureID SvgTextureCache::Load(const std::string& svgPath, float size_px) {
     std::string key = svgPath + "@" + std::to_string(static_cast<int>(size_px));
 
     auto it = m_cache.find(key);
-    if (it != m_cache.end())
-        return reinterpret_cast<ImTextureID>(static_cast<intptr_t>(it->second.gl_id));
+    if (it != m_cache.end()) {
+        return static_cast<ImTextureID>(it->second.gl_id);
+    }
 
     // Parse SVG from file
     NSVGimage* svg = nsvgParseFromFile(svgPath.c_str(), "px", 96.0f);
@@ -60,7 +61,7 @@ ImTextureID SvgTextureCache::Load(const std::string& svgPath, float size_px) {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     m_cache[key] = Entry{tex_id, tex_w};
-    return reinterpret_cast<ImTextureID>(static_cast<intptr_t>(tex_id));
+    return static_cast<ImTextureID>(tex_id);
 }
 
 void SvgTextureCache::Clear() {
