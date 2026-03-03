@@ -268,6 +268,7 @@ using BoostBox = boost::geometry::model::box<BoostPoint>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 using BoostLineString = boost::geometry::model::linestring<BoostPoint>;
 
+namespace {
 // Converts internal ring representation to corrected Boost polygon.
 [[nodiscard]] BoostPolygon toBoostPolygon(const Ring& ring) {
     BoostPolygon poly{};
@@ -286,6 +287,7 @@ using BoostLineString = boost::geometry::model::linestring<BoostPoint>;
     boost::geometry::correct(poly);
     return poly;
 }
+} // namespace
 #endif
 
 } // namespace

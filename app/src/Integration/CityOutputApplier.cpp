@@ -2,10 +2,7 @@
 
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
-
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-#include <boost/geometry/geometries/polygon.hpp>
+#include "RogueCity/Core/Geometry/PolygonOps.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -15,9 +12,6 @@
 
 namespace RogueCity::App {
 namespace {
-
-using BoostPoint = boost::geometry::model::d2::point_xy<double>;
-using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 
 void MarkDirtyLayersCleanForScope(
     RogueCity::Core::Editor::GlobalState& gs,
@@ -42,24 +36,6 @@ void MarkDirtyLayersCleanForScope(
     }
 }
 
-bool BuildBoostPolygon(const std::vector<RogueCity::Core::Vec2>& border, BoostPolygon& out_poly) {
-    if (border.size() < 3) {
-        return false;
-    }
-
-    auto& outer = out_poly.outer();
-    outer.clear();
-    outer.reserve(border.size() + 1);
-    for (const auto& point : border) {
-        outer.emplace_back(point.x, point.y);
-    }
-    if (!border.front().equals(border.back())) {
-        outer.emplace_back(border.front().x, border.front().y);
-    }
-
-    boost::geometry::correct(out_poly);
-    return out_poly.outer().size() >= 4;
-}
 
 void NormalizeUserMetadata(RogueCity::Core::Road& road) {
     if (road.is_user_created && road.generation_tag != RogueCity::Core::GenerationTag::M_user) {
@@ -442,10 +418,8 @@ void ApplyCityOutputToGlobalState(
                 if (district.border.size() < 3) {
                     continue;
                 }
-                BoostPolygon district_polygon{};
-                if (!BuildBoostPolygon(district.border, district_polygon)) {
-                    continue;
-                }
+                RogueCity::Core::Geometry::Polygon district_polygon{};
+                district_polygon.vertices = district.border;
 
                 RogueCity::Core::Bounds district_bounds{};
                 district_bounds.min = district.border.front();
@@ -468,7 +442,7 @@ void ApplyCityOutputToGlobalState(
                 for (int y = y0; y <= y1; ++y) {
                     for (int x = x0; x <= x1; ++x) {
                         const RogueCity::Core::Vec2 world = coords.pixelToWorld({x, y});
-                        if (boost::geometry::covered_by(BoostPoint(world.x, world.y), district_polygon)) {
+                        if (RogueCity::Core::Geometry::PolygonOps::ContainsPoint(district_polygon, world)) {
                             zone_layer.at(x, y) = zone_value;
                         }
                     }

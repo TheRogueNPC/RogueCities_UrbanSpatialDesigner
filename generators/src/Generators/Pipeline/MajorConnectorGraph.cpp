@@ -1,7 +1,9 @@
 #include "RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp"
 
+#if defined(ROGUECITY_USE_BOOST_POLYGON)
 #include <boost/polygon/point_data.hpp>
 #include <boost/polygon/voronoi.hpp>
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -14,8 +16,10 @@
 namespace RogueCity::Generators {
 namespace {
 
+#if defined(ROGUECITY_USE_BOOST_POLYGON)
 using BoostPoint = boost::polygon::point_data<int>;
 using VoronoiDiagram = boost::polygon::voronoi_diagram<double>;
+#endif
 
 struct EdgeCandidate {
     int a{ 0 };
@@ -75,6 +79,7 @@ struct DisjointSet {
         return candidates;
     }
 
+#if defined(ROGUECITY_USE_BOOST_POLYGON)
     std::vector<BoostPoint> points;
     points.reserve(axioms.size());
     constexpr double kScale = 100.0;
@@ -112,6 +117,9 @@ struct DisjointSet {
         }
         candidates.push_back({std::min(a, b), std::max(a, b), Distance(axioms[a], axioms[b])});
     }
+#else
+    std::unordered_set<uint64_t> seen;
+#endif
 
     if (candidates.empty()) {
         // Deterministic fallback for degenerate layouts.

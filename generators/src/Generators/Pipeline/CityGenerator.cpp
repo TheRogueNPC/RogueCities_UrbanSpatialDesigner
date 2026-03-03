@@ -9,9 +9,11 @@
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
+#endif
 
 #include <algorithm>
 #include <cassert>
@@ -258,8 +260,10 @@ void AssertTextureMatchesConstraints(
     return clipped;
 }
 
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
+#endif
 
 [[nodiscard]] std::vector<Core::Vec2> BuildCityBoundary(
     const std::vector<CityGenerator::AxiomInput>& axioms) {
@@ -268,6 +272,7 @@ using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
         return boundary;
     }
 
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
     BoostPolygon sample_cloud{};
     auto& cloud = sample_cloud.outer();
     cloud.clear();
@@ -327,6 +332,7 @@ using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
         }
         boundary.push_back(v);
     }
+#endif
 
     if (boundary.size() > 1 && boundary.front().equals(boundary.back())) {
         boundary.pop_back();

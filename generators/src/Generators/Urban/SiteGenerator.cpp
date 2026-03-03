@@ -2,10 +2,12 @@
 #include "RogueCity/Generators/Urban/PolygonUtil.hpp"
 
 #include <algorithm>
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 #include <boost/geometry/strategies/strategies.hpp>
+#endif
 
 namespace RogueCity::Generators::Urban {
 
@@ -125,6 +127,7 @@ SiteGenerator::generate(const std::vector<Core::LotToken> &lots,
     bool valid_inset = false;
 
     if (lot.boundary.size() >= 3) {
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
       namespace bg = boost::geometry;
       using point_t = bg::model::d2::point_xy<double>;
       using polygon_t = bg::model::polygon<point_t, false, false>; // CCW, open
@@ -155,6 +158,10 @@ SiteGenerator::generate(const std::vector<Core::LotToken> &lots,
           valid_inset = true;
         }
       }
+#else
+      outline = lot.boundary; // fallback
+      valid_inset = true;
+#endif
     }
 
     // Emit one or more sites for this lot depending on archetype.
