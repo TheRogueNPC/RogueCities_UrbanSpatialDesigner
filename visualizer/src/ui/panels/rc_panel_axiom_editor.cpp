@@ -806,6 +806,9 @@ static std::unique_ptr<RogueCity::App::GenerationCoordinator>
     s_generation_coordinator;
 static bool s_initialized = false;
 static bool s_live_preview = true;
+// Tracks previous frame's interaction state so we can detect start/release edges
+// and avoid firing a new regeneration request every frame during a drag.
+static bool s_was_interacting = false;
 static float s_debounce_seconds = 0.30f;
 static float s_flow_rate = 1.0f;
 static uint32_t s_seed = 42u;
@@ -3433,9 +3436,18 @@ void DrawContent(float dt) {
         gs.generation_policy.IsLive(gs.tool_runtime.active_domain);
     const bool live_preview_allowed =
         axiom_mode ? true : domain_live_preview_enabled;
+    // Edge-detect interaction so we only emit one request at drag-start and one
+    // at drag-release, instead of one per frame while the mouse is held.
+    const bool currently_interacting = s_axiom_tool->is_interacting();
+    const bool interaction_started   = currently_interacting && !s_was_interacting;
+    const bool interaction_ended     = !currently_interacting && s_was_interacting;
+    // Always consume to clear the dirty flag; only use the result outside a drag
+    // so a mid-drag dirty doesn't spawn extra requests.
+    const bool tool_dirty = s_axiom_tool->consume_dirty();
     const bool axiom_inputs_dirty = ui_modified_axiom || s_external_dirty ||
-                                    s_axiom_tool->is_interacting() ||
-                                    s_axiom_tool->consume_dirty();
+                                    interaction_started || interaction_ended ||
+                                    (!currently_interacting && tool_dirty);
+    s_was_interacting = currently_interacting;
     const bool placement_dirty = gs.dirty_layers.AnyDirty();
     if (s_generation_coordinator && s_live_preview && live_preview_allowed &&
         (axiom_inputs_dirty || placement_dirty)) {

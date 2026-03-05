@@ -120,6 +120,13 @@ struct Road {
   bool has_grade_separation{
       false}; // True if road crosses other roads at different levels
 
+  // ASAM OpenDRIVE native semantics (Magic Spline Features)
+  bool contains_signal{
+      false}; // True if spine intersects controlled junctions/crossings
+  bool contains_crosswalk{false}; // True if spine contains pedestrian crossings
+  std::string asam_json_payload{
+      ""}; // Authoritative serialization of the underlying OpenDRIVE spec
+
   [[nodiscard]] double length() const;
   [[nodiscard]] Vec2 startPoint() const {
     return points.empty() ? Vec2() : points.front();

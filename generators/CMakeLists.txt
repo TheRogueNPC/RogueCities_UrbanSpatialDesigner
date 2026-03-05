@@ -32,6 +32,7 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/PolygonUtil.cpp
     src/Generators/Urban/Graph.cpp
     src/Generators/Urban/GraphAlgorithms.cpp
+    src/Generators/Urban/RoutingLibrary.cpp
     src/Generators/Urban/PolygonFinder.cpp
     src/Generators/Urban/RoadGenerator.cpp
     src/Generators/Urban/DistrictGenerator.cpp
@@ -45,6 +46,7 @@ set(GENERATOR_SOURCES
     src/Generators/Pipeline/ZoningGenerator.cpp
     src/Generators/Pipeline/TerrainConstraintGenerator.cpp
     src/Generators/Pipeline/PlanValidatorGenerator.cpp
+    src/Generators/Import/OpenDriveBridge.cpp
 )
 
 # Header files (for IDE integration)
@@ -75,6 +77,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/PolygonUtil.hpp
     include/RogueCity/Generators/Urban/Graph.hpp
     include/RogueCity/Generators/Urban/GraphAlgorithms.hpp
+    include/RogueCity/Generators/Urban/RoutingLibrary.hpp
     include/RogueCity/Generators/Urban/PolygonFinder.hpp
     include/RogueCity/Generators/Urban/RoadGenerator.hpp
     include/RogueCity/Generators/Urban/DistrictGenerator.hpp
@@ -90,6 +93,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
     include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp
     include/RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp
+    include/RogueCity/Generators/Import/OpenDriveBridge.hpp
 )
 
 # Create static library
@@ -198,6 +202,8 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
+        Clipper2::Clipper2
+        RogueCity::OpenDRIVE
 )
 
 if(TARGET Clipper2::Clipper2)

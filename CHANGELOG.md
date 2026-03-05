@@ -1,5 +1,62 @@
 # Changelog
 
+## [Unreleased] - 2026-03-03 (ASAM OpenDRIVE API & AESP Integration)
+- **API Exposure (ASAM OpenDRIVE 1.8 § 6 & § 14)**: Added explicit C++ builder APIs and Doxygen definitions to `Junction.h`/`.cpp` and `RoadSignal.h`/`.cpp` (`add_connection`, `add_furniture`, `add_dependency`, `add_reference`, etc.) to support programmatic R-OADG junction construction.
+- **Deep AESP Integration**: Evolved the AESP scoring classifier (`AESPClassifier`) to natively interpret complex `Core::IntersectionTemplate` data. Refactored the `LotGenerator` pipeline to query nearest ASAM junction archetypes, explicitly boosting Local Exposure and Serviceability while reducing Privacy near major signalized junctions or complex interchanges, naturally driving commercial/civic zoning from ASAM geometries without ad-hoc rules.
+
+## [Unreleased] - 2026-03-03 (ASAM OpenDRIVE Objects Full Spec)
+- **Object Feature Completeness (ASAM OpenDRIVE 1.8 § 13)**: Extended `rc_opendrive` with full support for:
+  - `RoadObject` extensions: `material`, `parkingSpace`, `markings`, `borders`, `skeleton`.
+  - Road-level objects: `objectReference`, `tunnel`, `bridge`.
+  - Multi-outline support (v1.45+) and lane validity for objects.
+  - JSON serialization/deserialization for all new object types.
+  - New `RoadObjectXmlWriter` for high-fidelity XML emission of ASAM 1.8 objects.
+- **Hardening & Integration**:
+  - Implemented bounds checking and length validation in `odr::Road` to prevent extrapolation crashes.
+  - Integrated `rc_opendrive` with `Core::Road::layer_id`, mapping tunnels (-1) and bridges (1) for multi-level spatial awareness.
+  - Optimized geometry sampling in `OpenDriveBridge` with `LaneSection` lookup caching.
+- **ASAM Native Bridge & Tensors**:
+  - Elevated `Core::Road` structures to act as universal "Magic Splines", natively carrying ASAM semantics (tunnels, bridges, signals, crosswalks) and caching serialized JSON geometry data.
+  - Rewired the AESP scoring system (`AESPClassifier`) to read these OpenDRIVE splines natively, blocking lot access/exposure for bridges and tunnels during procedural district creation.
+  - Enhanced Developer Data Indices (`RcDataIndexPanel<Road>`) to directly expose the immutable OpenDRIVE JSON payload for inspection and verification as a "source of truth".
+- **Road Signals Full Spec (ASAM OpenDRIVE 1.8 § 14)**:
+  - Extended `RoadSignal` with § 14.3 `<dependency>`, § 14.4 `<reference>`, and § 14.9 positional metadata (`positionRoad`/`positionInertial`).
+  - Implemented § 14.5 `signalReference` support for signals applying to multiple roads.
+  - New `RoadSignalXmlWriter` for high-fidelity XML emission of ASAM 1.8 signals.
+- **Railroads Full Spec (ASAM OpenDRIVE 1.8 § 15)**:
+  - Implemented `RailroadSwitch` (§ 15.3) under `odr::Road` with `mainTrack`, `sideTrack`, and `partner` sub-elements.
+  - Implemented top-level `Station` (§ 15.4) under `odr::OpenDriveMap` with `StationPlatform` and `PlatformSegment` to tie passenger areas to road geometries.
+  - Added full XML/JSON parsing and emission via new `Railroad.h/.cpp` and `RailroadXmlWriter.h`.
+## [Unreleased] - 2026-03-03 (ASAM OpenDRIVE Common Junction Full Spec)
+- **Junction Feature Completeness (ASAM OpenDRIVE 1.8 § 6)**: Extended `rc_opendrive` (`Junction.h/cpp`, `OpenDriveMap.cpp`, `JsonSerialization.h`) with full Common Junction topology — `type` attribute (§ 6.2), `JunctionCrossPath` for pedestrian crossings (§ 6.3.3 / Code 24), and `JunctionTrafficIsland` with `<cornerLocal>` polygon outlines (§ 6.5 / Code 32). Added `JunctionXmlWriter.h`, a header-only pugixml DOM writer that emits spec-compliant `<junction>` XML with deterministic element ordering; the JSON-first fast-generator path and the posterity XML path now share the same in-memory structs, enabling true spatial believability in procedurally generated cities.
+
+## [Unreleased] - 2026-03-03 (OpenDRIVE Architecture Bridging)
+- **Standalone `rc_opendrive` Library Integration**: Added JSON serialization and R-OADG coordinate definitions to `rc_opendrive`.
+- **Core Architecture Bridge**: Created `OpenDriveBridge` module to map OpenDRIVE roads and topologies natively to `RogueCity::Core` structures, adhering to strict layer boundaries.
+
+## [Unreleased] - 2026-03-02 (OpenDRIVE Lanes & Road Structure)
+- **Implement Lane Specifications**: Implemented ASAM OpenDRIVE 1.7 Lane definitions (10.1 - 10.6) in `rc_opendrive/include/rc_opendrive/core/RoadLane.h`. This includes `LaneOffset`, `LaneWidth`, `LaneHeight`, `LaneBorder`, and `LaneSection` structures.
+- **Top-Level Road Structure**: Created `rc_opendrive/include/rc_opendrive/core/Road.h` to aggregate `PlanView`, `ElevationProfile`, `LateralProfile`, and `Lanes` into a cohesive `Road` object.
+- **Road Linkage & Type**: Added `RoadLink` (Chapter 6) and `RoadType` (Chapter 5) definitions within `Road.h` to complete the road network topology requirements.
+
+## [Unreleased] - 2026-03-02 (OpenDRIVE Core Geometry)
+- **Review & Extend Geometry**: Reviewed existing horizontal geometry definitions (`Line`, `Arc`, `Spiral`, etc.) in `RoadGeometry.h` and confirmed their correctness against the ASAM OpenDRIVE spec.
+- **Implement Vertical/Lateral Profiles**: Added definitions for vertical and lateral road profiles by creating `rc_opendrive/include/rc_opendrive/core/RoadProfile.h`. This new header implements `ElevationProfile` (ASAM 8.3), `Superelevation`, and `Crossfall` (ASAM 8.5) to complete the road reference line geometry.
+
+## [Unreleased] - 2026-03-02 (OpenDRIVE Serialization & Core)
+- **Serialization Success**: Achieved complete success with serialization tests covering polymorphism, `std::unique_ptr`, `std::map`, and `std::vector`.
+- **JSON Implementation**: Implemented `nlohmann/json` definitions in `JsonSerialization.h` for robust data handling.
+- **Build Resolution**: Resolved multiple `rc_opendrive` build hurdles and ensured necessary default constructors are present.
+- **Verification**: Verified all changes with a new, integrated test suite, confirming serialization is fully defined and functional.
+
+## [Unreleased] - 2026-03-02 (Lucide SVG Icon System)
+- Added `nanosvg` + `nanosvgrast` (header-only) to `3rdparty/nanosvg/` for runtime SVG parsing and RGBA rasterization with no external dependencies.
+- Vendored 1950 Lucide SVG icons (`lucide-static` v0.x) into `visualizer/assets/icons/lucide/` as the canonical icon asset source.
+- Introduced `RC::SvgTextureCache` (`visualizer/include/.../SvgTextureCache.hpp` + `visualizer/src/ui/SvgTextureCache.cpp`): a singleton that lazily loads and OpenGL-uploads SVG files keyed by `(path, size_px)`, returning `ImTextureID` for direct use with `ImGui::Image` / `ImageButton`.
+- Added `LucideIcons.hpp` with 33 named path constants (`LC::Home`, `LC::Settings`, `LC::Building`, `LC::Bot`, etc.) grouped by Navigation, Tools, Status, City, and AI/Dev categories.
+- Wired `SvgTextureCache.cpp` and the `3rdparty/nanosvg` include path into both `RogueCityVisualizerHeadless` and `RogueCityVisualizerGui` targets in `visualizer/CMakeLists.txt`.
+- Added `RC::SvgTextureCache::Get().Clear()` teardown calls in `main.cpp` (before `ShutdownScreenshotRuntime`) and `main_gui.cpp` (before `ImGui_ImplOpenGL3_Shutdown`) to safely release GL textures before context destruction.
+
 ## [Unreleased] - 2026-03-01 (3D Viewport & Editor Architecture)
 - **True 3D Viewport**: Modernized renderer backend and `WorldToScreen`/`ScreenToWorld` math utilizing `glm::perspective` and `glm::inverse` to support `pitch` and `is_3d` camera modes.
 - **Authoritative Footprints**: Migrated footprint generation into `SiteGenerator` as explicit `Boost.Geometry` buffered polygon insets stored natively on `BuildingSite::outline`.
