@@ -64,9 +64,6 @@ void GenerationCoordinator::Update(float delta_time) {
                 ss << " [SUCCESS]";
             } else {
                 ss << " [REJECTED] - " << output->plan_violations.size() << " violations";
-                if (!output->plan_violations.empty()) {
-                    ss << " (First: " << output->plan_violations.front().message << ")";
-                }
             }
         }
 
@@ -256,17 +253,6 @@ void GenerationCoordinator::LogEvent(const std::string& msg) {
     std::cout << msg << std::endl;
     RogueCity::Core::Editor::GetGlobalState().infomatrix.pushEvent(
         RogueCity::Core::Editor::InfomatrixEvent::Category::Runtime, msg);
-}
-
-const char* GenerationCoordinator::PhaseName(RealTimePreview::GenerationPhase phase) {
-    switch (phase) {
-        case RealTimePreview::GenerationPhase::Idle: return "Idle";
-        case RealTimePreview::GenerationPhase::InitStreetSweeper: return "InitStreetSweeper";
-        case RealTimePreview::GenerationPhase::Sweeping: return "Sweeping";
-        case RealTimePreview::GenerationPhase::Cancelled: return "Cancelled";
-        case RealTimePreview::GenerationPhase::StreetsSwept: return "StreetsSwept";
-        default: return "Unknown";
-    }
 }
 
 } // namespace RogueCity::App

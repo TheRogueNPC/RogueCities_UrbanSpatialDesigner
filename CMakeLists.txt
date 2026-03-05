@@ -195,6 +195,12 @@ add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===
 add_subdirectory(generators)
 
+# === R-OADG AXIOM SYSTEM (Phase 4) ===
+# Standalone ASAM OpenDRIVE parser and serialization library
+if(EXISTS "${CMAKE_SOURCE_DIR}/rc_opendrive/CMakeLists.txt")
+    add_subdirectory(rc_opendrive)
+endif()
+
 # === AI PROTOCOL LAYER ===
 # AI-driven UI control for editor automation
 add_subdirectory(AI)
@@ -289,6 +295,10 @@ if(BUILD_TESTING)
     target_link_libraries(test_generators PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_generators PRIVATE cxx_std_20)
 
+    add_executable(test_routing_library tests/test_routing_library.cpp)
+    target_link_libraries(test_routing_library PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_routing_library PRIVATE cxx_std_20)
+
     add_executable(test_geometry_adapter tests/test_geometry_adapter.cpp)
     target_link_libraries(test_geometry_adapter PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_geometry_adapter PRIVATE cxx_std_20)
@@ -349,6 +359,14 @@ if(BUILD_TESTING)
     add_executable(test_core tests/test_core.cpp)
     target_link_libraries(test_core PRIVATE RogueCityCore)
     target_compile_features(test_core PRIVATE cxx_std_20)
+
+    # AI_INTEGRATION_TAG: V1_PASS1_TASK1_TEST_ROAD_POLICIES_BUILD
+    # This test target builds the road policies logic independently to avoid
+    # dependency bloat from the full RogueCityGenerators library (Boost/Clipper).
+    add_executable(test_road_policies tests/unit/test_road_policies.cpp generators/src/Generators/Roads/Policies.cpp)
+    target_link_libraries(test_road_policies PRIVATE RogueCityCore)
+    target_compile_features(test_road_policies PRIVATE cxx_std_20)
+    target_include_directories(test_road_policies PRIVATE generators/include)
 
     add_executable(test_tensor2d_smoothing tests/test_tensor2d_smoothing.cpp)
     target_link_libraries(test_tensor2d_smoothing PRIVATE RogueCityCore)
@@ -511,7 +529,13 @@ if(BUILD_TESTING)
     # endif()
     message(STATUS "[V1 PASS1 Task 1.1] test_ui_toolchain DISABLED (Lua linkage needs fix)")
 
+    add_executable(test_opendrive_serialization tests/test_opendrive_serialization.cpp)
+    target_link_libraries(test_opendrive_serialization PRIVATE rc_opendrive)
+    target_compile_features(test_opendrive_serialization PRIVATE cxx_std_20)
+
+    add_test(NAME test_opendrive_serialization COMMAND test_opendrive_serialization)
     add_test(NAME test_core COMMAND test_core)
+    add_test(NAME test_road_policies COMMAND test_road_policies)
     add_test(NAME test_tensor2d_smoothing COMMAND test_tensor2d_smoothing)
     add_test(NAME test_polygon_ops COMMAND test_polygon_ops)
     add_test(NAME test_editor_integrity COMMAND test_editor_integrity)

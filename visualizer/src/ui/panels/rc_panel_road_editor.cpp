@@ -4,6 +4,7 @@
 #include "ui/panels/rc_panel_road_editor.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_tokens.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 #include "ui/tools/rc_tool_dispatcher.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -145,7 +146,8 @@ void DispatchRoadTypeChange(
 void DrawContent(float dt) {
     auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
-    if (Components::DrawSectionHeader("Station A: Mode", UITokens::CyanAccent)) {
+    if (Components::DrawSectionHeader("Station A: Mode", UITokens::CyanAccent, true,
+                                      RC::SvgTextureCache::Get().Load(LC::Move, 14.f))) {
         ImGui::Indent();
         ImGui::Spacing();
         RenderSubtoolToggle("Select", RoadEditorSubtool::Select);
@@ -161,7 +163,8 @@ void DrawContent(float dt) {
         ImGui::Spacing();
     }
 
-    if (Components::DrawSectionHeader("Station B: Telemetry", UITokens::InfoBlue)) {
+    if (Components::DrawSectionHeader("Station B: Telemetry", UITokens::InfoBlue, true,
+                                      RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
         ImGui::Indent();
         if (gs.selection.selected_road) {
             RogueCity::Core::Road* road = FindRoad(gs, gs.selection.selected_road->id);
@@ -180,7 +183,8 @@ void DrawContent(float dt) {
         ImGui::Spacing();
     }
 
-    if (Components::DrawSectionHeader("Station C: Mutation", UITokens::AmberGlow)) {
+    if (Components::DrawSectionHeader("Station C: Mutation", UITokens::AmberGlow, true,
+                                      RC::SvgTextureCache::Get().Load(LC::Pencil, 14.f))) {
         ImGui::Indent();
         switch (s_active_subtool) {
         case RoadEditorSubtool::Select:

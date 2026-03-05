@@ -89,7 +89,6 @@ public:
     //this private section is for tracking the state of generation requests and their associated metadata, allowing the coordinator to manage debouncing, cancellation, and callback invocation correctly based on the lifecycle of each request. The serial numbers help ensure that callbacks are only invoked for the most recent request
 private:
     void LogEvent(const std::string& msg);
-    static const char* PhaseName(RealTimePreview::GenerationPhase phase);
 
     RealTimePreview preview_{};
     RealTimePreview::GenerationPhase last_phase_{ RealTimePreview::GenerationPhase::Idle };
