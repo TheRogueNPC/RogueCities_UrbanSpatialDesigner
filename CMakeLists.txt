@@ -360,6 +360,14 @@ if(BUILD_TESTING)
     target_link_libraries(test_core PRIVATE RogueCityCore)
     target_compile_features(test_core PRIVATE cxx_std_20)
 
+    # AI_INTEGRATION_TAG: V1_PASS1_TASK1_TEST_ROAD_POLICIES_BUILD
+    # This test target builds the road policies logic independently to avoid
+    # dependency bloat from the full RogueCityGenerators library (Boost/Clipper).
+    add_executable(test_road_policies tests/unit/test_road_policies.cpp generators/src/Generators/Roads/Policies.cpp)
+    target_link_libraries(test_road_policies PRIVATE RogueCityCore)
+    target_compile_features(test_road_policies PRIVATE cxx_std_20)
+    target_include_directories(test_road_policies PRIVATE generators/include)
+
     add_executable(test_tensor2d_smoothing tests/test_tensor2d_smoothing.cpp)
     target_link_libraries(test_tensor2d_smoothing PRIVATE RogueCityCore)
     target_compile_features(test_tensor2d_smoothing PRIVATE cxx_std_20)
@@ -527,6 +535,7 @@ if(BUILD_TESTING)
 
     add_test(NAME test_opendrive_serialization COMMAND test_opendrive_serialization)
     add_test(NAME test_core COMMAND test_core)
+    add_test(NAME test_road_policies COMMAND test_road_policies)
     add_test(NAME test_tensor2d_smoothing COMMAND test_tensor2d_smoothing)
     add_test(NAME test_polygon_ops COMMAND test_polygon_ops)
     add_test(NAME test_editor_integrity COMMAND test_editor_integrity)
