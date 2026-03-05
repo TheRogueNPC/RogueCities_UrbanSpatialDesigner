@@ -106,6 +106,14 @@ namespace RogueCity::Core::Validation {
             HashDouble(value.y, hash);
         }
 
+        void HashString(const std::string& value, uint64_t& hash) {
+            const uint64_t size = static_cast<uint64_t>(value.size());
+            HashScalar(size, hash);
+            if (!value.empty()) {
+                HashBytes(value.data(), value.size(), hash);
+            }
+        }
+
         void HashRoad(const Road& road, uint64_t& hash) {
             HashScalar(road.id, hash);
             HashScalar(static_cast<uint8_t>(road.type), hash);
@@ -126,6 +134,7 @@ namespace RogueCity::Core::Validation {
             HashScalar(district.primary_axiom_id, hash);
             HashScalar(district.secondary_axiom_id, hash);
             HashScalar(static_cast<uint8_t>(district.type), hash);
+            HashString(district.form_district, hash);
             HashVec2(district.orientation, hash);
             HashFloat(district.budget_allocated, hash);
             HashScalar(district.projected_population, hash);
@@ -144,9 +153,16 @@ namespace RogueCity::Core::Validation {
         void HashLot(const LotToken& lot, uint64_t& hash) {
             HashScalar(lot.id, hash);
             HashScalar(lot.district_id, hash);
+            HashString(lot.form_district, hash);
             HashVec2(lot.centroid, hash);
             HashScalar(static_cast<uint8_t>(lot.primary_road), hash);
             HashScalar(static_cast<uint8_t>(lot.secondary_road), hash);
+            HashFloat(lot.fbcz_build_to_min, hash);
+            HashFloat(lot.fbcz_build_to_max, hash);
+            HashFloat(lot.fbcz_max_setback, hash);
+            HashFloat(lot.fbcz_frontage_occupancy_min, hash);
+            HashFloat(lot.fbcz_height_min, hash);
+            HashFloat(lot.fbcz_height_max, hash);
             HashFloat(lot.access, hash);
             HashFloat(lot.exposure, hash);
             HashFloat(lot.serviceability, hash);
@@ -179,6 +195,10 @@ namespace RogueCity::Core::Validation {
             HashScalar(static_cast<uint8_t>(building.generation_tag), hash);
             HashBool(building.generation_locked, hash);
             HashFloat(building.estimated_cost, hash);
+            HashFloat(building.fbcz_height_min, hash);
+            HashFloat(building.fbcz_height_max, hash);
+            HashDouble(building.fbcz_frontage_occupancy, hash);
+            HashBool(building.fbcz_violation, hash);
         }
 
         template <typename TContainer, typename THashFn>

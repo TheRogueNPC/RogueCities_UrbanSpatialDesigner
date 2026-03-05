@@ -13,9 +13,19 @@ namespace RogueCity::Generators::Import {
 bool OpenDriveBridge::parseAndMerge(
     const std::string &xodr_path, std::vector<Core::Road> &out_roads,
     std::vector<Core::IntersectionTemplate> &out_intersections,
-    const Core::WorldConstraintField &world_constraints) {
+    const Core::WorldConstraintField &world_constraints,
+    Core::Data::SpatialReference *out_spatial_reference) {
+  (void)world_constraints;
   // Parse the OpenDRIVE file using the new standalone rc_opendrive library
   odr::OpenDriveMap map(xodr_path, true, true, true, false, true, true);
+
+  if (out_spatial_reference != nullptr) {
+    if (!map.proj4.empty()) {
+      *out_spatial_reference = Core::Data::SpatialReference::FromProj4(map.proj4);
+    } else {
+      *out_spatial_reference = Core::Data::SpatialReference::LocalPlanarMeters();
+    }
+  }
 
   for (const auto &odr_road : map.get_roads()) {
     Core::Road core_road;

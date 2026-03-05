@@ -235,3 +235,18 @@ MajorConnectorGraphOutput MajorConnectorGraph::Build(
 
 } // namespace RogueCity::Generators
 
+#else
+
+namespace RogueCity::Generators {
+
+MajorConnectorGraphOutput MajorConnectorGraph::Build(
+    const std::vector<CityGenerator::AxiomInput>& axioms,
+    const MajorConnectorGraphConfig& config) const {
+    (void)axioms;
+    (void)config;
+    return {};
+}
+
+} // namespace RogueCity::Generators
+
+#endif // ROGUECITY_USE_BOOST_POLYGON

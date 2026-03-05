@@ -1,10 +1,15 @@
 #define _USE_MATH_DEFINES
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
 #include "RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp"
+#include "RogueCity/Generators/Pipeline/DefaultAxiomScaffoldPreset.hpp"
+#include "RogueCity/Generators/Pipeline/GenerationInput.hpp"
 #include "RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp"
+#include "RogueCity/Generators/Policy/BehaviorTreeAuditors.hpp"
+#include "RogueCity/Generators/Policy/FbczRuleEngine.hpp"
 #include "RogueCity/Generators/Roads/PolylineRoadCandidate.hpp"
 #include "RogueCity/Generators/Roads/RoadNoder.hpp"
 #include "RogueCity/Generators/Tensors/TerminalFeatureApplier.hpp"
+#include "RogueCity/Generators/Urban/RoadgNeighborhoodBuilder.hpp"
 
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -21,6 +26,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -422,11 +428,86 @@ ValidatorConfigEqual(const PlanValidatorGenerator::Config &a,
          a.min_trace_step_size == b.min_trace_step_size &&
          a.max_trace_step_size == b.max_trace_step_size &&
          a.trace_curvature_gain == b.trace_curvature_gain &&
+         a.enable_roadg_neighborhood_builder ==
+             b.enable_roadg_neighborhood_builder &&
+         a.roadg_grid_spacing == b.roadg_grid_spacing &&
+         a.enable_fbcz_rules == b.enable_fbcz_rules &&
+         a.fbcz_rules_path == b.fbcz_rules_path &&
+         a.enable_policy_auditors == b.enable_policy_auditors &&
          TerrainConfigEqual(a.terrain, b.terrain) &&
          ValidatorConfigEqual(a.validator, b.validator);
 }
 
+[[nodiscard]] std::vector<CityGenerator::AxiomInput>
+ResolveAxiomsFromInput(const GenerationInput &input,
+                       const CityGenerator::Config &config) {
+  if (input.axioms.has_value() && !input.axioms->empty()) {
+    return *input.axioms;
+  }
+  return DefaultAxiomScaffoldPreset::Build(config);
+}
+
+void AppendRoads(fva::Container<Core::Road> &dst,
+                 const fva::Container<Core::Road> &src) {
+  uint32_t next_id = 1u;
+  for (const auto &road : dst) {
+    next_id = std::max(next_id, road.id + 1u);
+  }
+  for (const auto &road : src) {
+    Core::Road copy = road;
+    copy.id = next_id++;
+    dst.add(std::move(copy));
+  }
+}
+
+[[nodiscard]] std::vector<Urban::RoadgRegion>
+BuildRoadgRegionsFromAxioms(const std::vector<CityGenerator::AxiomInput> &axioms) {
+  std::vector<Urban::RoadgRegion> regions{};
+  regions.reserve(axioms.size());
+  for (const auto &axiom : axioms) {
+    const double radius = std::max(80.0, axiom.radius * 0.8);
+    Urban::RoadgRegion region{};
+    region.id = static_cast<uint32_t>(std::max(1, axiom.id));
+    region.boundary.push_back(
+        Core::Vec2(axiom.position.x - radius, axiom.position.y - radius));
+    region.boundary.push_back(
+        Core::Vec2(axiom.position.x + radius, axiom.position.y - radius));
+    region.boundary.push_back(
+        Core::Vec2(axiom.position.x + radius, axiom.position.y + radius));
+    region.boundary.push_back(
+        Core::Vec2(axiom.position.x - radius, axiom.position.y + radius));
+    regions.push_back(std::move(region));
+  }
+  return regions;
+}
+
 } // namespace
+
+CityGenerator::CityOutput
+CityGenerator::generate(const GenerationInput &input) {
+  return generate(input, nullptr);
+}
+
+CityGenerator::CityOutput
+CityGenerator::generate(const GenerationInput &input,
+                        Core::Editor::GlobalState *global_state) {
+  const Config resolved_config = input.effectiveConfig();
+  const std::vector<AxiomInput> resolved_axioms =
+      ResolveAxiomsFromInput(input, resolved_config);
+  (void)input.effectiveProspects();
+
+  CityOutput output = generate(resolved_axioms, resolved_config, global_state);
+
+  if (input.imported_network.has_value() && !input.imported_network->empty()) {
+    AppendRoads(output.roads, input.imported_network->roads);
+    if (!input.imported_network->regions.empty()) {
+      output.districts = input.imported_network->regions;
+    }
+    output.spatial_reference = input.imported_network->spatial_reference;
+  }
+
+  return output;
+}
 
 // Convenience overload: uses default configuration and runs the full pipeline.
 CityGenerator::CityOutput
@@ -625,6 +706,14 @@ CityGenerator::ValidateAndClampConfig(const Config &config) {
   }
   result.clamped_config.trace_curvature_gain =
       std::clamp(result.clamped_config.trace_curvature_gain, 0.1, 8.0);
+  clamp_double(result.clamped_config.roadg_grid_spacing, 20.0, 500.0,
+               "roadg_grid_spacing");
+
+  if (result.clamped_config.enable_fbcz_rules &&
+      result.clamped_config.fbcz_rules_path.empty()) {
+    result.warnings.emplace_back(
+        "enable_fbcz_rules set without fbcz_rules_path; rules will be skipped");
+  }
 
   result.valid = result.errors.empty();
   return result;
@@ -1042,6 +1131,8 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
     return output;
   }
 
+  cache_.spatial_reference = Core::Data::SpatialReference::LocalPlanarMeters();
+
   std::vector<AxiomInput> resolved_axioms = axioms;
   std::vector<Core::Polyline> interaction_debug_edges{};
   if (global_state == nullptr ||
@@ -1060,6 +1151,24 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
   for (size_t i = 0; i < resolved_axioms.size(); ++i) {
     if (resolved_axioms[i].id <= 0) {
       resolved_axioms[i].id = static_cast<int>(i + 1);
+    }
+  }
+
+  std::optional<Policy::FbczRuleSet> fbcz_rules{};
+  std::vector<Core::PlanViolation> supplemental_plan_violations{};
+  if (config_.enable_fbcz_rules && !config_.fbcz_rules_path.empty()) {
+    Policy::FbczRuleSet loaded_rules{};
+    std::string fbcz_error{};
+    if (Policy::FbczRuleEngine::LoadFromJsonFile(config_.fbcz_rules_path,
+                                                 loaded_rules, &fbcz_error)) {
+      fbcz_rules = std::move(loaded_rules);
+    } else {
+      Core::PlanViolation violation{};
+      violation.type = Core::PlanViolationType::PolicyConflict;
+      violation.entity_type = Core::PlanEntityType::Global;
+      violation.severity = 0.6f;
+      violation.message = "FBCZ rules unavailable: " + fbcz_error;
+      supplemental_plan_violations.push_back(std::move(violation));
     }
   }
 
@@ -1104,6 +1213,7 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
     output.blocks = cache_.blocks;
     output.lots = cache_.lots;
     output.buildings = cache_.buildings;
+    output.spatial_reference = cache_.spatial_reference;
     output.city_boundary = cache_.city_boundary;
     output.connector_debug_edges = cache_.connector_debug_edges;
     output.plan_violations = cache_.plan_violations;
@@ -1311,6 +1421,30 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
       cache_.connector_debug_edges = interaction_debug_edges;
     }
 
+    if (config_.enable_roadg_neighborhood_builder) {
+      Urban::RoadgNeighborhoodBuilder::Input roadg_input{};
+      roadg_input.outer_roads = cache_.roads;
+      roadg_input.regions = BuildRoadgRegionsFromAxioms(resolved_axioms);
+
+      Urban::RoadgNeighborhoodBuilder::Config roadg_config{};
+      roadg_config.seed = config_.seed;
+      roadg_config.grid_spacing = config_.roadg_grid_spacing;
+
+      const auto roadg_output =
+          Urban::RoadgNeighborhoodBuilder::Build(roadg_input, roadg_config);
+      AppendRoads(cache_.roads, roadg_output.inner_roads);
+      AppendRoads(cache_.roads, roadg_output.stitch_edges);
+
+      for (const auto &stitch : roadg_output.stitch_edges) {
+        if (stitch.points.size() < 2) {
+          continue;
+        }
+        Core::Polyline poly{};
+        poly.points = stitch.points;
+        cache_.connector_debug_edges.push_back(std::move(poly));
+      }
+    }
+
     AssignRoadSourceAxiom(cache_.roads, resolved_axioms);
     updateGridAnalytics(cache_.roads);
     cache_.valid_stages.set(StageIndex(GenerationStage::Roads), true);
@@ -1371,6 +1505,10 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
     if (options.constrain_roads_to_axiom_bounds) {
       cache_.lots = ClipLotsToAxiomInfluence(cache_.lots, resolved_axioms);
     }
+    if (fbcz_rules.has_value()) {
+      Policy::FbczRuleEngine::AttachDistrictAndLotAttributes(
+          cache_.districts, cache_.lots, *fbcz_rules);
+    }
     cache_.valid_stages.set(StageIndex(GenerationStage::Lots), true);
   }
 
@@ -1395,6 +1533,19 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
     if (options.constrain_roads_to_axiom_bounds) {
       cache_.buildings =
           ClipBuildingsToAxiomInfluence(cache_.buildings, resolved_axioms);
+    }
+    if (fbcz_rules.has_value()) {
+      const auto fbcz_violations = Policy::FbczRuleEngine::EnforceBuildings(
+          cache_.lots, cache_.buildings, *fbcz_rules);
+      for (const auto &fbcz_violation : fbcz_violations) {
+        Core::PlanViolation violation{};
+        violation.type = Core::PlanViolationType::PolicyConflict;
+        violation.entity_type = Core::PlanEntityType::Lot;
+        violation.entity_id = fbcz_violation.lot_id;
+        violation.severity = 0.5f;
+        violation.message = fbcz_violation.message;
+        supplemental_plan_violations.push_back(std::move(violation));
+      }
     }
     cache_.valid_stages.set(StageIndex(GenerationStage::Buildings), true);
   }
@@ -1433,6 +1584,46 @@ CityGenerator::GenerateStages(const std::vector<AxiomInput> &axioms,
     cache_.plan_violations.clear();
     cache_.plan_approved = true;
     cache_.valid_stages.set(StageIndex(GenerationStage::Validation), true);
+  }
+
+  if (config_.enable_policy_auditors) {
+    CityOutput policy_input{};
+    policy_input.roads = cache_.roads;
+    policy_input.districts = cache_.districts;
+    policy_input.lots = cache_.lots;
+    policy_input.buildings = cache_.buildings;
+
+    const auto report = Policy::BehaviorTreeAuditors::Run(
+        policy_input, Policy::BehaviorTreeAuditors::Config{},
+        fbcz_rules.has_value() ? &(*fbcz_rules) : nullptr);
+
+    for (const auto &issue : report.connectivity_issues) {
+      Core::PlanViolation violation{};
+      violation.type = Core::PlanViolationType::PolicyConflict;
+      violation.entity_type = Core::PlanEntityType::Global;
+      violation.severity = std::clamp(static_cast<float>(issue.severity), 0.1f,
+                                      1.0f);
+      violation.message = issue.message;
+      supplemental_plan_violations.push_back(std::move(violation));
+    }
+    for (const auto &issue : report.zoning_issues) {
+      Core::PlanViolation violation{};
+      violation.type = Core::PlanViolationType::PolicyConflict;
+      violation.entity_type = Core::PlanEntityType::Global;
+      violation.severity = std::clamp(static_cast<float>(issue.severity), 0.1f,
+                                      1.0f);
+      violation.message = issue.message;
+      supplemental_plan_violations.push_back(std::move(violation));
+    }
+  }
+
+  if (!supplemental_plan_violations.empty()) {
+    for (auto &violation : supplemental_plan_violations) {
+      cache_.plan_violations.push_back(std::move(violation));
+    }
+    if (!cache_.plan_violations.empty()) {
+      cache_.plan_approved = false;
+    }
   }
 
   copy_cache_to_output();

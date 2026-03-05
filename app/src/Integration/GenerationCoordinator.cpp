@@ -241,6 +241,23 @@ const char* GenerationCoordinator::ReasonName(GenerationRequestReason reason) {
     }
 }
 
+const char* GenerationCoordinator::PhaseName(RealTimePreview::GenerationPhase phase) {
+    switch (phase) {
+        case RealTimePreview::GenerationPhase::Idle:
+            return "idle";
+        case RealTimePreview::GenerationPhase::InitStreetSweeper:
+            return "init_street_sweeper";
+        case RealTimePreview::GenerationPhase::Sweeping:
+            return "sweeping";
+        case RealTimePreview::GenerationPhase::Cancelled:
+            return "cancelled";
+        case RealTimePreview::GenerationPhase::StreetsSwept:
+            return "streets_swept";
+        default:
+            return "unknown_phase";
+    }
+}
+
 RealTimePreview* GenerationCoordinator::Preview() {
     return &preview_;
 }

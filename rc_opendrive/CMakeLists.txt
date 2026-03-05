@@ -35,8 +35,8 @@ if(RC_OPENDRIVE_SOURCES)
     if(TARGET nlohmann_json::nlohmann_json)
         target_link_libraries(rc_opendrive PUBLIC nlohmann_json::nlohmann_json)
     else()
-        target_include_directories(
-            rc_opendrive PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include")
+        target_include_directories(rc_opendrive
+            PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include>)
     endif()
 
     if(MSVC)

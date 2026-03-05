@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "zones": [
+    {
+      "zone_type": "residential_neighborhood",
+      "build_to_min": 0.0,
+      "build_to_max": 4.0,
+      "max_setback": 6.0,
+      "frontage_occupancy_min": 0.35,
+      "height_min": 10.0,
+      "height_max": 28.0,
+      "massing_floor_area_ratio": 1.6
+    },
+    {
+      "zone_type": "mixed_corridor",
+      "build_to_min": 0.0,
+      "build_to_max": 2.0,
+      "max_setback": 4.0,
+      "frontage_occupancy_min": 0.5,
+      "height_min": 14.0,
+      "height_max": 52.0,
+      "massing_floor_area_ratio": 3.2
+    }
+  ]
+}

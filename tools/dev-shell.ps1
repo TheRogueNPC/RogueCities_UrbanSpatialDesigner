@@ -20,16 +20,155 @@ if ($env:TERM_PROGRAM -eq "vscode") {
 }
 
 $ErrorActionPreference = "Stop"
+$script:RCVsDevImportAttempted = $false
+
+function Test-RCCmdInterop {
+    if ($env:OS -ne "Windows_NT") {
+        return $false
+    }
+    $cmd = Get-Command cmd.exe -ErrorAction SilentlyContinue
+    if (-not $cmd) {
+        return $false
+    }
+    $probe = & $cmd.Source /d /c "echo RC_CMD_OK" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+    $probeText = ($probe -join "`n")
+    return $probeText -match "RC_CMD_OK"
+}
+
+function Add-RCPathEntries {
+    param([string[]]$Candidates)
+
+    if (-not $env:PATH) {
+        $env:PATH = ""
+    }
+    $current = @($env:PATH -split ';' | Where-Object { $_ -and $_.Trim().Length -gt 0 })
+    $currentSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in $current) {
+        [void]$currentSet.Add($entry)
+    }
+
+    $prepend = [System.Collections.Generic.List[string]]::new()
+    foreach ($candidate in $Candidates) {
+        if (-not $candidate) { continue }
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        if ($currentSet.Contains($candidate)) { continue }
+        [void]$prepend.Add($candidate)
+        [void]$currentSet.Add($candidate)
+    }
+
+    if ($prepend.Count -gt 0) {
+        $env:PATH = (($prepend -join ';') + ';' + $env:PATH)
+    }
+}
+
+function Import-RCVsDevEnvironment {
+    param([Parameter(Mandatory = $true)][string]$InitScriptPath)
+
+    if ($env:OS -ne "Windows_NT") {
+        return $false
+    }
+    if ($env:VSCMD_VER) {
+        return $true
+    }
+    if (-not (Test-RCCmdInterop)) {
+        return $false
+    }
+    if (-not (Test-Path -LiteralPath $InitScriptPath)) {
+        $script:RCVsDevImportAttempted = $true
+        return $false
+    }
+
+    $script:RCVsDevImportAttempted = $true
+    $tempBatchPath = [IO.Path]::ChangeExtension([IO.Path]::GetTempFileName(), ".cmd")
+    try {
+        @"
+@echo off
+call "$InitScriptPath" >nul
+if errorlevel 1 exit /b 1
+set
+"@ | Set-Content -LiteralPath $tempBatchPath -Encoding ASCII
+
+        $envDump = & cmd.exe /d /c """$tempBatchPath""" 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $envDump) {
+            return $false
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempBatchPath) {
+            Remove-Item -LiteralPath $tempBatchPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    foreach ($line in $envDump) {
+        $idx = $line.IndexOf('=')
+        if ($idx -le 0) { continue }
+        $name = $line.Substring(0, $idx)
+        $value = $line.Substring($idx + 1)
+        [Environment]::SetEnvironmentVariable($name, $value, "Process")
+    }
+    return $true
+}
+
+function Get-RCVisualStudioGenerator {
+    if ($env:OS -ne "Windows_NT") {
+        return "Ninja Multi-Config"
+    }
+
+    $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
+    $vswhereCandidates = @(
+        (Join-Path $programFilesX86 "Microsoft Visual Studio\Installer\vswhere.exe"),
+        "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+    ) | Where-Object { $_ }
+
+    foreach ($vswhere in $vswhereCandidates) {
+        if (-not (Test-Path -LiteralPath $vswhere)) { continue }
+        $versionLines = & $vswhere -latest -products "*" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion 2>$null
+        $version = $versionLines | Select-Object -First 1
+        if (-not $version) { continue }
+        $major = ($version -split '\.')[0]
+        if ($major -eq "18") { return "Visual Studio 18 2026" }
+        if ($major -eq "17") { return "Visual Studio 17 2022" }
+    }
+
+    return "Visual Studio 17 2022"
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $env:RC_ROOT = $repoRoot
 $env:RC_BUILD_DIR = Join-Path $repoRoot "build_vs"
-$env:CMAKE_GENERATOR = "Visual Studio 18 2026"
+$vsDevInitScript = Join-Path $repoRoot ".vscode\vsdev-init.cmd"
+$vsDevLoaded = Import-RCVsDevEnvironment -InitScriptPath $vsDevInitScript
+if (-not $env:CMAKE_GENERATOR) {
+    $env:CMAKE_GENERATOR = Get-RCVisualStudioGenerator
+}
 if (-not $env:CMAKE_BUILD_PARALLEL_LEVEL) {
     $env:CMAKE_BUILD_PARALLEL_LEVEL = "8"
 }
 $env:CTEST_OUTPUT_ON_FAILURE = "1"
-$env:PATH = "C:\tools\Miniconda3\condabin;$repoRoot\tools;C:\Program Files\CMake\bin;$env:PATH"
+$env:RC_DEVSHELL_MSBUILD_READY = "0"
+$env:RC_DEFAULT_CONFIGURE_PRESET = "dev"
+$env:RC_DEFAULT_BUILD_PRESET = "gui-release"
+$env:RC_DEFAULT_TEST_PRESET = "ctest-release"
+
+$pathCandidates = @(
+    "C:\tools\Miniconda3\condabin",
+    (Join-Path $repoRoot "tools"),
+    "C:\Program Files\CMake\bin",
+    "C:\Program Files\Ninja",
+    "C:\tools\ninja",
+    "C:\Program Files\LLVM\bin"
+)
+if ($env:VSINSTALLDIR) {
+    $pathCandidates += @(
+        (Join-Path $env:VSINSTALLDIR "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"),
+        (Join-Path $env:VSINSTALLDIR "Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"),
+        (Join-Path $env:VSINSTALLDIR "VC\Tools\Llvm\x64\bin")
+    )
+}
+Add-RCPathEntries -Candidates $pathCandidates
 
 # Ensure CMake tools are available in shells that do not inherit system PATH
 $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
@@ -58,6 +197,11 @@ foreach ($cmakeBin in $cmakeBinCandidates) {
 }
 if (-not $cmakeResolved -and -not (Get-Command cmake -ErrorAction SilentlyContinue)) {
     Write-Warning "cmake.exe not found in standard locations; rc-cfg/rc-bld may fail."
+}
+if ((Get-Command cl.exe -ErrorAction SilentlyContinue) -and (Get-Command msbuild.exe -ErrorAction SilentlyContinue)) {
+    $env:RC_DEVSHELL_MSBUILD_READY = "1"
+} elseif (-not $vsDevLoaded -and $script:RCVsDevImportAttempted) {
+    Write-Warning "MSBuild toolchain was not imported. Run .vscode\\vsdev-init.cmd manually if rc-cfg fails."
 }
 
 # Force MSVC to use absolute paths in diagnostics (improves VS Code click-to-open)
@@ -137,10 +281,10 @@ function rc-help {
         Displays the list of available RogueCities development commands.
     #>
     Write-Host "RogueCities dev commands:" -ForegroundColor Cyan
-    Write-Host "  rc-cfg     [-Clean] [-Preset dev]" -ForegroundColor Yellow
-    Write-Host "  rc-bld     [-Preset gui-release]" -ForegroundColor Yellow
+    Write-Host "  rc-cfg     [-Clean] [-Preset $env:RC_DEFAULT_CONFIGURE_PRESET]" -ForegroundColor Yellow
+    Write-Host "  rc-bld     [-Preset $env:RC_DEFAULT_BUILD_PRESET]" -ForegroundColor Yellow
     Write-Host "  rc-run" -ForegroundColor Yellow
-    Write-Host "  rc-tst     [-Preset ctest-release]" -ForegroundColor Yellow
+    Write-Host "  rc-tst     [-Preset $env:RC_DEFAULT_TEST_PRESET]" -ForegroundColor Yellow
     Write-Host "  rc-fmt" -ForegroundColor Yellow
     Write-Host "  rc-deps    [-ExeName RogueCityVisualizerGui.exe]" -ForegroundColor Yellow
     Write-Host "  rc-rdoc" -ForegroundColor Yellow
@@ -149,6 +293,8 @@ function rc-help {
     Write-Host "  rc-problems [-MaxItems 10]" -ForegroundColor Yellow
     Write-Host "  rc-pdiff" -ForegroundColor Yellow
     Write-Host "  rc-refresh [-ConfigurePreset dev] [-BuildPreset gui-release]" -ForegroundColor Yellow
+    Write-Host "  rc-cfg-vs2022 | rc-cfg-vs2026 | rc-cfg-ninja-msvc | rc-cfg-ninja-clang" -ForegroundColor Yellow
+    Write-Host "  rc-bld-ninja-msvc | rc-bld-ninja-clang" -ForegroundColor Yellow
     Write-Host "  rc-env" -ForegroundColor Yellow
     Write-Host "  rc-context" -ForegroundColor Yellow
     Write-Host ""
@@ -196,6 +342,8 @@ function rc-env {
     Write-Host "RC_BUILD_DIR=$env:RC_BUILD_DIR"
     Write-Host "CMAKE_GENERATOR=$env:CMAKE_GENERATOR"
     Write-Host "CMAKE_BUILD_PARALLEL_LEVEL=$env:CMAKE_BUILD_PARALLEL_LEVEL"
+    Write-Host "RC_DEVSHELL_MSBUILD_READY=$env:RC_DEVSHELL_MSBUILD_READY"
+    Write-Host "VSCMD_VER=$env:VSCMD_VER"
 }
 
 function rc-context {
@@ -225,7 +373,7 @@ function rc-cfg {
     #>
     param(
         [switch]$Clean,
-        [string]$Preset = "dev"
+        [string]$Preset = $env:RC_DEFAULT_CONFIGURE_PRESET
     )
 
     if ($Clean -and (Test-Path -LiteralPath $env:RC_BUILD_DIR)) {
@@ -233,6 +381,26 @@ function rc-cfg {
     }
 
     cmake --preset $Preset
+}
+
+function rc-cfg-vs2022 {
+    <# .SYNOPSIS Configures with Visual Studio 2022/MSBuild preset. #>
+    rc-cfg -Preset "dev-vs2022"
+}
+
+function rc-cfg-vs2026 {
+    <# .SYNOPSIS Configures with Visual Studio 2026/MSBuild preset. #>
+    rc-cfg -Preset "dev-vs2026"
+}
+
+function rc-cfg-ninja-msvc {
+    <# .SYNOPSIS Configures with Ninja Multi-Config + MSVC toolchain preset. #>
+    rc-cfg -Preset "dev-ninja-msvc"
+}
+
+function rc-cfg-ninja-clang {
+    <# .SYNOPSIS Configures with Ninja Multi-Config + clang-cl preset. #>
+    rc-cfg -Preset "dev-ninja-clang"
 }
 
 function rc-bld {
@@ -243,10 +411,20 @@ function rc-bld {
         The CMake build preset to use (default: "gui-release").
     #>
     param(
-        [string]$Preset = "gui-release"
+        [string]$Preset = $env:RC_DEFAULT_BUILD_PRESET
     )
 
     cmake --build --preset $Preset
+}
+
+function rc-bld-ninja-msvc {
+    <# .SYNOPSIS Builds GUI Release from Ninja+MSVC preset. #>
+    cmake --build --preset gui-release-ninja-msvc
+}
+
+function rc-bld-ninja-clang {
+    <# .SYNOPSIS Builds GUI Release from Ninja+clang-cl preset. #>
+    cmake --build --preset gui-release-ninja-clang
 }
 
 function rc-bld-core {
@@ -340,7 +518,7 @@ function rc-tst {
         The CTest preset to use (default: "ctest-release").
     #>
     param(
-        [string]$Preset = "ctest-release"
+        [string]$Preset = $env:RC_DEFAULT_TEST_PRESET
     )
 
     ctest --preset $Preset
@@ -679,19 +857,19 @@ Claude Code project memory: ``.claude\projects\C--Users-teamc-Documents-Rogue-Ci
 # Provide tab-completion for CMake setup presets
 Register-ArgumentCompleter -CommandName rc-cfg -ParameterName Preset -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
-    @("dev", "release") | Where-Object { $_ -like "$wordToComplete*" }
+    @("dev", "dev-vs2022", "dev-vs2026", "dev-ninja-msvc", "dev-ninja-clang") | Where-Object { $_ -like "$wordToComplete*" }
 }
 
 # Provide tab-completion for CMake build presets
 Register-ArgumentCompleter -CommandName rc-bld -ParameterName Preset -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
-    @("gui-release", "gui-debug", "headless-release") | Where-Object { $_ -like "$wordToComplete*" }
+    @("gui-release", "gui-debug", "gui-release-vs2026", "gui-debug-vs2026", "gui-release-ninja-msvc", "gui-debug-ninja-msvc", "gui-release-ninja-clang", "gui-debug-ninja-clang") | Where-Object { $_ -like "$wordToComplete*" }
 }
 
 # Provide tab-completion for CTest presets
 Register-ArgumentCompleter -CommandName rc-tst -ParameterName Preset -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
-    @("ctest-release", "ctest-debug") | Where-Object { $_ -like "$wordToComplete*" }
+    @("ctest-release", "ctest-release-vs2026", "ctest-release-ninja-msvc", "ctest-release-ninja-clang") | Where-Object { $_ -like "$wordToComplete*" }
 }
 
 # Provide tab-completion for specific known CMake targets in rc-watch

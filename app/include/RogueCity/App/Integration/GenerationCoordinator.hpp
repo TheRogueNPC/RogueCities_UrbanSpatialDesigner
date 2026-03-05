@@ -82,6 +82,7 @@ public:
     [[nodiscard]] GenerationDepth LastScheduledDepth() const;
     [[nodiscard]] GenerationDepth LastCompletedDepth() const;
     [[nodiscard]] static const char* ReasonName(GenerationRequestReason reason);
+    [[nodiscard]] static const char* PhaseName(RealTimePreview::GenerationPhase phase);
 
     [[nodiscard]] RealTimePreview* Preview();
     [[nodiscard]] const RealTimePreview* Preview() const;

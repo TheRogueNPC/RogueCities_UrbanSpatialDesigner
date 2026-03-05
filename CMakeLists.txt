@@ -20,6 +20,8 @@ option(ROGUECITY_ENABLE_SLTERRAIN "Enable SLTerrainGeneration integration when p
 option(ROGUECITY_ENABLE_FASTNOISE2 "Enable FastNoise2 integration when present" OFF)
 option(ROGUECITY_ENABLE_DELAUNATOR "Enable delaunator-cpp integration when present" OFF)
 option(ROGUECITY_ENABLE_NANOFLANN "Enable nanoflann integration when present" OFF)
+option(ROGUECITY_ENABLE_GDAL_GPKG "Enable GDAL-backed GeoPackage import/export modules" OFF)
+option(ROGUECITY_ENABLE_BEHAVIORTREE_AUDITORS "Enable BehaviorTree.CPP policy auditors" OFF)
 option(ROGUEUI_ENFORCE_DESIGN_SYSTEM "Fail fast when UI panels bypass token/wrapper architecture" ON)
 option(ROGUECITY_ENABLE_DOXYGEN "Enable Doxygen docs generation target" ON)
 
@@ -208,6 +210,19 @@ add_subdirectory(AI)
 # === APP LAYER (Axiom Tool Integration - Phase 3) ===
 add_subdirectory(app)
 
+# === TOOLS ===
+if(EXISTS "${CMAKE_SOURCE_DIR}/tools/rc_city_gpkg_tool.cpp")
+    add_executable(rc_city_gpkg_tool tools/rc_city_gpkg_tool.cpp)
+    target_link_libraries(rc_city_gpkg_tool PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(rc_city_gpkg_tool PRIVATE cxx_std_20)
+endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/tools/rc_policy_audit_tool.cpp")
+    add_executable(rc_policy_audit_tool tools/rc_policy_audit_tool.cpp)
+    target_link_libraries(rc_policy_audit_tool PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(rc_policy_audit_tool PRIVATE cxx_std_20)
+endif()
+
 # === OUTPUT DIRECTORIES ===
 # Set all executables to go to the bin/ folder
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
@@ -318,6 +333,40 @@ if(BUILD_TESTING)
     add_executable(test_generation_stages tests/test_generation_stages.cpp)
     target_link_libraries(test_generation_stages PRIVATE RogueCityCore RogueCityGenerators)
     target_compile_features(test_generation_stages PRIVATE cxx_std_20)
+
+    add_executable(test_generation_input_scaffold tests/test_generation_input_scaffold.cpp)
+    target_link_libraries(test_generation_input_scaffold PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_generation_input_scaffold PRIVATE cxx_std_20)
+
+    add_executable(test_pipeline_without_axioms tests/integration/test_pipeline_without_axioms.cpp)
+    target_link_libraries(test_pipeline_without_axioms PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_pipeline_without_axioms PRIVATE cxx_std_20)
+
+    add_executable(test_roadg_neighborhood_builder tests/test_roadg_neighborhood_builder.cpp)
+    target_link_libraries(test_roadg_neighborhood_builder PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_roadg_neighborhood_builder PRIVATE cxx_std_20)
+
+    add_executable(test_roadg_pipeline_integration tests/integration/test_roadg_pipeline_integration.cpp)
+    target_link_libraries(test_roadg_pipeline_integration PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_roadg_pipeline_integration PRIVATE cxx_std_20)
+
+    add_executable(test_geopackage_roundtrip tests/test_geopackage_roundtrip.cpp)
+    target_link_libraries(test_geopackage_roundtrip PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_geopackage_roundtrip PRIVATE cxx_std_20)
+
+    add_executable(test_crs_contract_golden tests/unit/test_crs_contract_golden.cpp)
+    target_link_libraries(test_crs_contract_golden PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_crs_contract_golden PRIVATE cxx_std_20)
+
+    add_executable(test_fbcz_rules tests/test_fbcz_rules.cpp)
+    target_link_libraries(test_fbcz_rules PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_fbcz_rules PRIVATE cxx_std_20)
+    target_compile_definitions(test_fbcz_rules PRIVATE ROGUECITY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+
+    add_executable(test_bt_policy_auditors tests/test_bt_policy_auditors.cpp)
+    target_link_libraries(test_bt_policy_auditors PRIVATE RogueCityCore RogueCityGenerators)
+    target_compile_features(test_bt_policy_auditors PRIVATE cxx_std_20)
+    target_compile_definitions(test_bt_policy_auditors PRIVATE ROGUECITY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
     add_executable(test_generation_stage_perf tests/test_generation_stage_perf.cpp)
     target_link_libraries(test_generation_stage_perf PRIVATE RogueCityCore RogueCityGenerators)
@@ -569,6 +618,14 @@ if(BUILD_TESTING)
     add_test(NAME test_city_spec_adapter_validation COMMAND test_city_spec_adapter_validation)
     add_test(NAME test_zoning_generator COMMAND test_zoning_generator)
     add_test(NAME test_generation_stages COMMAND test_generation_stages)
+    add_test(NAME test_generation_input_scaffold COMMAND test_generation_input_scaffold)
+    add_test(NAME test_pipeline_without_axioms COMMAND test_pipeline_without_axioms)
+    add_test(NAME test_roadg_neighborhood_builder COMMAND test_roadg_neighborhood_builder)
+    add_test(NAME test_roadg_pipeline_integration COMMAND test_roadg_pipeline_integration)
+    add_test(NAME test_geopackage_roundtrip COMMAND test_geopackage_roundtrip)
+    add_test(NAME test_crs_contract_golden COMMAND test_crs_contract_golden)
+    add_test(NAME test_fbcz_rules COMMAND test_fbcz_rules)
+    add_test(NAME test_bt_policy_auditors COMMAND test_bt_policy_auditors)
     add_test(NAME test_generation_stage_perf COMMAND test_generation_stage_perf)
     add_test(NAME test_generation_cancellation COMMAND test_generation_cancellation)
     add_test(NAME test_cancellation_coverage COMMAND test_cancellation_coverage)

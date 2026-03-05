@@ -33,13 +33,19 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/Graph.cpp
     src/Generators/Urban/GraphAlgorithms.cpp
     src/Generators/Urban/RoutingLibrary.cpp
+    src/Generators/Urban/RoadgNeighborhoodBuilder.cpp
     src/Generators/Urban/PolygonFinder.cpp
     src/Generators/Urban/RoadGenerator.cpp
     src/Generators/Urban/DistrictGenerator.cpp
     src/Generators/Urban/BlockGenerator.cpp
     src/Generators/Urban/LotGenerator.cpp
     src/Generators/Urban/SiteGenerator.cpp
+    src/Generators/IO/GeoPackageIO.cpp
+    src/Generators/Policy/FbczRuleEngine.cpp
+    src/Generators/Policy/BehaviorTreeAuditors.cpp
     src/Generators/Pipeline/CityGenerator.cpp
+    src/Generators/Pipeline/GenerationInput.cpp
+    src/Generators/Pipeline/DefaultAxiomScaffoldPreset.cpp
     src/Generators/Pipeline/AxiomInteractionResolver.cpp
     src/Generators/Pipeline/MajorConnectorGraph.cpp
     src/Generators/Pipeline/CitySpecAdapter.cpp
@@ -78,13 +84,19 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/Graph.hpp
     include/RogueCity/Generators/Urban/GraphAlgorithms.hpp
     include/RogueCity/Generators/Urban/RoutingLibrary.hpp
+    include/RogueCity/Generators/Urban/RoadgNeighborhoodBuilder.hpp
     include/RogueCity/Generators/Urban/PolygonFinder.hpp
     include/RogueCity/Generators/Urban/RoadGenerator.hpp
     include/RogueCity/Generators/Urban/DistrictGenerator.hpp
     include/RogueCity/Generators/Urban/BlockGenerator.hpp
     include/RogueCity/Generators/Urban/LotGenerator.hpp
     include/RogueCity/Generators/Urban/SiteGenerator.hpp
+    include/RogueCity/Generators/IO/GeoPackageIO.hpp
+    include/RogueCity/Generators/Policy/FbczRuleEngine.hpp
+    include/RogueCity/Generators/Policy/BehaviorTreeAuditors.hpp
     include/RogueCity/Generators/Pipeline/CityGenerator.hpp
+    include/RogueCity/Generators/Pipeline/GenerationInput.hpp
+    include/RogueCity/Generators/Pipeline/DefaultAxiomScaffoldPreset.hpp
     include/RogueCity/Generators/Pipeline/AxiomInteractionResolver.hpp
     include/RogueCity/Generators/Pipeline/MajorConnectorGraph.hpp
     include/RogueCity/Generators/Pipeline/GenerationContext.hpp
@@ -213,6 +225,47 @@ endif()
 if(ROGUECITY_ENABLE_FASTNOISE2)
     target_link_libraries(RogueCityGenerators PUBLIC FastNoise2::fastnoise2)
     target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_HAS_FASTNOISE2=1)
+endif()
+
+if(ROGUECITY_ENABLE_GDAL_GPKG)
+    find_package(GDAL CONFIG QUIET)
+    if(NOT GDAL_FOUND)
+        find_package(GDAL QUIET)
+    endif()
+
+    if(GDAL_FOUND)
+        target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_ENABLE_GDAL_GPKG=1)
+        if(TARGET GDAL::GDAL)
+            target_link_libraries(RogueCityGenerators PUBLIC GDAL::GDAL)
+        else()
+            target_include_directories(RogueCityGenerators PUBLIC ${GDAL_INCLUDE_DIRS})
+            target_link_libraries(RogueCityGenerators PUBLIC ${GDAL_LIBRARIES})
+        endif()
+        message(STATUS "Generators GeoPackage support: GDAL enabled")
+    else()
+        message(WARNING "ROGUECITY_ENABLE_GDAL_GPKG=ON but GDAL was not found; GeoPackage support disabled.")
+    endif()
+endif()
+
+if(ROGUECITY_ENABLE_BEHAVIORTREE_AUDITORS)
+    find_package(behaviortree_cpp_v3 CONFIG QUIET)
+
+    set(_roguecity_bt_target "")
+    if(TARGET behaviortree_cpp_v3::behaviortree_cpp_v3)
+        set(_roguecity_bt_target behaviortree_cpp_v3::behaviortree_cpp_v3)
+    elseif(TARGET BT::behaviortree_cpp_v3)
+        set(_roguecity_bt_target BT::behaviortree_cpp_v3)
+    elseif(TARGET BehaviorTree::behaviortree_cpp_v3)
+        set(_roguecity_bt_target BehaviorTree::behaviortree_cpp_v3)
+    endif()
+
+    if(NOT _roguecity_bt_target STREQUAL "")
+        target_link_libraries(RogueCityGenerators PUBLIC ${_roguecity_bt_target})
+        target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_ENABLE_BEHAVIORTREE_AUDITORS=1)
+        message(STATUS "Generators policy auditors: BehaviorTree.CPP enabled")
+    else()
+        message(WARNING "ROGUECITY_ENABLE_BEHAVIORTREE_AUDITORS=ON but BehaviorTree.CPP target was not found; fallback auditors will be used.")
+    endif()
 endif()
 
 # C++20 features

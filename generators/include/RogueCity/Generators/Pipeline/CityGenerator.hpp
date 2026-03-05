@@ -2,6 +2,7 @@
 
 #include "RogueCity/Core/Types.hpp"
 #include "RogueCity/Core/Analytics/GridMetrics.hpp"
+#include "RogueCity/Core/Data/SpatialReference.hpp"
 #include "RogueCity/Core/Util/FastVectorArray.hpp"
 #include "RogueCity/Generators/Pipeline/GenerationContext.hpp"
 #include "RogueCity/Generators/Pipeline/GenerationStage.hpp"
@@ -33,6 +34,8 @@ namespace RogueCity::Generators {
 
 using namespace Core;
 
+struct GenerationInput;
+
 class CityGenerator {
 public:
     struct Config {
@@ -58,6 +61,14 @@ public:
         double min_trace_step_size{ 2.0 };
         double max_trace_step_size{ 12.0 };
         double trace_curvature_gain{ 1.5 };
+
+        bool enable_roadg_neighborhood_builder{ false };
+        double roadg_grid_spacing{ 120.0 };
+
+        bool enable_fbcz_rules{ false };
+        std::string fbcz_rules_path{};
+
+        bool enable_policy_auditors{ false };
     };
 
     struct ValidationResult {
@@ -137,6 +148,8 @@ public:
         std::vector<BlockPolygon> blocks;
         std::vector<LotToken> lots;
         siv::Vector<BuildingSite> buildings;
+        Core::Data::SpatialReference spatial_reference{
+            Core::Data::SpatialReference::LocalPlanarMeters()};
         std::vector<Vec2> city_boundary;
         std::vector<Polyline> connector_debug_edges;
         TensorFieldGenerator tensor_field;
@@ -163,6 +176,11 @@ public:
     };
 
     CityGenerator() = default;
+
+    [[nodiscard]] CityOutput generate(const GenerationInput& input);
+
+    [[nodiscard]] CityOutput generate(const GenerationInput& input,
+                                      Core::Editor::GlobalState* global_state);
 
     [[nodiscard]] CityOutput generate(
         const std::vector<AxiomInput>& axioms);
@@ -216,6 +234,8 @@ private:
         std::vector<BlockPolygon> blocks{};
         std::vector<LotToken> lots{};
         siv::Vector<BuildingSite> buildings{};
+        Core::Data::SpatialReference spatial_reference{
+            Core::Data::SpatialReference::LocalPlanarMeters()};
         std::vector<Vec2> city_boundary{};
         std::vector<Polyline> connector_debug_edges{};
         std::vector<PlanViolation> plan_violations{};

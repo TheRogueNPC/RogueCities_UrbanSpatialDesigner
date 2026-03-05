@@ -82,6 +82,8 @@ def check_vscode_settings(root: Path) -> CheckResult:
         "problemsBridge.autoExport": True,
         "problemsBridge.outputPath": ".vscode/problems.export.json",
     }
+    if os.name == "nt":
+        required_keys["terminal.integrated.defaultProfile.windows"] = "RogueCities Dev PowerShell"
 
     problems: List[str] = []
     for key, expected in required_keys.items():
@@ -235,6 +237,41 @@ def check_toolchain(root: Path) -> CheckResult:
     if not details:
         details = lines[-4:]
     return CheckResult("toolchain", status, "Toolchain probe complete.", details)
+
+
+def check_alt_toolchains(root: Path) -> CheckResult:
+    if os.name == "nt":
+        probes = [
+            ("ninja", ".vscode\\vsdev-init.cmd >NUL && where ninja"),
+            ("clang-cl", ".vscode\\vsdev-init.cmd >NUL && where clang-cl"),
+            ("make", "where make"),
+        ]
+    else:
+        probes = [
+            ("ninja", "command -v ninja"),
+            ("clang++", "command -v clang++"),
+            ("make", "command -v make"),
+        ]
+
+    found: dict[str, bool] = {}
+    details: List[str] = []
+    for name, command in probes:
+        result = run_command(command, prefer_windows_shell=True)
+        lines = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+        ok = result.returncode == 0 and len(lines) > 0
+        found[name] = ok
+        if ok:
+            details.append(f"{name}=ok ({lines[0]})")
+        else:
+            details.append(f"{name}=missing")
+
+    clang_key = "clang-cl" if os.name == "nt" else "clang++"
+    matrix_ready = found.get("ninja", False) and found.get(clang_key, False)
+    status = "PASS" if matrix_ready else "WARN"
+    message = "Ninja/clang matrix tooling available." if matrix_ready else "Ninja/clang matrix tooling is partial."
+    if not found.get("make", False):
+        details.append("make is optional on Windows and required only for MinGW/MSYS workflows.")
+    return CheckResult("alt_toolchains", status, message, details)
 
 
 def check_problems_bridge(root: Path) -> CheckResult:
@@ -480,6 +517,7 @@ def main() -> int:
         check_vscode_settings(root),
         check_compile_commands(root),
         check_toolchain(root),
+        check_alt_toolchains(root),
         check_problems_bridge(root),
         check_code_cli(),
         check_ai_config(root),

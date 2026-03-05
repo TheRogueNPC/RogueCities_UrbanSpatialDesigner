@@ -15,6 +15,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Data/TensorTypes.hpp
     include/RogueCity/Core/Data/CitySpec.hpp
     include/RogueCity/Core/Data/CoordinateSystem.hpp
+    include/RogueCity/Core/Data/SpatialReference.hpp
     include/RogueCity/Core/Data/Texture2D.hpp
     include/RogueCity/Core/Data/TextureSpace.hpp
     include/RogueCity/Core/Geometry/PolygonOps.hpp
@@ -48,6 +49,7 @@ set(CORE_SOURCES
     src/Core/Data/TensorTypes.cpp
     src/Core/Data/CitySpec.cpp
     src/Core/Data/CoordinateSystem.cpp
+    src/Core/Data/SpatialReference.cpp
     src/Core/Data/TextureSpace.cpp
     src/Core/Geometry/PolygonOps.cpp
     src/Core/Buildings/FrontageMarkov.cpp

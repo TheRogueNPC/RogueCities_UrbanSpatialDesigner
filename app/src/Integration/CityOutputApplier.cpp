@@ -121,6 +121,8 @@ void ApplyCityOutputToGlobalState(
     const Generators::CityGenerator::CityOutput& output,
     Core::Editor::GlobalState& gs,
     const CityOutputApplyOptions& options) {
+    gs.spatial_reference = output.spatial_reference;
+
     const bool apply_district_bounds =
         options.scope == GenerationScope::RoadsAndBounds ||
         options.scope == GenerationScope::FullCity;

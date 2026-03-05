@@ -7,9 +7,8 @@
     },
     "configurePresets": [
         {
-            "name": "base-vs2026",
+            "name": "base-common",
             "hidden": true,
-            "generator": "Visual Studio 18 2026",
             "architecture": {
                 "value": "x64",
                 "strategy": "external"
@@ -23,9 +22,63 @@
             }
         },
         {
+            "name": "base-vs2022",
+            "hidden": true,
+            "inherits": "base-common",
+            "generator": "Visual Studio 17 2022"
+        },
+        {
+            "name": "base-vs2026",
+            "hidden": true,
+            "inherits": "base-common",
+            "generator": "Visual Studio 18 2026"
+        },
+        {
+            "name": "base-ninja-msvc",
+            "hidden": true,
+            "inherits": "base-common",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build_ninja_msvc",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe"
+            }
+        },
+        {
+            "name": "base-ninja-clang",
+            "hidden": true,
+            "inherits": "base-common",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build_ninja_clang",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang-cl.exe",
+                "CMAKE_CXX_COMPILER": "clang-cl.exe"
+            }
+        },
+        {
             "name": "dev",
+            "displayName": "RogueCities Dev (VS2022 x64 / MSBuild default)",
+            "inherits": "base-vs2022"
+        },
+        {
+            "name": "dev-vs2022",
+            "displayName": "RogueCities Dev (VS2022 x64)",
+            "inherits": "base-vs2022"
+        },
+        {
+            "name": "dev-vs2026",
             "displayName": "RogueCities Dev (VS2026 x64)",
             "inherits": "base-vs2026"
+        },
+        {
+            "name": "dev-ninja-msvc",
+            "displayName": "RogueCities Dev (Ninja Multi-Config + MSVC)",
+            "inherits": "base-ninja-msvc"
+        },
+        {
+            "name": "dev-ninja-clang",
+            "displayName": "RogueCities Dev (Ninja Multi-Config + clang-cl)",
+            "inherits": "base-ninja-clang"
         },
         {
             "name": "RC_Dev_Preset",
@@ -33,7 +86,7 @@
             "displayName": "",
             "inherits": [
                 "base-vs2026",
-                "dev"
+                "dev-vs2026"
             ]
         },
         {
@@ -42,7 +95,7 @@
             "displayName": "",
             "inherits": [
                 "base-vs2026",
-                "dev",
+                "dev-vs2026",
                 "RC_Dev_Preset"
             ]
         }
@@ -77,6 +130,66 @@
                 "ALL_BUILD"
             ],
             "jobs": 8
+        },
+        {
+            "name": "gui-debug-vs2026",
+            "displayName": "Build GUI Debug (VS2026)",
+            "configurePreset": "dev-vs2026",
+            "configuration": "Debug",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-release-vs2026",
+            "displayName": "Build GUI Release (VS2026)",
+            "configurePreset": "dev-vs2026",
+            "configuration": "Release",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-debug-ninja-msvc",
+            "displayName": "Build GUI Debug (Ninja + MSVC)",
+            "configurePreset": "dev-ninja-msvc",
+            "configuration": "Debug",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-release-ninja-msvc",
+            "displayName": "Build GUI Release (Ninja + MSVC)",
+            "configurePreset": "dev-ninja-msvc",
+            "configuration": "Release",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-debug-ninja-clang",
+            "displayName": "Build GUI Debug (Ninja + clang-cl)",
+            "configurePreset": "dev-ninja-clang",
+            "configuration": "Debug",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
+        },
+        {
+            "name": "gui-release-ninja-clang",
+            "displayName": "Build GUI Release (Ninja + clang-cl)",
+            "configurePreset": "dev-ninja-clang",
+            "configuration": "Release",
+            "targets": [
+                "RogueCityVisualizerGui"
+            ],
+            "jobs": 8
         }
     ],
     "testPresets": [
@@ -84,6 +197,33 @@
             "name": "ctest-release",
             "displayName": "CTest Release",
             "configurePreset": "dev",
+            "configuration": "Release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "ctest-release-vs2026",
+            "displayName": "CTest Release (VS2026)",
+            "configurePreset": "dev-vs2026",
+            "configuration": "Release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "ctest-release-ninja-msvc",
+            "displayName": "CTest Release (Ninja + MSVC)",
+            "configurePreset": "dev-ninja-msvc",
+            "configuration": "Release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "ctest-release-ninja-clang",
+            "displayName": "CTest Release (Ninja + clang-cl)",
+            "configurePreset": "dev-ninja-clang",
             "configuration": "Release",
             "output": {
                 "outputOnFailure": true

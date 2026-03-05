@@ -150,6 +150,7 @@ struct District {
   int primary_axiom_id{-1};
   int secondary_axiom_id{-1};
   DistrictType type{DistrictType::Mixed};
+  std::string form_district{};
   std::vector<Vec2> border;
   Vec2 orientation{};
   float budget_allocated{0.0f};
@@ -172,10 +173,17 @@ struct District {
 struct LotToken {
   uint32_t id{0};
   uint32_t district_id{0};
+  std::string form_district{};
   Vec2 centroid{};
   std::vector<Vec2> boundary;
   RoadType primary_road{RoadType::Street};
   RoadType secondary_road{RoadType::Street};
+  float fbcz_build_to_min{0.0f};
+  float fbcz_build_to_max{0.0f};
+  float fbcz_max_setback{0.0f};
+  float fbcz_frontage_occupancy_min{0.0f};
+  float fbcz_height_min{0.0f};
+  float fbcz_height_max{0.0f};
 
   // AESP scores (Access, Exposure, Serviceability, Privacy)
   float access{0.0f};
@@ -227,6 +235,11 @@ struct BuildingSite {
   float footprint_area{0.0f}; // Building footprint area (square meters)
   bool basement_feasible{
       false}; // True if soil/slope allows basement construction
+
+  float fbcz_height_min{0.0f};
+  float fbcz_height_max{0.0f};
+  double fbcz_frontage_occupancy{0.0};
+  bool fbcz_violation{false};
 
   std::vector<Vec2> outline; // Explicit footprint polygon
 };

@@ -37,6 +37,13 @@
 
 ## Generator APIs
 
+### `RogueCity/Generators/Pipeline/GenerationInput.hpp`
+- `struct GenerationInput`
+  - additive generation contract for optional axiom/prospect/imported-network inputs.
+  - deterministic config/seed resolution via `effectiveConfig()`.
+- `class DefaultAxiomScaffoldPreset`
+  - deterministic scaffold fallback when no explicit axiom set exists.
+
 ### `RogueCity/Generators/Pipeline/GenerationStage.hpp`
 - `enum class GenerationStage`
 - `using StageMask`
@@ -61,6 +68,11 @@
     - `Urban()`, `Suburban()`, `Rural()`, `Industrial()`
   - deterministic selection:
     - `FromSeed(uint32_t)`
+
+### `RogueCity/Core/Data/SpatialReference.hpp`
+- `class SpatialReference`
+  - canonical CRS metadata carrier for generator output/import/export stages.
+  - `LocalPlanarMeters()`, `FromEPSG(...)`, `FromProj4(...)`, `FromWkt(...)`.
 
 ## Packaging
 - Installed package now exports:

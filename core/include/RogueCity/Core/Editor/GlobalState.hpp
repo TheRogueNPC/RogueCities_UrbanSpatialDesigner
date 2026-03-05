@@ -3,6 +3,7 @@
 #include "RogueCity/Core/Analytics/GridMetrics.hpp"
 #include "RogueCity/Core/Data/CitySpec.hpp"
 #include "RogueCity/Core/Data/CityTypes.hpp"
+#include "RogueCity/Core/Data/SpatialReference.hpp"
 #include "RogueCity/Core/Data/TextureSpace.hpp"
 #include "RogueCity/Core/Editor/SelectionManager.hpp"
 #include "RogueCity/Core/Editor/TerrainBrush.hpp"
@@ -587,6 +588,8 @@ struct GlobalState {
   ToolRuntimeState tool_runtime{};
   GenerationPolicyState generation_policy{};
   std::optional<CitySpec> active_city_spec{};
+  Data::SpatialReference spatial_reference{
+      Data::SpatialReference::LocalPlanarMeters()};
   WorldConstraintField world_constraints{};
   std::vector<Vec2> city_boundary{};
   std::vector<Polyline> connector_debug_edges{};

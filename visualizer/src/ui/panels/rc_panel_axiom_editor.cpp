@@ -22,6 +22,7 @@
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
 #include "RogueCity/Core/Validation/EditorOverlayValidation.hpp"
 #include "RogueCity/Generators/Pipeline/CityGenerator.hpp"
+#include "RogueCity/Generators/Pipeline/DefaultAxiomScaffoldPreset.hpp"
 #include "ui/commands/rc_command_palette.h"
 #include "ui/commands/rc_context_command_registry.h"
 #include "ui/commands/rc_context_menu_pie.h"
@@ -1215,10 +1216,6 @@ static bool BuildInputs(
 
   auto &gs = RogueCity::Core::Editor::GetGlobalState();
   out_inputs = s_axiom_tool->get_axiom_inputs();
-  if (out_inputs.empty()) {
-    s_validation_error.clear();
-    return false;
-  }
 
   const auto &axioms = s_axiom_tool->axioms();
   const auto world_bounds = RogueCity::Core::Editor::ComputeWorldBounds(
@@ -1235,6 +1232,11 @@ static bool BuildInputs(
   out_config.num_seeds =
       std::max(10, static_cast<int>(axioms.size() * 6 * s_flow_rate));
 
+  if (out_inputs.empty()) {
+    out_inputs = RogueCity::Generators::DefaultAxiomScaffoldPreset::Build(
+        out_config);
+  }
+
   if (!RogueCity::App::GeneratorBridge::validate_axioms(out_inputs,
                                                         out_config)) {
     s_validation_error = "ERROR: Invalid axioms (bounds/overlap)";
@@ -1250,7 +1252,7 @@ bool CanGenerate() {
     return false;
   if (s_generation_coordinator->IsGenerating())
     return false;
-  return !s_axiom_tool->axioms().empty();
+  return true;
 }
 
 // Explicit generation command from UI actions (e.g. "Generate now"). Prefers
@@ -1414,14 +1416,15 @@ bool ApplyGeneratorRequest(
     }
     return false;
   }
-  if (axioms.empty()) {
-    if (outError) {
-      *outError = "No generation axioms were provided.";
-    }
-    return false;
+  std::vector<RogueCity::Generators::CityGenerator::AxiomInput> effective_axioms =
+      axioms;
+  if (effective_axioms.empty()) {
+    effective_axioms =
+        RogueCity::Generators::DefaultAxiomScaffoldPreset::Build(config);
   }
 
-  if (!RogueCity::App::GeneratorBridge::validate_axioms(axioms, config)) {
+  if (!RogueCity::App::GeneratorBridge::validate_axioms(effective_axioms,
+                                                        config)) {
     if (outError) {
       *outError = "Generator request failed axiom validation.";
     }
@@ -1433,7 +1436,7 @@ bool ApplyGeneratorRequest(
   RogueCity::Core::Editor::GetGlobalState().params.seed = config.seed;
   s_validation_error.clear();
   s_generation_coordinator->ForceRegeneration(
-      axioms, config, RogueCity::App::GenerationDepth::FullPipeline,
+      effective_axioms, config, RogueCity::App::GenerationDepth::FullPipeline,
       RogueCity::App::GenerationRequestReason::ExternalRequest);
   s_external_dirty = false;
   auto &gs = RogueCity::Core::Editor::GetGlobalState();
