@@ -94,6 +94,7 @@ endif()
         src/ui/WorkspaceProfile.cpp
         src/ui/MockupTokenParser.cpp
         src/ui/MockupWatcher.cpp
+        src/ui/SvgTextureCache.cpp
         src/ui/tools/rc_tool_contract.cpp
         src/ui/tools/rc_tool_dispatcher.cpp
         src/ui/tools/rc_tool_interaction_metrics.cpp
@@ -163,6 +164,7 @@ endif()
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
+        "${CMAKE_SOURCE_DIR}/3rdparty/nanosvg"
     )
     target_compile_features(RogueCityVisualizerHeadless PRIVATE cxx_std_20)
     
@@ -243,6 +245,7 @@ endif()
                 src/ui/WorkspaceProfile.cpp
                 src/ui/MockupTokenParser.cpp
                 src/ui/MockupWatcher.cpp
+                src/ui/SvgTextureCache.cpp
                 src/ui/tools/rc_tool_contract.cpp
                 src/ui/tools/rc_tool_dispatcher.cpp
                 src/ui/tools/rc_tool_interaction_metrics.cpp
@@ -309,6 +312,7 @@ endif()
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"
                 "${CMAKE_CURRENT_SOURCE_DIR}/include"
                 "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann_json/include"
+                "${CMAKE_SOURCE_DIR}/3rdparty/nanosvg"
                 "${IMGUI_DIR}"
                 "${IMGUI_DIR}/backends"
             )

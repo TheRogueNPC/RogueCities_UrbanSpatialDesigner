@@ -607,4 +607,27 @@ bool PolygonOps::IsValidRegion(const PolygonRegion& region, double epsilon) {
   return true;
 }
 
+bool PolygonOps::ContainsPoint(const Polygon& poly, const Vec2& pt) {
+  if (poly.vertices.size() < 3u) {
+    return false;
+  }
+  const Clipper2Lib::PointInPolygonResult res =
+      Clipper2Lib::PointInPolygon(ToClipperPoint(pt), ToClipperPath(poly));
+  return res != Clipper2Lib::PointInPolygonResult::IsOutside;
+}
+
+bool PolygonOps::ContainsPoint(const PolygonRegion& region, const Vec2& pt) {
+  if (!ContainsPoint(region.outer, pt)) {
+    return false;
+  }
+  for (const auto& hole : region.holes) {
+    const Clipper2Lib::PointInPolygonResult res =
+        Clipper2Lib::PointInPolygon(ToClipperPoint(pt), ToClipperPath(hole));
+    if (res != Clipper2Lib::PointInPolygonResult::IsOutside) {
+      return false;
+    }
+  }
+  return true;
+}
+
 } // namespace RogueCity::Core::Geometry

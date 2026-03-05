@@ -32,6 +32,7 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/PolygonUtil.cpp
     src/Generators/Urban/Graph.cpp
     src/Generators/Urban/GraphAlgorithms.cpp
+    src/Generators/Urban/RoutingLibrary.cpp
     src/Generators/Urban/PolygonFinder.cpp
     src/Generators/Urban/RoadGenerator.cpp
     src/Generators/Urban/DistrictGenerator.cpp
@@ -45,6 +46,7 @@ set(GENERATOR_SOURCES
     src/Generators/Pipeline/ZoningGenerator.cpp
     src/Generators/Pipeline/TerrainConstraintGenerator.cpp
     src/Generators/Pipeline/PlanValidatorGenerator.cpp
+    src/Generators/Import/OpenDriveBridge.cpp
 )
 
 # Header files (for IDE integration)
@@ -75,6 +77,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/PolygonUtil.hpp
     include/RogueCity/Generators/Urban/Graph.hpp
     include/RogueCity/Generators/Urban/GraphAlgorithms.hpp
+    include/RogueCity/Generators/Urban/RoutingLibrary.hpp
     include/RogueCity/Generators/Urban/PolygonFinder.hpp
     include/RogueCity/Generators/Urban/RoadGenerator.hpp
     include/RogueCity/Generators/Urban/DistrictGenerator.hpp
@@ -90,6 +93,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Pipeline/ZoningGenerator.hpp
     include/RogueCity/Generators/Pipeline/TerrainConstraintGenerator.hpp
     include/RogueCity/Generators/Pipeline/PlanValidatorGenerator.hpp
+    include/RogueCity/Generators/Import/OpenDriveBridge.hpp
 )
 
 # Create static library
@@ -129,7 +133,25 @@ if(ROGUECITY_BOOST_INCLUDE_DIR)
     target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
     message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
 else()
-    message(WARNING "Boost headers not found (boost/geometry.hpp). Falling back to LegacyShim.")
+    message(WARNING "Boost Geometry headers not found. Some functionality may be disabled.")
+endif()
+
+# Also check for Boost.Polygon (Voronoi)
+find_path(ROGUECITY_BOOST_POLYGON_INCLUDE_DIR
+    NAMES boost/polygon/voronoi.hpp
+    HINTS ${_roguecity_boost_hints}
+)
+if(ROGUECITY_BOOST_POLYGON_INCLUDE_DIR)
+    if(NOT ROGUECITY_BOOST_INCLUDE_DIR OR NOT "${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR}" STREQUAL "${ROGUECITY_BOOST_INCLUDE_DIR}")
+        target_include_directories(RogueCityGenerators
+            PUBLIC
+                $<BUILD_INTERFACE:${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR}>
+        )
+    endif()
+    target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_POLYGON=1)
+    message(STATUS "Generators polygon backend: Boost.Polygon (${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR})")
+else()
+    message(WARNING "Boost Polygon headers not found. Voronoi-based generation will be disabled.")
 endif()
 
 # Optional SLTerrainGeneration integration (header-first fallback).
@@ -169,8 +191,7 @@ if(ROGUECITY_ENABLE_SLTERRAIN)
     endif()
 endif()
 
-# Clipper2 dependency:
-# Try to find via vcpkg/system config first.
+# find required vcpkg packages
 find_package(Clipper2 CONFIG QUIET)
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
@@ -181,10 +202,10 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
+        Clipper2::Clipper2
+        RogueCity::OpenDRIVE
 )
 
-# If Clipper2 was found via find_package, link it.
-# Otherwise, we rely on RogueCityCore having compiled it from source (3rdparty/Clipper2).
 if(TARGET Clipper2::Clipper2)
     target_link_libraries(RogueCityGenerators PUBLIC Clipper2::Clipper2)
 endif()

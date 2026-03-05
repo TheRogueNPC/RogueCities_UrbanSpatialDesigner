@@ -32,6 +32,9 @@ namespace RogueCity::Core::Geometry {
         [[nodiscard]] static PolygonRegion SimplifyRegion(const PolygonRegion& region, double epsilon = 1e-6);
         [[nodiscard]] static bool IsValidPolygon(const Polygon& poly, double epsilon = 1e-6);
         [[nodiscard]] static bool IsValidRegion(const PolygonRegion& region, double epsilon = 1e-6);
+
+        [[nodiscard]] static bool ContainsPoint(const Polygon& poly, const Vec2& pt);
+        [[nodiscard]] static bool ContainsPoint(const PolygonRegion& region, const Vec2& pt);
     };
 
 } // namespace RogueCity::Core::Geometry
