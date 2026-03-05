@@ -125,21 +125,34 @@ find_path(ROGUECITY_BOOST_INCLUDE_DIR
     HINTS ${_roguecity_boost_hints}
 )
 
-if(NOT ROGUECITY_BOOST_INCLUDE_DIR)
-    message(FATAL_ERROR
-        "Boost headers not found (boost/geometry.hpp).\n"
-        "Checked hints:\n"
-        "  - ${_roguecity_boost_hints}\n"
-        "Set BOOST_ROOT or BOOST_INCLUDEDIR, or provide 3rdparty/boost."
+if(ROGUECITY_BOOST_INCLUDE_DIR)
+    target_include_directories(RogueCityGenerators
+        PUBLIC
+            $<BUILD_INTERFACE:${ROGUECITY_BOOST_INCLUDE_DIR}>
     )
+    target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
+    message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
+else()
+    message(WARNING "Boost Geometry headers not found. Some functionality may be disabled.")
 endif()
 
-target_include_directories(RogueCityGenerators
-    PUBLIC
-        $<BUILD_INTERFACE:${ROGUECITY_BOOST_INCLUDE_DIR}>
+# Also check for Boost.Polygon (Voronoi)
+find_path(ROGUECITY_BOOST_POLYGON_INCLUDE_DIR
+    NAMES boost/polygon/voronoi.hpp
+    HINTS ${_roguecity_boost_hints}
 )
-target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
-message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
+if(ROGUECITY_BOOST_POLYGON_INCLUDE_DIR)
+    if(NOT ROGUECITY_BOOST_INCLUDE_DIR OR NOT "${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR}" STREQUAL "${ROGUECITY_BOOST_INCLUDE_DIR}")
+        target_include_directories(RogueCityGenerators
+            PUBLIC
+                $<BUILD_INTERFACE:${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR}>
+        )
+    endif()
+    target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_POLYGON=1)
+    message(STATUS "Generators polygon backend: Boost.Polygon (${ROGUECITY_BOOST_POLYGON_INCLUDE_DIR})")
+else()
+    message(WARNING "Boost Polygon headers not found. Voronoi-based generation will be disabled.")
+endif()
 
 # Optional SLTerrainGeneration integration (header-first fallback).
 if(ROGUECITY_ENABLE_SLTERRAIN)
@@ -179,7 +192,7 @@ if(ROGUECITY_ENABLE_SLTERRAIN)
 endif()
 
 # find required vcpkg packages
-find_package(Clipper2 CONFIG REQUIRED)
+find_package(Clipper2 CONFIG QUIET)
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     find_package(FastNoise2 CONFIG REQUIRED)
@@ -192,6 +205,10 @@ target_link_libraries(RogueCityGenerators
         Clipper2::Clipper2
         RogueCity::OpenDRIVE
 )
+
+if(TARGET Clipper2::Clipper2)
+    target_link_libraries(RogueCityGenerators PUBLIC Clipper2::Clipper2)
+endif()
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     target_link_libraries(RogueCityGenerators PUBLIC FastNoise2::fastnoise2)

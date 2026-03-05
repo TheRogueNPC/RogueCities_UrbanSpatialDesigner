@@ -9,9 +9,11 @@
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
+#endif
 
 #include <algorithm>
 #include <cassert>
@@ -268,6 +270,7 @@ ClipLotsToAxiomInfluence(const std::vector<Core::LotToken> &lots,
   return clipped;
 }
 
+#if defined(ROGUECITY_USE_BOOST_GEOMETRY)
 using BoostPoint = boost::geometry::model::d2::point_xy<double>;
 using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 
@@ -346,6 +349,13 @@ BuildCityBoundary(const std::vector<CityGenerator::AxiomInput> &axioms) {
   }
   return boundary;
 }
+#else
+[[nodiscard]] std::vector<Core::Vec2> BuildCityBoundary(
+    const std::vector<CityGenerator::AxiomInput>& axioms) {
+    (void)axioms;
+    return {};
+}
+#endif
 
 void AssignRoadSourceAxiom(
     fva::Container<Core::Road> &roads,
