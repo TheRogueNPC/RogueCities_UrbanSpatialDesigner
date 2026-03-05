@@ -3,6 +3,7 @@
 
 // UI system includes
 #include "RogueCity/App/UI/ThemeManager.h"   // Multi-theme system
+#include <RogueCity/Visualizer/SvgTextureCache.hpp>
 #include "ui/panels/rc_panel_axiom_editor.h" // AxiomEditor::Undo/Redo
 #include "ui/rc_ui_root.h"
 
@@ -779,6 +780,7 @@ int main(int, char **) {
   keep_running = false;
   repl_thread.detach();
 
+  RC::SvgTextureCache::Get().Clear();
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

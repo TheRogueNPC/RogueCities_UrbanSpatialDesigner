@@ -4,7 +4,10 @@
       "mcp__ide__getDiagnostics",
       "Bash(cmake:*)",
       "Bash(rm:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(curl -fsSL \"https://raw.githubusercontent.com/memononen/nanosvg/master/src/nanosvg.h\" -o \"3rdparty/nanosvg/nanosvg.h\")",
+      "Bash(curl -fsSL \"https://raw.githubusercontent.com/memononen/nanosvg/master/src/nanosvgrast.h\" -o \"3rdparty/nanosvg/nanosvgrast.h\")",
+      "Bash(npm install lucide-static --prefix ./lucide_tmp)"
     ]
   }
 }

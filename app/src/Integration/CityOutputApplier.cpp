@@ -2,10 +2,7 @@
 
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
 #include "RogueCity/Core/Data/MaterialEncoding.hpp"
-
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-#include <boost/geometry/geometries/polygon.hpp>
+#include "RogueCity/Core/Geometry/PolygonOps.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -15,9 +12,6 @@
 
 namespace RogueCity::App {
 namespace {
-
-using BoostPoint = boost::geometry::model::d2::point_xy<double>;
-using BoostPolygon = boost::geometry::model::polygon<BoostPoint>;
 
 void MarkDirtyLayersCleanForScope(
     RogueCity::Core::Editor::GlobalState& gs,
@@ -42,24 +36,6 @@ void MarkDirtyLayersCleanForScope(
     }
 }
 
-bool BuildBoostPolygon(const std::vector<RogueCity::Core::Vec2>& border, BoostPolygon& out_poly) {
-    if (border.size() < 3) {
-        return false;
-    }
-
-    auto& outer = out_poly.outer();
-    outer.clear();
-    outer.reserve(border.size() + 1);
-    for (const auto& point : border) {
-        outer.emplace_back(point.x, point.y);
-    }
-    if (!border.front().equals(border.back())) {
-        outer.emplace_back(border.front().x, border.front().y);
-    }
-
-    boost::geometry::correct(out_poly);
-    return out_poly.outer().size() >= 4;
-}
 
 void NormalizeUserMetadata(RogueCity::Core::Road& road) {
     if (road.is_user_created && road.generation_tag != RogueCity::Core::GenerationTag::M_user) {
@@ -203,39 +179,39 @@ void ApplyCityOutputToGlobalState(
 
     std::vector<RogueCity::Core::Road> generated_roads;
     generated_roads.reserve(output.roads.size());
-    for (auto road : output.roads) {
+    for (const auto& road_source : output.roads) {
+        auto& road = generated_roads.emplace_back(road_source);
         road.is_user_created = false;
         MarkGenerated(road);
-        generated_roads.push_back(std::move(road));
     }
 
     std::vector<RogueCity::Core::District> generated_districts;
     if (apply_district_bounds) {
         generated_districts.reserve(output.districts.size());
-        for (auto district : output.districts) {
+        for (const auto& district_source : output.districts) {
+            auto& district = generated_districts.emplace_back(district_source);
             district.is_user_placed = false;
             MarkGenerated(district);
-            generated_districts.push_back(std::move(district));
         }
     }
 
     std::vector<RogueCity::Core::LotToken> generated_lots;
     if (apply_lots_buildings) {
         generated_lots.reserve(output.lots.size());
-        for (auto lot : output.lots) {
+        for (const auto& lot_source : output.lots) {
+            auto& lot = generated_lots.emplace_back(lot_source);
             lot.is_user_placed = false;
             MarkGenerated(lot);
-            generated_lots.push_back(std::move(lot));
         }
     }
 
     std::vector<RogueCity::Core::BuildingSite> generated_buildings;
     if (apply_lots_buildings) {
         generated_buildings.reserve(output.buildings.size());
-        for (auto building : output.buildings) {
+        for (const auto& building_source : output.buildings) {
+            auto& building = generated_buildings.emplace_back(building_source);
             building.is_user_placed = false;
             MarkGenerated(building);
-            generated_buildings.push_back(std::move(building));
         }
     }
 
@@ -442,10 +418,8 @@ void ApplyCityOutputToGlobalState(
                 if (district.border.size() < 3) {
                     continue;
                 }
-                BoostPolygon district_polygon{};
-                if (!BuildBoostPolygon(district.border, district_polygon)) {
-                    continue;
-                }
+                RogueCity::Core::Geometry::Polygon district_polygon{};
+                district_polygon.vertices = district.border;
 
                 RogueCity::Core::Bounds district_bounds{};
                 district_bounds.min = district.border.front();
@@ -468,7 +442,7 @@ void ApplyCityOutputToGlobalState(
                 for (int y = y0; y <= y1; ++y) {
                     for (int x = x0; x <= x1; ++x) {
                         const RogueCity::Core::Vec2 world = coords.pixelToWorld({x, y});
-                        if (boost::geometry::covered_by(BoostPoint(world.x, world.y), district_polygon)) {
+                        if (RogueCity::Core::Geometry::PolygonOps::ContainsPoint(district_polygon, world)) {
                             zone_layer.at(x, y) = zone_value;
                         }
                     }

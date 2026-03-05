@@ -374,8 +374,7 @@ namespace RogueCity::Generators {
             , theta(theta)
         {}
 
-        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
-            (void)p;
+        [[nodiscard]] Tensor2D sample([[maybe_unused]] const Vec2& p) const override {
             return Tensor2D::fromAngle(theta);
         }
     };
@@ -564,9 +563,7 @@ namespace RogueCity::Generators {
         GridCorrectiveField(const Vec2& center, double radius, double theta, double decay)
             : BasisField(center, radius, decay), theta(theta) {}
 
-        [[nodiscard]] Tensor2D sample(const Vec2& p) const override {
-            // Fix: remove unused parameter warning by casting to void
-            (void)p;
+        [[nodiscard]] Tensor2D sample([[maybe_unused]] const Vec2& p) const override {
             // Strong alignment to grid orientation
             return Tensor2D::fromAngle(theta);
         }

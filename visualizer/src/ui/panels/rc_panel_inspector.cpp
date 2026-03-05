@@ -11,6 +11,7 @@
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_theme.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <imgui.h>
 #include <magic_enum/magic_enum.hpp>
@@ -110,7 +111,8 @@ void DrawContent(float dt) {
 
   // ACTIVE TOOL RUNTIME
   if (Components::DrawSectionHeader("ACTIVE TOOL RUNTIME",
-                                    UITokens::AmberGlow)) {
+                                    UITokens::AmberGlow, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
     ImGui::Indent();
     const auto active_domain_name =
         magic_enum::enum_name(gs.tool_runtime.active_domain);
@@ -188,7 +190,8 @@ void DrawContent(float dt) {
   }
 
   // GIZMO
-  if (Components::DrawSectionHeader("GIZMO", UITokens::CyanAccent)) {
+  if (Components::DrawSectionHeader("GIZMO", UITokens::CyanAccent, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Move, 14.f))) {
     ImGui::Indent();
     ImGui::Checkbox("Enabled##Gizmo", &gs.gizmo.enabled);
     ImGui::SameLine();
@@ -219,7 +222,8 @@ void DrawContent(float dt) {
   }
 
   // LAYER MANAGER
-  if (Components::DrawSectionHeader("LAYER MANAGER", UITokens::GreenHUD)) {
+  if (Components::DrawSectionHeader("LAYER MANAGER", UITokens::GreenHUD, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Layers, 14.f))) {
     ImGui::Indent();
     for (auto &layer : gs.layer_manager.layers) {
       ImGui::Checkbox(layer.name.c_str(), &layer.visible);
@@ -232,6 +236,9 @@ void DrawContent(float dt) {
     ImGui::Checkbox("See Through Hidden Layers",
                     &gs.layer_manager.allow_through_hidden);
     ImGui::Spacing();
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::Layers, 14.f)) {
+      ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Assign Selection \xe2\x86\x92 Active Layer")) {
       for (const auto &item : gs.selection_manager.Items()) {
         const uint64_t key =
@@ -246,7 +253,8 @@ void DrawContent(float dt) {
 
   // VALIDATION OVERLAY
   if (Components::DrawSectionHeader("VALIDATION OVERLAY",
-                                    UITokens::AmberGlow)) {
+                                    UITokens::AmberGlow, true,
+                                    RC::SvgTextureCache::Get().Load(LC::AlertTriangle, 14.f))) {
     ImGui::Indent();
     ImGui::Checkbox("Show Overlay##ValOv", &gs.validation_overlay.enabled);
     ImGui::SameLine();
@@ -263,7 +271,8 @@ void DrawContent(float dt) {
 
   // PROPERTY EDITOR / QUERY
   if (Components::DrawSectionHeader("QUERY SELECTION",
-                                    UITokens::MagentaHighlight)) {
+                                    UITokens::MagentaHighlight, true,
+                                    RC::SvgTextureCache::Get().Load(LC::Search, 14.f))) {
     static PropertyEditor editor;
     editor.Draw(gs);
   }

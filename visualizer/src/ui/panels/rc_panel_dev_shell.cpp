@@ -6,6 +6,7 @@
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
 #include "ui/tools/rc_tool_contract.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 #include "ui/introspection/UiIntrospection.h"
 #include "client/UiDesignAssistant.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -165,6 +166,9 @@ void DrawContent(float /*dt*/)
     uiint.RegisterWidget({"checkbox", "Include dock_tree", "uiint.include_dock_tree", {"dev"}});
     uiint.RegisterWidget({"text", "Output dir", "uiint.output_dir", {"dev"}});
 
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::Terminal, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Export UI Snapshot JSON")) {
         auto& introspector = RogueCity::UIInt::UiIntrospector::Instance();
         std::string file = std::string(s_outputDir) + "/ui_introspection_" + TimestampForFilename() + ".json";
@@ -200,6 +204,9 @@ void DrawContent(float /*dt*/)
     uiint.RegisterWidget({"button", "Export UI Snapshot JSON", "action:uiint.export", {"action", "dev"}});
 
     ImGui::SameLine();
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::Terminal, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Export Snapshot \xe2\x86\x92 Mockup Comment")) {
         std::string path, err;
         if (ExportMockupStateComment(&path, &err)) {
@@ -232,6 +239,9 @@ void DrawContent(float /*dt*/)
     ImGui::InputText("Preset Name", s_workspacePresetName, sizeof(s_workspacePresetName));
     uiint.RegisterWidget({"text", "Preset Name", "workspace.preset_name", {"dev", "layout"}});
 
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::Plus, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Save Workspace Preset")) {
         std::string err;
         if (RC_UI::SaveWorkspacePreset(s_workspacePresetName, &err)) {
@@ -242,6 +252,9 @@ void DrawContent(float /*dt*/)
         }
     }
     ImGui::SameLine();
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::RefreshCw, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Reset Dock Layout")) {
         RC_UI::ResetDockLayout();
         std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Dock layout reset to defaults");
@@ -333,6 +346,9 @@ void DrawContent(float /*dt*/)
     uiint.RegisterWidget({"text", "Goal", "ui_design.goal", {"dev", "input"}});
 
     ImGui::BeginDisabled(s_designBusy.load());
+    if (auto ico = RC::SvgTextureCache::Get().Load(LC::Bot, 14.f)) {
+        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+    }
     if (ImGui::Button("Generate Design Plan (from introspection)")) {
         if (!s_designBusy.exchange(true)) {
             {

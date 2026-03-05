@@ -27,11 +27,8 @@ def run(args: list[str], prefer_windows_shell: bool = False) -> int:
     else:
         wrapped = args
     print(f"[RUN] {shlex.join(args)}", flush=True)
-    try:
-        proc = subprocess.run(wrapped, shell=False, check=False)
-        return proc.returncode
-    except FileNotFoundError:
-        return 1
+    proc = subprocess.run(wrapped, shell=False, check=False)
+    return proc.returncode
 
 
 def snapshot_file(path: Path, out_dir: Path, prefix: str) -> Path | None:
@@ -65,8 +62,7 @@ def main() -> int:
         print("[FAIL] Configure step failed.")
         return rc
 
-    gen_script = str(Path("tools/generate_compile_commands.py"))
-    gen_args_base = [gen_script, "--build-dir", "build_vs", "--config", args.compile_config]
+    gen_args_base = ["tools/generate_compile_commands.py", "--build-dir", "build_vs", "--config", args.compile_config]
     # Try py -3 first, then fallback to python
     rc = run(["py", "-3"] + gen_args_base, prefer_windows_shell=True)
     if rc != 0:

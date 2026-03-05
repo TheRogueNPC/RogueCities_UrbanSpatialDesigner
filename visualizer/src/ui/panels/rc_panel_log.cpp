@@ -8,6 +8,7 @@
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_theme.h"
 #include "ui/rc_ui_tokens.h"
+#include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <RogueCity/Core/Editor/GlobalState.hpp>
 #include <RogueCity/Core/Infomatrix.hpp>
@@ -147,10 +148,29 @@ void DrawContent(float dt) {
       msg = msg.substr(0, visible_chars);
     }
 
+    // Category icon (small, before the bracket)
+    {
+      const char* ico_path = nullptr;
+      switch (ev.cat) {
+      case InfomatrixEvent::Category::Runtime:
+        ico_path = LC::Activity; break;
+      case InfomatrixEvent::Category::Validation:
+        ico_path = (ev.msg.find("rejected") != std::string::npos) ? LC::XCircle : LC::CheckCircle;
+        break;
+      case InfomatrixEvent::Category::Dirty:
+        ico_path = LC::RefreshCw; break;
+      default:
+        ico_path = LC::Info; break;
+      }
+      if (auto ico = RC::SvgTextureCache::Get().Load(ico_path, 11.f)) {
+        ImGui::Image(ico, ImVec2(11, 11)); ImGui::SameLine(0, 3);
+      }
+    }
+
     // Parse [PREFIX] to colorize it
     size_t bracket_start = msg.find('[');
     size_t bracket_end = msg.find(']');
-    
+
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Make sure it uses mono/default
     if (bracket_start == 0 && bracket_end != std::string::npos) {
         std::string prefix = msg.substr(1, bracket_end - 1);
