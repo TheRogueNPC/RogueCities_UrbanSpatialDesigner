@@ -159,8 +159,7 @@ SiteGenerator::generate(const std::vector<Core::LotToken> &lots,
         }
       }
 #else
-      outline = lot.boundary; // fallback
-      valid_inset = true;
+      (void)setback;
 #endif
     }
 

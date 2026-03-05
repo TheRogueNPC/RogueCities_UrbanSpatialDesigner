@@ -196,6 +196,23 @@ int main() {
     }
 
     {
+        const Polygon poly = MakeSquare(0.0, 0.0, 10.0, 10.0);
+        RC_EXPECT(PolygonOps::ContainsPoint(poly, Vec2(5.0, 5.0)));
+        RC_EXPECT(PolygonOps::ContainsPoint(poly, Vec2(0.1, 0.1)));
+        RC_EXPECT(!PolygonOps::ContainsPoint(poly, Vec2(11.0, 5.0)));
+        RC_EXPECT(!PolygonOps::ContainsPoint(poly, Vec2(-1.0, -1.0)));
+
+        PolygonRegion region{};
+        region.outer = MakeSquare(0.0, 0.0, 10.0, 10.0);
+        region.holes.push_back(MakeSquare(2.0, 2.0, 8.0, 8.0));
+
+        RC_EXPECT(PolygonOps::ContainsPoint(region, Vec2(1.0, 1.0)));
+        RC_EXPECT(PolygonOps::ContainsPoint(region, Vec2(9.0, 9.0)));
+        RC_EXPECT(!PolygonOps::ContainsPoint(region, Vec2(5.0, 5.0))); // In hole
+        RC_EXPECT(!PolygonOps::ContainsPoint(region, Vec2(11.0, 11.0))); // Outside
+    }
+
+    {
         const Polygon base = MakeSquare(0.0, 0.0, 100.0, 100.0);
         constexpr double kBaseArea = 10000.0;
 

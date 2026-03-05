@@ -188,7 +188,7 @@ if(ROGUECITY_ENABLE_SLTERRAIN)
 endif()
 
 # find required vcpkg packages
-find_package(Clipper2 CONFIG REQUIRED)
+find_package(Clipper2 CONFIG QUIET)
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     find_package(FastNoise2 CONFIG REQUIRED)
@@ -198,8 +198,11 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
-        Clipper2::Clipper2
 )
+
+if(TARGET Clipper2::Clipper2)
+    target_link_libraries(RogueCityGenerators PUBLIC Clipper2::Clipper2)
+endif()
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     target_link_libraries(RogueCityGenerators PUBLIC FastNoise2::fastnoise2)
