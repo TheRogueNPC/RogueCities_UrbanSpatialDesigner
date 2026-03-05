@@ -15,6 +15,7 @@
 #include "RogueCity/App/Integration/RealTimePreview.hpp"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace RogueCity::App {
@@ -70,6 +71,7 @@ public:
     [[nodiscard]] bool IsGenerating() const; 
     [[nodiscard]] float GetProgress() const;
     [[nodiscard]] const Generators::CityGenerator::CityOutput* GetOutput() const;
+    [[nodiscard]] std::string GetLastError() const;
     [[nodiscard]] RealTimePreview::GenerationPhase Phase() const;
     [[nodiscard]] float PhaseElapsedSeconds() const;
 
@@ -89,6 +91,8 @@ private:
     void LogEvent(const std::string& msg);
 
     RealTimePreview preview_{};
+    RealTimePreview::GenerationPhase last_phase_{ RealTimePreview::GenerationPhase::Idle };
+    int last_progress_report_{ -1 };
     uint64_t scheduled_serial_{ 0 };
     uint64_t inflight_serial_{ 0 };
     uint64_t completed_serial_{ 0 };

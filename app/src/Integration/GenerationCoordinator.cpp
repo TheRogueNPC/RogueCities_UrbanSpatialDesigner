@@ -12,8 +12,32 @@ GenerationCoordinator::~GenerationCoordinator() = default;
 
 void GenerationCoordinator::Update(float delta_time) {
     const bool was_generating = preview_.is_generating();
+    const RealTimePreview::GenerationPhase current_phase = preview_.phase();
+
     preview_.update(delta_time);
+
     const bool is_generating = preview_.is_generating();
+    const RealTimePreview::GenerationPhase new_phase = preview_.phase();
+
+    if (new_phase != last_phase_) {
+        std::ostringstream ss;
+        ss << "[GEN] Phase transition: " << PhaseName(last_phase_) << " -> " << PhaseName(new_phase);
+        LogEvent(ss.str());
+        last_phase_ = new_phase;
+    }
+
+    if (is_generating) {
+        float progress = preview_.get_progress();
+        int progress_pct = static_cast<int>(progress * 100.0f);
+        if (progress_pct / 10 != last_progress_report_ / 10) {
+            std::ostringstream ss;
+            ss << "[GEN] Progress: " << progress_pct << "%";
+            LogEvent(ss.str());
+            last_progress_report_ = progress_pct;
+        }
+    } else {
+        last_progress_report_ = -1;
+    }
 
     if (!was_generating && is_generating) {
         inflight_serial_ = scheduled_serial_;
@@ -143,6 +167,8 @@ void GenerationCoordinator::ClearOutput() {
     scheduled_depth_ = GenerationDepth::FullPipeline;
     inflight_depth_ = GenerationDepth::FullPipeline;
     completed_depth_ = GenerationDepth::FullPipeline;
+    last_phase_ = RealTimePreview::GenerationPhase::Idle;
+    last_progress_report_ = -1;
 }
 
 bool GenerationCoordinator::IsGenerating() const {
@@ -155,6 +181,18 @@ float GenerationCoordinator::GetProgress() const {
 
 const Generators::CityGenerator::CityOutput* GenerationCoordinator::GetOutput() const {
     return preview_.get_output();
+}
+
+std::string GenerationCoordinator::GetLastError() const {
+    const auto* output = GetOutput();
+    if (!output || output->plan_approved || output->plan_violations.empty()) {
+        return "";
+    }
+
+    std::ostringstream ss;
+    ss << output->plan_violations.size() << " violations. First: "
+       << output->plan_violations.front().message;
+    return ss.str();
 }
 
 RealTimePreview::GenerationPhase GenerationCoordinator::Phase() const {
