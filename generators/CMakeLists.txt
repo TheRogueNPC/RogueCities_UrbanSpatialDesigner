@@ -121,21 +121,16 @@ find_path(ROGUECITY_BOOST_INCLUDE_DIR
     HINTS ${_roguecity_boost_hints}
 )
 
-if(NOT ROGUECITY_BOOST_INCLUDE_DIR)
-    message(FATAL_ERROR
-        "Boost headers not found (boost/geometry.hpp).\n"
-        "Checked hints:\n"
-        "  - ${_roguecity_boost_hints}\n"
-        "Set BOOST_ROOT or BOOST_INCLUDEDIR, or provide 3rdparty/boost."
+if(ROGUECITY_BOOST_INCLUDE_DIR)
+    target_include_directories(RogueCityGenerators
+        PUBLIC
+            $<BUILD_INTERFACE:${ROGUECITY_BOOST_INCLUDE_DIR}>
     )
+    target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
+    message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
+else()
+    message(WARNING "Boost headers not found (boost/geometry.hpp). Falling back to LegacyShim.")
 endif()
-
-target_include_directories(RogueCityGenerators
-    PUBLIC
-        $<BUILD_INTERFACE:${ROGUECITY_BOOST_INCLUDE_DIR}>
-)
-target_compile_definitions(RogueCityGenerators PUBLIC ROGUECITY_USE_BOOST_GEOMETRY=1)
-message(STATUS "Generators geometry backend: Boost.Geometry (${ROGUECITY_BOOST_INCLUDE_DIR})")
 
 # Optional SLTerrainGeneration integration (header-first fallback).
 if(ROGUECITY_ENABLE_SLTERRAIN)
@@ -174,8 +169,9 @@ if(ROGUECITY_ENABLE_SLTERRAIN)
     endif()
 endif()
 
-# find required vcpkg packages
-find_package(Clipper2 CONFIG REQUIRED)
+# Clipper2 dependency:
+# Try to find via vcpkg/system config first.
+find_package(Clipper2 CONFIG QUIET)
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     find_package(FastNoise2 CONFIG REQUIRED)
@@ -185,8 +181,13 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
-        Clipper2::Clipper2
 )
+
+# If Clipper2 was found via find_package, link it.
+# Otherwise, we rely on RogueCityCore having compiled it from source (3rdparty/Clipper2).
+if(TARGET Clipper2::Clipper2)
+    target_link_libraries(RogueCityGenerators PUBLIC Clipper2::Clipper2)
+endif()
 
 if(ROGUECITY_ENABLE_FASTNOISE2)
     target_link_libraries(RogueCityGenerators PUBLIC FastNoise2::fastnoise2)

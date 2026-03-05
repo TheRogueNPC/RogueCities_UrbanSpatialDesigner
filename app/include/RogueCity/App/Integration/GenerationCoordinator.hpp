@@ -15,6 +15,7 @@
 #include "RogueCity/App/Integration/RealTimePreview.hpp"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace RogueCity::App {
@@ -66,10 +67,11 @@ public:
         GenerationRequestReason reason = GenerationRequestReason::ForceGenerate);
     void CancelGeneration();
     void ClearOutput();
-//todo these status querys need to display to the event log and to the debug console for accurate tracking of whats doing what and why. 
+
     [[nodiscard]] bool IsGenerating() const; 
     [[nodiscard]] float GetProgress() const;
     [[nodiscard]] const Generators::CityGenerator::CityOutput* GetOutput() const;
+    [[nodiscard]] std::string GetLastError() const;
     [[nodiscard]] RealTimePreview::GenerationPhase Phase() const;
     [[nodiscard]] float PhaseElapsedSeconds() const;
 
@@ -86,7 +88,12 @@ public:
 
     //this private section is for tracking the state of generation requests and their associated metadata, allowing the coordinator to manage debouncing, cancellation, and callback invocation correctly based on the lifecycle of each request. The serial numbers help ensure that callbacks are only invoked for the most recent request
 private:
+    void LogEvent(const std::string& msg);
+    static const char* PhaseName(RealTimePreview::GenerationPhase phase);
+
     RealTimePreview preview_{};
+    RealTimePreview::GenerationPhase last_phase_{ RealTimePreview::GenerationPhase::Idle };
+    int last_progress_report_{ -1 };
     uint64_t scheduled_serial_{ 0 };
     uint64_t inflight_serial_{ 0 };
     uint64_t completed_serial_{ 0 };
