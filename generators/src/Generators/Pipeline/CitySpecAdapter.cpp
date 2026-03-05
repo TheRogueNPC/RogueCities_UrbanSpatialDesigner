@@ -193,7 +193,6 @@ bool CitySpecAdapter::TryBuildRequest(
 
     // Final structural validation: every axiom center must lie within world bounds.
     // This keeps downstream generation validation failures easier to diagnose.
-    //todo consider expanding this to cover other invalid parameter combinations that could cause generation failures or crashes (e.g. negative/zero radius or decay); would need to ensure error messages are specific enough to be actionable for spec authors
     for (const auto& axiom : outRequest.axioms) {
         const bool inBounds = axiom.position.x >= 0.0 &&
                               axiom.position.y >= 0.0 &&
@@ -202,6 +201,20 @@ bool CitySpecAdapter::TryBuildRequest(
         if (!inBounds) {
             if (outError) {
                 *outError = "CitySpec produced an out-of-bounds axiom position";
+            }
+            return false;
+        }
+
+        if (!(axiom.radius > 0.0) || !std::isfinite(axiom.radius)) {
+            if (outError) {
+                *outError = "CitySpec produced an axiom with invalid radius (must be finite and > 0)";
+            }
+            return false;
+        }
+
+        if (!(axiom.decay > 0.0) || !std::isfinite(axiom.decay)) {
+            if (outError) {
+                *outError = "CitySpec produced an axiom with invalid decay (must be finite and > 0)";
             }
             return false;
         }
