@@ -145,6 +145,7 @@ namespace siv
          */
         void erase(ID id)
         {
+            assert(!m_data.empty() && "erase() called on empty siv::Vector");
             // Fetch relevant info
             const size_t id_index = static_cast<size_t>(id);
             const ID data_id = m_indexes[id_index];

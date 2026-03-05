@@ -56,11 +56,13 @@ namespace RogueCity::Generators {
         }
 
         [[nodiscard]] inline double smoothstep(double edge0, double edge1, double x) {
+            if (edge1 <= edge0) { return x < edge0 ? 0.0 : 1.0; }
             const double t = std::clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
             return t * t * (3.0 - 2.0 * t);
         }
 
         [[nodiscard]] inline double wrap_angle_pi(double angle) {
+            if (!std::isfinite(angle)) { return 0.0; }
             constexpr double kPi = std::numbers::pi;
             while (angle > kPi * 0.5) {
                 angle -= kPi;

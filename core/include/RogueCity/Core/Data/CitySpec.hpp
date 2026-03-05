@@ -86,15 +86,19 @@ struct ZoningConstraints {
 struct CitySpec {
     CityIntent intent;
     std::vector<DistrictHint> districts;
-    
+
     // Generation parameters (filled by engine or AI)
     uint32_t seed = 0;
     float roadDensity = 0.5f;
-    
+
     // Budget, population, and zoning constraints (Option A: extend CitySpec)
     BuildingBudget buildingBudget;
     PopulationConfig populationConfig;
     ZoningConstraints zoningConstraints;
+
+    /// Clamp all min/max pairs and range-constrained fields to valid states.
+    /// Safe to call on any spec, including defaults. Does not abort.
+    void Validate();
 };
 
 } // namespace RogueCity::Core

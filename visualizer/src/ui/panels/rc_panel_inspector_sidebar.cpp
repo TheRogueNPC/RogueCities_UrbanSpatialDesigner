@@ -6,10 +6,10 @@
 #include "ui/panels/rc_panel_inspector_sidebar.h"
 
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/panels/rc_panel_city_health.h"
 #include "ui/panels/rc_panel_inspector.h"
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/rc_ui_components.h"
-#include "ui/rc_ui_theme.h"
 
 #include <imgui.h>
 
@@ -47,6 +47,11 @@ void RcInspectorSidebar::Draw(float dt) {
         if (ImGui::BeginTabItem("System Map")) {
             m_active_tab = 1;
             RC_UI::Panels::SystemMap::DrawContent(dt);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Health")) {
+            m_active_tab = 2;
+            RC_UI::Panels::CityHealth::DrawContent(dt);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

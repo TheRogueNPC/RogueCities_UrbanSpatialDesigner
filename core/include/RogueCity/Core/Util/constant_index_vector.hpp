@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include <vector>
 
 
@@ -100,6 +101,7 @@ public:
 
     void erase(ID id)
     {
+        assert(!m_data.empty() && "erase() called on empty IndexVector");
         // Fetch relevant info
         const ID data_id      = m_indexes[id];
         const ID last_data_id = m_data.size() - 1;
