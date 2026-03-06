@@ -123,6 +123,9 @@ endif()
         src/ui/panels/rc_panel_workspace.cpp
         src/ui/panels/rc_panel_inspector_sidebar.cpp
         src/ui/panels/rc_panel_city_health.cpp
+        # 6-Zone Layout — Activity Bars (B1/B2)
+        src/ui/panels/rc_panel_activity_bar_left.cpp
+        src/ui/panels/rc_panel_activity_bar_right.cpp
         # AI_INTEGRATION_TAG: V1_PASS1_TASK4_NEW_CONTROL_PANELS
         src/ui/panels/rc_panel_lot_control.cpp
         src/ui/panels/rc_panel_building_control.cpp
@@ -281,6 +284,9 @@ endif()
                 src/ui/panels/rc_panel_workspace.cpp
                 src/ui/panels/rc_panel_inspector_sidebar.cpp
                 src/ui/panels/rc_panel_city_health.cpp
+                # 6-Zone Layout — Activity Bars (B1/B2)
+                src/ui/panels/rc_panel_activity_bar_left.cpp
+                src/ui/panels/rc_panel_activity_bar_right.cpp
                 # Master Panel Architecture (RC-0.10)
                 src/ui/panels/IPanelDrawer.cpp
                 src/ui/panels/PanelRegistry.cpp

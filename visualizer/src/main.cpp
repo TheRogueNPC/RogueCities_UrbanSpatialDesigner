@@ -85,6 +85,7 @@ constexpr const char *Reset = "\033[0m";
 constexpr const char *Red = "\033[38;5;196m";
 constexpr const char *Gold = "\033[38;5;220m";
 constexpr const char *Orange = "\033[38;5;208m";
+constexpr const char *Cyan = "\033[38;5;51m";
 constexpr const char *DarkGray = "\033[38;5;236m";
 } // namespace Style
 
@@ -514,9 +515,11 @@ int main(int argc, char **argv) {
         } else if (line == "agent") {
           const char *active = std::getenv("RC_ACTIVE_AGENT");
           const char *bridge = std::getenv("RC_AI_BRIDGE_BASE_URL");
-          std::cout << Style::Cyan << "[agent] RC_ACTIVE_AGENT    = " << Style::Gold
+          std::cout << Style::Cyan
+                    << "[agent] RC_ACTIVE_AGENT    = " << Style::Gold
                     << (active ? active : "(unset)") << Style::Reset << "\n"
-                    << Style::Cyan << "[agent] RC_AI_BRIDGE_BASE_URL = " << Style::Gold
+                    << Style::Cyan
+                    << "[agent] RC_AI_BRIDGE_BASE_URL = " << Style::Gold
                     << (bridge ? bridge : "(unset)") << Style::Reset << "\n"
                     << std::flush;
         } else if (line == "claude_status") {
@@ -524,7 +527,8 @@ int main(int argc, char **argv) {
                     << Style::Reset;
           Subprocess::ExecuteDevShell("rc-claude-status");
         } else if (line == "claude_handoff") {
-          std::cout << Style::Cyan << "[claude_handoff] writing handoff brief...\n"
+          std::cout << Style::Cyan
+                    << "[claude_handoff] writing handoff brief...\n"
                     << Style::Reset;
           Subprocess::ExecuteDevShell("rc-claude-handoff");
         } else if (line == "help" || line == "?") {
@@ -540,7 +544,8 @@ int main(int argc, char **argv) {
               << "  ai_query <prompt>     - Query local AI model\n"
               << "  agent                 - Show active agent + bridge URL\n"
               << "  claude_status         - Claude Code memory + config\n"
-              << "  claude_handoff        - Write handoff brief to AI/collaboration/\n\n"
+              << "  claude_handoff        - Write handoff brief to "
+                 "AI/collaboration/\n\n"
               << Style::Red << "  -- UI ENGINE CONTEXT --\n"
               << Style::Gold
               << "  dump_ui               - Dump ImGui introspection JSON\n"

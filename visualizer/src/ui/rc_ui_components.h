@@ -277,8 +277,7 @@ inline void DraggableSectionDivider(const char *label, const char *popup_id) {
 /// Pass a non-zero `icon` (from RC::SvgTextureCache::Get().Load()) to render a
 /// small Lucide icon to the left of the label text.
 inline bool DrawSectionHeader(const char *label, ImU32 bar_color,
-                              bool default_open = true,
-                              ImTextureID icon = 0,
+                              bool default_open = true, ImTextureID icon = 0,
                               float icon_size = 14.0f) {
   // Left accent stripe (4px wide, full item height)
   const ImVec2 cursor = ImGui::GetCursorScreenPos();
@@ -389,6 +388,215 @@ inline void DrawDiagRow(const char *label, const char *value,
                        ImGui::GetContentRegionAvail().x - val_width);
 
   ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(value_color), "%s", value);
+}
+
+} // namespace RC_UI::Components
+
+// Forward declarations for DrawToolActionGrid
+#include "RogueCity/Core/Editor/EditorState.hpp"
+#include "RogueCity/Core/Editor/GlobalState.hpp"
+#include "ui/panels/IPanelDrawer.h"
+#include "ui/rc_ui_root.h"
+#include "ui/rc_ui_theme.h"
+#include "ui/tools/rc_tool_contract.h"
+#include "ui/tools/rc_tool_dispatcher.h"
+#include <array>
+#include <span>
+
+namespace RC_UI::Components {
+
+/// DrawToolIcon - Primitive-based Y2K icon rendering for the 6 main tool
+/// categories.
+inline void DrawToolIcon(ImDrawList *draw_list, RC_UI::ToolLibrary tool,
+                         const ImVec2 &center, float size, ImU32 color) {
+  const float half = size * 0.5f;
+  switch (tool) {
+  case RC_UI::ToolLibrary::Axiom:
+    draw_list->AddCircle(center, half, color, 12, 2.0f);
+    draw_list->AddCircleFilled(center, half * 0.35f, color, 12);
+    break;
+  case RC_UI::ToolLibrary::Water:
+    draw_list->AddTriangleFilled(ImVec2(center.x, center.y - half),
+                                 ImVec2(center.x - half, center.y + half),
+                                 ImVec2(center.x + half, center.y + half),
+                                 color);
+    break;
+  case RC_UI::ToolLibrary::Road:
+    draw_list->AddLine(ImVec2(center.x - half, center.y + half),
+                       ImVec2(center.x + half, center.y - half), color, 2.5f);
+    break;
+  case RC_UI::ToolLibrary::District:
+    draw_list->AddRect(ImVec2(center.x - half, center.y - half),
+                       ImVec2(center.x + half, center.y + half), color, 3.0f, 0,
+                       2.0f);
+    break;
+  case RC_UI::ToolLibrary::Lot:
+    draw_list->AddRect(ImVec2(center.x - half, center.y - half),
+                       ImVec2(center.x + half, center.y + half), color, 0.0f, 0,
+                       2.0f);
+    draw_list->AddLine(ImVec2(center.x, center.y - half),
+                       ImVec2(center.x, center.y + half), color, 1.5f);
+    draw_list->AddLine(ImVec2(center.x - half, center.y),
+                       ImVec2(center.x + half, center.y), color, 1.5f);
+    break;
+  case RC_UI::ToolLibrary::Building:
+    draw_list->AddRectFilled(ImVec2(center.x - half, center.y - half),
+                             ImVec2(center.x + half, center.y + half), color,
+                             2.0f);
+    draw_list->AddRect(ImVec2(center.x - half, center.y - half),
+                       ImVec2(center.x + half, center.y + half), color, 2.0f, 0,
+                       2.0f);
+    break;
+  }
+}
+
+/// Helper for DrawToolLibrarySwitcher feedback
+static std::array<ButtonFeedback, 6> s_mode_switcher_feedback{};
+
+/// DrawToolLibrarySwitcher - Renders the iconic 6-button switcher from the old
+/// Axiom Bar.
+template <typename TDrawContext>
+inline void DrawToolLibrarySwitcher(TDrawContext &ctx,
+                                    float button_size = 48.0f,
+                                    float spacing = 8.0f) {
+  using namespace RogueCity::Core::Editor;
+
+  struct ModeInfo {
+    ToolLibrary lib;
+    EditorEvent event;
+    EditorState state;
+    const char *label;
+  };
+
+  constexpr std::array<ModeInfo, 6> kModes = {
+      {{ToolLibrary::Axiom, EditorEvent::Tool_Axioms,
+        EditorState::Editing_Axioms, "Axiom"},
+       {ToolLibrary::Water, EditorEvent::Tool_Water, EditorState::Editing_Water,
+        "Water"},
+       {ToolLibrary::Road, EditorEvent::Tool_Roads, EditorState::Editing_Roads,
+        "Road"},
+       {ToolLibrary::District, EditorEvent::Tool_Districts,
+        EditorState::Editing_Districts, "District"},
+       {ToolLibrary::Lot, EditorEvent::Tool_Lots, EditorState::Editing_Lots,
+        "Lot"},
+       {ToolLibrary::Building, EditorEvent::Tool_Buildings,
+        EditorState::Editing_Buildings, "Building"}}};
+
+  auto st = ctx.hfsm.state();
+
+  for (size_t i = 0; i < kModes.size(); ++i) {
+    const auto &mode = kModes[i];
+    if (i > 0) {
+      ImGui::SameLine(0, spacing);
+    }
+
+    bool is_active = false;
+    if (mode.lib == ToolLibrary::Road) {
+      is_active = (st == EditorState::Editing_Roads ||
+                   st == EditorState::Viewport_DrawRoad);
+    } else if (mode.lib == ToolLibrary::Axiom) {
+      is_active = (st == EditorState::Editing_Axioms ||
+                   st == EditorState::Viewport_PlaceAxiom);
+    } else {
+      is_active = (st == mode.state);
+    }
+
+    if (AnimatedActionButton(mode.label, "", s_mode_switcher_feedback[i],
+                             ctx.dt, is_active,
+                             ImVec2(button_size, button_size))) {
+      ctx.hfsm.handle_event(mode.event, ctx.global_state);
+    }
+
+    const ImVec2 bmin = ImGui::GetItemRectMin();
+    const ImVec2 bmax = ImGui::GetItemRectMax();
+    const ImVec2 center((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
+
+    // Draw the iconic shape in the center
+    DrawToolIcon(ImGui::GetWindowDrawList(), mode.lib, center,
+                 button_size * 0.44f,
+                 ImGui::ColorConvertFloat4ToU32(RC_UI::ColorText));
+
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("%s Mode", mode.label);
+    }
+  }
+}
+
+/// DrawToolActionGrid - renders a grid of AnimatedActionButtons for a specific
+/// ToolLibrary. Replaces the old "TOOL DECK" logic with Cockpit-Doctrine
+/// compliance.
+template <typename TDrawContext>
+inline void DrawToolActionGrid(RC_UI::ToolLibrary library, TDrawContext &ctx) {
+  const auto actions = RC_UI::Tools::GetToolActionsForLibrary(library);
+  if (actions.empty()) {
+    ImGui::TextDisabled("No tool actions available.");
+    return;
+  }
+
+  const float spacing = ImGui::GetStyle().ItemSpacing.x;
+  const float avail_w = ImGui::GetContentRegionAvail().x;
+  constexpr float kMinButtonW = 120.0f;
+  const int columns =
+      std::max(1, static_cast<int>(std::floor((avail_w + spacing) /
+                                              (kMinButtonW + spacing))));
+  const float button_w = std::max(
+      kMinButtonW, (avail_w - spacing * static_cast<float>(columns - 1)) /
+                       static_cast<float>(columns));
+
+  // Static state array to hold feedback animations for all possible actions.
+  // ToolActionId limits to ~100 enum values, so this is small.
+  static std::array<ButtonFeedback, 256> s_feedback_states{};
+
+  for (size_t i = 0; i < actions.size(); ++i) {
+    if ((i % static_cast<size_t>(columns)) != 0u) {
+      ImGui::SameLine();
+    }
+
+    const auto &action = actions[i];
+
+    // Fallback: Check if this is the active action based on the last dispatched
+    // action string This provides the 4.0 Hz active pulse requested for the
+    // selected subtool.
+    bool current_active_action =
+        (ctx.global_state.tool_runtime.last_action_id ==
+         RC_UI::Tools::ToolActionName(action.id));
+
+    uint16_t id_index = static_cast<uint16_t>(action.id);
+    if (id_index >= s_feedback_states.size())
+      id_index = 0;
+
+    // Guard 1: The ID Collision Guard (P0)
+    ImGui::PushID(static_cast<int>(action.id));
+
+    // Guard 2 & 3: Enforce Cockpit Doctrine Components & Active State Pulse
+    const bool clicked = RC_UI::Components::AnimatedActionButton(
+        action.label,
+        action.label, // Use label for inner ID since we wrapper PushID anyway
+        s_feedback_states[id_index], ctx.dt, current_active_action,
+        ImVec2(button_w, 0.0f));
+
+    if (ImGui::IsItemHovered() && action.tooltip != nullptr &&
+        action.tooltip[0] != '\0') {
+      ImGui::SetTooltip("%s", action.tooltip);
+    }
+
+    if (clicked) {
+      // Dispatch tool action to the app layer
+      // We initialize the DispatchContext manually to decouple from dispatcher
+      // headers directly.
+      RC_UI::Tools::DispatchContext dispatch_ctx;
+      dispatch_ctx.hfsm = &ctx.hfsm;
+      dispatch_ctx.gs = &ctx.global_state;
+      dispatch_ctx.introspector = &ctx.introspector;
+      dispatch_ctx.panel_id = "Tool Action Grid";
+
+      std::string out_status;
+      (void)RC_UI::Tools::DispatchToolAction(action.id, dispatch_ctx,
+                                             &out_status);
+    }
+
+    ImGui::PopID();
+  }
 }
 
 } // namespace RC_UI::Components

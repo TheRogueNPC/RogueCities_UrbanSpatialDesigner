@@ -26,6 +26,7 @@ set(APP_SOURCES
     src/Tools/SplineManipulator.cpp
     src/Tools/GeometryPolicy.cpp
     src/Tools/AxiomIcon.cpp
+    src/Tools/AxiomTypeRegistry.cpp
     src/Tools/ContextWindowPopup.cpp
 
     # Editor infrastructure
@@ -67,6 +68,7 @@ set(APP_HEADERS
     include/RogueCity/App/Tools/SplineManipulator.hpp
     include/RogueCity/App/Tools/GeometryPolicy.hpp
     include/RogueCity/App/Tools/AxiomIcon.hpp
+    include/RogueCity/App/Tools/AxiomTypeRegistry.hpp
     include/RogueCity/App/Tools/ContextWindowPopup.hpp
 
     # Editor infrastructure

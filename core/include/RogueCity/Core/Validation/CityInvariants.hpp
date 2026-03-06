@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RogueCity/Core/Data/CityTypes.hpp"
+#include "RogueCity/Core/Util/StableIndexVector.hpp"
 
 #include <string>
 #include <vector>

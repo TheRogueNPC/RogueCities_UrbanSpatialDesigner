@@ -21,303 +21,6 @@
 #include <optional>
 #include <string>
 namespace RC_UI::Panels::Tools {
-namespace {
-
-[[nodiscard]] std::optional<RC_UI::Tools::ToolActionId>
-DefaultLibraryAction(RC_UI::ToolLibrary tool) {
-  using RC_UI::Tools::ToolActionId;
-  switch (tool) {
-  case RC_UI::ToolLibrary::Axiom:
-    return ToolActionId::Axiom_Organic;
-  case RC_UI::ToolLibrary::Water:
-    return ToolActionId::Water_Flow;
-  case RC_UI::ToolLibrary::Road:
-    return ToolActionId::Road_Spline;
-  case RC_UI::ToolLibrary::District:
-    return ToolActionId::District_Zone;
-  case RC_UI::ToolLibrary::Lot:
-    return ToolActionId::Lot_Plot;
-  case RC_UI::ToolLibrary::Building:
-    return ToolActionId::Building_Place;
-  }
-  return std::nullopt;
-}
-
-[[nodiscard]] const char *ToolLibraryLabel(RC_UI::ToolLibrary tool) {
-  switch (tool) {
-  case RC_UI::ToolLibrary::Axiom:
-    return "Axiom";
-  case RC_UI::ToolLibrary::Water:
-    return "Water";
-  case RC_UI::ToolLibrary::Road:
-    return "Road";
-  case RC_UI::ToolLibrary::District:
-    return "District";
-  case RC_UI::ToolLibrary::Lot:
-    return "Lot";
-  case RC_UI::ToolLibrary::Building:
-    return "Building";
-  }
-  return "Tool";
-}
-
-[[nodiscard]] RC_UI::ToolLibrary
-ToolLibraryForDomain(RogueCity::Core::Editor::ToolDomain domain) {
-  using RogueCity::Core::Editor::ToolDomain;
-  switch (domain) {
-  case ToolDomain::Axiom:
-    return RC_UI::ToolLibrary::Axiom;
-  case ToolDomain::Water:
-  case ToolDomain::Flow:
-    return RC_UI::ToolLibrary::Water;
-  case ToolDomain::Road:
-  case ToolDomain::Paths:
-    return RC_UI::ToolLibrary::Road;
-  case ToolDomain::District:
-  case ToolDomain::Zone:
-    return RC_UI::ToolLibrary::District;
-  case ToolDomain::Lot:
-    return RC_UI::ToolLibrary::Lot;
-  case ToolDomain::Building:
-  case ToolDomain::FloorPlan:
-  case ToolDomain::Furnature:
-    return RC_UI::ToolLibrary::Building;
-  }
-  return RC_UI::ToolLibrary::Axiom;
-}
-
-[[nodiscard]] RC_UI::ToolLibrary
-ActiveLibraryForToolsPanel(const RogueCity::Core::Editor::GlobalState &gs) {
-  for (const RC_UI::ToolLibrary library : RC_UI::kToolLibraryOrder) {
-    if (RC_UI::IsToolLibraryOpen(library)) {
-      return library;
-    }
-  }
-  return ToolLibraryForDomain(gs.tool_runtime.active_domain);
-}
-
-} // namespace
-
-static void RenderToolButtonWithIcon(
-    const char *label, RogueCity::Core::Editor::EditorEvent event,
-    RogueCity::Core::Editor::EditorState active_state,
-    RC_UI::ToolLibrary library_tool, RogueCity::Core::Editor::EditorHFSM &hfsm,
-    RogueCity::Core::Editor::GlobalState &gs,
-    RogueCity::UIInt::UiIntrospector &uiint, const ImVec2 &size) {
-  using namespace RogueCity::Core::Editor;
-
-  const bool is_active = (hfsm.state() == active_state);
-  const float icon_h = size.y * 0.60f;
-  const float label_h = size.y - icon_h;
-
-  ImGui::PushID(label);
-  ImGui::InvisibleButton("##ToolBtn", size);
-  const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
-  const bool hovered = ImGui::IsItemHovered();
-  const ImVec2 bmin = ImGui::GetItemRectMin();
-  const ImVec2 bmax = ImGui::GetItemRectMax();
-  ImDrawList *dl = ImGui::GetWindowDrawList();
-
-  // Background + border (Y2K style matching AxiomBar)
-  ImU32 fill = WithAlpha(UITokens::BackgroundDark, 255u);
-  ImU32 border = WithAlpha(UITokens::GridOverlay, 180u);
-  float border_w = 1.0f;
-  if (is_active) {
-    fill = WithAlpha(UITokens::AmberGlow, 40u);
-    border = UITokens::AmberGlow;
-    border_w = 2.0f;
-    dl->AddRectFilled(bmin, bmax, WithAlpha(UITokens::AmberGlow, 20u), 0.0f);
-  } else if (hovered) {
-    fill = WithAlpha(UITokens::PanelBackground, 255u);
-    border = UITokens::CyanAccent;
-    dl->AddRectFilled(bmin, bmax, WithAlpha(UITokens::CyanAccent, 20u), 0.0f);
-  }
-  dl->AddRectFilled(bmin, bmax, fill, 0.0f);
-  dl->AddRect(bmin, bmax, border, 0.0f, 0, border_w);
-
-  // Icon (upper portion)
-  const ImVec2 icon_center((bmin.x + bmax.x) * 0.5f, bmin.y + icon_h * 0.5f);
-  const ImU32 icon_color =
-      is_active ? UITokens::AmberGlow
-                : (hovered ? UITokens::CyanAccent : UITokens::TextPrimary);
-  // Draw icon using custom geometry (same shapes as AxiomBar)
-  const float icon_size = icon_h * 0.54f;
-  const float half = icon_size * 0.5f;
-  switch (library_tool) {
-  case RC_UI::ToolLibrary::Axiom:
-    dl->AddCircle(icon_center, half, icon_color, 12, 2.0f);
-    dl->AddCircleFilled(icon_center, half * 0.35f, icon_color, 12);
-    break;
-  case RC_UI::ToolLibrary::Water:
-    dl->AddTriangleFilled(ImVec2(icon_center.x, icon_center.y - half),
-                          ImVec2(icon_center.x - half, icon_center.y + half),
-                          ImVec2(icon_center.x + half, icon_center.y + half),
-                          icon_color);
-    break;
-  case RC_UI::ToolLibrary::Road:
-    dl->AddLine(ImVec2(icon_center.x - half, icon_center.y + half),
-                ImVec2(icon_center.x + half, icon_center.y - half), icon_color,
-                2.5f);
-    break;
-  case RC_UI::ToolLibrary::District:
-    dl->AddRect(ImVec2(icon_center.x - half, icon_center.y - half),
-                ImVec2(icon_center.x + half, icon_center.y + half), icon_color,
-                3.0f, 0, 2.0f);
-    break;
-  case RC_UI::ToolLibrary::Lot:
-    dl->AddRect(ImVec2(icon_center.x - half, icon_center.y - half),
-                ImVec2(icon_center.x + half, icon_center.y + half), icon_color,
-                0.0f, 0, 2.0f);
-    dl->AddLine(ImVec2(icon_center.x, icon_center.y - half),
-                ImVec2(icon_center.x, icon_center.y + half), icon_color, 1.5f);
-    dl->AddLine(ImVec2(icon_center.x - half, icon_center.y),
-                ImVec2(icon_center.x + half, icon_center.y), icon_color, 1.5f);
-    break;
-  case RC_UI::ToolLibrary::Building:
-    dl->AddRectFilled(ImVec2(icon_center.x - half * 0.6f, icon_center.y - half),
-                      ImVec2(icon_center.x + half * 0.6f, icon_center.y + half),
-                      icon_color, 2.0f);
-    break;
-  }
-
-  // Label (lower portion, centered)
-  const ImVec2 text_size = ImGui::CalcTextSize(label);
-  const ImVec2 text_pos(bmin.x + (size.x - text_size.x) * 0.5f,
-                        bmin.y + icon_h + (label_h - text_size.y) * 0.5f);
-  dl->AddText(text_pos,
-              is_active ? UITokens::AmberGlow : UITokens::TextSecondary, label);
-  ImGui::PopID();
-
-  if (!clicked) {
-    return;
-  }
-
-  bool dispatched = false;
-  if (const auto default_action = DefaultLibraryAction(library_tool);
-      default_action.has_value()) {
-    std::string dispatch_status;
-    const auto dispatch_result = RC_UI::Tools::DispatchToolAction(
-        *default_action,
-        RC_UI::Tools::DispatchContext{&hfsm, &gs, &uiint, "Tools"},
-        &dispatch_status);
-    dispatched = dispatch_result == RC_UI::Tools::DispatchResult::Handled;
-  }
-  if (!dispatched) {
-    hfsm.handle_event(event, gs);
-  }
-  RC_UI::ActivateToolLibrary(library_tool);
-}
-
-static void DrawLibraryActionGrid(RC_UI::ToolLibrary library,
-                                  RogueCity::Core::Editor::EditorHFSM &hfsm,
-                                  RogueCity::Core::Editor::GlobalState &gs,
-                                  RogueCity::UIInt::UiIntrospector &uiint) {
-  const auto actions = RC_UI::Tools::GetToolActionsForLibrary(library);
-  if (actions.empty()) {
-    ImGui::TextDisabled("No tool actions available.");
-    return;
-  }
-
-  const float spacing = ImGui::GetStyle().ItemSpacing.x;
-  const float avail_w = ImGui::GetContentRegionAvail().x;
-  constexpr float kMinButtonW = 120.0f;
-  const int columns =
-      std::max(1, static_cast<int>(std::floor((avail_w + spacing) /
-                                              (kMinButtonW + spacing))));
-  const float button_w = std::max(
-      kMinButtonW, (avail_w - spacing * static_cast<float>(columns - 1)) /
-                       static_cast<float>(columns));
-
-  for (size_t i = 0; i < actions.size(); ++i) {
-    if ((i % static_cast<size_t>(columns)) != 0u) {
-      ImGui::SameLine();
-    }
-
-    const auto &action = actions[i];
-    const bool enabled = RC_UI::Tools::IsToolActionEnabled(action);
-    ImGui::PushID(static_cast<int>(i));
-    if (!enabled) {
-      ImGui::BeginDisabled();
-    }
-    const bool clicked = ImGui::Button(action.label, ImVec2(button_w, 0.0f));
-    if (!enabled) {
-      ImGui::EndDisabled();
-    }
-
-    if (ImGui::IsItemHovered() && action.tooltip != nullptr &&
-        action.tooltip[0] != '\0') {
-      ImGui::SetTooltip("%s", action.tooltip);
-    }
-
-    if (clicked) {
-      std::string dispatch_status;
-      (void)RC_UI::Tools::DispatchToolAction(
-          action.id,
-          RC_UI::Tools::DispatchContext{&hfsm, &gs, &uiint, "Tools Library"},
-          &dispatch_status);
-    }
-    ImGui::PopID();
-  }
-}
-
-static void DrawToolDeckSection(RogueCity::Core::Editor::EditorHFSM &hfsm,
-                                RogueCity::Core::Editor::GlobalState &gs,
-                                RogueCity::UIInt::UiIntrospector &uiint,
-                                float avail_width) {
-  const float spacing = ImGui::GetStyle().ItemSpacing.x;
-  const int tab_count = static_cast<int>(RC_UI::kToolLibraryOrder.size());
-  const int columns =
-      std::clamp(static_cast<int>((avail_width + spacing) / (88.0f + spacing)),
-                 1, tab_count);
-  const float tab_w = std::max(
-      76.0f, (avail_width - spacing * static_cast<float>(columns - 1)) /
-                 static_cast<float>(columns));
-
-  RC_UI::ToolLibrary active_library = ActiveLibraryForToolsPanel(gs);
-  for (int i = 0; i < tab_count; ++i) {
-    if ((i % columns) != 0) {
-      ImGui::SameLine();
-    }
-    const RC_UI::ToolLibrary library =
-        RC_UI::kToolLibraryOrder[static_cast<size_t>(i)];
-    const bool selected = (library == active_library);
-    if (selected) {
-      ImGui::PushStyleColor(
-          ImGuiCol_Button,
-          ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::InfoBlue, 170u)));
-      ImGui::PushStyleColor(
-          ImGuiCol_ButtonHovered,
-          ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::InfoBlue, 215u)));
-      ImGui::PushStyleColor(
-          ImGuiCol_ButtonActive,
-          ImGui::ColorConvertU32ToFloat4(WithAlpha(UITokens::InfoBlue, 235u)));
-    }
-    if (ImGui::Button(ToolLibraryLabel(library), ImVec2(tab_w, 0.0f))) {
-      RC_UI::ActivateToolLibrary(library);
-      active_library = library;
-    }
-    if (selected) {
-      ImGui::PopStyleColor(3);
-    }
-  }
-
-  ImGui::Spacing();
-  if (ImGui::Button("Popout Active Library")) {
-    RC_UI::PopoutToolLibrary(active_library);
-  }
-  ImGui::SameLine();
-  ImGui::TextDisabled("%s", RC_UI::IsToolLibraryPopoutOpen(active_library)
-                                ? "Popout open"
-                                : "Embedded");
-  ImGui::Separator();
-
-  if (active_library == RC_UI::ToolLibrary::Axiom) {
-    AxiomEditor::DrawAxiomLibraryContent();
-    return;
-  }
-
-  DrawLibraryActionGrid(active_library, hfsm, gs, uiint);
-}
 
 void DrawContent(float dt) {
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
@@ -329,26 +32,33 @@ void DrawContent(float dt) {
 
   // Determine active mode from HFSM state
   const char *mode_str = "IDLE";
+  std::optional<ToolLibrary> active_lib = std::nullopt;
   switch (hfsm.state()) {
   case EditorState::Editing_Axioms:
   case EditorState::Viewport_PlaceAxiom:
     mode_str = "AXIOM";
+    active_lib = ToolLibrary::Axiom;
     break;
   case EditorState::Editing_Water:
     mode_str = "WATER";
+    active_lib = ToolLibrary::Water;
     break;
   case EditorState::Editing_Roads:
   case EditorState::Viewport_DrawRoad:
     mode_str = "ROAD";
+    active_lib = ToolLibrary::Road;
     break;
   case EditorState::Editing_Districts:
     mode_str = "DISTRICT";
+    active_lib = ToolLibrary::District;
     break;
   case EditorState::Editing_Lots:
     mode_str = "LOT";
+    active_lib = ToolLibrary::Lot;
     break;
   case EditorState::Editing_Buildings:
     mode_str = "BUILDING";
+    active_lib = ToolLibrary::Building;
     break;
   case EditorState::Simulating:
     mode_str = "SIM";
@@ -361,6 +71,42 @@ void DrawContent(float dt) {
                      "Mode: %s | Seed: %u", mode_str, AxiomEditor::GetSeed());
   ImGui::Spacing();
 
+  // Restore iconified mode switching as the primary cockpit surface.
+  if (Components::DrawSectionHeader("Tool Deck", UITokens::CyanAccent,
+                                    /*default_open=*/true)) {
+    ImGui::Indent();
+    RC_UI::Panels::DrawContext ctx{gs, hfsm, uiint, nullptr, dt, false};
+    Components::DrawToolLibrarySwitcher(ctx);
+    ImGui::Unindent();
+    ImGui::Spacing();
+  }
+
+  // Draw active sub-tool grid if in a tool-compatible mode
+  if (active_lib.has_value() && active_lib != ToolLibrary::Axiom) {
+    std::string section_label = std::string(mode_str) + " SUB-TOOLS";
+    if (Components::DrawSectionHeader(section_label.c_str(),
+                                      UITokens::CyanAccent,
+                                      /*default_open=*/true)) {
+      ImGui::Indent();
+      // Construct temporary context for the shared component
+      RC_UI::Panels::DrawContext ctx{gs, hfsm, uiint, nullptr, dt, false};
+      Components::DrawToolActionGrid(*active_lib, ctx);
+      ImGui::Unindent();
+      ImGui::Spacing();
+    }
+  }
+
+  // Axiom type library: shown in Axiom mode so users can select placement type.
+  if (active_lib == ToolLibrary::Axiom) {
+    if (Components::DrawSectionHeader("Axiom Library", UITokens::AmberGlow,
+                                      /*default_open=*/true)) {
+      ImGui::Indent();
+      AxiomEditor::DrawAxiomLibraryContent();
+      ImGui::Unindent();
+      ImGui::Spacing();
+    }
+  }
+
   // Helper used by all sections — defined here so it stays in scope.
   const auto same_line_if_room = [](float min_remaining_width = 96.0f) {
     if (ImGui::GetContentRegionAvail().x > min_remaining_width) {
@@ -368,74 +114,8 @@ void DrawContent(float dt) {
     }
   };
 
-  if (Components::DrawSectionHeader("Editor Tools", UITokens::CyanAccent)) {
+  if (Components::DrawSectionHeader("Actions", UITokens::CyanAccent)) {
     ImGui::Indent();
-
-    struct ToolModeButton {
-      const char *label;
-      EditorEvent event;
-      EditorState state;
-      RC_UI::ToolLibrary library;
-    };
-    constexpr std::array<ToolModeButton, 6> kToolButtons = {{
-        {"Axiom", EditorEvent::Tool_Axioms, EditorState::Editing_Axioms,
-         RC_UI::ToolLibrary::Axiom},
-        {"Water", EditorEvent::Tool_Water, EditorState::Editing_Water,
-         RC_UI::ToolLibrary::Water},
-        {"Road", EditorEvent::Tool_Roads, EditorState::Editing_Roads,
-         RC_UI::ToolLibrary::Road},
-        {"District", EditorEvent::Tool_Districts,
-         EditorState::Editing_Districts, RC_UI::ToolLibrary::District},
-        {"Lot", EditorEvent::Tool_Lots, EditorState::Editing_Lots,
-         RC_UI::ToolLibrary::Lot},
-        {"Building", EditorEvent::Tool_Buildings,
-         EditorState::Editing_Buildings, RC_UI::ToolLibrary::Building},
-    }};
-
-    const float toolbar_width = ImGui::GetContentRegionAvail().x;
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float button_height = 52.0f; // icon (31px) + label (18px) + padding
-
-    float min_button_width = 84.0f;
-    for (const ToolModeButton &tool_button : kToolButtons) {
-      const float text_width = ImGui::CalcTextSize(tool_button.label).x;
-      min_button_width = std::max(
-          min_button_width,
-          text_width + ImGui::GetStyle().FramePadding.x * 2.0f + 14.0f);
-    }
-
-    const int tool_count = static_cast<int>(kToolButtons.size());
-    const int columns =
-        std::clamp(static_cast<int>((toolbar_width + spacing) /
-                                    (min_button_width + spacing)),
-                   1, tool_count);
-    const float button_width =
-        std::max(min_button_width,
-                 (toolbar_width - spacing * static_cast<float>(columns - 1)) /
-                     static_cast<float>(columns));
-    const ImVec2 button_size(button_width, button_height);
-
-    for (int i = 0; i < tool_count; ++i) {
-      if ((i % columns) != 0) {
-        same_line_if_room();
-      }
-      const ToolModeButton &tool_button = kToolButtons[static_cast<size_t>(i)];
-      RenderToolButtonWithIcon(tool_button.label, tool_button.event,
-                               tool_button.state, tool_button.library, hfsm, gs,
-                               uiint, button_size);
-    }
-
-    ImGui::Spacing();
-    if (RC_UI::Components::DrawSectionHeader("TOOL DECK", UITokens::AmberGlow,
-                                             /*default_open=*/true)) {
-      ImGui::Indent();
-      DrawToolDeckSection(hfsm, gs, uiint, ImGui::GetContentRegionAvail().x);
-      ImGui::Unindent();
-      ImGui::Spacing();
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
 
     // Undo / Redo (prefer global history, fallback to legacy axiom history)
     auto &global_history = RogueCity::App::GetEditorCommandHistory();

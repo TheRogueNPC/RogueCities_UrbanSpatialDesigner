@@ -1,5 +1,76 @@
 {
-  "actions": [],
+  "actions": [
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "axiom_library.toggle",
+      "label": "Toggle Axiom Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "water_library.toggle",
+      "label": "Toggle Water Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "road_library.toggle",
+      "label": "Toggle Road Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "district_library.toggle",
+      "label": "Toggle District Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "lot_library.toggle",
+      "label": "Toggle Lot Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "RC_UI::ToggleToolLibrary",
+      "id": "building_library.toggle",
+      "label": "Toggle Building Library",
+      "panel_id": "Tool Deck"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::Undo",
+      "id": "editor.undo",
+      "label": "Undo",
+      "panel_id": "Tools"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::Redo",
+      "id": "editor.redo",
+      "label": "Redo",
+      "panel_id": "Tools"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::ForceGenerate",
+      "id": "generator.regenerate",
+      "label": "Generate / Regenerate",
+      "panel_id": "Tools"
+    },
+    {
+      "context_tags": [],
+      "handler_symbol": "AxiomEditor::RandomizeSeed",
+      "id": "seed.randomize",
+      "label": "Random Seed",
+      "panel_id": "Tools"
+    }
+  ],
   "active_mode": "ROAD",
   "app_name": "RogueCity Visualizer",
   "context_tags": [
@@ -80,44 +151,393 @@
             "index"
           ],
           "type": "table"
-        }
-      ]
-    },
-    {
-      "dock_area": "Center",
-      "id": "[/ / / RC_VISUALIZER / / /]",
-      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
-      "role": "viewport",
-      "tags": [
-        "viewport",
-        "axiom",
-        "minimap"
-      ],
-      "title": "[/ / / RC_VISUALIZER / / /]",
-      "visible": true,
-      "widgets": [
+        },
         {
-          "binding": "viewport.primary",
-          "label": "Primary Viewport",
+          "binding": "Districts[]",
+          "label": "Districts",
           "tags": [
-            "viewport"
+            "index"
+          ],
+          "type": "table"
+        },
+        {
+          "binding": "Lots[]",
+          "label": "Lots",
+          "tags": [
+            "index"
+          ],
+          "type": "table"
+        },
+        {
+          "binding": "WaterBodies[]",
+          "label": "WaterBodies",
+          "tags": [
+            "index"
+          ],
+          "type": "table"
+        },
+        {
+          "binding": "Buildings[]",
+          "label": "Buildings",
+          "tags": [
+            "index"
+          ],
+          "type": "table"
+        },
+        {
+          "binding": "action:axiom_library.toggle",
+          "label": "Axiom Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:water_library.toggle",
+          "label": "Water Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:road_library.toggle",
+          "label": "Road Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:district_library.toggle",
+          "label": "District Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:lot_library.toggle",
+          "label": "Lot Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:building_library.toggle",
+          "label": "Building Deck",
+          "tags": [
+            "action",
+            "nav"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "metrics.flow_rate",
+          "label": "Flow Rate",
+          "tags": [
+            "metrics"
+          ],
+          "type": "property_editor"
+        },
+        {
+          "binding": "log.contextual",
+          "label": "ContextualLog",
+          "tags": [
+            "log",
+            "floating"
+          ],
+          "type": "log"
+        },
+        {
+          "binding": "validation.tail",
+          "label": "ValidationStream",
+          "tags": [
+            "validation"
+          ],
+          "type": "tree"
+        },
+        {
+          "binding": "action:editor.undo",
+          "label": "Undo",
+          "tags": [
+            "action",
+            "history"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:editor.redo",
+          "label": "Redo",
+          "tags": [
+            "action",
+            "history"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:generator.regenerate",
+          "label": "Generate / Regenerate",
+          "tags": [
+            "action",
+            "generator"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "toggle:layer.axioms",
+          "label": "Axioms",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "toggle:layer.water",
+          "label": "Water",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "toggle:layer.roads",
+          "label": "Roads",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "toggle:layer.districts",
+          "label": "Districts",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "toggle:layer.lots",
+          "label": "Lots",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "toggle:layer.buildings",
+          "label": "Buildings",
+          "tags": [
+            "layer",
+            "visibility"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "preview.live",
+          "label": "Live Preview",
+          "tags": [
+            "preview"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "preview.debounce_sec",
+          "label": "Debounce",
+          "tags": [
+            "preview",
+            "timing"
+          ],
+          "type": "slider"
+        },
+        {
+          "binding": "action:seed.randomize",
+          "label": "Random Seed",
+          "tags": [
+            "action",
+            "seed"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "selection_manager",
+          "label": "Selection",
+          "tags": [
+            "detail"
+          ],
+          "type": "property_editor"
+        },
+        {
+          "binding": "map.system",
+          "label": "System Map",
+          "tags": [
+            "map"
           ],
           "type": "viewport"
+        },
+        {
+          "binding": "dev.mode_enabled",
+          "label": "Enable Dev Mode",
+          "tags": [
+            "dev",
+            "features"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "uiint.include_dock_tree",
+          "label": "Include dock_tree",
+          "tags": [
+            "dev"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "uiint.output_dir",
+          "label": "Output dir",
+          "tags": [
+            "dev"
+          ],
+          "type": "text"
+        },
+        {
+          "binding": "action:uiint.export",
+          "label": "Export UI Snapshot JSON",
+          "tags": [
+            "action",
+            "dev"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:uiint.export_mockup_comment",
+          "label": "Export Snapshot → Mockup Comment",
+          "tags": [
+            "action",
+            "dev",
+            "mockup"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "uiint.preview",
+          "label": "Snapshot Preview",
+          "tags": [
+            "dev"
+          ],
+          "type": "tree"
+        },
+        {
+          "binding": "workspace.preset_name",
+          "label": "Preset Name",
+          "tags": [
+            "dev",
+            "layout"
+          ],
+          "type": "text"
+        },
+        {
+          "binding": "action:workspace.save_preset",
+          "label": "Save Workspace Preset",
+          "tags": [
+            "action",
+            "layout"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "action:workspace.reset_layout",
+          "label": "Reset Dock Layout",
+          "tags": [
+            "action",
+            "layout"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "workspace.saved_presets",
+          "label": "Saved Presets",
+          "tags": [
+            "layout"
+          ],
+          "type": "combo"
+        },
+        {
+          "binding": "action:workspace.load_preset",
+          "label": "Load Selected Preset",
+          "tags": [
+            "action",
+            "layout"
+          ],
+          "type": "button"
+        },
+        {
+          "binding": "dev.imgui.metrics",
+          "label": "Show Metrics Window",
+          "tags": [
+            "dev",
+            "imgui"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "dev.imgui.debug_log",
+          "label": "Show Debug Log Window",
+          "tags": [
+            "dev",
+            "imgui"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "dev.imgui.id_stack",
+          "label": "Show ID Stack Tool",
+          "tags": [
+            "dev",
+            "imgui"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "dev.imgui.begin_return_loop",
+          "label": "Debug Begin/BeginChild Return Loop",
+          "tags": [
+            "dev",
+            "imgui"
+          ],
+          "type": "checkbox"
+        },
+        {
+          "binding": "ui_design.goal",
+          "label": "Goal",
+          "tags": [
+            "dev",
+            "input"
+          ],
+          "type": "text"
+        },
+        {
+          "binding": "action:ai.ui_design.generate_plan",
+          "label": "Generate Design Plan (from introspection)",
+          "tags": [
+            "action",
+            "ai",
+            "dev"
+          ],
+          "type": "button"
         }
       ]
-    },
-    {
-      "dock_area": "Left",
-      "id": "System Map",
-      "owner_module": "visualizer/src/ui/panels/rc_panel_system_map.cpp",
-      "role": "nav",
-      "tags": [
-        "map",
-        "nav"
-      ],
-      "title": "System Map",
-      "visible": false,
-      "widgets": []
     },
     {
       "dock_area": "Left",
@@ -313,6 +733,53 @@
             "layout"
           ],
           "type": "button"
+        }
+      ]
+    },
+    {
+      "dock_area": "Center",
+      "id": "[/ / / RC_VISUALIZER / / /]",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_axiom_editor.cpp",
+      "role": "viewport",
+      "tags": [
+        "viewport",
+        "axiom",
+        "minimap"
+      ],
+      "title": "[/ / / RC_VISUALIZER / / /]",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "viewport.primary",
+          "label": "Primary Viewport",
+          "tags": [
+            "viewport"
+          ],
+          "type": "viewport"
+        }
+      ]
+    },
+    {
+      "dock_area": "Right",
+      "id": "Inspector",
+      "owner_module": "visualizer/src/ui/panels/rc_panel_inspector_sidebar.cpp",
+      "role": "inspector_sidebar",
+      "tags": [
+        "inspector",
+        "system_map",
+        "tabs",
+        "right_column"
+      ],
+      "title": "Inspector Sidebar",
+      "visible": true,
+      "widgets": [
+        {
+          "binding": "selection_manager",
+          "label": "Selection",
+          "tags": [
+            "detail"
+          ],
+          "type": "property_editor"
         }
       ]
     }

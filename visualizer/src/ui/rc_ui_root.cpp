@@ -39,6 +39,8 @@
 // MASTER PANEL ARCHITECTURE (RC-0.10)
 #include "ui/panels/PanelRegistry.h"
 #include "ui/panels/RcMasterPanel.h"
+#include "ui/panels/rc_panel_activity_bar_left.h"
+#include "ui/panels/rc_panel_activity_bar_right.h"
 #include "ui/panels/rc_panel_inspector_sidebar.h"
 
 #include "RogueCity/App/UI/ThemeManager.h"
@@ -84,14 +86,22 @@ struct DockRequest {
 };
 
 struct DockLayoutNodes {
-  ImGuiID root = 0;
-  ImGuiID left = 0;
-  ImGuiID right = 0;
-  ImGuiID tool_deck = 0;
-  ImGuiID library = 0;
-  ImGuiID center = 0;
-  ImGuiID bottom = 0;
+  ImGuiID root       = 0;
+  // Legacy aliases (kept for QueueDockWindow / NodeForDockArea compat)
+  ImGuiID left       = 0; // → p3_tools
+  ImGuiID right      = 0; // → p4_inspector
+  ImGuiID tool_deck  = 0;
+  ImGuiID library    = 0;
+  ImGuiID center     = 0;
+  ImGuiID bottom     = 0; // → p5_system
   ImGuiID bottom_tabs = 0;
+  // New 6-zone layout nodes (BuildDefaultWorkspace)
+  ImGuiID b1_icons     = 0; // Far-left activity bar  (fixed width, no-resize)
+  ImGuiID p3_tools     = 0; // Tool panel / explorer
+  ImGuiID p4_inspector = 0; // Inspector & diagnostics
+  ImGuiID b2_icons     = 0; // Far-right activity bar (fixed width, no-resize)
+  ImGuiID p5_system    = 0; // System / terminals (bottom, collapsible)
+  ImGuiID viz_bar      = 0; // Visualizer context bar (below title bar)
 };
 
 static DockLayoutNodes s_dock_nodes{};
@@ -963,6 +973,26 @@ static bool s_dock_layout_dirty = true;
 static bool s_legacy_window_settings_cleared = false;
 static ImVec2 s_last_layout_viewport_size{0.0f, 0.0f};
 
+// ── Global chrome state ───────────────────────────────────────────────────────
+static bool s_scanlines_enabled = true;   // View > Toggle Scanlines
+static bool s_show_about_modal  = false;  // Help > About
+static bool s_show_new_confirm  = false;  // File > New City confirmation
+
+// Platform-agnostic file/directory opener (delegates to shell).
+static void OpenOSPath(const char *path) {
+#if defined(_WIN32)
+  // Use cmd /c start so we don't need to link Shell32 directly.
+  std::string cmd = std::string("start \"\" \"") + path + "\"";
+  system(cmd.c_str());
+#elif defined(__APPLE__)
+  std::string cmd = std::string("open \"") + path + "\"";
+  system(cmd.c_str());
+#else
+  std::string cmd = std::string("xdg-open \"") + path + "\"";
+  system(cmd.c_str());
+#endif
+}
+
 namespace {
 constexpr float kMinCenterRatio = 0.40f;
 constexpr int kDockBuildStableFrameCount = 3;
@@ -1117,37 +1147,75 @@ static std::string ActiveModeFromHFSM() {
   return "IDLE";
 }
 
-// Utility function to generate a default dock tree layout for new workspaces or
-// when no saved layout is available.
+// DefaultDockTree — describes the 6-zone layout for the UI introspector.
+// This is the canonical representation of BuildDefaultWorkspace() used by
+// snapshot / headless tooling.  It is profile-independent (the new layout
+// no longer changes shape with viewport size).
 static RogueCity::UIInt::DockTreeNode
-DefaultDockTree(DockTreeProfile profile) {
+DefaultDockTree(DockTreeProfile /*profile*/) {
   using RogueCity::UIInt::DockTreeNode;
-  DockTreeNode root;
-  root.id = "root";
-  root.orientation = "horizontal";
 
-  DockTreeNode left;
-  left.id = "left";
-  left.panel_id = "Master Panel";
+  // ── Chrome (outside dockspace) ────────────────────────────────────────────
+  DockTreeNode titlebar;
+  titlebar.id       = "titlebar";
+  titlebar.panel_id = "Rogue Titlebar";
+
+  DockTreeNode statusbar;
+  statusbar.id       = "statusbar";
+  statusbar.panel_id = "Rogue Status Bar";
+
+  // ── B1: far-left activity bar ─────────────────────────────────────────────
+  DockTreeNode b1;
+  b1.id       = "b1_icons";
+  b1.panel_id = "ActivityBarLeft";
+
+  // ── P3: tool panel / explorer ─────────────────────────────────────────────
+  DockTreeNode p3;
+  p3.id       = "p3_tools";
+  p3.panel_id = "Master Panel";
+
+  // ── Center: sacred viewport ───────────────────────────────────────────────
+  DockTreeNode viz_bar;
+  viz_bar.id       = "viz_bar";
+  viz_bar.panel_id = "VisualizerBar";
 
   DockTreeNode center;
-  center.id = "center";
+  center.id       = "viewport";
   center.panel_id = "[/ / / RC_VISUALIZER / / /]";
 
-  DockTreeNode inspector;
-  inspector.id = "inspector";
-  inspector.panel_id = "Inspector";
+  DockTreeNode center_col;
+  center_col.id          = "center_column";
+  center_col.orientation = "vertical";
+  center_col.children    = {viz_bar, center};
 
-  if (profile == DockTreeProfile::FocusViewport) {
-    DockTreeNode center_column;
-    center_column.id = "center_column";
-    center_column.orientation = "vertical";
-    center_column.children = {center, inspector};
-    root.children = {left, center_column};
-    return root;
-  }
+  // ── P4: inspector & diagnostics ───────────────────────────────────────────
+  DockTreeNode p4;
+  p4.id       = "p4_inspector";
+  p4.panel_id = "Inspector";
 
-  root.children = {left, center, inspector};
+  // ── B2: far-right activity bar ────────────────────────────────────────────
+  DockTreeNode b2;
+  b2.id       = "b2_icons";
+  b2.panel_id = "ActivityBarRight";
+
+  // ── P5: system / terminals (bottom) ──────────────────────────────────────
+  DockTreeNode p5;
+  p5.id          = "p5_system";
+  p5.panel_id    = "Dev Shell";
+  p5.orientation = "horizontal"; // tabs share the bottom band
+
+  // ── Main horizontal band (excluding P5) ───────────────────────────────────
+  DockTreeNode h_band;
+  h_band.id          = "h_band";
+  h_band.orientation = "horizontal";
+  h_band.children    = {b1, p3, center_col, p4, b2};
+
+  // ── Root: vertical stack (h_band on top, P5 on bottom) ───────────────────
+  DockTreeNode root;
+  root.id          = "root";
+  root.orientation = "vertical";
+  root.children    = {titlebar, h_band, p5, statusbar};
+
   return root;
 }
 
@@ -1343,93 +1411,157 @@ static void UpdateDynamicPanelSizes(const ImVec2 &viewport_size) {
   // docking/input.
 }
 
-static void BuildDockLayout(ImGuiID dockspace_id) {
+// BuildDefaultWorkspace — mathematically enforces the ASCII layout:
+//
+//  [B1] [P3 Tool Panel]  [Viewport]  [P4 Inspector]  [B2]
+//       [P5 System / Terminals — bottom collapsible       ]
+//
+// Slicing order is strict (each split operates on the remainder):
+//  1. DOWN  0.25 → P5 System
+//  2. LEFT  0.04 → B1 Activity Bar (rigid, no-resize)
+//  3. LEFT  0.20 → P3 Tool Panel
+//  4. RIGHT 0.04 → B2 Activity Bar (rigid, no-resize)
+//  5. RIGHT 0.25 → P4 Inspector
+//  6. UP    0.05 → Visualizer Context Bar
+//  remainder     → Central Viewport
+static void BuildDefaultWorkspace(ImGuiID dockspace_id) {
 #if defined(IMGUI_HAS_DOCK)
   if (dockspace_id == 0) {
     return;
   }
   ImGuiViewport *viewport = ImGui::GetMainViewport();
-  if (viewport == nullptr || viewport->Size.x <= 0.0f ||
-      viewport->Size.y <= 0.0f) {
+  if (viewport == nullptr || viewport->WorkSize.x <= 0.0f ||
+      viewport->WorkSize.y <= 0.0f) {
     return;
   }
 
+  // Clear any previous layout including docked windows so a fresh split is
+  // deterministic on every call (e.g. after a ResetDockLayout()).
   ImGui::DockBuilderRemoveNodeDockedWindows(dockspace_id, true);
   ImGui::DockBuilderRemoveNode(dockspace_id);
-  ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-  ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+  ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode);
+  ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
 
-  // Layout: selectable dock-tree profile with a viewport-centric default.
-  ImGuiID dock_main = dockspace_id;
-  ImGuiID dock_left = 0;
-  ImGuiID dock_right = 0;
-  ImGuiID dock_bottom = 0;
-  ImGuiID dock_bottom_tabs = 0;
+  ImGuiID id_main = dockspace_id;
 
-  const DockTreeProfile profile = ResolveDockTreeProfile(viewport);
-  float left_ratio =
-      std::clamp(s_dock_layout_preferences.left_panel_ratio, 0.20f, 0.45f);
-  float right_ratio =
-      std::clamp(s_dock_layout_preferences.right_panel_ratio, 0.15f, 0.35f);
-  if (profile == DockTreeProfile::WideCenter) {
-    left_ratio = std::min(left_ratio, 0.25f);
-    right_ratio = std::min(right_ratio, 0.19f);
-  } else if (profile == DockTreeProfile::FocusViewport) {
-    left_ratio = std::min(left_ratio, 0.30f);
-    right_ratio = 0.0f;
+  // ── Step 1: Bottom — P5 System / Terminals ──────────────────────────────
+  ImGuiID id_p5_system = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Down, 0.25f,
+                               &id_p5_system, &id_main);
+
+  // ── Step 2: Left — B1 Activity Bar (far left, rigid icon strip) ─────────
+  ImGuiID id_b1_icons = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.04f,
+                               &id_b1_icons, &id_main);
+
+  // ── Step 3: Left — P3 Tool Panel / Explorer ─────────────────────────────
+  ImGuiID id_p3_tools = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.20f,
+                               &id_p3_tools, &id_main);
+
+  // ── Step 4: Right — B2 Activity Bar (far right, rigid icon strip) ────────
+  ImGuiID id_b2_icons = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.04f,
+                               &id_b2_icons, &id_main);
+
+  // ── Step 5: Right — P4 Inspector & Diagnostics ──────────────────────────
+  ImGuiID id_p4_inspector = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.25f,
+                               &id_p4_inspector, &id_main);
+
+  // ── Step 6: Top — Visualizer Context / Info Bar ─────────────────────────
+  ImGuiID id_viz_bar = 0;
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Up, 0.05f,
+                               &id_viz_bar, &id_main);
+  // id_main is now the sacred central viewport.
+
+  // ── Node constraints: activity bars are rigid (VS Code feel) ─────────────
+  if (ImGuiDockNode *n = ImGui::DockBuilderGetNode(id_b1_icons)) {
+    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(static_cast<int>(ImGuiDockNodeFlags_NoResize) | static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
+  }
+  if (ImGuiDockNode *n = ImGui::DockBuilderGetNode(id_b2_icons)) {
+    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(static_cast<int>(ImGuiDockNodeFlags_NoResize) | static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
   }
 
-  const float max_side_total = 1.0f - kMinCenterRatio;
-  if (left_ratio + right_ratio > max_side_total) {
-    const float scale = max_side_total / (left_ratio + right_ratio);
-    left_ratio *= scale;
-    right_ratio *= scale;
-  }
+  // ── Window routing ────────────────────────────────────────────────────────
+  // B1 / B2 — future activity bar windows (docked when first created)
+  ImGui::DockBuilderDockWindow("ActivityBarLeft",  id_b1_icons);
+  ImGui::DockBuilderDockWindow("ActivityBarRight", id_b2_icons);
 
-  dock_left = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Left, left_ratio,
-                                          nullptr, &dock_main);
-  if (profile == DockTreeProfile::FocusViewport) {
-    dock_bottom = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Down, 0.30f,
-                                              nullptr, &dock_main);
-    dock_bottom_tabs = dock_bottom;
-  } else {
-    dock_right = ImGui::DockBuilderSplitNode(dock_main, ImGuiDir_Right,
-                                             right_ratio, nullptr, &dock_main);
-  }
+  // P3 — Master Panel hosts all tools (HFSM-driven tab switcher)
+  ImGui::DockBuilderDockWindow("Master Panel",   id_p3_tools);
+  // Individual tool windows tab-share P3 when popped out or opened standalone
+  ImGui::DockBuilderDockWindow("Axiom Editor",   id_p3_tools);
+  ImGui::DockBuilderDockWindow("Road Editor",    id_p3_tools);
+  ImGui::DockBuilderDockWindow("Zoning Control", id_p3_tools);
 
-  ImGui::DockBuilderDockWindow("Master Panel", dock_left);
-  ImGui::DockBuilderDockWindow("[/ / / RC_VISUALIZER / / /]", dock_main);
-  ImGui::DockBuilderDockWindow(
-      "Inspector", profile == DockTreeProfile::FocusViewport ? dock_bottom
-                                                             : dock_right);
+  // P4 — Inspector Sidebar tabs (Inspector / System Map / Validation)
+  ImGui::DockBuilderDockWindow("Inspector",    id_p4_inspector);
+  ImGui::DockBuilderDockWindow("System Map",   id_p4_inspector);
+  ImGui::DockBuilderDockWindow("UI Settings",  id_p4_inspector);
+  ImGui::DockBuilderDockWindow("Validation",   id_p4_inspector);
 
-  s_dock_nodes.root = dockspace_id;
-  s_dock_nodes.left = dock_left;
-  s_dock_nodes.right = dock_right;
-  s_dock_nodes.tool_deck = 0;
-  s_dock_nodes.library = 0;
-  s_dock_nodes.center = dock_main;
-  s_dock_nodes.bottom = dock_bottom;
-  s_dock_nodes.bottom_tabs = dock_bottom_tabs;
+  // P5 — System / Terminals
+  ImGui::DockBuilderDockWindow("Dev Shell",      id_p5_system);
+  ImGui::DockBuilderDockWindow("Log",            id_p5_system);
+  ImGui::DockBuilderDockWindow("AI Console",     id_p5_system);
+  ImGui::DockBuilderDockWindow("City Spec",      id_p5_system);
+  ImGui::DockBuilderDockWindow("UI Agent",       id_p5_system);
+
+  // Center — Sacred Viewport
+  ImGui::DockBuilderDockWindow("[/ / / RC_VISUALIZER / / /]", id_main);
+
+  // ── Store node IDs for runtime dock requests (QueueDockWindow) ───────────
+  s_dock_nodes.root        = dockspace_id;
+  s_dock_nodes.b1_icons    = id_b1_icons;
+  s_dock_nodes.p3_tools    = id_p3_tools;
+  s_dock_nodes.p4_inspector= id_p4_inspector;
+  s_dock_nodes.b2_icons    = id_b2_icons;
+  s_dock_nodes.p5_system   = id_p5_system;
+  s_dock_nodes.viz_bar     = id_viz_bar;
+  s_dock_nodes.center      = id_main;
+  // Legacy aliases — keep QueueDockWindow("...", "Left"/"Right"/"Bottom") valid
+  s_dock_nodes.left        = id_p3_tools;
+  s_dock_nodes.right       = id_p4_inspector;
+  s_dock_nodes.bottom      = id_p5_system;
+  s_dock_nodes.bottom_tabs = id_p5_system;
+  s_dock_nodes.tool_deck   = 0;
+  s_dock_nodes.library     = 0;
 #else
   (void)dockspace_id;
   s_dock_nodes = {};
 #endif
 }
 
+// Thin wrapper so UpdateDockLayout still calls a single named function.
+static void BuildDockLayout(ImGuiID dockspace_id) {
+  BuildDefaultWorkspace(dockspace_id);
+}
+
 static ImGuiID NodeForDockArea(const std::string &dock_area) {
+  // New 6-zone names (preferred)
+  if (dock_area == "P3" || dock_area == "Tools" || dock_area == "Left") {
+    return s_dock_nodes.p3_tools ? s_dock_nodes.p3_tools : s_dock_nodes.left;
+  }
+  if (dock_area == "P4" || dock_area == "Inspector" || dock_area == "Right") {
+    return s_dock_nodes.p4_inspector ? s_dock_nodes.p4_inspector : s_dock_nodes.right;
+  }
+  if (dock_area == "P5" || dock_area == "System" || dock_area == "Bottom") {
+    return s_dock_nodes.p5_system ? s_dock_nodes.p5_system
+           : (s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs
+                                       : s_dock_nodes.bottom);
+  }
+  if (dock_area == "B1" || dock_area == "ActivityBarLeft") {
+    return s_dock_nodes.b1_icons;
+  }
+  if (dock_area == "B2" || dock_area == "ActivityBarRight") {
+    return s_dock_nodes.b2_icons;
+  }
+  if (dock_area == "VizBar") {
+    return s_dock_nodes.viz_bar;
+  }
   if (dock_area == "Top") {
     return s_dock_nodes.center;
-  }
-  if (dock_area == "Bottom") {
-    return s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs
-                                    : s_dock_nodes.bottom;
-  }
-  if (dock_area == "Left") {
-    return s_dock_nodes.left;
-  }
-  if (dock_area == "Right") {
-    return s_dock_nodes.right;
   }
   if (dock_area == "ToolDeck") {
     return s_dock_nodes.tool_deck;
@@ -1570,53 +1702,299 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
 #endif
 }
 
-static void DrawRuntimeTitlebar() {
-  ImGuiViewport *viewport = ImGui::GetMainViewport();
-  if (viewport == nullptr) {
-    return;
+// ── About modal ───────────────────────────────────────────────────────────────
+static void DrawAboutModal() {
+  if (!s_show_about_modal) return;
+
+  ImGui::OpenPopup("About RogueCities##modal");
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ImVec2(480.0f, 0.0f), ImGuiCond_Always);
+
+  if (ImGui::BeginPopupModal("About RogueCities##modal", &s_show_about_modal,
+                             ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoSavedSettings)) {
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
+                       "RogueCities Urban Spatial Designer");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("A procedural urban planning & simulation platform.");
+    ImGui::Spacing();
+    ImGui::TextDisabled("Build:       %s %s", __DATE__, __TIME__);
+    ImGui::TextDisabled("ImGui:       %s", IMGUI_VERSION);
+    ImGui::TextDisabled("Docking:     %s",
+#if defined(IMGUI_HAS_DOCK)
+                        "enabled"
+#else
+                        "disabled"
+#endif
+    );
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextWrapped(
+        "Layer 0: Pure data (core/)\n"
+        "Layer 1: Generation algorithms (generators/)\n"
+        "Layer 2: UI + visualizer (app/, visualizer/)");
+    ImGui::Spacing();
+
+    ImGui::PushStyleColor(ImGuiCol_Text,
+                          ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
+    ImGui::TextWrapped("Documentation: docs/00_index/README.md");
+    ImGui::TextWrapped("Changelog:     CHANGELOG.md");
+    ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    const float btn_w = 100.0f;
+    ImGui::SetCursorPosX((ImGui::GetWindowWidth() - btn_w) * 0.5f);
+    if (ImGui::Button("Close", ImVec2(btn_w, 0))) {
+      s_show_about_modal = false;
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
   }
+}
 
-  constexpr float kTitlebarHeight = 34.0f;
-  ImGui::SetNextWindowPos(viewport->Pos, ImGuiCond_Always);
-  ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, kTitlebarHeight),
-                           ImGuiCond_Always);
-  ImGui::SetNextWindowViewport(viewport->ID);
-  ImGui::SetNextWindowBgAlpha(0.94f);
+// ── New City confirmation modal ───────────────────────────────────────────────
+static void DrawNewCityConfirmModal() {
+  if (!s_show_new_confirm) return;
 
-  const ImGuiWindowFlags flags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
-      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoFocusOnAppearing |
-      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs;
+  ImGui::OpenPopup("New City##confirm");
+  ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ImVec2(320.0f, 0.0f), ImGuiCond_Always);
 
-  const bool open =
-      ImGui::Begin("Rogue Titlebar###RC_RuntimeTitlebar", nullptr, flags);
+  if (ImGui::BeginPopupModal("New City##confirm", &s_show_new_confirm,
+                             ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoSavedSettings)) {
+    ImGui::TextWrapped("This will clear all city data. Continue?");
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (ImGui::Button("New City", ImVec2(120, 0))) {
+      auto &hfsm = RogueCity::Core::Editor::GetEditorHFSM();
+      auto &gs   = RogueCity::Core::Editor::GetGlobalState();
+      hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::NewProject, gs);
+      s_show_new_confirm = false;
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+      s_show_new_confirm = false;
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+  }
+}
+
+// DrawRuntimeTitlebar — renders as the native main-menu bar so ImGui
+// automatically adjusts viewport->WorkPos/WorkSize for the dockspace.
+// ALL menu items are fully functional — no visual-only stubs.
+static void DrawRuntimeTitlebar() {
+  using RogueCity::Core::Editor::GetEditorHFSM;
+  using RogueCity::Core::Editor::GetGlobalState;
+  using RogueCity::Core::Editor::EditorEvent;
+
+  // Draw any open modal dialogs (must be called every frame before
+  // EndMainMenuBar so the popup stack is consistent).
+  DrawAboutModal();
+  DrawNewCityConfirmModal();
+
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
+  const bool open = ImGui::BeginMainMenuBar();
   uiint.BeginPanel(
       RogueCity::UIInt::PanelMeta{"Rogue Titlebar",
                                   "Titlebar",
                                   "titlebar",
                                   "Top",
                                   "visualizer/src/ui/rc_ui_root.cpp",
-                                  {"titlebar", "chrome", "runtime"}},
+                                  {"titlebar", "chrome", "runtime", "menubar"}},
       open);
 
   if (open) {
-    const std::string mode = ActiveModeFromHFSM();
-    ImGui::TextUnformatted("ROGUECITY URBAN SPATIAL DESIGNER");
+    auto &hist = RogueCity::App::GetEditorCommandHistory();
+    auto &gs   = GetGlobalState();
+    auto &hfsm = GetEditorHFSM();
+
+    // ── Keyboard shortcuts handled here (outside menus so they work globally)
+    const ImGuiIO &io = ImGui::GetIO();
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) { if (hist.CanUndo()) hist.Undo(); }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { if (hist.CanRedo()) hist.Redo(); }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { SaveWorkspacePreset("default"); }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) { s_show_new_confirm = true; }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) {
+      Panels::DevShell::Toggle();
+    }
+
+    // ── App icon / brand ──────────────────────────────────────────────────
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent), "RC");
     ImGui::SameLine();
-    ImGui::TextDisabled("| Mode: %s", mode.c_str());
-    uiint.RegisterWidget(
-        {"text", "Titlebar Brand", "titlebar.brand", {"titlebar"}});
-    uiint.RegisterWidget(
-        {"text", "Mode Indicator", "titlebar.mode", {"titlebar"}});
+    ImGui::Separator();
+    ImGui::SameLine();
+
+    // ── File ─────────────────────────────────────────────────────────────
+    if (ImGui::BeginMenu("File")) {
+      if (ImGui::MenuItem("New City", "Ctrl+N")) {
+        s_show_new_confirm = true;
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("Save Layout", "Ctrl+S")) {
+        SaveWorkspacePreset("default");
+      }
+      if (ImGui::MenuItem("Load Layout")) {
+        std::string err;
+        LoadWorkspacePreset("default", &err);
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("Open Workspace Folder")) {
+        OpenOSPath("AI/docs/ui");
+      }
+      if (ImGui::MenuItem("Open Changelog")) {
+        OpenOSPath("CHANGELOG.md");
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("Quit", "Alt+F4")) {
+        hfsm.handle_event(EditorEvent::Quit, gs);
+      }
+      ImGui::EndMenu();
+    }
+
+    // ── Edit ─────────────────────────────────────────────────────────────
+    if (ImGui::BeginMenu("Edit")) {
+      const bool can_undo = hist.CanUndo();
+      const bool can_redo = hist.CanRedo();
+
+      // Show undo label if available
+      const char *undo_label = "Undo";
+      std::string undo_str;
+      if (can_undo && hist.PeekUndo()) {
+        undo_str = std::string("Undo: ") + hist.PeekUndo()->GetDescription();
+        undo_label = undo_str.c_str();
+      }
+      if (ImGui::MenuItem(undo_label, "Ctrl+Z", false, can_undo)) {
+        hist.Undo();
+      }
+
+      const char *redo_label = "Redo";
+      std::string redo_str;
+      if (can_redo && hist.PeekRedo()) {
+        redo_str = std::string("Redo: ") + hist.PeekRedo()->GetDescription();
+        redo_label = redo_str.c_str();
+      }
+      if (ImGui::MenuItem(redo_label, "Ctrl+Y", false, can_redo)) {
+        hist.Redo();
+      }
+
+      ImGui::Separator();
+      ImGui::MenuItem("Snap to Grid", nullptr,
+                      &gs.params.snap_to_grid);
+      ImGui::MenuItem("Show Grid Overlay", nullptr,
+                      &gs.config.show_grid_overlay);
+      ImGui::EndMenu();
+    }
+
+    // ── View ─────────────────────────────────────────────────────────────
+    if (ImGui::BeginMenu("View")) {
+      if (ImGui::MenuItem("Reset Layout")) {
+        ResetDockLayout();
+      }
+      ImGui::MenuItem("Scanlines", nullptr, &s_scanlines_enabled);
+      ImGui::Separator();
+
+      // Layer visibility (directly bound to GlobalState fields)
+      if (ImGui::BeginMenu("Layers")) {
+        ImGui::MenuItem("Axioms",    nullptr, &gs.show_layer_axioms);
+        ImGui::MenuItem("Water",     nullptr, &gs.show_layer_water);
+        ImGui::MenuItem("Roads",     nullptr, &gs.show_layer_roads);
+        ImGui::MenuItem("Districts", nullptr, &gs.show_layer_districts);
+        ImGui::MenuItem("Lots",      nullptr, &gs.show_layer_lots);
+        ImGui::MenuItem("Buildings", nullptr, &gs.show_layer_buildings);
+        ImGui::EndMenu();
+      }
+
+      // Debug overlays
+      if (ImGui::BeginMenu("Debug Overlays")) {
+        ImGui::MenuItem("Tensor Field",  nullptr, &gs.debug_show_tensor_overlay);
+        ImGui::MenuItem("Height Map",    nullptr, &gs.debug_show_height_overlay);
+        ImGui::MenuItem("Zone Map",      nullptr, &gs.debug_show_zone_overlay);
+        ImGui::EndMenu();
+      }
+
+      ImGui::Separator();
+
+      // Panel focus shortcuts
+      if (ImGui::MenuItem("Focus Tool Panel")) {
+        Panels::RcMasterPanel::RequestCategory(Panels::PanelCategory::Tools);
+      }
+      if (ImGui::MenuItem("Focus Inspector")) {
+        Panels::RcInspectorSidebar::RequestTab(0);
+      }
+      if (ImGui::MenuItem("Focus System Map")) {
+        Panels::RcInspectorSidebar::RequestTab(1);
+      }
+      ImGui::EndMenu();
+    }
+
+    // ── Terminal ──────────────────────────────────────────────────────────
+    if (ImGui::BeginMenu("Terminal")) {
+      if (ImGui::MenuItem("Dev Shell", "Ctrl+`",
+                          Panels::DevShell::IsOpen())) {
+        Panels::DevShell::Toggle();
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("Explore Workspace Presets")) {
+        OpenOSPath("AI/docs/ui");
+      }
+      if (ImGui::MenuItem("Explore AI Config")) {
+        OpenOSPath("AI/config");
+      }
+      ImGui::EndMenu();
+    }
+
+    // ── Help ──────────────────────────────────────────────────────────────
+    if (ImGui::BeginMenu("Help")) {
+      if (ImGui::MenuItem("Documentation")) {
+        OpenOSPath("docs/00_index/README.md");
+      }
+      if (ImGui::MenuItem("Changelog")) {
+        OpenOSPath("CHANGELOG.md");
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("About RogueCities...")) {
+        s_show_about_modal = true;
+      }
+      ImGui::EndMenu();
+    }
+
+    // ── Right-aligned: mode badge ─────────────────────────────────────────
+    const std::string mode = ActiveModeFromHFSM();
+    const float mode_width = ImGui::CalcTextSize(mode.c_str()).x + 20.0f;
+    ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - mode_width);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
+                       "%s", mode.c_str());
+
+    uiint.RegisterWidget({"text", "Titlebar Brand",   "titlebar.brand",    {"titlebar"}});
+    uiint.RegisterWidget({"text", "Mode Indicator",   "titlebar.mode",     {"titlebar"}});
+    uiint.RegisterWidget({"menu", "File Menu",         "titlebar.file",     {"titlebar"}});
+    uiint.RegisterWidget({"menu", "Edit Menu",         "titlebar.edit",     {"titlebar"}});
+    uiint.RegisterWidget({"menu", "View Menu",         "titlebar.view",     {"titlebar"}});
+    uiint.RegisterWidget({"menu", "Terminal Menu",     "titlebar.terminal", {"titlebar"}});
+    uiint.RegisterWidget({"menu", "Help Menu",         "titlebar.help",     {"titlebar"}});
   }
 
   uiint.EndPanel();
-  ImGui::End();
+  ImGui::EndMainMenuBar();
 }
 
+// DrawRuntimeStatusBar — renders as a viewport side bar pinned to the bottom.
+// Using BeginViewportSideBar ensures ImGui adjusts WorkSize so the dockspace
+// never overlaps this chrome. Must be called before the dockspace host Begin().
 static void DrawRuntimeStatusBar() {
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   if (viewport == nullptr) {
@@ -1624,54 +2002,60 @@ static void DrawRuntimeStatusBar() {
   }
 
   constexpr float kStatusHeight = 28.0f;
-  ImGui::SetNextWindowPos(
-      ImVec2(viewport->Pos.x,
-             viewport->Pos.y + viewport->Size.y - kStatusHeight),
-      ImGuiCond_Always);
-  ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, kStatusHeight),
-                           ImGuiCond_Always);
-  ImGui::SetNextWindowViewport(viewport->ID);
-  ImGui::SetNextWindowBgAlpha(0.90f);
-
   const ImGuiWindowFlags flags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
-      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoFocusOnAppearing |
-      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs;
+      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
+      ImGuiWindowFlags_NoNav;
 
-  const bool open =
-      ImGui::Begin("Rogue Status Bar###RC_RuntimeStatusBar", nullptr, flags);
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
+  const bool open = ImGui::BeginViewportSideBar(
+      "##RC_StatusBar", viewport, ImGuiDir_Down, kStatusHeight, flags);
   uiint.BeginPanel(
       RogueCity::UIInt::PanelMeta{"Rogue Status Bar",
                                   "Status Bar",
                                   "status",
                                   "Bottom",
                                   "visualizer/src/ui/rc_ui_root.cpp",
-                                  {"status", "runtime"}},
+                                  {"status", "runtime", "sidebar"}},
       open);
 
   if (open) {
     auto &gs = RogueCity::Core::Editor::GetGlobalState();
-    const int log_events = Panels::Log::GetEventCount();
+    const int log_events        = Panels::Log::GetEventCount();
     const int validation_events = Panels::Validation::GetValidationEventCount();
-    const bool validation_failed = Panels::Validation::HasValidationFailure();
-    const bool dirty = gs.dirty_layers.AnyDirty();
+    const bool validation_failed= Panels::Validation::HasValidationFailure();
+    const bool dirty            = gs.dirty_layers.AnyDirty();
 
     const char *validation_state =
         validation_failed ? "REJECTED"
                           : (gs.plan_approved ? "APPROVED" : "PENDING");
 
-    ImGui::Text("Status: %s", validation_state);
+    // Validation badge — colour-coded
+    if (validation_failed) {
+      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
+                         "  %s", validation_state);
+    } else if (gs.plan_approved) {
+      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
+                         "  %s", validation_state);
+    } else {
+      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow),
+                         "  %s", validation_state);
+    }
     ImGui::SameLine();
     ImGui::TextDisabled("| Validation: %d", validation_events);
     ImGui::SameLine();
     ImGui::TextDisabled("| Log: %d", log_events);
     ImGui::SameLine();
     ImGui::TextDisabled("| Dirty: %s", dirty ? "yes" : "no");
-    uiint.RegisterWidget(
-        {"text", "Status Summary", "status.summary", {"status"}});
+
+    // Right-aligned: active tool domain badge
+    const std::string mode = ActiveModeFromHFSM();
+    const float badge_w = ImGui::CalcTextSize(mode.c_str()).x + 24.0f;
+    ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - badge_w);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
+                       "[%s]", mode.c_str());
+
+    uiint.RegisterWidget({"text", "Status Summary",    "status.summary",  {"status"}});
+    uiint.RegisterWidget({"text", "Tool Domain Badge", "status.tool_domain", {"status"}});
   }
 
   uiint.EndPanel();
@@ -1679,6 +2063,7 @@ static void DrawRuntimeStatusBar() {
 }
 
 static void DrawGlobalScanlines() {
+  if (!s_scanlines_enabled) return;
   ImDrawList *bg_draw = ImGui::GetBackgroundDrawList();
   ImVec2 display_size = ImGui::GetIO().DisplaySize;
   const float time_sec = static_cast<float>(ImGui::GetTime());
@@ -1758,13 +2143,17 @@ void DrawRoot(float dt) {
     return;
   }
 
+  // ── Viewport-level chrome ─────────────────────────────────────────────────
+  // MUST be drawn before the dockspace host so that BeginMainMenuBar and
+  // BeginViewportSideBar update viewport->WorkPos / WorkSize before we
+  // position the host window.  These are raw ImGui chrome, never docked.
+  DrawRuntimeTitlebar();   // BeginMainMenuBar  → adjusts WorkPos.y upward
+  DrawRuntimeStatusBar();  // BeginViewportSideBar(Down) → adjusts WorkSize.y
+
 #if defined(IMGUI_HAS_DOCK)
-  constexpr float kTitlebarHeight = 34.0f;
-  constexpr float kStatusHeight = 28.0f;
-  ImGui::SetNextWindowPos(
-      ImVec2(viewport->Pos.x, viewport->Pos.y + kTitlebarHeight));
-  ImGui::SetNextWindowSize(ImVec2(
-      viewport->Size.x, viewport->Size.y - kTitlebarHeight - kStatusHeight));
+  // Dockspace host fills the work area left after the two chrome bars.
+  ImGui::SetNextWindowPos(viewport->WorkPos,  ImGuiCond_Always);
+  ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
   ImGui::SetNextWindowViewport(viewport->ID);
 
   const ImGuiWindowFlags host_flags =
@@ -1790,9 +2179,6 @@ void DrawRoot(float dt) {
   // steals focus/input.
   UpdateDockLayout(0);
 #endif
-
-  DrawRuntimeTitlebar();
-  DrawRuntimeStatusBar();
 
   // MASTER PANEL SYSTEM (RC-0.10)
   // Single canonical UI path: dock host -> master panel (drawer registry) ->
@@ -1832,10 +2218,16 @@ void DrawRoot(float dt) {
     s_master_panel->Draw(dt);
   }
 
-  // DEPRECATED: Old individual panel calls (replaced by Master Panel)
-  // Panels::AxiomBar::Draw(dt);
-  // Primary viewport (AxiomEditor) owns the center workspace rendering
+  // ── Activity bars (B1 / B2) ──────────────────────────────────────────────
+  // Drawn as standalone docked windows (routed to b1_icons / b2_icons nodes).
+  // B1 fires HFSM events + drives P3 category.  B2 routes P4 tabs.
+  Panels::ActivityBarLeft::Draw(dt);
+  Panels::ActivityBarRight::Draw(dt);
+
+  // Primary viewport (AxiomEditor) owns the center workspace rendering.
   Panels::AxiomEditor::Draw(dt);
+
+  // P4 Inspector sidebar (Inspector / System Map / Health tabs).
   if (s_inspector_sidebar) {
     s_inspector_sidebar->Draw(dt);
   }

@@ -1,9 +1,8 @@
-// FILE: RcMasterPanel.cpp
+﻿// FILE: RcMasterPanel.cpp
 // PURPOSE: Implementation of master panel container with hybrid tabs+search
 // ARCHITECTURE: Single ImGui window, routes to drawers via PanelRegistry
 
 #include "RcMasterPanel.h"
-#include "PanelRegistry.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -16,35 +15,8 @@
 #include <array>
 #include <cctype>
 #include <imgui.h>
-#include <imgui_internal.h>
 
 namespace RC_UI::Panels {
-
-// Static definitions for B1/B2 request interface
-PanelCategory RcMasterPanel::s_requested_category  = PanelCategory::Tools;
-bool          RcMasterPanel::s_has_category_request = false;
-PanelType     RcMasterPanel::s_requested_panel      = PanelType::RoadIndex;
-bool          RcMasterPanel::s_has_panel_request    = false;
-
-void RcMasterPanel::RequestCategory(PanelCategory cat) {
-  s_requested_category  = cat;
-  s_has_category_request = true;
-}
-
-PanelCategory RcMasterPanel::GetRequestedCategory() {
-  return s_requested_category;
-}
-
-void RcMasterPanel::RequestPanel(PanelType type) {
-  // Also switch to the panel's category so the drawer is visible.
-  auto &registry = PanelRegistry::Instance();
-  if (IPanelDrawer *drawer = registry.GetDrawer(type)) {
-    s_requested_category  = drawer->category();
-    s_has_category_request = true;
-  }
-  s_requested_panel  = type;
-  s_has_panel_request = true;
-}
 
 RcMasterPanel::RcMasterPanel() {
   // Initialize popout states (all embedded by default)
@@ -64,16 +36,6 @@ void RcMasterPanel::Draw(float dt) {
   DrawContext ctx{gs,           hfsm,
                   introspector, &RogueCity::App::GetEditorCommandHistory(),
                   dt,           false};
-
-  // Honour pending B1/B2 requests (consumed once per frame).
-  if (s_has_category_request) {
-    m_active_category      = s_requested_category;
-    s_has_category_request = false;
-  }
-  if (s_has_panel_request) {
-    m_active_panel      = s_requested_panel;
-    s_has_panel_request = false;
-  }
 
   // Handle search overlay (Ctrl+P)
   if (ImGui::IsKeyPressed(ImGuiKey_P) && ImGui::GetIO().KeyCtrl) {
@@ -100,10 +62,12 @@ void RcMasterPanel::Draw(float dt) {
         open);
 
     if (open) {
-      // Mockup styling: LCARS / Y2K geometric panel frame
-      RC_UI::Components::DrawPanelFrame(UITokens::CyanAccent);
-
+      // Tab bar for category navigation
       DrawTabBar(ctx);
+      ImGui::Spacing();
+
+      // Active drawer content
+      DrawActiveDrawer(ctx);
 
       // Y2K pulsing border when focused (Cockpit Doctrine: motion as
       // instruction)
@@ -127,31 +91,20 @@ void RcMasterPanel::Draw(float dt) {
   HandlePopouts(ctx);
 }
 
-void RcMasterPanel::DrawModeSwitches(DrawContext &ctx) {
-  RC_UI::Components::DrawToolLibrarySwitcher(ctx);
-}
-
 void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
   auto &registry = PanelRegistry::Instance();
-
-  const auto editor_state = ctx.hfsm.state();
-  const bool force_tools_tab =
-      (editor_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
-      (editor_state ==
-       RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
 
   const std::array<PanelCategory, 5> categories = {
       PanelCategory::Indices, PanelCategory::Controls, PanelCategory::Tools,
       PanelCategory::System, PanelCategory::AI};
 
   std::vector<PanelType> active_panels;
-  bool is_tools_tab_active = false;
 
   if (ImGui::BeginTabBar("##MasterPanelTabs",
                          ImGuiTabBarFlags_FittingPolicyScroll)) {
     for (PanelCategory cat : categories) {
       auto panels = registry.GetPanelsInCategory(cat);
-      if (panels.empty() && cat != PanelCategory::Tools) {
+      if (panels.empty()) {
         continue;
       }
       if (cat == PanelCategory::AI) {
@@ -163,78 +116,42 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
         }
       }
 
-      const char *tab_name = "Unknown";
-      switch (cat) {
-      case PanelCategory::Indices:
-        tab_name = "Indices";
-        break;
-      case PanelCategory::Controls:
-        tab_name = "Controls";
-        break;
-      case PanelCategory::Tools:
-        tab_name = "Tools";
-        break;
-      case PanelCategory::System:
-        tab_name = "System";
-        break;
-      case PanelCategory::AI:
-        tab_name = "AI";
-        break;
-      }
-
-      ImGuiTabItemFlags tab_flags = ImGuiTabItemFlags_None;
-      if (force_tools_tab && cat == PanelCategory::Tools) {
-        tab_flags |= ImGuiTabItemFlags_SetSelected;
-      }
-
-      if (ImGui::BeginTabItem(tab_name, nullptr, tab_flags)) {
+      if (ImGui::BeginTabItem(PanelCategoryName(cat))) {
         m_active_category = cat;
-        if (cat == PanelCategory::Tools) {
-          is_tools_tab_active = true;
-        } else {
-          active_panels = panels;
-        }
+        active_panels = panels;
         ImGui::EndTabItem();
       }
     }
     ImGui::EndTabBar();
   }
 
-  if (is_tools_tab_active) {
-    DrawModeSwitches(ctx);
-    ImGui::Spacing();
-    DrawActiveDrawers(ctx);
-  } else {
-    if (active_panels.empty()) {
-      for (PanelCategory cat : categories) {
-        auto panels = registry.GetPanelsInCategory(cat);
-        if (panels.empty()) {
-          continue;
-        }
-        if (cat == PanelCategory::AI) {
-#if !defined(ROGUE_AI_DLC_ENABLED)
-          continue;
-#endif
-          if (!ctx.global_state.config.dev_mode_enabled) {
-            continue;
-          }
-        }
-        m_active_category = cat;
-        active_panels = panels;
-        break;
+  if (active_panels.empty()) {
+    for (PanelCategory cat : categories) {
+      auto panels = registry.GetPanelsInCategory(cat);
+      if (panels.empty()) {
+        continue;
       }
+      if (cat == PanelCategory::AI) {
+#if !defined(ROGUE_AI_DLC_ENABLED)
+        continue;
+#endif
+        if (!ctx.global_state.config.dev_mode_enabled) {
+          continue;
+        }
+      }
+      m_active_category = cat;
+      active_panels = panels;
+      break;
     }
-
-    DrawCategoryTab(m_active_category, active_panels);
-    ImGui::Spacing();
-
-    ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("%s", "(Ctrl+P for search)");
-    ImGui::PopTextWrapPos();
-    ImGui::Separator();
-
-    DrawActiveDrawer(ctx);
   }
+
+  DrawCategoryTab(m_active_category, active_panels);
+  ImGui::Spacing();
+
+  ImGui::PushTextWrapPos(0.0f);
+  ImGui::TextDisabled("%s", "(Ctrl+P for search)");
+  ImGui::PopTextWrapPos();
+  ImGui::Separator();
 }
 
 void RcMasterPanel::DrawCategoryTab(PanelCategory cat,
@@ -380,93 +297,6 @@ void RcMasterPanel::DrawActiveDrawer(DrawContext &ctx) {
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2(bar_x, bar_y), ImVec2(bar_x + 4.0f, bar_y + bar_h),
         RC_UI::UITokens::CyanAccent, 2.0f);
-  }
-}
-
-void RcMasterPanel::DrawActiveDrawers(DrawContext &ctx) {
-  auto &registry = PanelRegistry::Instance();
-
-  ImGuiWindow *window = ImGui::GetCurrentWindow();
-  bool is_docked_left = false;
-  if (window->DockNode && ImGui::GetMainViewport()) {
-    is_docked_left =
-        (window->DockNode->Pos.x < ImGui::GetMainViewport()->Size.x * 0.5f);
-  }
-
-  auto draw_single_panel = [&](PanelType type) -> bool {
-    IPanelDrawer *drawer = registry.GetDrawer(type);
-    if (!(drawer && drawer->is_visible(ctx))) {
-      return false;
-    }
-
-    // Use dynamic child name to preserve scroll state per tool, with
-    // border=true
-    ImGui::BeginChild(drawer->display_name(), ImVec2(0, 0), true,
-                      ImGuiWindowFlags_NoScrollbar);
-
-    // Popout button
-    if (drawer->can_popout()) {
-      bool is_popout = IsPopout(type);
-      ImGui::PushID("PopoutBtn");
-      if (ImGui::Button(is_popout ? "Dock" : "Popout")) {
-        SetPopout(type, !is_popout);
-      }
-      ImGui::PopID();
-      ImGui::Spacing();
-    }
-
-    // Drawer content
-    ImGui::PushID(drawer->display_name());
-    drawer->draw(ctx);
-    ImGui::PopID();
-
-    float scroll_y = ImGui::GetScrollY();
-    float scroll_max = ImGui::GetScrollMaxY();
-
-    // Get window pos and size before EndChild
-    ImVec2 pos = ImGui::GetWindowPos();
-    ImVec2 size = ImGui::GetWindowSize();
-    ImGui::EndChild();
-
-    if (scroll_max > 0.0f) {
-      // Render custom dock-aware stylized scrollbar on the parent
-      // (using the child window's remembered pos/size offset)
-      float scroll_ratio = scroll_y / scroll_max;
-      float bar_h = std::max(20.0f, size.y * 0.1f);
-      float bar_y = pos.y + 10.0f + (size.y - 20.0f - bar_h) * scroll_ratio;
-      float bar_x = is_docked_left ? pos.x + 2.0f : pos.x + size.x - 6.0f;
-
-      ImGui::GetWindowDrawList()->AddRectFilled(
-          ImVec2(bar_x, bar_y), ImVec2(bar_x + 4.0f, bar_y + bar_h),
-          RC_UI::UITokens::CyanAccent, 2.0f);
-    }
-
-    return true;
-  };
-
-  bool any_visible = false;
-
-  // Tools tab is expected to show the unified tools surface first.
-  if (draw_single_panel(PanelType::Tools)) {
-    any_visible = true;
-  } else {
-    auto all_panels = registry.GetAllPanelTypes();
-    for (PanelType type : all_panels) {
-      if (type == PanelType::Tools) {
-        continue;
-      }
-
-      if (draw_single_panel(type)) {
-        any_visible = true;
-        break;
-      }
-    }
-  }
-
-  if (!any_visible) {
-    ImGui::BeginChild("##EmptyContext", ImVec2(0, 0), true);
-    ImGui::TextDisabled("No tool active in current context.");
-    ImGui::EndChild();
   }
 }
 

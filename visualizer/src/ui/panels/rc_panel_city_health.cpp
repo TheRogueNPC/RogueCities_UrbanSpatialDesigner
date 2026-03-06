@@ -20,10 +20,14 @@ namespace RC_UI::Panels::CityHealth {
 
 namespace {
 
+// Bring in the full validation namespace so all helpers see the types.
+using namespace RogueCity::Core::Validation;
+namespace RCCore = RogueCity::Core;
+
 // ---- cached state ----------------------------------------------------------
 
 struct CachedResult {
-    Core::Validation::InvariantCheckResult result{};
+    InvariantCheckResult result{};
     bool has_run  = false;
     float age_sec = 0.0f; // seconds since last run
 };
@@ -34,9 +38,9 @@ static bool         s_dirty = true;
 // ---- helpers ---------------------------------------------------------------
 
 [[nodiscard]] size_t CountByCategory(
-    const Core::Validation::InvariantCheckResult& r,
+    const InvariantCheckResult& r,
     const char* category,
-    Core::Validation::ViolationSeverity sev)
+    ViolationSeverity sev)
 {
     size_t n = 0;
     for (const auto& v : r.violations) {
@@ -49,10 +53,9 @@ static bool         s_dirty = true;
 
 void DrawCategoryRow(
     const char* label,
-    const Core::Validation::InvariantCheckResult& result,
+    const InvariantCheckResult& result,
     const char* category)
 {
-    using namespace Core::Validation;
     const size_t errors   = CountByCategory(result, category, ViolationSeverity::Error);
     const size_t warnings = CountByCategory(result, category, ViolationSeverity::Warning);
 
@@ -93,9 +96,7 @@ void DrawCategoryRow(
     }
 }
 
-void DrawViolationList(const Core::Validation::InvariantCheckResult& result) {
-    using namespace Core::Validation;
-
+void DrawViolationList(const InvariantCheckResult& result) {
     constexpr float kListHeight = 180.0f;
     ImGui::BeginChild("##health_violations", ImVec2(0.0f, kListHeight), true);
 
@@ -143,9 +144,6 @@ void MarkDirty() {
 }
 
 void DrawContent(float dt) {
-    using namespace Core::Validation;
-    namespace Core = RogueCity::Core;
-
     s_cache.age_sec += dt;
 
     // ---- Header row: title + age label ------------------------------------
@@ -183,9 +181,9 @@ void DrawContent(float dt) {
             auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
             // Convert fva::Container → std::vector for the checker
-            std::vector<Core::Road>     roads(gs.roads.begin(),     gs.roads.end());
-            std::vector<Core::District> districts(gs.districts.begin(), gs.districts.end());
-            std::vector<Core::LotToken> lots(gs.lots.begin(),       gs.lots.end());
+            std::vector<RCCore::Road>     roads(gs.roads.begin(),     gs.roads.end());
+            std::vector<RCCore::District> districts(gs.districts.begin(), gs.districts.end());
+            std::vector<RCCore::LotToken> lots(gs.lots.begin(),       gs.lots.end());
 
             CityInvariantsChecker checker{};
             s_cache.result  = checker.Check(roads, districts, lots, gs.buildings);

@@ -10,6 +10,7 @@
 #include "RogueCity/App/Integration/GeneratorBridge.hpp"
 #include "RogueCity/App/Integration/RealTimePreview.hpp"
 #include "RogueCity/App/Tools/AxiomIcon.hpp"
+#include "RogueCity/App/Tools/AxiomTypeRegistry.hpp"
 #include "RogueCity/App/Tools/AxiomPlacementTool.hpp"
 #include "RogueCity/App/Tools/RoadTool.hpp"
 #include "RogueCity/App/Tools/WaterTool.hpp"
@@ -112,145 +113,31 @@ static int s_minimap_high_fps_streak = 0;
 static int s_minimap_fps_degrade_steps = 0;
 static std::string s_minimap_lod_status_text = "LOD: Auto (1)";
 
-// Converts command registry action ids into concrete axiom types.
-// This is used by UI command dispatch and palette widgets.
+// Converts a ToolActionId to the corresponding AxiomType using ordinal arithmetic.
+// Relies on the static_assert in rc_tool_contract.h guaranteeing contiguity.
 [[nodiscard]] bool
 TryAxiomTypeFromActionId(RC_UI::Tools::ToolActionId action_id,
                          RogueCity::App::AxiomType &out_type) {
   using RC_UI::Tools::ToolActionId;
-  switch (action_id) {
-  case ToolActionId::Axiom_Organic:
-    out_type = RogueCity::App::AxiomType::Organic;
+  if (action_id >= ToolActionId::Axiom_Organic &&
+      action_id <= ToolActionId::Axiom_GridCorrective) {
+    out_type = static_cast<RogueCity::App::AxiomType>(
+        static_cast<uint16_t>(action_id));
     return true;
-  case ToolActionId::Axiom_Grid:
-    out_type = RogueCity::App::AxiomType::Grid;
-    return true;
-  case ToolActionId::Axiom_Radial:
-    out_type = RogueCity::App::AxiomType::Radial;
-    return true;
-  case ToolActionId::Axiom_Hexagonal:
-    out_type = RogueCity::App::AxiomType::Hexagonal;
-    return true;
-  case ToolActionId::Axiom_Stem:
-    out_type = RogueCity::App::AxiomType::Stem;
-    return true;
-  case ToolActionId::Axiom_LooseGrid:
-    out_type = RogueCity::App::AxiomType::LooseGrid;
-    return true;
-  case ToolActionId::Axiom_Suburban:
-    out_type = RogueCity::App::AxiomType::Suburban;
-    return true;
-  case ToolActionId::Axiom_Superblock:
-    out_type = RogueCity::App::AxiomType::Superblock;
-    return true;
-  case ToolActionId::Axiom_Linear:
-    out_type = RogueCity::App::AxiomType::Linear;
-    return true;
-  case ToolActionId::Axiom_GridCorrective:
-    out_type = RogueCity::App::AxiomType::GridCorrective;
-    return true;
-  default:
-    break;
   }
   return false;
 }
 
-// Reverse lookup for dispatching back into the shared tool action system after
-// direct axiom type edits in the library UI.
+// Reverse: AxiomType ordinal → ToolActionId. Both enums start at 0 and share order.
 [[nodiscard]] bool
 TryActionIdFromAxiomType(RogueCity::App::AxiomType type,
                          RC_UI::Tools::ToolActionId &out_action) {
-  using RC_UI::Tools::ToolActionId;
-  switch (type) {
-  case RogueCity::App::AxiomType::Organic:
-    out_action = ToolActionId::Axiom_Organic;
+  if (type < RogueCity::App::AxiomType::COUNT) {
+    out_action = static_cast<RC_UI::Tools::ToolActionId>(
+        static_cast<uint16_t>(type));
     return true;
-  case RogueCity::App::AxiomType::Grid:
-    out_action = ToolActionId::Axiom_Grid;
-    return true;
-  case RogueCity::App::AxiomType::Radial:
-    out_action = ToolActionId::Axiom_Radial;
-    return true;
-  case RogueCity::App::AxiomType::Hexagonal:
-    out_action = ToolActionId::Axiom_Hexagonal;
-    return true;
-  case RogueCity::App::AxiomType::Stem:
-    out_action = ToolActionId::Axiom_Stem;
-    return true;
-  case RogueCity::App::AxiomType::LooseGrid:
-    out_action = ToolActionId::Axiom_LooseGrid;
-    return true;
-  case RogueCity::App::AxiomType::Suburban:
-    out_action = ToolActionId::Axiom_Suburban;
-    return true;
-  case RogueCity::App::AxiomType::Superblock:
-    out_action = ToolActionId::Axiom_Superblock;
-    return true;
-  case RogueCity::App::AxiomType::Linear:
-    out_action = ToolActionId::Axiom_Linear;
-    return true;
-  case RogueCity::App::AxiomType::GridCorrective:
-    out_action = ToolActionId::Axiom_GridCorrective;
-    return true;
-  case RogueCity::App::AxiomType::COUNT:
-  default:
-    return false;
   }
-}
-
-struct AxiomTerminalCue {
-  const char *cue;
-  std::array<RogueCity::App::AxiomType, 3> alternates;
-};
-
-// Returns context text + suggested alternates used by the "Terminal" segment
-// of the axiom library panel.
-[[nodiscard]] AxiomTerminalCue
-TerminalCueForAxiomType(RogueCity::App::AxiomType type) {
-  using RogueCity::App::AxiomType;
-  switch (type) {
-  case AxiomType::Organic:
-    return {"Terminal: soften flow or blend hierarchy in nearby cells.",
-            {AxiomType::LooseGrid, AxiomType::Suburban, AxiomType::Stem}};
-  case AxiomType::Grid:
-    return {"Terminal: lock alignment, then escalate density only if needed.",
-            {AxiomType::Superblock, AxiomType::Hexagonal,
-             AxiomType::GridCorrective}};
-  case AxiomType::Radial:
-    return {
-        "Terminal: radial hubs pair best with corrective or suburban buffers.",
-        {AxiomType::GridCorrective, AxiomType::Suburban, AxiomType::Organic}};
-  case AxiomType::Hexagonal:
-    return {
-        "Terminal: preserve angular continuity while tuning block regularity.",
-        {AxiomType::Grid, AxiomType::Superblock, AxiomType::Radial}};
-  case AxiomType::Stem:
-    return {
-        "Terminal: maintain trunk direction before widening network spread.",
-        {AxiomType::Linear, AxiomType::Organic, AxiomType::Suburban}};
-  case AxiomType::LooseGrid:
-    return {"Terminal: tighten only the zones that need navigation regularity.",
-            {AxiomType::Organic, AxiomType::Grid, AxiomType::Suburban}};
-  case AxiomType::Suburban:
-    return {
-        "Terminal: transition between loop neighborhoods and arterial anchors.",
-        {AxiomType::Radial, AxiomType::Organic, AxiomType::LooseGrid}};
-  case AxiomType::Superblock:
-    return {
-        "Terminal: shift between macro parcels and local permeability layers.",
-        {AxiomType::Grid, AxiomType::Hexagonal, AxiomType::Linear}};
-  case AxiomType::Linear:
-    return {"Terminal: tune corridor spine, then branch into local fabric.",
-            {AxiomType::Stem, AxiomType::GridCorrective, AxiomType::Grid}};
-  case AxiomType::GridCorrective:
-    return {
-        "Terminal: corrective overlays should resolve conflict, not dominate.",
-        {AxiomType::Grid, AxiomType::Radial, AxiomType::Superblock}};
-  case AxiomType::COUNT:
-  default:
-    return {"Terminal: select a base axiom to reveal compatible alternates.",
-            {AxiomType::Grid, AxiomType::Organic, AxiomType::Radial}};
-  }
+  return false;
 }
 
 // Draws a compact, phase-aware status ribbon for live generation so the user
@@ -1009,6 +896,11 @@ void EnsureViewportDerivedIndices(RogueCity::Core::Editor::GlobalState &gs) {
 void Initialize() {
   if (s_initialized)
     return;
+
+  // Ensure axiom metadata and tool action catalog are populated before any
+  // DrawAxiomLibraryContent() or GetToolActionsForLibrary(Axiom) call.
+  RogueCity::App::RegisterBuiltInAxiomTypes();
+  RC_UI::Tools::InitializeAxiomActions();
 
   s_primary_viewport = std::make_unique<RogueCity::App::PrimaryViewport>();
   s_axiom_tool = std::make_unique<RogueCity::App::AxiomPlacementTool>();
@@ -2427,12 +2319,16 @@ void DrawAxiomLibraryContent() {
     axiom->set_preview_feature(std::nullopt);
   }
   const auto &focus_info = RogueCity::App::GetAxiomTypeInfo(focus_type);
-  const AxiomTerminalCue terminal = TerminalCueForAxiomType(focus_type);
+  const auto *terminal_desc =
+      RogueCity::App::AxiomTypeRegistry::Instance().Get(focus_type);
 
   ImGui::Spacing();
   ImGui::SeparatorText("Terminal");
   ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 230u), "Context Cue");
-  ImGui::TextWrapped("%s", terminal.cue);
+  ImGui::TextWrapped(
+      "%s", terminal_desc
+                ? terminal_desc->terminal_cue
+                : "Terminal: select a base axiom to reveal compatible alternates.");
   ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 220u),
                      "Active: %s  (%s)", focus_info.name,
                      (selected_axiom != nullptr) ? "Editing Selection"
@@ -2518,8 +2414,14 @@ void DrawAxiomLibraryContent() {
     }
   }
 
-  for (size_t i = 0; i < terminal.alternates.size(); ++i) {
-    const auto alt_type = terminal.alternates[i];
+  const std::array<RogueCity::App::AxiomType, 3> kFallbackAlternates{
+      RogueCity::App::AxiomType::Grid,
+      RogueCity::App::AxiomType::Organic,
+      RogueCity::App::AxiomType::Radial};
+  const auto &alternates =
+      terminal_desc ? terminal_desc->alternates : kFallbackAlternates;
+  for (size_t i = 0; i < alternates.size(); ++i) {
+    const auto alt_type = alternates[i];
     const auto &alt_info = RogueCity::App::GetAxiomTypeInfo(alt_type);
     if (i > 0) {
       ImGui::SameLine();
@@ -2537,6 +2439,11 @@ void DrawAxiomLibraryContent() {
     ImGui::PopStyleColor(3);
     ImGui::PopID();
   }
+}
+
+void DrawSidebarContent() {
+  // Sidebar slot: show axiom library controls (non-viewport).
+  DrawAxiomLibraryContent();
 }
 
 void DrawContent(float dt) {

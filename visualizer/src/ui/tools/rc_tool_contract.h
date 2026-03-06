@@ -121,11 +121,22 @@ struct ToolActionSpec {
     const char* disabled_reason = "";
 };
 
+// Axiom action IDs must be contiguous starting at 0 so ordinal arithmetic works:
+//   ToolActionId::Axiom_Organic == 0, Axiom_GridCorrective == 9
+// Adding a new axiom type: append before Axiom_GridCorrective, update AxiomTypeRegistry.
+static_assert(static_cast<uint16_t>(ToolActionId::Axiom_Organic) == 0u);
+static_assert(static_cast<uint16_t>(ToolActionId::Axiom_GridCorrective) == 9u);
+
 [[nodiscard]] std::span<const ToolActionSpec> GetToolActionsForLibrary(ToolLibrary library);
 [[nodiscard]] std::span<const ToolActionSpec> GetToolActionCatalog();
 [[nodiscard]] const ToolActionSpec* FindToolAction(ToolActionId id);
 [[nodiscard]] bool IsToolActionEnabled(const ToolActionSpec& action);
 [[nodiscard]] const char* ToolDomainName(RogueCity::Core::Editor::ToolDomain domain);
 [[nodiscard]] const char* ToolActionName(ToolActionId id);
+
+/// Populate kAxiomActions from AxiomTypeRegistry and rebuild kAllActions.
+/// Idempotent — safe to call multiple times. Must be called after
+/// RegisterBuiltInAxiomTypes() and before the first GetToolActionsForLibrary(Axiom) call.
+void InitializeAxiomActions();
 
 } // namespace RC_UI::Tools

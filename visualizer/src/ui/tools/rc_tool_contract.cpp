@@ -1,7 +1,9 @@
 #include "ui/tools/rc_tool_contract.h"
+#include "RogueCity/App/Tools/AxiomTypeRegistry.hpp"
 
 #include <algorithm>
 #include <array>
+#include <vector>
 
 namespace RC_UI::Tools {
 namespace {
@@ -9,47 +11,53 @@ namespace {
 using Spec = ToolActionSpec;
 using ToolDomain = RogueCity::Core::Editor::ToolDomain;
 
-constexpr std::array<Spec, 10> kAxiomActions{{
-    {ToolActionId::Axiom_Organic, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Organic",
-     "Activate Organic as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Grid, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Grid",
-     "Activate Grid as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Radial, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Radial",
-     "Activate Radial as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Hexagonal, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Hexagonal",
-     "Activate Hexagonal as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Stem, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Stem",
-     "Activate Stem as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_LooseGrid, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Loose Grid",
-     "Activate Loose Grid as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Suburban, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Suburban",
-     "Activate Suburban as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Superblock, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Superblock",
-     "Activate Superblock as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_Linear, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Linear",
-     "Activate Linear as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
-    {ToolActionId::Axiom_GridCorrective, ToolDomain::Axiom, ToolLibrary::Axiom,
-     ToolActionGroup::Primary, "Grid Corrective",
-     "Activate Grid Corrective as the active/default axiom type.",
-     ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+// Populated dynamically by InitializeAxiomActions() from AxiomTypeRegistry.
+// Empty until that function is called.
+static std::vector<Spec> kAxiomActions;
+
+// Axiom templates exist so the tool wiring contract can validate all actions.
+// Runtime labels/tooltips are still sourced from AxiomTypeRegistry.
+constexpr std::array<Spec, 10> kAxiomActionTemplates{{
+  {ToolActionId::Axiom_Organic, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Organic",
+   "Activate Organic as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Grid, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Grid",
+   "Activate Grid as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Radial, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Radial",
+   "Activate Radial as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Hexagonal, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Hexagonal",
+   "Activate Hexagonal as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Stem, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Stem",
+   "Activate Stem as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_LooseGrid, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Loose Grid",
+   "Activate Loose Grid as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Suburban, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Suburban",
+   "Activate Suburban as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Superblock, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Superblock",
+   "Activate Superblock as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_Linear, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Linear",
+   "Activate Linear as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
+  {ToolActionId::Axiom_GridCorrective, ToolDomain::Axiom, ToolLibrary::Axiom,
+   ToolActionGroup::Primary, "Grid Corrective",
+   "Activate Grid Corrective as the active/default axiom type.",
+   ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
 }};
 
 constexpr std::array<Spec, 16> kWaterActions{{
@@ -297,41 +305,45 @@ constexpr std::array<Spec, 4> kVisualizerActions{{
      ToolExecutionPolicy::ActivateOnly, ToolAvailability::Available, ""},
 }};
 
-constexpr std::array<Spec, 69> kAllActions{
-    {kAxiomActions[0],      kAxiomActions[1],      kAxiomActions[2],
-     kAxiomActions[3],      kAxiomActions[4],      kAxiomActions[5],
-     kAxiomActions[6],      kAxiomActions[7],      kAxiomActions[8],
-     kAxiomActions[9],
-
-     kWaterActions[0],      kWaterActions[1],      kWaterActions[2],
-     kWaterActions[3],      kWaterActions[4],      kWaterActions[5],
-     kWaterActions[6],      kWaterActions[7],      kWaterActions[8],
-     kWaterActions[9],      kWaterActions[10],     kWaterActions[11],
-     kWaterActions[12],     kWaterActions[13],     kWaterActions[14],
-     kWaterActions[15],
-
-     kRoadActions[0],       kRoadActions[1],       kRoadActions[2],
-     kRoadActions[3],       kRoadActions[4],       kRoadActions[5],
-     kRoadActions[6],       kRoadActions[7],       kRoadActions[8],
-     kRoadActions[9],       kRoadActions[10],      kRoadActions[11],
-     kRoadActions[12],      kRoadActions[13],      kRoadActions[14],
-     kRoadActions[15],      kRoadActions[16],      kRoadActions[17],
-     kRoadActions[18],
-
-     kDistrictActions[0],   kDistrictActions[1],   kDistrictActions[2],
-     kDistrictActions[3],   kDistrictActions[4],   kDistrictActions[5],
-
-     kLotActions[0],        kLotActions[1],        kLotActions[2],
-     kLotActions[3],        kLotActions[4],        kLotActions[5],
-
-     kBuildingActions[0],   kBuildingActions[1],   kBuildingActions[2],
-     kBuildingActions[3],   kBuildingActions[4],   kBuildingActions[5],
-     kBuildingActions[6],   kBuildingActions[7],
-
-     kVisualizerActions[0], kVisualizerActions[1], kVisualizerActions[2],
-     kVisualizerActions[3]}};
+// Populated dynamically by InitializeAxiomActions() after kAxiomActions is built.
+static std::vector<Spec> kAllActions;
 
 } // namespace
+
+void InitializeAxiomActions() {
+    static bool s_done = false;
+    if (s_done) return;
+    s_done = true;
+
+    using namespace RogueCity::App;
+    auto& reg = AxiomTypeRegistry::Instance();
+    kAxiomActions.clear();
+    kAxiomActions.reserve(reg.All().size());
+    for (const auto& d : reg.All()) {
+      const auto index = static_cast<size_t>(d.type);
+      if (index >= kAxiomActionTemplates.size()) {
+        continue;
+      }
+
+      Spec action = kAxiomActionTemplates[index];
+      // Tooltip strings need stable storage — ToolActionSpec holds const char* pointers.
+      static std::vector<std::string> s_tooltips;
+      s_tooltips.push_back(std::string("Activate ") + d.name + " as the active/default axiom type.");
+      action.label = d.name;
+      action.tooltip = s_tooltips.back().c_str();
+      kAxiomActions.push_back(action);
+    }
+
+    // Rebuild kAllActions: kAxiomActions first, then all static arrays.
+    kAllActions.clear();
+    kAllActions.insert(kAllActions.end(), kAxiomActions.begin(), kAxiomActions.end());
+    for (const auto& s : kWaterActions)      kAllActions.push_back(s);
+    for (const auto& s : kRoadActions)       kAllActions.push_back(s);
+    for (const auto& s : kDistrictActions)   kAllActions.push_back(s);
+    for (const auto& s : kLotActions)        kAllActions.push_back(s);
+    for (const auto& s : kBuildingActions)   kAllActions.push_back(s);
+    for (const auto& s : kVisualizerActions) kAllActions.push_back(s);
+}
 
 std::span<const ToolActionSpec> GetToolActionsForLibrary(ToolLibrary library) {
   switch (library) {
@@ -358,8 +370,7 @@ std::span<const ToolActionSpec> GetToolActionsForLibrary(ToolLibrary library) {
 }
 
 std::span<const ToolActionSpec> GetToolActionCatalog() {
-  return std::span<const ToolActionSpec>(kAllActions.data(),
-                                         kAllActions.size());
+    return std::span<const ToolActionSpec>(kAllActions.data(), kAllActions.size());
 }
 
 const ToolActionSpec *FindToolAction(ToolActionId id) {
