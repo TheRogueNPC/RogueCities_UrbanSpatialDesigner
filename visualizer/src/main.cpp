@@ -3,6 +3,7 @@
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/panels/rc_panel_imgui_error.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 #include <RogueCity/Visualizer/SvgTextureCache.hpp>
@@ -403,6 +404,8 @@ int main(int argc, char **argv) {
   hfsm.handle_event(EditorEvent::ProjectLoaded, gs);
   hfsm.handle_event(EditorEvent::Tool_Roads, gs);
 
+  RC_UI::Panels::ImGuiError::Init();
+
   ImGuiIO &io = ImGui::GetIO();
   io.DisplaySize = ImVec2(1280.0f, 720.0f);
   io.ConfigFlags |= DockingConfigFlag();
@@ -702,6 +705,7 @@ int main(int argc, char **argv) {
     ShutdownScreenshotRuntime(screenshot_ctx);
   }
 #endif
+  RC_UI::Panels::ImGuiError::Shutdown();
   ImGui::DestroyContext();
   return 0;
 }

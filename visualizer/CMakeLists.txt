@@ -108,6 +108,7 @@ endif()
         src/ui/panels/rc_panel_axiom_editor.cpp
         src/ui/panels/rc_panel_system_map.cpp
         src/ui/panels/rc_system_map_query.cpp
+        src/ui/panels/rc_panel_texture_editing.cpp
         src/ui/panels/rc_panel_log.cpp
         src/ui/panels/rc_panel_telemetry.cpp
         src/ui/panels/rc_panel_validation.cpp
@@ -263,6 +264,7 @@ endif()
                 src/ui/panels/rc_panel_axiom_editor.cpp  # NEW: Integrated axiom editor
                 src/ui/panels/rc_panel_system_map.cpp
                 src/ui/panels/rc_system_map_query.cpp
+                src/ui/panels/rc_panel_texture_editing.cpp
                 src/ui/panels/rc_panel_log.cpp
                 src/ui/panels/rc_panel_telemetry.cpp
                 src/ui/panels/rc_panel_validation.cpp

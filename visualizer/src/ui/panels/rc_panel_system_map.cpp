@@ -3,6 +3,7 @@
 // with reactive Y2K overlays and query/toggle plumbing.
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/panels/rc_system_map_query.h"
+#include "ui/panels/rc_panel_axiom_editor.h"
 
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_anim.h"
@@ -230,6 +231,40 @@ void DrawContent(float dt) {
   ImGui::Checkbox("Hover Query", &systems_map.enable_hover_query);
   ImGui::SameLine();
   ImGui::Checkbox("Click Select", &systems_map.enable_click_select);
+
+  ImGui::SeparatorText("Minimap LOD");
+  bool manual_lod = AxiomEditor::IsMinimapManualLODOverride();
+  if (ImGui::Button(manual_lod ? "Minimap LOD: Manual" : "Minimap LOD: Auto")) {
+    ImGui::OpenPopup("MinimapLODMenu");
+  }
+  if (ImGui::BeginPopup("MinimapLODMenu")) {
+    if (ImGui::MenuItem("Auto", nullptr, !manual_lod)) {
+      AxiomEditor::SetMinimapManualLODOverride(false);
+    }
+    if (ImGui::MenuItem("LOD0 (Full)", nullptr,
+                        manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 0)) {
+      AxiomEditor::SetMinimapManualLODOverride(true);
+      AxiomEditor::SetMinimapManualLODLevel(0);
+    }
+    if (ImGui::MenuItem("LOD1 (Medium)", nullptr,
+                        manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 1)) {
+      AxiomEditor::SetMinimapManualLODOverride(true);
+      AxiomEditor::SetMinimapManualLODLevel(1);
+    }
+    if (ImGui::MenuItem("LOD2 (Coarse)", nullptr,
+                        manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 2)) {
+      AxiomEditor::SetMinimapManualLODOverride(true);
+      AxiomEditor::SetMinimapManualLODLevel(2);
+    }
+    ImGui::Separator();
+    bool adaptive_quality = AxiomEditor::IsMinimapAdaptiveQualityEnabled();
+    if (ImGui::MenuItem("Adaptive Degradation", nullptr, adaptive_quality)) {
+      AxiomEditor::SetMinimapAdaptiveQualityEnabled(!adaptive_quality);
+    }
+    ImGui::EndPopup();
+  }
+  ImGui::SameLine();
+  ImGui::TextDisabled("%s", AxiomEditor::GetMinimapLODStatusText());
 
   if (query_hit.valid) {
     ImGui::Text("Query: %s #%u (d=%.2f)", SystemsMapKindLabel(query_hit.kind),

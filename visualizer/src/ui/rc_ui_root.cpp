@@ -73,6 +73,9 @@ namespace {
 static std::unique_ptr<RC_UI::Panels::RcMasterPanel> s_master_panel;
 static std::unique_ptr<RC_UI::Panels::RcInspectorSidebar> s_inspector_sidebar;
 static bool s_registry_initialized = false;
+static bool s_show_activity_bar_left = true;
+static bool s_show_activity_bar_right = true;
+static bool s_show_bottom_status_bar = true;
 
 // DEPRECATED: Old AI panel instances (will be removed after full drawer
 // conversion) static RogueCity::UI::AiConsolePanel s_ai_console_instance;
@@ -117,7 +120,7 @@ struct SharedLibraryFrameState {
   ImVec2 size = ImVec2(0.0f, 0.0f);
 };
 
-static SharedLibraryFrameState s_library_frame_state{};
+[[maybe_unused]] static SharedLibraryFrameState s_library_frame_state{};
 
 static IndicesTabs s_indices_tabs{
     .district = true,
@@ -599,6 +602,10 @@ IsToolActionActive(const Tools::ToolActionSpec &action,
   case ToolActionId::Future_Paths:
   case ToolActionId::Future_Flow:
   case ToolActionId::Future_Furnature:
+  case ToolActionId::Visualizer_RectangleSelect:
+  case ToolActionId::Visualizer_LassoSelect:
+  case ToolActionId::Visualizer_MoveNodes:
+  case ToolActionId::Visualizer_HandleMove:
   case ToolActionId::Count:
     return false;
   }
@@ -1828,8 +1835,29 @@ static void DrawRuntimeTitlebar() {
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { if (hist.CanRedo()) hist.Redo(); }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { SaveWorkspacePreset("default"); }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) { s_show_new_confirm = true; }
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+      s_show_bottom_status_bar = !s_show_bottom_status_bar;
+    }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) {
       Panels::DevShell::Toggle();
+    }
+    if (!io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_B, false)) {
+      if (io.KeyShift) {
+        s_show_activity_bar_right = !s_show_activity_bar_right;
+      } else {
+        s_show_activity_bar_left = !s_show_activity_bar_left;
+      }
+    }
+    if (!io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+      if (io.KeyShift) {
+        if (s_inspector_sidebar) {
+          s_inspector_sidebar->SetWindowOpen(!s_inspector_sidebar->IsWindowOpen());
+        }
+      } else if (!io.KeyCtrl) {
+        if (s_master_panel) {
+          s_master_panel->SetWindowOpen(!s_master_panel->IsWindowOpen());
+        }
+      }
     }
 
     // ── App icon / brand ──────────────────────────────────────────────────
@@ -1905,6 +1933,44 @@ static void DrawRuntimeTitlebar() {
         ResetDockLayout();
       }
       ImGui::MenuItem("Scanlines", nullptr, &s_scanlines_enabled);
+      ImGui::Separator();
+
+      if (ImGui::BeginMenu("Panels")) {
+        if (ImGui::MenuItem("panel-bottom-close", "Ctrl+P", false, s_show_bottom_status_bar)) {
+          s_show_bottom_status_bar = false;
+        }
+        if (ImGui::MenuItem("panel-bottom-open", nullptr, false, !s_show_bottom_status_bar)) {
+          s_show_bottom_status_bar = true;
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("panel-left-close", "P", false,
+                            s_master_panel && s_master_panel->IsWindowOpen())) {
+          if (s_master_panel) {
+            s_master_panel->SetWindowOpen(false);
+          }
+        }
+        if (ImGui::MenuItem("panel-left-open", nullptr, false,
+                            s_master_panel && !s_master_panel->IsWindowOpen())) {
+          if (s_master_panel) {
+            s_master_panel->SetWindowOpen(true);
+          }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("panel-right-close", "Shift+P", false,
+                            s_inspector_sidebar && s_inspector_sidebar->IsWindowOpen())) {
+          if (s_inspector_sidebar) {
+            s_inspector_sidebar->SetWindowOpen(false);
+          }
+        }
+        if (ImGui::MenuItem("panel-right-open", nullptr, false,
+                            s_inspector_sidebar && !s_inspector_sidebar->IsWindowOpen())) {
+          if (s_inspector_sidebar) {
+            s_inspector_sidebar->SetWindowOpen(true);
+          }
+        }
+        ImGui::EndMenu();
+      }
+
       ImGui::Separator();
 
       // Layer visibility (directly bound to GlobalState fields)
@@ -1996,6 +2062,10 @@ static void DrawRuntimeTitlebar() {
 // Using BeginViewportSideBar ensures ImGui adjusts WorkSize so the dockspace
 // never overlaps this chrome. Must be called before the dockspace host Begin().
 static void DrawRuntimeStatusBar() {
+  if (!s_show_bottom_status_bar) {
+    return;
+  }
+
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   if (viewport == nullptr) {
     return;
@@ -2046,6 +2116,12 @@ static void DrawRuntimeStatusBar() {
     ImGui::TextDisabled("| Log: %d", log_events);
     ImGui::SameLine();
     ImGui::TextDisabled("| Dirty: %s", dirty ? "yes" : "no");
+
+    if (validation_failed) {
+      ImGui::SameLine();
+      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
+                         "| Warning: Validation failures detected");
+    }
 
     // Right-aligned: active tool domain badge
     const std::string mode = ActiveModeFromHFSM();
@@ -2221,8 +2297,12 @@ void DrawRoot(float dt) {
   // ── Activity bars (B1 / B2) ──────────────────────────────────────────────
   // Drawn as standalone docked windows (routed to b1_icons / b2_icons nodes).
   // B1 fires HFSM events + drives P3 category.  B2 routes P4 tabs.
-  Panels::ActivityBarLeft::Draw(dt);
-  Panels::ActivityBarRight::Draw(dt);
+  if (s_show_activity_bar_left) {
+    Panels::ActivityBarLeft::Draw(dt);
+  }
+  if (s_show_activity_bar_right) {
+    Panels::ActivityBarRight::Draw(dt);
+  }
 
   // Primary viewport (AxiomEditor) owns the center workspace rendering.
   Panels::AxiomEditor::Draw(dt);

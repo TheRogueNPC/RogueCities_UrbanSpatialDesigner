@@ -53,8 +53,9 @@ enum class PanelType : uint8_t {
     AxiomEditor,
     RoadEditor,
     
-    // System (7)
+    // System (8)
     Telemetry,
+    TextureEditing,
     Log,
     Validation,   // NEW: Live validation status panel
     Tools,

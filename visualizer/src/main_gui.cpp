@@ -5,6 +5,7 @@
 #include "RogueCity/App/UI/ThemeManager.h"   // Multi-theme system
 #include <RogueCity/Visualizer/SvgTextureCache.hpp>
 #include "ui/panels/rc_panel_axiom_editor.h" // AxiomEditor::Undo/Redo
+#include "ui/panels/rc_panel_imgui_error.h"
 #include "ui/rc_ui_root.h"
 
 // AI system includes
@@ -487,6 +488,7 @@ int main(int, char **) {
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+  RC_UI::Panels::ImGuiError::Init();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
   auto &gs_early = RogueCity::Core::Editor::GetGlobalState();
@@ -783,6 +785,7 @@ int main(int, char **) {
   RC::SvgTextureCache::Get().Clear();
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
+  RC_UI::Panels::ImGuiError::Shutdown();
   ImGui::DestroyContext();
 
   glfwDestroyWindow(window);

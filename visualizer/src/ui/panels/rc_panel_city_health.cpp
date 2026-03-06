@@ -3,6 +3,7 @@
 //          coloured category rows, pulsing run button, scrollable violation list.
 
 #include "ui/panels/rc_panel_city_health.h"
+#include "ui/panels/rc_panel_telemetry.h"
 
 #include "ui/rc_ui_tokens.h"
 
@@ -11,8 +12,6 @@
 
 #include <imgui.h>
 
-#include <algorithm>
-#include <chrono>
 #include <string>
 #include <vector>
 
@@ -248,6 +247,16 @@ void DrawContent(float dt) {
     ImGui::Spacing();
 
     DrawViolationList(s_cache.result);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
+                       "DIAGNOSTICS");
+    ImGui::Spacing();
+    RC_UI::Panels::Telemetry::DrawGridQualityIndexSection();
+    RC_UI::Panels::Telemetry::DrawUrbanHellDiagnosticsSection(
+        /*include_quick_fix_stubs=*/true);
 }
 
 } // namespace RC_UI::Panels::CityHealth

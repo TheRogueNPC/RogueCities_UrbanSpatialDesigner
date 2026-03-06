@@ -273,7 +273,9 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
     std::string rule_str =
         std::string(road_node.attribute("rule").as_string("RHT"));
     std::transform(rule_str.begin(), rule_str.end(), rule_str.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+                   [](unsigned char c) {
+                     return static_cast<char>(std::tolower(c));
+                   });
     const bool is_left_hand_traffic = (rule_str == "lht");
 
     Road &road =
@@ -434,7 +436,9 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
                   : geometry_hdr_node.attribute("pRange").as_string("");
           std::transform(pRange_str.begin(), pRange_str.end(),
                          pRange_str.begin(),
-                         [](unsigned char c) { return std::tolower(c); });
+                         [](unsigned char c) {
+                           return static_cast<char>(std::tolower(c));
+                         });
           if (pRange_str == "arclength")
             pRange_normalized = false;
         }
@@ -497,7 +501,9 @@ OpenDriveMap::OpenDriveMap(const std::string &xodr_file, const bool center_map,
         if (const pugi::xml_attribute side = crossfall_node.attribute("side")) {
           std::string side_str = side.as_string("");
           std::transform(side_str.begin(), side_str.end(), side_str.begin(),
-                         [](unsigned char c) { return std::tolower(c); });
+                         [](unsigned char c) {
+                           return static_cast<char>(std::tolower(c));
+                         });
           if (side_str == "left")
             road.crossfall.sides[s0] = Crossfall::Side::Left;
           else if (side_str == "right")
@@ -1296,16 +1302,23 @@ RoutingGraph OpenDriveMap::get_routing_graph() const {
   RoutingGraph routing_graph;
 
   // Parse Roads
-  for (const auto &[_, road] : id_to_road) {
-    for (const auto &[_, lanesection] : road.s_to_lanesection) {
-      for (const auto &[_, lane] : lanesection.id_to_lane) {
+  for (const auto &[road_key, road] : id_to_road) {
+    (void)road_key;
+    for (const auto &[lanesection_s0, lanesection] : road.s_to_lanesection) {
+      (void)lanesection_s0;
+      for (const auto &[lane_id, lane] : lanesection.id_to_lane) {
+        (void)lane_id;
         const bool lane_follows_road_direction = lane.key.lane_id < 0;
 
         const Lane *predecessor_lane =
             this->get_adjacent_lane(lane, lane_follows_road_direction);
         if (predecessor_lane) {
-          const Road &predecessor_road =
-              this->id_to_road.at(predecessor_lane->key.road_id);
+          const auto predecessor_road_iter =
+              this->id_to_road.find(predecessor_lane->key.road_id);
+          if (predecessor_road_iter == this->id_to_road.end()) {
+            continue;
+          }
+          const Road &predecessor_road = predecessor_road_iter->second;
           const double lane_length = predecessor_road.get_lanesection_length(
               predecessor_lane->key.lanesection_s0);
           routing_graph.add_edge(
@@ -1325,8 +1338,10 @@ RoutingGraph OpenDriveMap::get_routing_graph() const {
   }
 
   // Parse Junctions
-  for (const auto &[_, junction] : id_to_junction) {
-    for (const auto &[_, conn] : junction.id_to_connection) {
+  for (const auto &[junction_id, junction] : id_to_junction) {
+    (void)junction_id;
+    for (const auto &[connection_id, conn] : junction.id_to_connection) {
+      (void)connection_id;
       auto incoming_road_iter = id_to_road.find(conn.incoming_road);
       auto connecting_road_iter = id_to_road.find(conn.connecting_road);
       if (incoming_road_iter == id_to_road.end() ||

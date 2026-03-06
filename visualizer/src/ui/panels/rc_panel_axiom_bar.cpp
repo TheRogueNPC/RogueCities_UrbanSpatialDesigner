@@ -2,11 +2,11 @@
 // PURPOSE: Tool Deck dock with reactive deck chips.
 #include "ui/panels/rc_panel_axiom_bar.h"
 
-#include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 #include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
+#include "ui/panels/rc_panel_axiom_editor.h"
 #include "ui/tools/rc_tool_dispatcher.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -266,6 +266,71 @@ void DrawContent(float dt)
         }
         ImGui::PopID();
     }
+    ImGui::Spacing();
+
+    if (Components::DrawSectionHeader("Visualizer", UITokens::CyanAccent,
+                                      true)) {
+        static const char *kTexSizes[] = {"512", "1024", "2048", "4096", "8192"};
+        static const int kTexSizeVals[] = {512, 1024, 2048, 4096, 8192};
+        int tex_idx = 2;
+        for (int i = 0; i < 5; ++i) {
+            if (kTexSizeVals[i] == gs.city_texture_size) {
+                tex_idx = i;
+                break;
+            }
+        }
+
+        using SP = RogueCity::Core::Editor::ScalePolicy;
+        ImGui::SetNextItemWidth(130.0f);
+        if (ImGui::Combo("Texture Size", &tex_idx, kTexSizes, 5)) {
+            if (gs.config.scale_policy == SP::FixedWorldExtent) {
+                const double prev_extent =
+                    static_cast<double>(gs.city_texture_size) *
+                    gs.city_meters_per_pixel;
+                gs.city_texture_size = kTexSizeVals[tex_idx];
+                gs.city_meters_per_pixel =
+                    prev_extent / static_cast<double>(gs.city_texture_size);
+            } else {
+                gs.city_texture_size = kTexSizeVals[tex_idx];
+            }
+            gs.texture_space_dirty = true;
+            gs.dirty_layers.MarkDirty(RogueCity::Core::Editor::DirtyLayer::Tensor);
+            gs.dirty_layers.MarkDirty(
+                RogueCity::Core::Editor::DirtyLayer::ViewportIndex);
+            gs.EnsureTextureSpaceUpToDate();
+        }
+
+        int pol = gs.config.scale_policy == SP::FixedMetersPerPixel ? 0 : 1;
+        if (ImGui::RadioButton("Policy A", pol == 0)) {
+            gs.config.scale_policy = SP::FixedMetersPerPixel;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Policy B", pol == 1)) {
+            gs.config.scale_policy = SP::FixedWorldExtent;
+        }
+
+        bool live_preview = AxiomEditor::IsLivePreviewEnabled();
+        if (ImGui::Checkbox("Live Preview", &live_preview)) {
+            AxiomEditor::SetLivePreviewEnabled(live_preview);
+        }
+
+        float debounce = AxiomEditor::GetDebounceSeconds();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::DragFloat("Debounce", &debounce, 0.01f, 0.0f, 1.5f,
+                             "%.2fs")) {
+            AxiomEditor::SetDebounceSeconds(debounce);
+        }
+
+        if (ImGui::Button("Random Seed", ImVec2(140.0f, 0.0f))) {
+            AxiomEditor::RandomizeSeed();
+            if (AxiomEditor::IsLivePreviewEnabled()) {
+                AxiomEditor::ForceGenerate();
+            }
+        }
+        ImGui::SameLine();
+        ImGui::Text("Seed: %u", AxiomEditor::GetSeed());
+    }
+
     ImGui::Spacing();
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextDisabled("Click opens in library frame. Double-click pops out a duplicate.");

@@ -21,6 +21,7 @@
 #include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <imgui.h>
+#include <utility>
 
 namespace RC_UI::Panels::BuildingControl {
 
@@ -63,6 +64,11 @@ void DrawContent(float dt) {
                           "Max Coverage",
                           "building.max_coverage",
                           {"building", "sizing"}});
+    if (s_building_params.min_building_coverage >
+        s_building_params.max_building_coverage) {
+      std::swap(s_building_params.min_building_coverage,
+                s_building_params.max_building_coverage);
+    }
     ImGui::Unindent();
     ImGui::Spacing();
   }
@@ -118,7 +124,6 @@ void DrawContent(float dt) {
 
   if (ImGui::Button("Place Buildings", ImVec2(-1, 40))) {
     // DEBUG_TAG: BUILDING_CONTROL_GENERATE_CLICKED
-    GlobalState &gs = GetGlobalState();
     s_zoning_bridge.Generate(s_building_params, gs);
     s_is_generating = true;
     s_gen_start_time = static_cast<float>(ImGui::GetTime());
@@ -145,7 +150,6 @@ void DrawContent(float dt) {
 
   if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
     ImGui::Indent();
-    GlobalState &gs = GetGlobalState();
     ImGui::Text("Total Buildings: %zu", gs.buildings.size());
     auto stats = s_zoning_bridge.GetLastStats();
     if (stats.buildings_placed > 0) {

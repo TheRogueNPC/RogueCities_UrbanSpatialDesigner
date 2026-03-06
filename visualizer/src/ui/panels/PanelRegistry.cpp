@@ -3,7 +3,6 @@
 
 #include "PanelRegistry.h"
 #include <algorithm>
-#include <stdexcept>
 
 namespace RC_UI::Panels {
 
@@ -117,6 +116,9 @@ IPanelDrawer *CreateDrawer();
 namespace Telemetry {
 IPanelDrawer *CreateDrawer();
 }
+namespace TextureEditing {
+IPanelDrawer *CreateDrawer();
+}
 namespace Log {
 IPanelDrawer *CreateDrawer();
 }
@@ -179,6 +181,8 @@ void InitializePanelRegistry() {
 
   // Register System
   registry.Register(std::unique_ptr<IPanelDrawer>(Telemetry::CreateDrawer()));
+  registry.Register(
+      std::unique_ptr<IPanelDrawer>(TextureEditing::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(Log::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(Inspector::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(SystemMap::CreateDrawer()));

@@ -628,6 +628,10 @@ Mesh3D Road::get_road_object_mesh(const RoadObject &road_object,
         }
       }
 
+      if (continuous_road_obj_mesh.vertices.size() < 4) {
+        continue;
+      }
+
       const std::size_t last_idx = continuous_road_obj_mesh.vertices.size() - 1;
       const std::array<size_t, 6> back_idx_patch = {last_idx - 3, last_idx - 2,
                                                     last_idx - 1, last_idx - 3,

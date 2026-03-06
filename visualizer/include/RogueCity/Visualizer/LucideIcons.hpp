@@ -57,4 +57,30 @@ static constexpr const char* Terminal      = "visualizer/assets/icons/lucide/ter
 static constexpr const char* Cpu           = "visualizer/assets/icons/lucide/cpu.svg";
 static constexpr const char* Activity      = "visualizer/assets/icons/lucide/activity.svg";
 
+// ── Expanded UI/Iconification set ───────────────────────────────────────────
+static constexpr const char* Radius        = "visualizer/assets/icons/lucide/radius.svg";
+static constexpr const char* Waves         = "visualizer/assets/icons/lucide/waves.svg";
+static constexpr const char* Waypoints     = "visualizer/assets/icons/lucide/waypoints.svg";
+static constexpr const char* ChartNetwork  = "visualizer/assets/icons/lucide/chart-network.svg";
+static constexpr const char* MapPinHouse   = "visualizer/assets/icons/lucide/map-pin-house.svg";
+static constexpr const char* Building2     = "visualizer/assets/icons/lucide/building-2.svg";
+static constexpr const char* BookMarked    = "visualizer/assets/icons/lucide/book-marked.svg";
+static constexpr const char* IdCard        = "visualizer/assets/icons/lucide/id-card.svg";
+static constexpr const char* ToolCase      = "visualizer/assets/icons/lucide/tool-case.svg";
+static constexpr const char* MonitorCog    = "visualizer/assets/icons/lucide/monitor-cog.svg";
+static constexpr const char* ArrowDownUp   = "visualizer/assets/icons/lucide/arrow-down-up.svg";
+static constexpr const char* ArrowUpDown   = "visualizer/assets/icons/lucide/arrow-up-down.svg";
+static constexpr const char* ArrowDown01   = "visualizer/assets/icons/lucide/arrow-down-0-1.svg";
+static constexpr const char* ArrowUp10     = "visualizer/assets/icons/lucide/arrow-up-1-0.svg";
+static constexpr const char* ArrowDownAZ   = "visualizer/assets/icons/lucide/arrow-down-a-z.svg";
+static constexpr const char* ArrowUpZA     = "visualizer/assets/icons/lucide/arrow-up-z-a.svg";
+static constexpr const char* ClockArrowDown= "visualizer/assets/icons/lucide/clock-arrow-down.svg";
+static constexpr const char* ClockArrowUp  = "visualizer/assets/icons/lucide/clock-arrow-up.svg";
+static constexpr const char* PanelBottomClose = "visualizer/assets/icons/lucide/panel-bottom-close.svg";
+static constexpr const char* PanelBottomOpen  = "visualizer/assets/icons/lucide/panel-bottom-open.svg";
+static constexpr const char* PanelLeftClose   = "visualizer/assets/icons/lucide/panel-left-close.svg";
+static constexpr const char* PanelLeftOpen    = "visualizer/assets/icons/lucide/panel-left-open.svg";
+static constexpr const char* PanelRightClose  = "visualizer/assets/icons/lucide/panel-right-close.svg";
+static constexpr const char* PanelRightOpen   = "visualizer/assets/icons/lucide/panel-right-open.svg";
+
 } // namespace LC

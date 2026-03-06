@@ -34,6 +34,9 @@ public:
   void CloseSearch();
   [[nodiscard]] bool IsSearchOpen() const { return m_search_open; }
 
+  void SetWindowOpen(bool open) { m_master_window_open = open; }
+  [[nodiscard]] bool IsWindowOpen() const { return m_master_window_open; }
+
   // B1/B2 Activity Bar interface — drives P3 category and active panel.
   static void RequestCategory(PanelCategory cat);
   static PanelCategory GetRequestedCategory();

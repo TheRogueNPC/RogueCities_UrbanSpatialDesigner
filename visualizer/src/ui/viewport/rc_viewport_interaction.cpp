@@ -659,7 +659,8 @@ bool HandleDomainPlacementActions(
         gs.tool_runtime.water_spline_subtool == WaterSplineSubtool::Pen) {
       if (selected_water == nullptr) {
         WaterBody water{};
-        water.id = NextWaterId(gs);
+        const uint32_t new_id = NextWaterId(gs);
+        water.id = new_id;
         water.type = WaterType::River;
         water.depth = static_cast<float>(geometry_policy.water_default_depth);
         water.generate_shore = true;
@@ -668,7 +669,7 @@ bool HandleDomainPlacementActions(
         water.generation_locked = true;
         water.boundary.push_back(world_pos);
         gs.waterbodies.add(std::move(water));
-        SetPrimarySelection(gs, VpEntityKind::Water, NextWaterId(gs) - 1u);
+        SetPrimarySelection(gs, VpEntityKind::Water, new_id);
         MarkDirtyForSelectionKind(gs, VpEntityKind::Water);
       } else {
         selected_water->boundary.push_back(world_pos);
@@ -920,7 +921,8 @@ bool HandleDomainPlacementActions(
                      : nullptr;
     if (road == nullptr) {
       Road new_road{};
-      new_road.id = NextRoadId(gs);
+      const uint32_t new_id = NextRoadId(gs);
+      new_road.id = new_id;
       new_road.type = (gs.tool_runtime.road_subtool == RoadSubtool::Bridge)
                           ? RoadType::M_Major
                           : RoadType::M_Minor;
@@ -929,7 +931,6 @@ bool HandleDomainPlacementActions(
       new_road.generation_locked = true;
       new_road.points.push_back(world_pos);
       gs.roads.add(std::move(new_road));
-      const uint32_t new_id = NextRoadId(gs) - 1u;
       SetPrimarySelection(gs, VpEntityKind::Road, new_id);
       MarkDirtyForSelectionKind(gs, VpEntityKind::Road);
     } else {
@@ -985,7 +986,8 @@ bool HandleDomainPlacementActions(
       (gs.tool_runtime.district_subtool == DistrictSubtool::Paint ||
        gs.tool_runtime.district_subtool == DistrictSubtool::Zone)) {
     District district{};
-    district.id = NextDistrictId(gs);
+    const uint32_t new_id = NextDistrictId(gs);
+    district.id = new_id;
     district.type = DistrictType::Mixed;
     district.border = MakeSquareBoundary(
         world_pos, geometry_policy.district_placement_half_extent);
@@ -994,7 +996,6 @@ bool HandleDomainPlacementActions(
     district.generation_tag = RogueCity::Core::GenerationTag::M_user;
     district.generation_locked = true;
     gs.districts.add(std::move(district));
-    const uint32_t new_id = NextDistrictId(gs) - 1u;
     SetPrimarySelection(gs, VpEntityKind::District, new_id);
     MarkDirtyForSelectionKind(gs, VpEntityKind::District);
     return true;
@@ -1003,7 +1004,8 @@ bool HandleDomainPlacementActions(
   if (editor_state == EditorState::Editing_Lots && add_click &&
       gs.tool_runtime.lot_subtool == LotSubtool::Plot) {
     LotToken lot{};
-    lot.id = NextLotId(gs);
+    const uint32_t new_id = NextLotId(gs);
+    lot.id = new_id;
     lot.district_id = gs.selection.selected_district
                           ? gs.selection.selected_district->id
                           : 0u;
@@ -1017,7 +1019,6 @@ bool HandleDomainPlacementActions(
     lot.generation_tag = RogueCity::Core::GenerationTag::M_user;
     lot.generation_locked = true;
     gs.lots.add(std::move(lot));
-    const uint32_t new_id = NextLotId(gs) - 1u;
     SetPrimarySelection(gs, VpEntityKind::Lot, new_id);
     MarkDirtyForSelectionKind(gs, VpEntityKind::Lot);
     return true;
@@ -1266,18 +1267,18 @@ void ProcessViewportCommandTriggers(
     }
   }
 
-  if ((params.editor_config->viewport_hotkey_slash_enabled &&
-       ImGui::IsKeyPressed(ImGuiKey_Slash, false)) ||
-      (params.editor_config->viewport_hotkey_grave_enabled &&
-       ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false))) {
+  if (params.editor_config->viewport_hotkey_grave_enabled &&
+      ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) {
     if (state_bundle.pie_menu != nullptr) {
       RC_UI::Commands::RequestOpenPieMenu(*state_bundle.pie_menu,
                                           params.mouse_pos, domain_library);
     }
   }
 
-  if (params.editor_config->viewport_hotkey_p_enabled && !io.KeyCtrl &&
-      ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+  if ((params.editor_config->viewport_hotkey_slash_enabled &&
+       ImGui::IsKeyPressed(ImGuiKey_Slash, false)) ||
+      (params.editor_config->viewport_hotkey_p_enabled && !io.KeyCtrl &&
+       ImGui::IsKeyPressed(ImGuiKey_P, false))) {
     if (state_bundle.command_palette != nullptr) {
       RC_UI::Commands::RequestOpenCommandPalette(*state_bundle.command_palette);
     }

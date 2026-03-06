@@ -6,9 +6,11 @@
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/RcMasterPanel.h"
 #include "ui/panels/IPanelDrawer.h"
-#include "ui/rc_ui_components.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
+
+#include <RogueCity/Visualizer/LucideIcons.hpp>
+#include <RogueCity/Visualizer/SvgTextureCache.hpp>
 
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -30,17 +32,18 @@ struct DomainEntry {
     const char* label;      // Short glyph / abbreviation shown on the button
     const char* tooltip;    // Shown on hover
     const char* action_id;  // For introspector
+    const char* icon_path;
     EditorEvent event;      // HFSM event to fire on click
     EditorState state;      // State that represents "active" for highlight
 };
 
 static constexpr DomainEntry kDomains[] = {
-    { "AX", "Axiom Editor",    "activity.axiom",    EditorEvent::Tool_Axioms,    EditorState::Editing_Axioms    },
-    { "RD", "Road Editor",     "activity.road",     EditorEvent::Tool_Roads,     EditorState::Editing_Roads     },
-    { "ZN", "Zoning Control",  "activity.zone",     EditorEvent::Tool_Districts, EditorState::Editing_Districts },
-    { "LT", "Lot Control",     "activity.lot",      EditorEvent::Tool_Lots,      EditorState::Editing_Lots      },
-    { "BL", "Building Control","activity.building", EditorEvent::Tool_Buildings, EditorState::Editing_Buildings },
-    { "WA", "Water Control",   "activity.water",    EditorEvent::Tool_Water,     EditorState::Editing_Water     },
+    { "AX", "Axiom = radius",                "activity.axiom",    LC::Radius,       EditorEvent::Tool_Axioms,    EditorState::Editing_Axioms    },
+    { "WA", "Water = waves",                 "activity.water",    LC::Waves,        EditorEvent::Tool_Water,     EditorState::Editing_Water     },
+    { "RD", "Road = waypoints",              "activity.road",     LC::Waypoints,    EditorEvent::Tool_Roads,     EditorState::Editing_Roads     },
+    { "ZN", "Zone/Districts = chart-network", "activity.zone",     LC::ChartNetwork, EditorEvent::Tool_Districts, EditorState::Editing_Districts },
+    { "LT", "Lot = map-pin-house",           "activity.lot",      LC::MapPinHouse,  EditorEvent::Tool_Lots,      EditorState::Editing_Lots      },
+    { "BL", "Building = building-2",         "activity.building", LC::Building2,    EditorEvent::Tool_Buildings, EditorState::Editing_Buildings },
 };
 
 // ── Index / Explorer mode entries ────────────────────────────────────────────
@@ -48,18 +51,20 @@ struct IndexEntry {
     const char* label;
     const char* tooltip;
     const char* action_id;
+    const char* icon_path;
     PanelCategory category;
 };
 
 static constexpr IndexEntry kIndexModes[] = {
-    { "RI", "Road Index",     "activity.idx.road",     PanelCategory::Indices  },
-    { "DI", "District Index", "activity.idx.district",  PanelCategory::Indices  },
-    { "LI", "Lot Index",      "activity.idx.lot",       PanelCategory::Indices  },
+    { "ID", "Indices = book-marked (ID)", "activity.idx.road",      LC::BookMarked, PanelCategory::Indices },
+    { "Tu", "Indices = book-marked (Tu)", "activity.idx.district",  LC::BookMarked, PanelCategory::Indices },
+    { "Ix", "Indices = book-marked",      "activity.idx.lot",       LC::BookMarked, PanelCategory::Indices },
 };
 
 // Draw a square icon button, returns true if clicked.
 // Colours the background when `active` is true.
 bool IconButton(const char* label, const char* tooltip,
+                const char* icon_path,
                 bool active, float size) {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
 
@@ -88,10 +93,24 @@ bool IconButton(const char* label, const char* tooltip,
 
     const bool clicked = ImGui::Button(label, ImVec2(size, size));
 
+    if (icon_path != nullptr) {
+        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, size * 0.56f)) {
+            const float icon_size = size * 0.56f;
+            const ImVec2 icon_pos(cursor.x + (size - icon_size) * 0.5f,
+                                  cursor.y + (size - icon_size) * 0.5f);
+            ImGui::GetWindowDrawList()->AddImage(icon,
+                                                 icon_pos,
+                                                 ImVec2(icon_pos.x + icon_size,
+                                                        icon_pos.y + icon_size),
+                                                 ImVec2(0, 0), ImVec2(1, 1),
+                                                 UITokens::TextPrimary);
+        }
+    }
+
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(3);
 
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort) && tooltip) {
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && tooltip) {
         ImGui::SetTooltip("%s", tooltip);
     }
 
@@ -139,7 +158,7 @@ void Draw(float /*dt*/) {
     for (const auto& d : kDomains) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (current_state == d.state);
-        if (IconButton(d.label, d.tooltip, active, btn_size)) {
+        if (IconButton(d.label, d.tooltip, d.icon_path, active, btn_size)) {
             hfsm.handle_event(d.event, gs);
             // Switch P3 to Tool mode (not Index mode) when a domain is selected
             RcMasterPanel::RequestCategory(PanelCategory::Tools);
@@ -159,7 +178,7 @@ void Draw(float /*dt*/) {
     for (const auto& idx : kIndexModes) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (requested == PanelCategory::Indices);
-        if (IconButton(idx.label, idx.tooltip, active, btn_size)) {
+        if (IconButton(idx.label, idx.tooltip, idx.icon_path, active, btn_size)) {
             RcMasterPanel::RequestCategory(PanelCategory::Indices);
         }
         uiint.RegisterWidget({"button", idx.tooltip, idx.action_id,

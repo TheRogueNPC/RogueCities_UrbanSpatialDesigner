@@ -2,18 +2,16 @@
 // (RogueCities_UrbanSpatialDesigner) PURPOSE: Inspector with reactive selection
 // focus.
 #include "ui/panels/rc_panel_inspector.h"
-#include "ui/panels/rc_panel_road_editor.h"
 
-#include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/rc_property_editor.h"
-#include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
-#include "ui/rc_ui_theme.h"
 #include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <imgui.h>
+#include <algorithm>
+#include <array>
 #include <magic_enum/magic_enum.hpp>
 
 namespace RC_UI::Panels::Inspector {
@@ -26,8 +24,6 @@ void DrawActiveToolControls(RogueCity::Core::Editor::GlobalState &gs,
   switch (gs.tool_runtime.active_domain) {
   case ToolDomain::Road:
   case ToolDomain::Paths:
-    ImGui::SeparatorText("Road Editor");
-    RC_UI::Panels::RoadEditor::DrawContent(dt);
     ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.0f);
@@ -110,7 +106,7 @@ void DrawContent(float dt) {
   ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 0.0f);
 
   // ACTIVE TOOL RUNTIME
-  if (Components::DrawSectionHeader("ACTIVE TOOL RUNTIME",
+  if (Components::DrawSectionHeader("RUNTIME PANEL",
                                     UITokens::AmberGlow, true,
                                     RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
     ImGui::Indent();
@@ -202,6 +198,7 @@ void DrawContent(float dt) {
     {
       static const char *k_ops[] = {"Translate", "Rotate", "Scale"};
       int op_idx = static_cast<int>(gs.gizmo.operation);
+      op_idx = std::clamp(op_idx, 0, 2);
       ImGui::SetNextItemWidth(120.0f);
       if (ImGui::Combo("Operation##Gizmo", &op_idx, k_ops, 3)) {
         gs.gizmo.operation =
@@ -217,6 +214,22 @@ void DrawContent(float dt) {
                        90.0f, "%.1f");
     ImGui::SetNextItemWidth(100.0f);
     ImGui::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.1f, 10.0f, "%.2f");
+
+    ImGui::SeparatorText("Debug Overlays");
+    ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
+    ImGui::SameLine();
+    ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
+    ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
+
+    ImGui::SeparatorText("Validation Overlay");
+    ImGui::Checkbox("Show Validation Overlay", &gs.validation_overlay.enabled);
+    ImGui::SameLine();
+    ImGui::Checkbox("Show Warnings", &gs.validation_overlay.show_warnings);
+    ImGui::Checkbox("Show Labels", &gs.validation_overlay.show_labels);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
+                       "Errors: %d",
+                       static_cast<int>(gs.validation_overlay.errors.size()));
+
     ImGui::Unindent();
     ImGui::Spacing();
   }
@@ -235,6 +248,97 @@ void DrawContent(float dt) {
     ImGui::Checkbox("Dim Inactive Layers", &gs.layer_manager.dim_inactive);
     ImGui::Checkbox("See Through Hidden Layers",
                     &gs.layer_manager.allow_through_hidden);
+
+    ImGui::SeparatorText("Layer Visibility");
+    ImGui::Checkbox("Axioms", &gs.show_layer_axioms);
+    ImGui::SameLine();
+    ImGui::Checkbox("Water", &gs.show_layer_water);
+    ImGui::SameLine();
+    ImGui::Checkbox("Roads", &gs.show_layer_roads);
+    ImGui::Checkbox("Districts", &gs.show_layer_districts);
+    ImGui::SameLine();
+    ImGui::Checkbox("Lots", &gs.show_layer_lots);
+    ImGui::SameLine();
+    ImGui::Checkbox("Buildings", &gs.show_layer_buildings);
+
+    ImGui::SeparatorText("Dirty Layers");
+    const bool dirty_any = gs.dirty_layers.AnyDirty();
+    ImGui::TextColored(
+        ImGui::ColorConvertU32ToFloat4(dirty_any ? UITokens::YellowWarning
+                                                 : UITokens::SuccessGreen),
+        dirty_any ? "Dirty Layers: pending" : "Dirty Layers: clean");
+
+    using RogueCity::Core::Editor::DirtyLayer;
+    int dirty_count = 0;
+    for (int i = 0; i < static_cast<int>(DirtyLayer::Count); ++i) {
+      if (gs.dirty_layers.IsDirty(static_cast<DirtyLayer>(i))) {
+        ++dirty_count;
+      }
+    }
+    const float dirty_ratio =
+        static_cast<float>(dirty_count) /
+        static_cast<float>(static_cast<int>(DirtyLayer::Count));
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::ProgressBar(dirty_ratio, ImVec2(150.0f, 0.0f),
+                       dirty_any ? "Rebuild pending" : "Clean");
+
+    struct DirtyChip {
+      const char *label;
+      DirtyLayer layer;
+    };
+    constexpr std::array<DirtyChip, 7> kDirtyChips = {{
+        {"Axioms", DirtyLayer::Axioms},
+        {"Tensor", DirtyLayer::Tensor},
+        {"Roads", DirtyLayer::Roads},
+        {"Districts", DirtyLayer::Districts},
+        {"Lots", DirtyLayer::Lots},
+        {"Buildings", DirtyLayer::Buildings},
+        {"Viewport", DirtyLayer::ViewportIndex},
+    }};
+
+    auto draw_chip = [](const char *label, bool dirty) {
+      const ImU32 chip_color = dirty ? WithAlpha(UITokens::AmberGlow, 230u)
+                                     : WithAlpha(UITokens::SuccessGreen, 190u);
+      const ImVec4 color = ImGui::ColorConvertU32ToFloat4(chip_color);
+      ImGui::PushStyleColor(ImGuiCol_Button, color);
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
+      ImGui::SmallButton(label);
+      ImGui::PopStyleColor(3);
+    };
+
+    ImGui::PushID("LayerManagerDirtyChips");
+    for (size_t chip_index = 0; chip_index < kDirtyChips.size(); ++chip_index) {
+      const DirtyChip &chip = kDirtyChips[chip_index];
+      ImGui::PushID(static_cast<int>(chip_index));
+      draw_chip(chip.label, gs.dirty_layers.IsDirty(chip.layer));
+      ImGui::PopID();
+      if (chip_index + 1 < kDirtyChips.size()) {
+        ImGui::SameLine();
+      }
+    }
+    ImGui::PopID();
+
+    if (dirty_any) {
+      if (ImGui::Button("Clear Dirty Flags")) {
+        ImGui::OpenPopup("ClearDirtyFlagsHelp");
+      }
+      if (ImGui::BeginPopupModal("ClearDirtyFlagsHelp", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextWrapped("Clearing dirty flags marks downstream layers as clean without rebuilding.");
+        ImGui::TextWrapped("Use this only if you intentionally want to suppress regeneration prompts.");
+        if (ImGui::Button("Clear Flags", ImVec2(120, 0))) {
+          gs.dirty_layers.MarkAllClean();
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
+    }
+
     ImGui::Spacing();
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Layers, 14.f)) {
       ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
@@ -251,26 +355,8 @@ void DrawContent(float dt) {
     ImGui::Spacing();
   }
 
-  // VALIDATION OVERLAY
-  if (Components::DrawSectionHeader("VALIDATION OVERLAY",
-                                    UITokens::AmberGlow, true,
-                                    RC::SvgTextureCache::Get().Load(LC::AlertTriangle, 14.f))) {
-    ImGui::Indent();
-    ImGui::Checkbox("Show Overlay##ValOv", &gs.validation_overlay.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Warnings##ValOv",
-                    &gs.validation_overlay.show_warnings);
-    ImGui::Checkbox("Show Labels##ValOv", &gs.validation_overlay.show_labels);
-    ImGui::Spacing();
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
-                       "Errors: %d",
-                       static_cast<int>(gs.validation_overlay.errors.size()));
-    ImGui::Unindent();
-    ImGui::Spacing();
-  }
-
   // PROPERTY EDITOR / QUERY
-  if (Components::DrawSectionHeader("QUERY SELECTION",
+  if (Components::DrawSectionHeader("QUERY HIERARCHY",
                                     UITokens::MagentaHighlight, true,
                                     RC::SvgTextureCache::Get().Load(LC::Search, 14.f))) {
     static PropertyEditor editor;

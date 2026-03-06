@@ -47,6 +47,31 @@ template <typename T> struct adl_serializer<std::optional<T>> {
 
 namespace odr {
 
+namespace detail {
+template <typename T>
+inline bool try_get(const nlohmann::json &j, const char *key, T &out) {
+  const auto it = j.find(key);
+  if (it == j.end() || it->is_null()) {
+    return false;
+  }
+  try {
+    out = it->get<T>();
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+
+template <typename T>
+inline T value_or(const nlohmann::json &j, const char *key, T fallback) {
+  T value = fallback;
+  if (try_get(j, key, value)) {
+    return value;
+  }
+  return fallback;
+}
+} // namespace detail
+
 // 1. Basic Geometries
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CubicPoly, a, b, c, d)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CubicProfile, segments)
@@ -86,29 +111,61 @@ inline void to_json(nlohmann::json &j, const RoadGeometry &rg) {
 
 inline void from_json(const nlohmann::json &j,
                       std::unique_ptr<RoadGeometry> &rg) {
-  std::string type = j.at("type").get<std::string>();
-  double s0 = j.at("s0").get<double>();
-  double x0 = j.at("x0").get<double>();
-  double y0 = j.at("y0").get<double>();
-  double hdg0 = j.at("hdg0").get<double>();
-  double length = j.at("length").get<double>();
+  rg.reset();
+  if (!j.is_object()) {
+    return;
+  }
+
+  std::string type;
+  double s0 = 0.0;
+  double x0 = 0.0;
+  double y0 = 0.0;
+  double hdg0 = 0.0;
+  double length = 0.0;
+  if (!detail::try_get(j, "type", type) || !detail::try_get(j, "s0", s0) ||
+      !detail::try_get(j, "x0", x0) || !detail::try_get(j, "y0", y0) ||
+      !detail::try_get(j, "hdg0", hdg0) ||
+      !detail::try_get(j, "length", length)) {
+    return;
+  }
+  if (length < 0.0) {
+    length = 0.0;
+  }
 
   if (type == "line") {
     rg = std::make_unique<Line>(s0, x0, y0, hdg0, length);
   } else if (type == "arc") {
-    double curvature = j.at("curvature").get<double>();
+    double curvature = 0.0;
+    if (!detail::try_get(j, "curvature", curvature)) {
+      return;
+    }
     rg = std::make_unique<Arc>(s0, x0, y0, hdg0, length, curvature);
   } else if (type == "spiral") {
-    double curv_start = j.at("curv_start").get<double>();
-    double curv_end = j.at("curv_end").get<double>();
+    double curv_start = 0.0;
+    double curv_end = 0.0;
+    if (!detail::try_get(j, "curv_start", curv_start) ||
+        !detail::try_get(j, "curv_end", curv_end)) {
+      return;
+    }
     rg = std::make_unique<Spiral>(s0, x0, y0, hdg0, length, curv_start,
                                   curv_end);
   } else if (type == "poly3") {
-    double aU = j.at("aU").get<double>(), bU = j.at("bU").get<double>(),
-           cU = j.at("cU").get<double>(), dU = j.at("dU").get<double>();
-    double aV = j.at("aV").get<double>(), bV = j.at("bV").get<double>(),
-           cV = j.at("cV").get<double>(), dV = j.at("dV").get<double>();
-    bool pRange_normalized = j.at("pRange_normalized").get<bool>();
+    double aU = 0.0;
+    double bU = 0.0;
+    double cU = 0.0;
+    double dU = 0.0;
+    double aV = 0.0;
+    double bV = 0.0;
+    double cV = 0.0;
+    double dV = 0.0;
+    if (!detail::try_get(j, "aU", aU) || !detail::try_get(j, "bU", bU) ||
+        !detail::try_get(j, "cU", cU) || !detail::try_get(j, "dU", dU) ||
+        !detail::try_get(j, "aV", aV) || !detail::try_get(j, "bV", bV) ||
+        !detail::try_get(j, "cV", cV) || !detail::try_get(j, "dV", dV)) {
+      return;
+    }
+    const bool pRange_normalized =
+        detail::value_or<bool>(j, "pRange_normalized", false);
     rg = std::make_unique<ParamPoly3>(s0, x0, y0, hdg0, length, aU, bU, cU, dU,
                                       aV, bV, cV, dV, pRange_normalized);
   }
@@ -120,16 +177,38 @@ inline void to_json(nlohmann::json &j, const RefLine &rl) {
                      {"elevation_profile", rl.elevation_profile}};
   nlohmann::json geometries = nlohmann::json::array();
   for (const auto &[s0, geom] : rl.s0_to_geometry) {
-    geometries.push_back(*geom);
+    if (geom) {
+      geometries.push_back(*geom);
+    }
   }
   j["geometries"] = geometries;
 }
 
 inline void from_json(const nlohmann::json &j, RefLine &rl) {
-  rl.length = j.at("length").get<double>();
-  rl.elevation_profile = j.at("elevation_profile").get<CubicProfile>();
+  if (!j.is_object()) {
+    rl.length = 0.0;
+    rl.elevation_profile = CubicProfile{};
+    rl.s0_to_geometry.clear();
+    return;
+  }
+
+  rl.length = detail::value_or<double>(j, "length", 0.0);
+  if (const auto it = j.find("elevation_profile");
+      it != j.end() && !it->is_null()) {
+    try {
+      rl.elevation_profile = it->get<CubicProfile>();
+    } catch (...) {
+      rl.elevation_profile = CubicProfile{};
+    }
+  } else {
+    rl.elevation_profile = CubicProfile{};
+  }
   rl.s0_to_geometry.clear();
-  for (const auto &j_geom : j.at("geometries")) {
+  const auto geoms_it = j.find("geometries");
+  if (geoms_it == j.end() || !geoms_it->is_array()) {
+    return;
+  }
+  for (const auto &j_geom : *geoms_it) {
     std::unique_ptr<RoadGeometry> geom;
     from_json(j_geom, geom);
     if (geom) {

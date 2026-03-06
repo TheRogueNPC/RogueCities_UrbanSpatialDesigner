@@ -10,6 +10,9 @@
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 
+#include <RogueCity/Visualizer/LucideIcons.hpp>
+#include <RogueCity/Visualizer/SvgTextureCache.hpp>
+
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -22,13 +25,14 @@ struct P4Entry {
     const char* label;
     const char* tooltip;
     const char* action_id;
+    const char* icon_path;
     int tab_index; // matches RcInspectorSidebar tab order: 0=Inspector 1=SystemMap 2=Health
 };
 
 static constexpr P4Entry kP4Entries[] = {
-    { "IN", "Inspector",   "b2.inspector",   0 },
-    { "SM", "System Map",  "b2.system_map",  1 },
-    { "HT", "City Health", "b2.health",      2 },
+    { "IN", "Inspector Runtime",   "b2.inspector",   LC::Activity,   0 },
+    { "SM", "System Map",          "b2.system_map",  LC::Map,        1 },
+    { "HT", "City Health",         "b2.health",      LC::MonitorCog, 2 },
 };
 
 // ── Global config entries ─────────────────────────────────────────────────────
@@ -37,16 +41,18 @@ struct ConfigEntry {
     const char*  label;
     const char*  tooltip;
     const char*  action_id;
+    const char*  icon_path;
     PanelType    panel;   // RequestPanel() target
 };
 
 static constexpr ConfigEntry kConfigEntries[] = {
     // UISettings drawer = Workspace + Theme controls
-    { "UI", "UI Settings / Workspace", "b2.workspace", PanelType::UISettings   },
-    { "SY", "System / Dev Shell",      "b2.devshell",  PanelType::Log          },
+    { "UI", "UI Settings / Workspace", "b2.workspace", LC::Sliders,    PanelType::UISettings },
+    { "SY", "System / Dev Shell",      "b2.devshell",  LC::MonitorCog, PanelType::Log        },
 };
 
 bool IconButton(const char* label, const char* tooltip,
+                const char* icon_path,
                 bool active, float size, ImU32 accent) {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
 
@@ -71,10 +77,24 @@ bool IconButton(const char* label, const char* tooltip,
 
     const bool clicked = ImGui::Button(label, ImVec2(size, size));
 
+    if (icon_path != nullptr) {
+        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, size * 0.56f)) {
+            const float icon_size = size * 0.56f;
+            const ImVec2 icon_pos(cursor.x + (size - icon_size) * 0.5f,
+                                  cursor.y + (size - icon_size) * 0.5f);
+            ImGui::GetWindowDrawList()->AddImage(icon,
+                                                 icon_pos,
+                                                 ImVec2(icon_pos.x + icon_size,
+                                                        icon_pos.y + icon_size),
+                                                 ImVec2(0, 0), ImVec2(1, 1),
+                                                 UITokens::TextPrimary);
+        }
+    }
+
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(3);
 
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort) && tooltip) {
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && tooltip) {
         ImGui::SetTooltip("%s", tooltip);
     }
 
@@ -115,8 +135,8 @@ void Draw(float /*dt*/) {
     // ── P4 tab buttons ────────────────────────────────────────────────────────
     for (const auto& e : kP4Entries) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
-        if (IconButton(e.label, e.tooltip,
-                       active_tab == e.tab_index, btn_size, UITokens::AmberGlow)) {
+        if (IconButton(e.label, e.tooltip, e.icon_path,
+                   active_tab == e.tab_index, btn_size, UITokens::AmberGlow)) {
             RcInspectorSidebar::RequestTab(e.tab_index);
         }
         uiint.RegisterWidget({"button", e.tooltip, e.action_id,
@@ -133,7 +153,8 @@ void Draw(float /*dt*/) {
     for (const auto& c : kConfigEntries) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (cur_cat == PanelCategory::System);
-        if (IconButton(c.label, c.tooltip, active, btn_size, UITokens::GreenHUD)) {
+        if (IconButton(c.label, c.tooltip, c.icon_path,
+                   active, btn_size, UITokens::GreenHUD)) {
             RcMasterPanel::RequestPanel(c.panel);
         }
         uiint.RegisterWidget({"button", c.tooltip, c.action_id,

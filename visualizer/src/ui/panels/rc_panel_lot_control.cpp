@@ -21,6 +21,7 @@
 #include <RogueCity/Visualizer/LucideIcons.hpp>
 
 #include <imgui.h>
+#include <utility>
 
 namespace RC_UI::Panels::LotControl {
 
@@ -62,6 +63,12 @@ void DrawContent(float dt) {
     ImGui::SliderInt("Max Lot Depth (m)", &s_lot_params.max_lot_depth, 30, 100);
     uiint.RegisterWidget(
         {"slider", "Max Lot Depth", "lot.max_depth", {"lot", "sizing"}});
+    if (s_lot_params.min_lot_width > s_lot_params.max_lot_width) {
+      std::swap(s_lot_params.min_lot_width, s_lot_params.max_lot_width);
+    }
+    if (s_lot_params.min_lot_depth > s_lot_params.max_lot_depth) {
+      std::swap(s_lot_params.min_lot_depth, s_lot_params.max_lot_depth);
+    }
     ImGui::Unindent();
     ImGui::Spacing();
   }
@@ -76,6 +83,11 @@ void DrawContent(float dt) {
                        0.5f, 0.9f, "%.1f%%");
     uiint.RegisterWidget(
         {"slider", "Max Coverage", "lot.max_coverage", {"lot", "building"}});
+    if (s_lot_params.min_building_coverage >
+        s_lot_params.max_building_coverage) {
+      std::swap(s_lot_params.min_building_coverage,
+                s_lot_params.max_building_coverage);
+    }
     ImGui::Unindent();
     ImGui::Spacing();
   }
@@ -92,7 +104,6 @@ void DrawContent(float dt) {
 
   if (ImGui::Button("Generate Lots", ImVec2(-1, 40))) {
     // DEBUG_TAG: LOT_CONTROL_GENERATE_CLICKED
-    GlobalState &gs = GetGlobalState();
     s_zoning_bridge.Generate(s_lot_params, gs);
     s_is_generating = true;
     s_gen_start_time = static_cast<float>(ImGui::GetTime());
@@ -117,7 +128,6 @@ void DrawContent(float dt) {
 
   if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
     ImGui::Indent();
-    GlobalState &gs = GetGlobalState();
     ImGui::Text("Total Lots: %zu", gs.lots.size());
     auto stats = s_zoning_bridge.GetLastStats();
     if (stats.lots_created > 0) {

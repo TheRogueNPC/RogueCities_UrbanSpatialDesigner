@@ -5,8 +5,52 @@
 #include "RogueOpenDRIVE/Serialization/JsonSerialization.h"
 
 #include <cmath>
+#include <cstdint>
 #include <functional>
-#include <iostream>
+#include <limits>
+#include <memory>
+
+namespace {
+
+uint32_t ParseStableId(const std::string &id_value) {
+  try {
+    const unsigned long parsed = std::stoul(id_value);
+    if (parsed <= std::numeric_limits<uint32_t>::max()) {
+      return static_cast<uint32_t>(parsed);
+    }
+  } catch (...) {
+  }
+
+  const uint32_t hashed =
+      static_cast<uint32_t>(std::hash<std::string>{}(id_value));
+  return hashed == 0u ? 1u : hashed;
+}
+
+bool IsFinitePoint(const odr::Vec3D &pt) {
+  return std::isfinite(pt[0]) && std::isfinite(pt[1]) && std::isfinite(pt[2]);
+}
+
+void AppendRoadSample(const odr::Vec3D &pt, RogueCity::Core::Road &core_road) {
+  if (!IsFinitePoint(pt)) {
+    return;
+  }
+
+  const RogueCity::Core::Vec2 world_pt(pt[0], pt[1]);
+  if (!core_road.points.empty()) {
+    const RogueCity::Core::Vec2 &last_pt = core_road.points.back();
+    const double dx = last_pt.x - world_pt.x;
+    const double dy = last_pt.y - world_pt.y;
+    if ((dx * dx + dy * dy) <= 1e-12) {
+      core_road.elevation_offsets.back() = static_cast<float>(pt[2]);
+      return;
+    }
+  }
+
+  core_road.points.push_back(world_pt);
+  core_road.elevation_offsets.push_back(static_cast<float>(pt[2]));
+}
+
+} // namespace
 
 namespace RogueCity::Generators::Import {
 
@@ -16,26 +60,31 @@ bool OpenDriveBridge::parseAndMerge(
     const Core::WorldConstraintField &world_constraints,
     Core::Data::SpatialReference *out_spatial_reference) {
   (void)world_constraints;
+  if (xodr_path.empty()) {
+    return false;
+  }
+
   // Parse the OpenDRIVE file using the new standalone rc_opendrive library
-  odr::OpenDriveMap map(xodr_path, true, true, true, false, true, true);
+  std::unique_ptr<odr::OpenDriveMap> map;
+  try {
+    map = std::make_unique<odr::OpenDriveMap>(xodr_path, true, true, true,
+                                              false, true, true);
+  } catch (...) {
+    return false;
+  }
 
   if (out_spatial_reference != nullptr) {
-    if (!map.proj4.empty()) {
-      *out_spatial_reference = Core::Data::SpatialReference::FromProj4(map.proj4);
+    if (!map->proj4.empty()) {
+      *out_spatial_reference =
+          Core::Data::SpatialReference::FromProj4(map->proj4);
     } else {
       *out_spatial_reference = Core::Data::SpatialReference::LocalPlanarMeters();
     }
   }
 
-  for (const auto &odr_road : map.get_roads()) {
+  for (const auto &odr_road : map->get_roads()) {
     Core::Road core_road;
-    try {
-      core_road.id = std::stoul(odr_road.id);
-    } catch (...) {
-      // Fallback if ID is non-numeric
-      core_road.id =
-          static_cast<uint32_t>(std::hash<std::string>{}(odr_road.id));
-    }
+    core_road.id = ParseStableId(odr_road.id);
 
     core_road.type = Core::RoadType::Street; // Default road type
     core_road.generation_tag = Core::GenerationTag::Generated;
@@ -46,7 +95,8 @@ bool OpenDriveBridge::parseAndMerge(
 
     // Initial semantic passes for hints (Signals / Crosswalks)
     core_road.contains_signal = !odr_road.id_to_signal.empty();
-    for (const auto &[obj_id, obj] : odr_road.id_to_object) {
+    for (const auto &[object_id, obj] : odr_road.id_to_object) {
+      (void)object_id;
       if (obj.type == "crosswalk") {
         core_road.contains_crosswalk = true;
         break;
@@ -64,56 +114,35 @@ bool OpenDriveBridge::parseAndMerge(
 
     // Sampling resolution along the reference line
     const double resolution = 2.0;
-
-    // Performance Optimization: Cache lane section lookups
-    double last_lanesec_s0 = -1.0;
-    const odr::LaneSection *current_lanesec = nullptr;
+    if (odr_road.length > 0.0) {
+      const std::size_t sample_count = static_cast<std::size_t>(
+                                           std::ceil(odr_road.length / resolution)) +
+                                       1u;
+      core_road.points.reserve(sample_count);
+      core_road.elevation_offsets.reserve(sample_count);
+    }
 
     for (double s = 0.0; s <= odr_road.length; s += resolution) {
-      // Optimized sampling: avoid repeated map search if still in the same
-      // section
-      if (s < last_lanesec_s0 ||
-          (current_lanesec &&
-           s >= odr_road.get_lanesection_end(*current_lanesec))) {
-        // Re-fetch only if s moved outside the current section's bounds
-        double s0 = odr_road.get_lanesection_s0(s);
-        if (!std::isnan(s0)) {
-          last_lanesec_s0 = s0;
-          // Note: odr_road.s_to_lanesection is private, but
-          // odr_road.get_lanesection(s) is public We'll use get_surface_pt
-          // which manages its own section lookup internally for now, but we'll
-          // manually ensure the road model handles the sampling transition
-          // correctly.
-        }
-      }
-
-      odr::Vec3D pt = odr_road.get_surface_pt(s, 0.0);
-      Core::Vec2 world_pt(pt[0], pt[1]);
-      core_road.points.push_back(world_pt);
-
-      float z_offset = static_cast<float>(pt[2]);
-      core_road.elevation_offsets.push_back(z_offset);
+      AppendRoadSample(odr_road.get_surface_pt(s, 0.0), core_road);
     }
 
     // Ensure last point is included if not hit exactly by resolution
     if (odr_road.length > 0.0 &&
         std::fmod(odr_road.length, resolution) != 0.0) {
-      odr::Vec3D pt = odr_road.get_surface_pt(odr_road.length, 0.0);
-      core_road.points.push_back(Core::Vec2(pt[0], pt[1]));
-      core_road.elevation_offsets.push_back(static_cast<float>(pt[2]));
+      AppendRoadSample(odr_road.get_surface_pt(odr_road.length, 0.0),
+                       core_road);
+    }
+
+    if (core_road.points.empty()) {
+      continue;
     }
 
     out_roads.push_back(std::move(core_road));
   }
 
-  for (const auto &odr_junc : map.get_junctions()) {
+  for (const auto &odr_junc : map->get_junctions()) {
     Core::IntersectionTemplate core_junc;
-    try {
-      core_junc.id = std::stoul(odr_junc.id);
-    } catch (...) {
-      core_junc.id =
-          static_cast<uint32_t>(std::hash<std::string>{}(odr_junc.id));
-    }
+    core_junc.id = ParseStableId(odr_junc.id);
 
     // OpenDRIVE does not provide an explicit center point for junctions,
     // it defines topologies. For MVP, we can leave center at 0,0 or compute

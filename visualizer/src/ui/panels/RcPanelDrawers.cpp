@@ -3,7 +3,6 @@
 // PATTERN: Each panel gets a drawer class that implements IPanelDrawer
 
 #include "IPanelDrawer.h"
-#include "PanelRegistry.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 
@@ -23,18 +22,12 @@
 #include "ui/panels/rc_panel_road_index.h"
 #include "ui/panels/rc_panel_system_map.h"
 #include "ui/panels/rc_panel_telemetry.h"
+#include "ui/panels/rc_panel_texture_editing.h"
 #include "ui/panels/rc_panel_tools.h"
-#include "ui/panels/rc_panel_ui_settings.h"
 #include "ui/panels/rc_panel_validation.h"
 #include "ui/panels/rc_panel_water_control.h"
 #include "ui/panels/rc_panel_workspace.h"
 #include "ui/panels/rc_panel_zoning_control.h"
-
-#if defined(ROGUE_AI_DLC_ENABLED)
-#include "ui/panels/rc_panel_ai_console.h"
-#include "ui/panels/rc_panel_city_spec.h"
-#include "ui/panels/rc_panel_ui_agent.h"
-#endif
 
 namespace RC_UI::Panels {
 
@@ -199,9 +192,13 @@ public:
 IPanelDrawer *CreateDrawer() { return new Drawer(); }
 } // namespace AxiomEditor
 
-RC_DEFINE_DRAWER(Telemetry, Telemetry, "Telemetry", Controls,
+RC_DEFINE_DRAWER(Telemetry, Telemetry, "Telemetry", System,
                  "visualizer/src/ui/panels/rc_panel_telemetry.cpp", "system",
                  "telemetry", "debug")
+
+RC_DEFINE_DRAWER(TextureEditing, TextureEditing, "Texture Editing", System,
+                 "visualizer/src/ui/panels/rc_panel_texture_editing.cpp",
+                 "texture", "editing", "authoring")
 
 RC_DEFINE_DRAWER(Tools, Tools, "Tools", Tools,
                  "visualizer/src/ui/panels/rc_panel_tools.cpp", "tools",

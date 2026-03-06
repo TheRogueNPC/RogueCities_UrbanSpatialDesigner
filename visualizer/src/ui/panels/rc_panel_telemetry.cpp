@@ -16,6 +16,82 @@
 
 namespace RC_UI::Panels::Telemetry {
 
+void DrawGridQualityIndexSection() {
+  auto &gs = RogueCity::Core::Editor::GetGlobalState();
+  if (Components::DrawSectionHeader("Grid Quality Index", UITokens::CyanAccent,
+                                    true,
+                                    RC::SvgTextureCache::Get().Load(LC::Grid,
+                                                                    14.f))) {
+    auto &gq = gs.grid_quality;
+
+    Components::DrawMeter("Composite", gq.composite_index,
+                          UITokens::SuccessGreen);
+    Components::DrawMeter("Straightness", gq.straightness,
+                          UITokens::SuccessGreen);
+    Components::DrawMeter("Orientation", gq.orientation_order,
+                          UITokens::InfoBlue);
+    Components::DrawMeter("4-Way Prop", gq.four_way_proportion,
+                          UITokens::YellowWarning);
+
+    ImGui::Spacing();
+  }
+}
+
+void DrawUrbanHellDiagnosticsSection(bool include_quick_fix_stubs) {
+  auto &gs = RogueCity::Core::Editor::GetGlobalState();
+  if (Components::DrawSectionHeader("Urban Hell Diagnostics",
+                                    UITokens::YellowWarning, true,
+                                    RC::SvgTextureCache::Get().Load(
+                                        LC::AlertTriangle, 14.f))) {
+    auto &gq = gs.grid_quality;
+
+    if (gq.island_count > 1) {
+      Components::DrawDiagRow(
+          "Connectivity",
+          (std::string("Disconnected (") + std::to_string(gq.island_count) +
+           ")")
+              .c_str(),
+          UITokens::ErrorRed);
+    } else {
+      Components::DrawDiagRow("Connectivity", "Unified",
+                              UITokens::SuccessGreen);
+    }
+
+    char dead_ends_str[32];
+    snprintf(dead_ends_str, sizeof(dead_ends_str), "%d%%",
+             static_cast<int>(gq.dead_end_proportion * 100));
+    Components::DrawDiagRow("Dead Ends", dead_ends_str,
+                            gq.dead_end_proportion > 0.4f
+                                ? UITokens::ErrorRed
+                                : UITokens::TextPrimary);
+
+    if (gq.micro_segment_count > 0) {
+      Components::DrawDiagRow("Micro-Segments",
+                              std::to_string(gq.micro_segment_count).c_str(),
+                              UITokens::YellowWarning);
+    }
+
+    char gamma_str[32];
+    snprintf(gamma_str, sizeof(gamma_str), "%.2f", gq.connectivity_index);
+    Components::DrawDiagRow("Gamma Index", gamma_str);
+
+    Components::DrawDiagRow("Strokes", std::to_string(gq.total_strokes).c_str());
+    Components::DrawDiagRow("Intersections",
+                            std::to_string(gq.total_intersections).c_str());
+
+    if (include_quick_fix_stubs) {
+      ImGui::Spacing();
+      ImGui::SeparatorText("Quick Fixes");
+      ImGui::BeginDisabled();
+      ImGui::Button("Reconnect Islands (stub)", ImVec2(220.0f, 0.0f));
+      ImGui::Button("Reduce Dead Ends (stub)", ImVec2(220.0f, 0.0f));
+      ImGui::Button("Prune Micro-Segments (stub)", ImVec2(220.0f, 0.0f));
+      ImGui::EndDisabled();
+      ImGui::TextDisabled("Quick-fix actions are planned and not yet wired.");
+    }
+  }
+}
+
 void DrawContent(float dt) {
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
   auto &gs = RogueCity::Core::Editor::GetGlobalState();
@@ -66,46 +142,6 @@ void DrawContent(float dt) {
       }
       Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED", gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed, true);
       ImGui::Spacing();
-  }
-
-  // Grid Quality Index Section
-  if (Components::DrawSectionHeader("Grid Quality Index", UITokens::CyanAccent, true,
-                                    RC::SvgTextureCache::Get().Load(LC::Grid, 14.f))) {
-      auto &gq = gs.grid_quality;
-      
-      Components::DrawMeter("Composite", gq.composite_index, UITokens::SuccessGreen);
-      Components::DrawMeter("Straightness", gq.straightness, UITokens::SuccessGreen);
-      Components::DrawMeter("Orientation", gq.orientation_order, UITokens::InfoBlue);
-      Components::DrawMeter("4-Way Prop", gq.four_way_proportion, UITokens::YellowWarning);
-      
-      ImGui::Spacing();
-  }
-
-  // Urban Hell Diagnostics Section
-  if (Components::DrawSectionHeader("Urban Hell Diagnostics", UITokens::YellowWarning, true,
-                                    RC::SvgTextureCache::Get().Load(LC::AlertTriangle, 14.f))) {
-      auto &gq = gs.grid_quality;
-
-      if (gq.island_count > 1) {
-          Components::DrawDiagRow("Connectivity", (std::string("Disconnected (") + std::to_string(gq.island_count) + ")").c_str(), UITokens::ErrorRed);
-      } else {
-          Components::DrawDiagRow("Connectivity", "Unified", UITokens::SuccessGreen);
-      }
-
-      char dead_ends_str[32];
-      snprintf(dead_ends_str, sizeof(dead_ends_str), "%d%%", static_cast<int>(gq.dead_end_proportion * 100));
-      Components::DrawDiagRow("Dead Ends", dead_ends_str, gq.dead_end_proportion > 0.4f ? UITokens::ErrorRed : UITokens::TextPrimary);
-
-      if (gq.micro_segment_count > 0) {
-          Components::DrawDiagRow("Micro-Segments", std::to_string(gq.micro_segment_count).c_str(), UITokens::YellowWarning);
-      }
-
-      char gamma_str[32];
-      snprintf(gamma_str, sizeof(gamma_str), "%.2f", gq.connectivity_index);
-      Components::DrawDiagRow("Gamma Index", gamma_str);
-      
-      Components::DrawDiagRow("Strokes", std::to_string(gq.total_strokes).c_str());
-      Components::DrawDiagRow("Intersections", std::to_string(gq.total_intersections).c_str());
   }
 
   uiint.RegisterWidget(

@@ -14,6 +14,9 @@ class RcInspectorSidebar {
 public:
     void Draw(float dt);
 
+    void SetWindowOpen(bool open) { m_window_open = open; }
+    [[nodiscard]] bool IsWindowOpen() const { return m_window_open; }
+
     // B2 Activity Bar interface — thread-safe within single-threaded ImGui loop.
     static void RequestTab(int tab_index);   // 0=Inspector 1=SystemMap 2=Health
     static int  GetRequestedTab();           // -1 = no pending request

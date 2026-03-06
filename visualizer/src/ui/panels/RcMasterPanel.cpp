@@ -75,8 +75,19 @@ void RcMasterPanel::Draw(float dt) {
     s_has_panel_request = false;
   }
 
-  // Handle search overlay (Ctrl+P)
-  if (ImGui::IsKeyPressed(ImGuiKey_P) && ImGui::GetIO().KeyCtrl) {
+  const auto editor_state = hfsm.state();
+  const bool in_axiom_mode =
+      (editor_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
+      (editor_state ==
+       RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
+  if (in_axiom_mode && m_active_category != PanelCategory::Tools) {
+    m_active_category = PanelCategory::Tools;
+  }
+
+  // Handle search overlay (/)
+  const ImGuiIO &io = ImGui::GetIO();
+  if (ImGui::IsKeyPressed(ImGuiKey_Slash) && !io.KeyCtrl && !io.KeyAlt &&
+      !io.KeyShift) {
     OpenSearch();
   }
 
@@ -134,12 +145,6 @@ void RcMasterPanel::DrawModeSwitches(DrawContext &ctx) {
 void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
   auto &registry = PanelRegistry::Instance();
 
-  const auto editor_state = ctx.hfsm.state();
-  const bool force_tools_tab =
-      (editor_state == RogueCity::Core::Editor::EditorState::Editing_Axioms) ||
-      (editor_state ==
-       RogueCity::Core::Editor::EditorState::Viewport_PlaceAxiom);
-
   const std::array<PanelCategory, 5> categories = {
       PanelCategory::Indices, PanelCategory::Controls, PanelCategory::Tools,
       PanelCategory::System, PanelCategory::AI};
@@ -166,28 +171,26 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
       const char *tab_name = "Unknown";
       switch (cat) {
       case PanelCategory::Indices:
-        tab_name = "Indices";
+        tab_name = "[BM] Indices";
         break;
       case PanelCategory::Controls:
-        tab_name = "Controls";
+        tab_name = "[SL] Controls";
         break;
       case PanelCategory::Tools:
-        tab_name = "Tools";
+        tab_name = "[TC] Tools";
         break;
       case PanelCategory::System:
-        tab_name = "System";
+        tab_name = "[MC] System";
         break;
       case PanelCategory::AI:
         tab_name = "AI";
         break;
+      case PanelCategory::Hidden:
+        tab_name = "Hidden";
+        break;
       }
 
-      ImGuiTabItemFlags tab_flags = ImGuiTabItemFlags_None;
-      if (force_tools_tab && cat == PanelCategory::Tools) {
-        tab_flags |= ImGuiTabItemFlags_SetSelected;
-      }
-
-      if (ImGui::BeginTabItem(tab_name, nullptr, tab_flags)) {
+      if (ImGui::BeginTabItem(tab_name)) {
         m_active_category = cat;
         if (cat == PanelCategory::Tools) {
           is_tools_tab_active = true;
@@ -229,7 +232,7 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
     ImGui::Spacing();
 
     ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("%s", "(Ctrl+P for search)");
+    ImGui::TextDisabled("%s", "(/ for search)");
     ImGui::PopTextWrapPos();
     ImGui::Separator();
 
