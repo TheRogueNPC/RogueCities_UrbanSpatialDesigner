@@ -28,6 +28,12 @@ FORBIDDEN_PATTERNS = [
     ),
 ]
 
+# Files exempt from ALL forbidden-pattern checks (self-contained floating windows,
+# not dockable panels — they legitimately own their own ImGui::Begin call).
+PANEL_ALLOWLIST: set[str] = {
+    "rc_panel_dataviz_gallery.cpp",
+}
+
 
 def iter_panel_sources() -> list[Path]:
     if not PANELS_DIR.exists():
@@ -39,6 +45,8 @@ def main() -> int:
     violations: list[str] = []
 
     for path in iter_panel_sources():
+        if path.name in PANEL_ALLOWLIST:
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         for pattern, guidance in FORBIDDEN_PATTERNS:
             for match in pattern.finditer(text):

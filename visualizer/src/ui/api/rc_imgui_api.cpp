@@ -93,6 +93,19 @@ void DrawSmoothZoom(const DataViz::SmoothZoomSpec &spec) {
   DataViz::DrawSmoothZoom(spec);
 }
 
+float EaseValue(DataViz::EasingType type, float t,
+                const DataViz::EasingParams &params) {
+  return DataViz::EvaluateEasing(type, t, params);
+}
+
+void EasingCurve(const DataViz::EasingCurveSpec &spec) {
+  DataViz::DrawEasingCurve(spec);
+}
+
+void EasingMotion(const DataViz::EasingMotionSpec &spec) {
+  DataViz::DrawEasingMotion(spec);
+}
+
 void TextDisabled(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -306,5 +319,34 @@ bool BeginChild(const char *id, const ImVec2 &size, ImGuiChildFlags child_flags,
 void EndChild() { ImGui::EndChild(); }
 
 } // namespace Mutate
+
+#ifdef ROGUECITY_HAS_IMPLOT
+#include <implot.h>
+
+void InitImPlot()     { ImPlot::CreateContext(); }
+void ShutdownImPlot() { ImPlot::DestroyContext(); }
+
+void TimeSeries(const DataViz::ImPlotTimeSeriesSpec& spec) {
+    DataViz::DrawImPlotTimeSeries(spec);
+}
+void Scatter(const DataViz::ImPlotScatterSpec& spec) {
+    DataViz::DrawImPlotScatter(spec);
+}
+void Heatmap(const DataViz::ImPlotHeatmapSpec& spec) {
+    DataViz::DrawImPlotHeatmap(spec);
+}
+void Histogram(const DataViz::ImPlotHistogramSpec& spec) {
+    DataViz::DrawImPlotHistogram(spec);
+}
+#endif // ROGUECITY_HAS_IMPLOT
+
+#ifdef ROGUECITY_HAS_IMPLOT3D
+// implot3d.h is included via rc_ui_dataviz.h at global scope; ImPlot3D namespace is visible here.
+void InitImPlot3D()     { ImPlot3D::CreateContext(); }
+void ShutdownImPlot3D() { ImPlot3D::DestroyContext(); }
+void Scatter3D(const DataViz::ImPlot3DScatterSpec& spec)  { DataViz::DrawImPlot3DScatter(spec); }
+void Line3D(const DataViz::ImPlot3DLineSpec& spec)         { DataViz::DrawImPlot3DLine(spec); }
+void Surface3D(const DataViz::ImPlot3DSurfaceSpec& spec)   { DataViz::DrawImPlot3DSurface(spec); }
+#endif // ROGUECITY_HAS_IMPLOT3D
 
 } // namespace RC_UI::API

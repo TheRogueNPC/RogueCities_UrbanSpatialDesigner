@@ -42,6 +42,7 @@
 #include "ui/viewport/rc_viewport_interaction.h"
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "ui/viewport/rc_viewport_scene_controller.h"
+#include "ui/panels/rc_panel_guide_index.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -105,6 +106,15 @@ static constexpr float kMinimapWorldSize =
 static float s_minimap_zoom =
     1.0f; // Zoom level (0.5 = zoomed out, 2.0 = zoomed in)
 static bool s_minimap_auto_lod = true;
+
+// Photoshop-style ruler tick overlay — toggled from View menu
+static bool  s_show_ruler_ticks    = false;
+static bool  s_ruler_crosshair_mode = false;
+static bool  s_ruler_snap_enabled   = false;
+// Animated 0..1 for ruler border margin (exponential blend, ~12 rad/s).
+static float s_ruler_anim_t        = 0.0f;
+// World position captured on right-click open — used for Place H/V Guide actions.
+static RogueCity::Core::Vec2 s_context_menu_world_pos{0.0, 0.0};
 static MinimapLOD s_minimap_lod = MinimapLOD::Tactical;
 static MinimapLOD s_minimap_effective_lod = MinimapLOD::Tactical;
 static bool s_minimap_adaptive_quality = true;
@@ -1291,6 +1301,13 @@ int GetMinimapEffectiveLODLevel() {
 const char *GetMinimapLODStatusText() { return MinimapLODStatusText(); }
 
 bool IsMinimapVisible() { return s_minimap_visible; }
+
+bool IsRulerTicksVisible()         { return s_show_ruler_ticks; }
+void SetRulerTicksVisible(bool v)  { s_show_ruler_ticks = v; }
+bool IsRulerCrosshairMode()        { return s_ruler_crosshair_mode; }
+void SetRulerCrosshairMode(bool v) { s_ruler_crosshair_mode = v; }
+bool IsRulerSnapEnabled()          { return s_ruler_snap_enabled; }
+void SetRulerSnapEnabled(bool v)   { s_ruler_snap_enabled = v; }
 
 void SetMinimapVisible(bool visible) { s_minimap_visible = visible; }
 
@@ -2485,14 +2502,35 @@ void DrawContent(float dt) {
 
   // Render primary viewport with axiom tool integration
   ImDrawList *draw_list = ImGui::GetWindowDrawList();
-  const ImVec2 viewport_pos = ImGui::GetCursorScreenPos();
-  const ImVec2 viewport_size = ImGui::GetContentRegionAvail();
-  if (viewport_size.x <= 0.0f || viewport_size.y <= 0.0f) {
+  const ImVec2 full_vp_pos  = ImGui::GetCursorScreenPos();
+  const ImVec2 full_vp_size = ImGui::GetContentRegionAvail();
+  if (full_vp_size.x <= 0.0f || full_vp_size.y <= 0.0f) {
     return;
   }
 
+  // Animate ruler border margin (exponential smoothing, frame-rate independent).
+  // Ruler strips are drawn in the margin zone; canvas is the inset region.
+  constexpr float kRulerThick = 20.0f;
+  {
+    const float target = s_show_ruler_ticks ? 1.0f : 0.0f;
+    const float blend  = 1.0f - std::exp(-12.0f * dt);
+    s_ruler_anim_t += (target - s_ruler_anim_t) * blend;
+    s_ruler_anim_t  = std::clamp(s_ruler_anim_t, 0.0f, 1.0f);
+  }
+  const float ruler_margin = kRulerThick * s_ruler_anim_t;
+
+  // Canvas interior: inset by ruler_margin on top and left.
+  // When margin = 0 this is identical to the legacy layout.
+  const ImVec2 viewport_pos  = ImVec2(full_vp_pos.x  + ruler_margin,
+                                      full_vp_pos.y  + ruler_margin);
+  const ImVec2 viewport_size = ImVec2(full_vp_size.x - ruler_margin,
+                                      full_vp_size.y - ruler_margin);
+
   // Viewport/Minimap State (required for overlays)
   const auto camera_pos = s_primary_viewport->get_camera_xy();
+  // Advance cursor to canvas origin before the InvisibleButton so mouse
+  // hit testing matches the inset canvas, not the full available area.
+  ImGui::SetCursorScreenPos(viewport_pos);
   API::InvisibleButton("##ViewportCanvas", viewport_size);
   const bool viewport_canvas_hovered = ImGui::IsItemHovered();
   const bool viewport_canvas_active = ImGui::IsItemActive();
@@ -2501,29 +2539,11 @@ void DrawContent(float dt) {
   // Everything that follows until PopClipRect is clipped to the viewport canvas.
   draw_list->PushClipRect(viewport_min, viewport_max, true);
 
-  // Background (Y2K grid pattern)
+  // Solid dark background — city geometry overlays render on top
   draw_list->AddRectFilled(viewport_pos,
                            ImVec2(viewport_pos.x + viewport_size.x,
                                   viewport_pos.y + viewport_size.y),
                            TokenColor(UITokens::BackgroundDark));
-
-  // Grid overlay (subtle Y2K aesthetic)
-  const float grid_spacing = 50.0f; // 50 meter grid
-  const ImU32 grid_color = TokenColor(UITokens::GridOverlay, 100u);
-
-  for (float x = 0; x < viewport_size.x; x += grid_spacing) {
-    draw_list->AddLine(
-        ImVec2(viewport_pos.x + x, viewport_pos.y),
-        ImVec2(viewport_pos.x + x, viewport_pos.y + viewport_size.y),
-        grid_color);
-  }
-
-  for (float y = 0; y < viewport_size.y; y += grid_spacing) {
-    draw_list->AddLine(
-        ImVec2(viewport_pos.x, viewport_pos.y + y),
-        ImVec2(viewport_pos.x + viewport_size.x, viewport_pos.y + y),
-        grid_color);
-  }
 
   // Mouse interaction is handled after overlay windows are submitted so hover
   // tests are correct.
@@ -2655,7 +2675,27 @@ void DrawContent(float dt) {
       !ImGui::GetIO().KeyAlt && !ImGui::GetIO().KeyShift &&
       !ImGui::GetIO().KeyCtrl &&
       ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+    // Capture world position at click time so the Guides submenu can offer
+    // "Place H Guide Here" / "Place V Guide Here" at the exact click location.
+    s_context_menu_world_pos = s_primary_viewport->screen_to_world(mouse_pos);
     API::OpenPopup("##viewport_context_actions");
+  }
+
+  // Alt+LMB: select nearest guide within 6 px; deselects if nothing close
+  if (allow_viewport_mouse_actions && in_viewport && !overlay_blocked_hovered &&
+      ImGui::GetIO().KeyAlt && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    auto &ctx_div_sel = RC_UI::Viewport::GetViewportOverlays().div_lines;
+    int   best_id   = -1;
+    float best_dist = 6.0f;
+    for (const auto &d : ctx_div_sel.lines) {
+      if (!d.enabled) continue;
+      const ImVec2 sp = s_primary_viewport->world_to_screen(
+          {d.horizontal ? 0.0 : d.world_pos, d.horizontal ? d.world_pos : 0.0});
+      const float dist = d.horizontal ? std::fabs(mouse_pos.y - sp.y)
+                                      : std::fabs(mouse_pos.x - sp.x);
+      if (dist < best_dist) { best_dist = dist; best_id = d.id; }
+    }
+    ctx_div_sel.selected_div_id = best_id;
   }
 
   if (API::BeginPopup("##viewport_context_actions")) {
@@ -2820,6 +2860,70 @@ void DrawContent(float dt) {
     if (API::MenuItem("Clear Selection", nullptr, false, has_selection)) {
       gs.selection_manager.Clear();
       RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
+    }
+
+    // ── Guide Lines ──────────────────────────────────────────────────────
+    API::Separator();
+    auto &ctx_div = RC_UI::Viewport::GetViewportOverlays().div_lines;
+    if (ImGui::BeginMenu("Guides")) {
+      // Placed at the exact world position where the user right-clicked.
+      char place_h_lbl[64];
+      char place_v_lbl[64];
+      std::snprintf(place_h_lbl, sizeof(place_h_lbl),
+                    "Place H Guide at Y = %.1f m",
+                    static_cast<float>(s_context_menu_world_pos.y));
+      std::snprintf(place_v_lbl, sizeof(place_v_lbl),
+                    "Place V Guide at X = %.1f m",
+                    static_cast<float>(s_context_menu_world_pos.x));
+      if (API::MenuItem(place_h_lbl))
+        ctx_div.Add(true,  s_context_menu_world_pos.y);
+      if (API::MenuItem(place_v_lbl))
+        ctx_div.Add(false, s_context_menu_world_pos.x);
+
+      if (!ctx_div.lines.empty()) {
+        API::Separator();
+        for (int i = 0; i < static_cast<int>(ctx_div.lines.size()); ++i) {
+          auto &d = ctx_div.lines[static_cast<std::size_t>(i)];
+          ImGui::PushID(d.id);
+          API::Checkbox("##en", &d.enabled);
+          API::SameLine();
+          char info[96];
+          if (d.label.empty()) {
+            std::snprintf(info, sizeof(info), "%s  %.1f m",
+                          d.horizontal ? "H" : "V",
+                          static_cast<float>(d.world_pos));
+          } else {
+            std::snprintf(info, sizeof(info), "%s  %.1f m  [%s]",
+                          d.horizontal ? "H" : "V",
+                          static_cast<float>(d.world_pos),
+                          d.label.c_str());
+          }
+          if (d.id == ctx_div.selected_div_id)
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.78f, 0.0f, 1.0f));
+          ImGui::TextUnformatted(info);
+          if (d.id == ctx_div.selected_div_id)
+            ImGui::PopStyleColor();
+          API::SameLine();
+          if (API::SmallButton("X")) {
+            ctx_div.Remove(d.id);
+            ImGui::PopID();
+            break;
+          }
+          ImGui::PopID();
+        }
+        API::Separator();
+        if (API::MenuItem("Clear All Guides"))
+          ctx_div.Clear();
+      }
+
+      API::Separator();
+      if (API::MenuItem("Save Guides"))  ctx_div.SaveToJson("div_guides.json");
+      if (API::MenuItem("Load Guides"))  ctx_div.LoadFromJson("div_guides.json");
+      API::Separator();
+      if (API::MenuItem("Open Guide Index"))
+        RC_UI::Panels::GuideIndex::Open();
+
+      ImGui::EndMenu();
     }
 
     API::EndPopup();
@@ -3941,8 +4045,9 @@ void DrawContent(float dt) {
   transform.camera_xy = s_primary_viewport->get_camera_xy();
   transform.zoom = s_primary_viewport->world_to_screen_scale(1.0f);
   transform.yaw = s_primary_viewport->get_camera_yaw();
-  transform.viewport_pos = viewport_pos;
+  transform.viewport_pos  = viewport_pos;
   transform.viewport_size = viewport_size;
+  transform.ruler_margin  = ruler_margin;
   overlays.SetViewTransform(transform);
 
   RC_UI::Viewport::OverlayConfig overlay_config{};
@@ -3991,6 +4096,9 @@ void DrawContent(float dt) {
       gs.gizmo.visible && gs.selection_manager.Count() > 0;
   overlay_config.show_compass_gimbal = false;
   overlay_config.show_scale_ruler = false;
+  overlay_config.show_ruler_ticks     = s_show_ruler_ticks;
+  overlay_config.ruler_crosshair_mode  = s_ruler_crosshair_mode;
+  overlay_config.ruler_snap_enabled    = s_ruler_snap_enabled;
   overlays.Render(gs, overlay_config);
 
   auto &search_overlay = RC_UI::Viewport::GetBuildingSearchOverlay();

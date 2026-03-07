@@ -16,6 +16,12 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 // clang-format on
+#ifdef ROGUECITY_HAS_IMPLOT
+#include <implot.h>
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+#include <implot3d.h>
+#endif
 
 // Header-only input adapter (Win32 polling) //todo ensure we are not hardcoding
 // platform-specific input handling and that this can be easily extended or
@@ -488,6 +494,12 @@ int main(int, char **) {
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+#ifdef ROGUECITY_HAS_IMPLOT
+  ImPlot::CreateContext(); // must follow ImGui::CreateContext
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+  ImPlot3D::CreateContext(); // must follow ImGui::CreateContext
+#endif
   RC_UI::Panels::ImGuiError::Init();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
@@ -786,6 +798,12 @@ int main(int, char **) {
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   RC_UI::Panels::ImGuiError::Shutdown();
+#ifdef ROGUECITY_HAS_IMPLOT
+  ImPlot::DestroyContext(); // must precede ImGui::DestroyContext
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+  ImPlot3D::DestroyContext(); // must precede ImGui::DestroyContext
+#endif
   ImGui::DestroyContext();
 
   glfwDestroyWindow(window);

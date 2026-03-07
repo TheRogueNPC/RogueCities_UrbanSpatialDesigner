@@ -53,11 +53,65 @@ if(NOT TARGET RogueCityImGui)
     target_compile_features(RogueCityImGui PUBLIC cxx_std_20)
 endif()
 
+# === ImPlot — real-time plotting library (extends Dear ImGui) ===
+# Source: 3rdparty/implot (git clone https://github.com/epezent/implot.git)
+set(IMPLOT_DIR "${CMAKE_SOURCE_DIR}/3rdparty/implot")
+if(EXISTS "${IMPLOT_DIR}/implot.h")
+    if(NOT TARGET RogueCityImPlot)
+        add_library(RogueCityImPlot STATIC
+            "${IMPLOT_DIR}/implot.cpp"
+            "${IMPLOT_DIR}/implot_items.cpp"
+        )
+        target_include_directories(RogueCityImPlot PUBLIC "${IMPLOT_DIR}")
+        target_link_libraries(RogueCityImPlot PUBLIC RogueCityImGui)
+        target_compile_features(RogueCityImPlot PUBLIC cxx_std_20)
+        if(MSVC)
+            rc_configure_msvc_pdb(RogueCityImPlot "RogueCityImPlot")
+        endif()
+    endif()
+    set(ROGUECITY_HAS_IMPLOT ON)
+    message(STATUS "ImPlot found — RC_UI::API plotting wrappers enabled")
+else()
+    set(ROGUECITY_HAS_IMPLOT OFF)
+    message(STATUS "ImPlot not found at ${IMPLOT_DIR}")
+    message(STATUS "  Run: cd 3rdparty && git clone https://github.com/epezent/implot.git")
+endif()
+
+# === ImPlot3D — 3D plotting extension for Dear ImGui (city volume viz, terrain, etc.) ===
+# Source: 3rdparty/implot3d (git clone https://github.com/brenocq/implot3d.git)
+set(IMPLOT3D_DIR "${CMAKE_SOURCE_DIR}/3rdparty/implot3d")
+if(EXISTS "${IMPLOT3D_DIR}/implot3d.h")
+    if(NOT TARGET RogueCityImPlot3D)
+        add_library(RogueCityImPlot3D STATIC
+            "${IMPLOT3D_DIR}/implot3d.cpp"
+            "${IMPLOT3D_DIR}/implot3d_items.cpp"
+            "${IMPLOT3D_DIR}/implot3d_meshes.cpp"
+        )
+        target_include_directories(RogueCityImPlot3D PUBLIC "${IMPLOT3D_DIR}")
+        # ImPlot3D requires ImPlot2D headers for shared types (ImPlotColormap etc.)
+        target_link_libraries(RogueCityImPlot3D PUBLIC RogueCityImGui)
+        if(ROGUECITY_HAS_IMPLOT)
+            target_include_directories(RogueCityImPlot3D PUBLIC "${IMPLOT_DIR}")
+        endif()
+        target_compile_features(RogueCityImPlot3D PUBLIC cxx_std_20)
+        if(MSVC)
+            rc_configure_msvc_pdb(RogueCityImPlot3D "RogueCityImPlot3D")
+        endif()
+    endif()
+    set(ROGUECITY_HAS_IMPLOT3D ON)
+    message(STATUS "ImPlot3D found — RC_UI::DataViz 3D city plotting enabled")
+else()
+    set(ROGUECITY_HAS_IMPLOT3D OFF)
+    message(STATUS "ImPlot3D not found at ${IMPLOT3D_DIR}")
+    message(STATUS "  Run: cd 3rdparty && git clone https://github.com/brenocq/implot3d.git")
+endif()
+
     add_library(RogueCityVisualizerFeaturePanels STATIC
         src/ui/panels/rc_panel_tools.cpp
         src/ui/panels/rc_panel_ai_console.cpp
         src/ui/panels/rc_panel_ui_agent.cpp
         src/ui/panels/rc_panel_city_spec.cpp
+        src/ui/panels/rc_panel_rcdtd_generator.cpp
     )
 
     target_include_directories(RogueCityVisualizerFeaturePanels PRIVATE
@@ -73,6 +127,14 @@ endif()
         RogueCityAI
         RogueCityImGui
     )
+    if(ROGUECITY_HAS_IMPLOT)
+        target_link_libraries(RogueCityVisualizerFeaturePanels PRIVATE RogueCityImPlot)
+        target_compile_definitions(RogueCityVisualizerFeaturePanels PRIVATE ROGUECITY_HAS_IMPLOT=1)
+    endif()
+    if(ROGUECITY_HAS_IMPLOT3D)
+        target_link_libraries(RogueCityVisualizerFeaturePanels PRIVATE RogueCityImPlot3D)
+        target_compile_definitions(RogueCityVisualizerFeaturePanels PRIVATE ROGUECITY_HAS_IMPLOT3D=1)
+    endif()
     target_compile_features(RogueCityVisualizerFeaturePanels PRIVATE cxx_std_20)
 
     # Define AI DLC flag for conditional compilation of feature panels.
@@ -124,6 +186,7 @@ endif()
         src/ui/panels/rc_panel_imgui_error.cpp
         src/ui/panels/rc_panel_road_editor.cpp
         src/ui/panels/rc_panel_workspace.cpp
+        src/ui/panels/rc_panel_guide_index.cpp
         src/ui/panels/rc_panel_inspector_sidebar.cpp
         src/ui/panels/rc_panel_dataviz_gallery.cpp
         src/ui/panels/rc_panel_city_health.cpp
@@ -134,6 +197,7 @@ endif()
         src/ui/panels/rc_panel_lot_control.cpp
         src/ui/panels/rc_panel_building_control.cpp
         src/ui/panels/rc_panel_water_control.cpp
+        src/ui/panels/rc_panel_rcdtd_generator.cpp
         # RC-0.10: Zoning control and viewport overlays
         src/ui/panels/rc_panel_zoning_control.cpp
         src/ui/viewport/rc_viewport_overlays.cpp
@@ -167,6 +231,14 @@ endif()
         RogueCityImGui
         RogueCityVisualizerFeaturePanels
     )
+    if(ROGUECITY_HAS_IMPLOT)
+        target_link_libraries(RogueCityVisualizerHeadless PRIVATE RogueCityImPlot)
+        target_compile_definitions(RogueCityVisualizerHeadless PRIVATE ROGUECITY_HAS_IMPLOT=1)
+    endif()
+    if(ROGUECITY_HAS_IMPLOT3D)
+        target_link_libraries(RogueCityVisualizerHeadless PRIVATE RogueCityImPlot3D)
+        target_compile_definitions(RogueCityVisualizerHeadless PRIVATE ROGUECITY_HAS_IMPLOT3D=1)
+    endif()
     # Expose UI module headers.
     target_include_directories(RogueCityVisualizerHeadless PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
@@ -289,10 +361,12 @@ endif()
                 src/ui/panels/rc_panel_lot_control.cpp
                 src/ui/panels/rc_panel_building_control.cpp
                 src/ui/panels/rc_panel_water_control.cpp
+                src/ui/panels/rc_panel_rcdtd_generator.cpp
                 src/ui/panels/rc_panel_dev_shell.cpp
                 src/ui/panels/rc_panel_imgui_error.cpp
                 src/ui/panels/rc_panel_road_editor.cpp
                 src/ui/panels/rc_panel_workspace.cpp
+                src/ui/panels/rc_panel_guide_index.cpp
                 src/ui/panels/rc_panel_inspector_sidebar.cpp
                 src/ui/panels/rc_panel_dataviz_gallery.cpp
                 src/ui/panels/rc_panel_city_health.cpp
@@ -356,7 +430,15 @@ endif()
                 OpenGL::GL 
                 glfw
             )
-            
+            if(ROGUECITY_HAS_IMPLOT)
+                target_link_libraries(RogueCityVisualizerGui PRIVATE RogueCityImPlot)
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUECITY_HAS_IMPLOT=1)
+            endif()
+            if(ROGUECITY_HAS_IMPLOT3D)
+                target_link_libraries(RogueCityVisualizerGui PRIVATE RogueCityImPlot3D)
+                target_compile_definitions(RogueCityVisualizerGui PRIVATE ROGUECITY_HAS_IMPLOT3D=1)
+            endif()
+
             # Link sol2/lua if available (for UI scripting/toolchain)
             if(TARGET sol2::sol2)
                 target_link_libraries(RogueCityVisualizerGui PRIVATE sol2::sol2)

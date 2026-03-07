@@ -104,6 +104,7 @@ IPanelDrawer *CreateDrawer();
 namespace WaterControl {
 IPanelDrawer *CreateDrawer();
 }
+// namespace RcdtdGenerator removed - now a standalone window
 namespace AxiomBar {
 IPanelDrawer *CreateDrawer();
 }
@@ -172,6 +173,7 @@ void InitializePanelRegistry() {
       std::unique_ptr<IPanelDrawer>(BuildingControl::CreateDrawer()));
   registry.Register(
       std::unique_ptr<IPanelDrawer>(WaterControl::CreateDrawer()));
+  // RCDTD is now standalone, no longer registered here.
 
   // Register Tools
   registry.Register(std::unique_ptr<IPanelDrawer>(Tools::CreateDrawer()));
@@ -187,8 +189,7 @@ void InitializePanelRegistry() {
   registry.Register(std::unique_ptr<IPanelDrawer>(Inspector::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(SystemMap::CreateDrawer()));
   registry.Register(std::unique_ptr<IPanelDrawer>(DevShell::CreateDrawer()));
-  registry.Register(
-      std::unique_ptr<IPanelDrawer>(Validation::CreateDrawer()));
+  registry.Register(std::unique_ptr<IPanelDrawer>(Validation::CreateDrawer()));
   registry.Register(
       std::unique_ptr<IPanelDrawer>(WorkspaceSettings::CreateDrawer()));
 

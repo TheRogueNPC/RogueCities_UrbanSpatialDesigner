@@ -9,7 +9,12 @@
       "Bash(curl -fsSL \"https://raw.githubusercontent.com/memononen/nanosvg/master/src/nanosvgrast.h\" -o \"3rdparty/nanosvg/nanosvgrast.h\")",
       "Bash(npm install lucide-static --prefix ./lucide_tmp)",
       "Bash(ls:*)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "Bash(python \"c:/Users/teamc/Documents/Rogue Cities/RogueCities_UrbanSpatialDesigner/tools/check_ui_compliance.py\")",
+      "Bash(python tools/check_ui_compliance.py)",
+      "Bash(powershell -Command \"Get-Process | Where-Object { $_Modules.ModuleName -contains ''rc_ui_root.cpp'' } | Select-Object Name,Id\")",
+      "Bash(powershell -Command \"icacls ''c:\\\\Users\\\\teamc\\\\Documents\\\\Rogue Cities\\\\RogueCities_UrbanSpatialDesigner\\\\visualizer\\\\src\\\\ui\\\\rc_ui_root.cpp'' 2>&1 | head -5\")",
+      "Bash(powershell -Command \":*)"
     ]
   }
 }

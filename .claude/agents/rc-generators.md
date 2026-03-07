@@ -1,6 +1,7 @@
 ---
 name: RC Generators Specialist
-description: Use for generators/ layer work — CityGenerator pipeline stages, TensorFieldGenerator, BasisFields (Hermite decay), AxiomInput params, terminal features, ZoningGenerator config, AESP formula application, Grid Index metrics. Do NOT use for UI/ImGui panels, road-specific control flow (use rc-roadgen), or app wiring (use rc-integration).
+description: "Use for generators/ layer work — CityGenerator pipeline stages, TensorFieldGenerator, BasisFields (Hermite decay), AxiomInput params, terminal features, ZoningGenerator config, AESP formula application, Grid Index metrics. Do NOT use for UI/ImGui panels, road-specific control flow (use rc-roadgen), or app wiring (use rc-integration)."
+color: yellow
 ---
 
 # RC Generators Specialist

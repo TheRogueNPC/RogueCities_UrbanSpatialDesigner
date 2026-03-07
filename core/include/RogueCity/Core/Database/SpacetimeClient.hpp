@@ -39,6 +39,14 @@ void rc_db_push_generation_stats(uint64_t serial, uint32_t roads,
                                  uint32_t districts, uint32_t lots,
                                  uint32_t buildings, float time_ms);
 void rc_db_clear_generated();
+
+#ifdef RC_FEATURE_GUIDE_DB_SYNC
+// Divider guide table reducers — implemented in server/src/lib.rs
+void rc_db_push_div_guide(int id, bool horizontal, double world_pos,
+                          const char *label, bool enabled);
+void rc_db_remove_div_guide(int id);
+void rc_db_clear_div_guides();
+#endif
 }
 
 namespace RogueCity::Core::Database {
@@ -112,6 +120,16 @@ public:
   /** @brief Clear all generated entity rows (roads, districts, lots,
    * buildings). */
   static void ClearGenerated() { ::rc_db_clear_generated(); }
+
+#ifdef RC_FEATURE_GUIDE_DB_SYNC
+  // === Divider Guide Sync (enable with -DRC_FEATURE_GUIDE_DB_SYNC=ON) ===
+  static void PushDivGuide(int id, bool horizontal, double world_pos,
+                           const char *label, bool enabled) {
+    ::rc_db_push_div_guide(id, horizontal, world_pos, label, enabled);
+  }
+  static void RemoveDivGuide(int id) { ::rc_db_remove_div_guide(id); }
+  static void ClearDivGuides()       { ::rc_db_clear_div_guides(); }
+#endif
 };
 
 } // namespace RogueCity::Core::Database

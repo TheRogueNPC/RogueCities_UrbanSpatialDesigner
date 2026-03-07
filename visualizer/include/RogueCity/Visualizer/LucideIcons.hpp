@@ -51,6 +51,16 @@ static constexpr const char* Road          = "visualizer/assets/icons/lucide/rou
 static constexpr const char* Trees         = "visualizer/assets/icons/lucide/trees.svg";
 static constexpr const char* Landmark      = "visualizer/assets/icons/lucide/landmark.svg";
 
+// ── Playback & Generation ─────────────────────────────────────────────────────
+static constexpr const char* Play          = "visualizer/assets/icons/lucide/play.svg";
+static constexpr const char* CirclePlay    = "visualizer/assets/icons/lucide/circle-play.svg";
+static constexpr const char* StepForward   = "visualizer/assets/icons/lucide/step-forward.svg";
+static constexpr const char* FastForward   = "visualizer/assets/icons/lucide/fast-forward.svg";
+static constexpr const char* Zap           = "visualizer/assets/icons/lucide/zap.svg";
+static constexpr const char* Sparkles      = "visualizer/assets/icons/lucide/sparkles.svg";
+static constexpr const char* Sparkle       = "visualizer/assets/icons/lucide/sparkle.svg";
+static constexpr const char* ListRestart   = "visualizer/assets/icons/lucide/list-restart.svg";
+
 // ── AI & Dev ──────────────────────────────────────────────────────────────────
 static constexpr const char* Bot           = "visualizer/assets/icons/lucide/bot.svg";
 static constexpr const char* Terminal      = "visualizer/assets/icons/lucide/terminal.svg";

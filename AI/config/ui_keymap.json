@@ -216,6 +216,33 @@
       "shift": false,
       "super": false
     },
+    "view.ruler_crosshair": {
+      "alt": false,
+      "combo": "Shift+L",
+      "ctrl": false,
+      "key": 557,
+      "key_name": "L",
+      "shift": true,
+      "super": false
+    },
+    "view.ruler_div_mode": {
+      "alt": false,
+      "combo": "Ctrl+L",
+      "ctrl": true,
+      "key": 557,
+      "key_name": "L",
+      "shift": false,
+      "super": false
+    },
+    "view.ruler_toggle": {
+      "alt": false,
+      "combo": "L",
+      "ctrl": false,
+      "key": 557,
+      "key_name": "L",
+      "shift": false,
+      "super": false
+    },
     "view.toggle_activity_left": {
       "alt": false,
       "combo": "B",
@@ -506,5 +533,5 @@
     }
   },
   "schema": 1,
-  "updated_at_utc": "2026-03-06T22:44:34Z"
+  "updated_at_utc": "2026-03-07T15:59:26Z"
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - 2026-03-07 (RCDTD Standalone Interface)
+- **RCDTD Standalone Panel**: Transitioned the RC_DTD generator interface from a dependent `IPanelDrawer` instance within the Master Panel into a fully autonomous, dockable ImGui window (`RC_UI::BeginDockableWindow("RC_DTD")`).
+- **Thesis v1 Parameter Support**: Updated `RCDTDConfig` with Thesis-compliant baseline constraints (Distance Weight, Straightness Weight, Growth Budgets, Intersections cap) and provided `RC_UI::API` sliders to expose real-time generative parameter control without breaking compatibility loops.
+- **RCDTD Generator Preview Canvas**: Implemented a standalone, scaled local preview mini-viewport using custom `ImDrawList` geometry translation mapping (`world_to_screen`) strictly to bounding boxes and wireframe layout of `RoadGraph`/`BlockGraph` prior to commit logic.
+
 ## [Unreleased] - 2026-03-06 (SpacetimeDB Bridge — Phases 0–3)
 - **SpacetimeBridge C++ Queue Hardening**: Implemented the asynchronous `SpacetimeBridge` class (`core/include/RogueCity/Core/Database/SpacetimeBridge.hpp` and `.cpp`) to orchestrate non-blocking background thread synchronization between the main HFSM and the SpacetimeDB Rust SDK, fully removing UI/loop blockage risks during database sync.
 - **AI Toolserver Rust REPL (WIP)**: Created the initial `ai_repl` Rust crate in `AI/ai_repl` with `tokio`, `reqwest`, and `rustyline` dependencies, establishing the foundation for replacing the Python `toolserver.py` with a native Rust implementation that will share the SpacetimeDB connection.
@@ -35,6 +40,24 @@
 ## [Unreleased] - 2026-03-05 (ImGui Error Recovery Agent)
 - **ImGui Error Recovery Agent**: Added `rc_panel_imgui_error.h/.cpp` — a floating developer panel (`RC_UI::Panels::ImGuiError`) that configures all four `io.ConfigErrorRecovery*` flags to programmer-seat defaults on startup, scans `ImGuiContext::DebugLogBuf` for `[imgui-error]` entries and surfaces them in a live scrollable table, and exposes `BeginProtectedSection`/`EndProtectedSection` wrappers using `ImGui::ErrorRecoveryStoreState`/`ErrorRecoveryTryToRecoverState`. Initialized in both headless (`main.cpp`) and GUI (`main_gui.cpp`) entry points. Accessible via Terminal → ImGui Error Agent. Collaboration mandate updated: any panel driving dynamic or scripted ImGui calls must use protected sections.
 
+## [Unreleased]
+
+### Added
+- **RCDTD – Rogue Cities Downtown Generator v1**: Implemented a standalone, integrable downtown street and zoning generator.
+  - Core investment-model road growth with planar constraints (clearance, angle, crossings).
+  - Half-edge face detection and adjacency block graph derivation.
+  - Greedy area-targeted zoning algorithm with local/global weights and requirement functions.
+  - Dedicated "RCDTD" ImGui panel for interactive parameter control and step-by-step generation.
+  - High-fidelity 2.5D visualizer overlays for RCDTD road network and zoned blocks.
+  - Support for starting graph input and multi-level recursive infill.
+
+### Fixed
+### [0.10.1] - 2026-03-07
+- **[NEW]** Implemented RCDTD (Rogue Cities Downtown Generator) v1 module.
+- **[NEW]** Added planar road growth algorithm using investment budget constraints.
+- **[NEW]** Integrated greedy zoning and face detection logic for downtown blocks.
+- **[NEW]** Added interactive RCDTD control panel and viewport overlays.
+- **[FIX]** Resolved various build linkage and type conversion issues in the visualizer.
 ## [Unreleased] - 2026-03-05 (Thesis Pipeline Integration + DevShell Toolchain Hardening)
 - **Thesis Pipeline Integration (Phases 1–5)**: Added additive generator modules and wiring for `GenerationInput` + deterministic scaffold fallback (no-axiom base generation), bounded `RoadgNeighborhoodBuilder`, optional GDAL GeoPackage I/O, data-driven FBCZ rule enforcement, and optional BehaviorTree-based policy auditors with deterministic fallback execution.
 - **CRS Contract + Spatial Metadata Plumbing**: Introduced `Core::Data::SpatialReference` and threaded CRS metadata through generator output, global state application, OpenDRIVE bridge metadata capture, and GeoPackage pathways; documented canonical planar-meter contract and caveats in `docs/30_architecture/crs-contract.md`.

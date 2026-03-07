@@ -40,6 +40,7 @@ set(GENERATOR_SOURCES
     src/Generators/Urban/BlockGenerator.cpp
     src/Generators/Urban/LotGenerator.cpp
     src/Generators/Urban/SiteGenerator.cpp
+    src/Generators/Urban/RCDTDGenerator.cpp
     src/Generators/IO/GeoPackageIO.cpp
     src/Generators/Policy/FbczRuleEngine.cpp
     src/Generators/Policy/BehaviorTreeAuditors.cpp
@@ -91,6 +92,7 @@ set(GENERATOR_HEADERS
     include/RogueCity/Generators/Urban/BlockGenerator.hpp
     include/RogueCity/Generators/Urban/LotGenerator.hpp
     include/RogueCity/Generators/Urban/SiteGenerator.hpp
+    include/RogueCity/Generators/Urban/RCDTDGenerator.hpp
     include/RogueCity/Generators/IO/GeoPackageIO.hpp
     include/RogueCity/Generators/Policy/FbczRuleEngine.hpp
     include/RogueCity/Generators/Policy/BehaviorTreeAuditors.hpp

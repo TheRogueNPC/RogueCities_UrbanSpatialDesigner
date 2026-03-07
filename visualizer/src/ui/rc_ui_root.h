@@ -108,6 +108,10 @@ inline constexpr char kToggleDevShell[] = "terminal.toggle_dev_shell";
 inline constexpr char kSoftResetLayout[] = "debug.reset_layout";
 inline constexpr char kHardResetLayout[] = "debug.reset_hard";
 inline constexpr char kRedoAlt[] = "debug.redo_alt";
+// Ruler overlay: L = toggle, Shift+L = crosshair, Ctrl+L = div-snap
+inline constexpr char kRulerToggle[]    = "view.ruler_toggle";
+inline constexpr char kRulerCrosshair[] = "view.ruler_crosshair";
+inline constexpr char kRulerDivMode[]   = "view.ruler_div_mode";
 } // namespace Action
 
 void EnsureLoaded();

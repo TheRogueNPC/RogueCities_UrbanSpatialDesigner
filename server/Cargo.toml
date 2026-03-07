@@ -9,3 +9,27 @@ crate-type = ["cdylib"]
 [dependencies]
 spacetimedb = { version = "2.0.3" }
 log = "0.4"
+
+# ---------------------------------------------------------------------------
+# NOTE: ImGui / ImPlot Rust client bindings (NOT used by this SpacetimeDB module)
+# ---------------------------------------------------------------------------
+# This crate is a server-side SpacetimeDB module — it has no UI.
+# If a native Rust ImGui client is ever built (e.g. a standalone editor
+# companion app), the following crates provide idiomatic ImGui/ImPlot bindings:
+#
+#   imgui      = "0.12"           # imgui-rs — safe Dear ImGui bindings
+#                                  # mirrors the struct/enum API in the
+#                                  # imgui-rs crate tree you referenced
+#   imgui-sys  = "0.12"           # raw FFI re-exported as imgui::sys
+#   implot     = "0.9"            # implot-rs — wraps the C++ implot lib
+#                                  # the same epezent/implot we import in
+#                                  # 3rdparty/implot for the C++ visualizer
+#   dear-implot3d = "0.x"         # Rust bindings to implot3d (brenocq/implot3d)
+#                                  # safe wrapper for 3D scatter/line/surface
+#                                  # plots; pairs with imgui-rs for a full Rust
+#                                  # ImGui 3D stack.  C++ counterpart lives in
+#                                  # 3rdparty/implot3d + RogueCityImPlot3D target.
+#
+# Wire them via a [dev-dependencies] or a separate bin/ target; do NOT
+# add them here as they would incorrectly inflate the cdylib build.
+# ---------------------------------------------------------------------------

@@ -59,6 +59,12 @@ void InitSmoothZoom(RC_UI::DataViz::SmoothZoomSpec &spec, float cx, float cy,
 void StepSmoothZoom(RC_UI::DataViz::SmoothZoomSpec &spec, float dt);
 void DrawSmoothZoom(const RC_UI::DataViz::SmoothZoomSpec &spec);
 
+// Easing utilities + visualizations (D3-style time remapping demos).
+float EaseValue(RC_UI::DataViz::EasingType type, float t,
+                const RC_UI::DataViz::EasingParams &params = {});
+void EasingCurve(const RC_UI::DataViz::EasingCurveSpec &spec);
+void EasingMotion(const RC_UI::DataViz::EasingMotionSpec &spec);
+
 void TextDisabled(const char *fmt, ...);
 void Spacing();
 void Separator();
@@ -139,6 +145,34 @@ bool BeginPopupModal(const char *name, bool *p_open = nullptr,
                      ImGuiWindowFlags flags = 0);
 void EndPopup();
 void CloseCurrentPopup();
+
+#ifdef ROGUECITY_HAS_IMPLOT
+// ---------------------------------------------------------------------------
+// ImPlot context lifecycle
+// Call InitImPlot() immediately after ImGui::CreateContext().
+// Call ShutdownImPlot() immediately before ImGui::DestroyContext().
+// ---------------------------------------------------------------------------
+void InitImPlot();
+void ShutdownImPlot();
+
+// ---------------------------------------------------------------------------
+// ImPlot-backed DataViz wrappers — see rc_ui_dataviz.h for spec fields.
+// ---------------------------------------------------------------------------
+void TimeSeries(const RC_UI::DataViz::ImPlotTimeSeriesSpec& spec);
+void Scatter(const RC_UI::DataViz::ImPlotScatterSpec& spec);
+void Heatmap(const RC_UI::DataViz::ImPlotHeatmapSpec& spec);
+void Histogram(const RC_UI::DataViz::ImPlotHistogramSpec& spec);
+#endif // ROGUECITY_HAS_IMPLOT
+
+#ifdef ROGUECITY_HAS_IMPLOT3D
+// 3D plotting context — must be called once around the ImGui context lifetime.
+void InitImPlot3D();
+void ShutdownImPlot3D();
+// 3D plot primitives wrapping RC_UI::DataViz::Draw* helpers.
+void Scatter3D(const RC_UI::DataViz::ImPlot3DScatterSpec& spec);
+void Line3D(const RC_UI::DataViz::ImPlot3DLineSpec& spec);
+void Surface3D(const RC_UI::DataViz::ImPlot3DSurfaceSpec& spec);
+#endif // ROGUECITY_HAS_IMPLOT3D
 
 class ScopedID {
 public:

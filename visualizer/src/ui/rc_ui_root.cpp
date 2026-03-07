@@ -13,12 +13,13 @@
 #include "ui/panels/rc_panel_building_index.h" // NEW: Building index (RC-0.10)
 #include "ui/panels/rc_panel_city_spec.h" // NEW: CitySpec generator (Phase 3)
 #include "ui/panels/rc_panel_dev_shell.h"
-#include "ui/panels/rc_panel_imgui_error.h"
 #include "ui/panels/rc_panel_district_index.h"
+#include "ui/panels/rc_panel_imgui_error.h"
 #include "ui/panels/rc_panel_inspector.h"
 #include "ui/panels/rc_panel_log.h"
 #include "ui/panels/rc_panel_lot_control.h" // AI_INTEGRATION_TAG: V1_PASS1_TASK4_PANEL_WIRING
 #include "ui/panels/rc_panel_lot_index.h"
+#include "ui/panels/rc_panel_rcdtd_generator.h" // NEW: RCDTD standalone
 #include "ui/panels/rc_panel_river_index.h"
 #include "ui/panels/rc_panel_road_index.h"
 #include "ui/panels/rc_panel_system_map.h"
@@ -51,20 +52,20 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <iomanip>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <iomanip>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <sstream>
 #include <span>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -94,22 +95,22 @@ struct DockRequest {
 };
 
 struct DockLayoutNodes {
-  ImGuiID root       = 0;
+  ImGuiID root = 0;
   // Legacy aliases (kept for QueueDockWindow / NodeForDockArea compat)
-  ImGuiID left       = 0; // → p3_tools
-  ImGuiID right      = 0; // → p4_inspector
-  ImGuiID tool_deck  = 0;
-  ImGuiID library    = 0;
-  ImGuiID center     = 0;
-  ImGuiID bottom     = 0; // → p5_system
+  ImGuiID left = 0;  // → p3_tools
+  ImGuiID right = 0; // → p4_inspector
+  ImGuiID tool_deck = 0;
+  ImGuiID library = 0;
+  ImGuiID center = 0;
+  ImGuiID bottom = 0; // → p5_system
   ImGuiID bottom_tabs = 0;
   // New 6-zone layout nodes (BuildDefaultWorkspace)
-  ImGuiID b1_icons     = 0; // Far-left activity bar  (fixed width, no-resize)
-  ImGuiID p3_tools     = 0; // Tool panel / explorer
+  ImGuiID b1_icons = 0;     // Far-left activity bar  (fixed width, no-resize)
+  ImGuiID p3_tools = 0;     // Tool panel / explorer
   ImGuiID p4_inspector = 0; // Inspector & diagnostics
-  ImGuiID b2_icons     = 0; // Far-right activity bar (fixed width, no-resize)
-  ImGuiID p5_system    = 0; // System / terminals (bottom, collapsible)
-  ImGuiID viz_bar      = 0; // Visualizer context bar (below title bar)
+  ImGuiID b2_icons = 0;     // Far-right activity bar (fixed width, no-resize)
+  ImGuiID p5_system = 0;    // System / terminals (bottom, collapsible)
+  ImGuiID viz_bar = 0;      // Visualizer context bar (below title bar)
 };
 
 static DockLayoutNodes s_dock_nodes{};
@@ -274,11 +275,11 @@ PresetMetadataFromJson(const nlohmann::json &j) {
   const auto &gs = RogueCity::Core::Editor::GetGlobalState();
   metadata.has_tool_runtime_state = true;
   metadata.viewport_selection_mode =
-    static_cast<int>(gs.tool_runtime.viewport_selection_mode);
+      static_cast<int>(gs.tool_runtime.viewport_selection_mode);
   metadata.viewport_edit_tool =
-    static_cast<int>(gs.tool_runtime.viewport_edit_tool);
+      static_cast<int>(gs.tool_runtime.viewport_edit_tool);
   metadata.viewport_selection_target =
-    static_cast<int>(gs.tool_runtime.viewport_selection_target);
+      static_cast<int>(gs.tool_runtime.viewport_selection_target);
 
   if (const ImGuiViewport *viewport = ImGui::GetMainViewport();
       viewport != nullptr && viewport->Size.x > 0.0f &&
@@ -424,57 +425,77 @@ constexpr std::array kShortcutDefinitions = {
                        {ImGuiKey_F4, false, false, true, false}},
     ShortcutDefinition{{Keymap::Action::kCommandCancel, "Command", "Cancel"},
                        {ImGuiKey_Escape, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kMasterSearchOpen, "Master", "Open Search"},
-                       {ImGuiKey_Slash, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kMasterSearchNext, "Master", "Search Next"},
-                       {ImGuiKey_DownArrow, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kMasterSearchPrev, "Master", "Search Previous"},
-                       {ImGuiKey_UpArrow, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kMasterSearchClose, "Master", "Close Search"},
-                       {ImGuiKey_Escape, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportOpenSmartList, "Viewport", "Open Smart List"},
-                       {ImGuiKey_Space, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportOpenPieMenu, "Viewport", "Open Pie Menu"},
-                       {ImGuiKey_GraveAccent, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kMasterSearchOpen, "Master", "Open Search"},
+        {ImGuiKey_Slash, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kMasterSearchNext, "Master", "Search Next"},
+        {ImGuiKey_DownArrow, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kMasterSearchPrev, "Master", "Search Previous"},
+        {ImGuiKey_UpArrow, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kMasterSearchClose, "Master", "Close Search"},
+        {ImGuiKey_Escape, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportOpenSmartList, "Viewport", "Open Smart List"},
+        {ImGuiKey_Space, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportOpenPieMenu, "Viewport", "Open Pie Menu"},
+        {ImGuiKey_GraveAccent, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportOpenPalettePrimary, "Viewport",
                         "Open Command Palette"},
                        {ImGuiKey_Slash, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportOpenPaletteAlt, "Viewport",
                         "Open Command Palette (Alt)"},
                        {ImGuiKey_P, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldA, "Viewport", "Domain Hold Axiom"},
-                       {ImGuiKey_A, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldW, "Viewport", "Domain Hold Water"},
-                       {ImGuiKey_W, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldR, "Viewport", "Domain Hold Road"},
-                       {ImGuiKey_R, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldD, "Viewport", "Domain Hold District"},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportDomainHoldA, "Viewport", "Domain Hold Axiom"},
+        {ImGuiKey_A, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportDomainHoldW, "Viewport", "Domain Hold Water"},
+        {ImGuiKey_W, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportDomainHoldR, "Viewport", "Domain Hold Road"},
+        {ImGuiKey_R, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldD, "Viewport",
+                        "Domain Hold District"},
                        {ImGuiKey_D, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldL, "Viewport", "Domain Hold Lot"},
-                       {ImGuiKey_L, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldB, "Viewport", "Domain Hold Building"},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportDomainHoldL, "Viewport", "Domain Hold Lot"},
+        {ImGuiKey_L, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldB, "Viewport",
+                        "Domain Hold Building"},
                        {ImGuiKey_B, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportSelectAuto, "Viewport", "Select Tool"},
-                       {ImGuiKey_Q, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoTranslate, "Viewport", "Gizmo Move"},
-                       {ImGuiKey_W, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoTranslateAlt, "Viewport", "Gizmo Move (Alt)"},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportSelectAuto, "Viewport", "Select Tool"},
+        {ImGuiKey_Q, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportGizmoTranslate, "Viewport", "Gizmo Move"},
+        {ImGuiKey_W, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoTranslateAlt, "Viewport",
+                        "Gizmo Move (Alt)"},
                        {ImGuiKey_G, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoRotate, "Viewport", "Gizmo Rotate"},
-                       {ImGuiKey_E, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoScale, "Viewport", "Gizmo Scale"},
-                       {ImGuiKey_R, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoScaleAlt, "Viewport", "Gizmo Scale (Alt)"},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportGizmoRotate, "Viewport", "Gizmo Rotate"},
+        {ImGuiKey_E, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportGizmoScale, "Viewport", "Gizmo Scale"},
+        {ImGuiKey_R, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoScaleAlt, "Viewport",
+                        "Gizmo Scale (Alt)"},
                        {ImGuiKey_S, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportGizmoSnapToggle, "Viewport", "Toggle Snap"},
-                       {ImGuiKey_X, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportGizmoSnapToggle, "Viewport", "Toggle Snap"},
+        {ImGuiKey_X, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportLayer0, "Viewport", "Layer 0"},
                        {ImGuiKey_1, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportLayer1, "Viewport", "Layer 1"},
                        {ImGuiKey_2, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportLayer2, "Viewport", "Layer 2"},
                        {ImGuiKey_3, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportDeleteSelected, "Viewport", "Delete Selection"},
+    ShortcutDefinition{{Keymap::Action::kViewportDeleteSelected, "Viewport",
+                        "Delete Selection"},
                        {ImGuiKey_Delete, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kViewportDeleteSelectedAlt, "Viewport",
                         "Delete Selection (Backspace)"},
@@ -482,16 +503,21 @@ constexpr std::array kShortcutDefinitions = {
     ShortcutDefinition{{Keymap::Action::kViewportToolPaletteToggle, "Viewport",
                         "Toggle Global Palette"},
                        {ImGuiKey_G, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportQuickRect, "Viewport", "Quick Rectangle Select"},
+    ShortcutDefinition{{Keymap::Action::kViewportQuickRect, "Viewport",
+                        "Quick Rectangle Select"},
                        {ImGuiKey_1, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportQuickLasso, "Viewport", "Quick Lasso Select"},
-                       {ImGuiKey_2, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportQuickMove, "Viewport", "Quick Move Nodes"},
-                       {ImGuiKey_3, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kViewportQuickHandle, "Viewport", "Quick Handle Move"},
-                       {ImGuiKey_4, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kMinimapLodCycle, "Minimap", "Cycle LOD"},
-                       {ImGuiKey_L, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportQuickLasso, "Viewport", "Quick Lasso Select"},
+        {ImGuiKey_2, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportQuickMove, "Viewport", "Quick Move Nodes"},
+        {ImGuiKey_3, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kViewportQuickHandle, "Viewport", "Quick Handle Move"},
+        {ImGuiKey_4, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kMinimapLodCycle, "Minimap", "Cycle LOD"},
+        {ImGuiKey_L, false, false, false, false}},
     ShortcutDefinition{{Keymap::Action::kMinimapLodAuto, "Minimap", "Auto LOD"},
                        {ImGuiKey_L, false, true, false, false}},
     ShortcutDefinition{{Keymap::Action::kMinimapLod0, "Minimap", "LOD 0"},
@@ -509,24 +535,41 @@ constexpr std::array kShortcutDefinitions = {
     ShortcutDefinition{{Keymap::Action::kMinimapToggleSearch, "Minimap",
                         "Toggle Minimap Search"},
                        {ImGuiKey_F, true, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleBottomPanel, "View", "Toggle Bottom Panel"},
-                       {ImGuiKey_P, true, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleLeftPanel, "View", "Toggle Left Panel"},
-                       {ImGuiKey_P, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleRightPanel, "View", "Toggle Right Panel"},
-                       {ImGuiKey_P, false, true, false, false}},
-    ShortcutDefinition{{Keymap::Action::kDockModeModifier, "View", "Dock Mode Modifier"},
-                       {ImGuiKey_LeftShift, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleActivityBarLeft, "View", "Toggle Activity Bar Left"},
+    ShortcutDefinition{{Keymap::Action::kRulerToggle, "View", "Toggle Ruler"},
+                       {ImGuiKey_L, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kRulerCrosshair, "View", "Ruler: Crosshair Mode"},
+        {ImGuiKey_L, false, true, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kRulerDivMode, "View", "Ruler: Div Snap Mode"},
+        {ImGuiKey_L, true, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kToggleBottomPanel, "View", "Toggle Bottom Panel"},
+        {ImGuiKey_P, true, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kToggleLeftPanel, "View", "Toggle Left Panel"},
+        {ImGuiKey_P, false, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kToggleRightPanel, "View", "Toggle Right Panel"},
+        {ImGuiKey_P, false, true, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kDockModeModifier, "View", "Dock Mode Modifier"},
+        {ImGuiKey_LeftShift, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleActivityBarLeft, "View",
+                        "Toggle Activity Bar Left"},
                        {ImGuiKey_B, false, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleActivityBarRight, "View", "Toggle Activity Bar Right"},
+    ShortcutDefinition{{Keymap::Action::kToggleActivityBarRight, "View",
+                        "Toggle Activity Bar Right"},
                        {ImGuiKey_B, false, true, false, false}},
-    ShortcutDefinition{{Keymap::Action::kToggleDevShell, "Terminal", "Toggle Dev Shell"},
-                       {ImGuiKey_GraveAccent, true, false, false, false}},
-    ShortcutDefinition{{Keymap::Action::kSoftResetLayout, "Debug", "Soft Reset Layout"},
-                       {ImGuiKey_L, true, true, false, false}},
-    ShortcutDefinition{{Keymap::Action::kHardResetLayout, "Debug", "Hard Reset UI"},
-                       {ImGuiKey_R, true, true, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kToggleDevShell, "Terminal", "Toggle Dev Shell"},
+        {ImGuiKey_GraveAccent, true, false, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kSoftResetLayout, "Debug", "Soft Reset Layout"},
+        {ImGuiKey_L, true, true, false, false}},
+    ShortcutDefinition{
+        {Keymap::Action::kHardResetLayout, "Debug", "Hard Reset UI"},
+        {ImGuiKey_R, true, true, false, false}},
     ShortcutDefinition{{Keymap::Action::kRedoAlt, "Debug", "Redo (Alt)"},
                        {ImGuiKey_R, true, false, false, false}},
 };
@@ -584,13 +627,13 @@ FindShortcutDefinition(const char *action_id) {
     return "Unbound";
   }
   if (key >= ImGuiKey_A && key <= ImGuiKey_Z) {
-    const char c = static_cast<char>('A' + (static_cast<int>(key) -
-                                            static_cast<int>(ImGuiKey_A)));
+    const char c = static_cast<char>(
+        'A' + (static_cast<int>(key) - static_cast<int>(ImGuiKey_A)));
     return std::string(1, c);
   }
   if (key >= ImGuiKey_0 && key <= ImGuiKey_9) {
-    const char c = static_cast<char>('0' + (static_cast<int>(key) -
-                                            static_cast<int>(ImGuiKey_0)));
+    const char c = static_cast<char>(
+        '0' + (static_cast<int>(key) - static_cast<int>(ImGuiKey_0)));
     return std::string(1, c);
   }
   if (key >= ImGuiKey_F1 && key <= ImGuiKey_F24) {
@@ -701,13 +744,13 @@ static void SeedDefaultKeymapBindings() {
   if (token.size() == 1) {
     const char c = token[0];
     if (c >= 'a' && c <= 'z') {
-      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_A) +
-                                       (c - 'a'));
+      *out_key =
+          static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_A) + (c - 'a'));
       return true;
     }
     if (c >= '0' && c <= '9') {
-      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_0) +
-                                       (c - '0'));
+      *out_key =
+          static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_0) + (c - '0'));
       return true;
     }
     if (c == '`') {
@@ -723,8 +766,8 @@ static void SeedDefaultKeymapBindings() {
   if (token[0] == 'f' && token.size() <= 3) {
     const int value = std::atoi(token.c_str() + 1);
     if (value >= 1 && value <= 24) {
-      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_F1) + value -
-                                       1);
+      *out_key =
+          static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_F1) + value - 1);
       return true;
     }
   }
@@ -857,8 +900,9 @@ static void SeedDefaultKeymapBindings() {
   return true;
 }
 
-[[nodiscard]] static bool ParseShortcutBindingJson(const nlohmann::json &j,
-                                                   Keymap::ShortcutBinding *out) {
+[[nodiscard]] static bool
+ParseShortcutBindingJson(const nlohmann::json &j,
+                         Keymap::ShortcutBinding *out) {
   if (!j.is_object() || out == nullptr) {
     return false;
   }
@@ -877,17 +921,21 @@ static void SeedDefaultKeymapBindings() {
     has_key = ParseShortcutCombo(j["combo"].get<std::string>(), &binding);
   }
   if (!has_key && j.contains("key_name") && j["key_name"].is_string()) {
-    has_key = ParseShortcutKeyName(j["key_name"].get<std::string>(),
-                                   &binding.key);
+    has_key =
+        ParseShortcutKeyName(j["key_name"].get<std::string>(), &binding.key);
   }
   if (!has_key) {
     return false;
   }
 
-  if (j.contains("ctrl")) binding.ctrl = j.value("ctrl", false);
-  if (j.contains("shift")) binding.shift = j.value("shift", false);
-  if (j.contains("alt")) binding.alt = j.value("alt", false);
-  if (j.contains("super")) binding.super = j.value("super", false);
+  if (j.contains("ctrl"))
+    binding.ctrl = j.value("ctrl", false);
+  if (j.contains("shift"))
+    binding.shift = j.value("shift", false);
+  if (j.contains("alt"))
+    binding.alt = j.value("alt", false);
+  if (j.contains("super"))
+    binding.super = j.value("super", false);
   if (binding.key == ImGuiKey_None) {
     binding.ctrl = false;
     binding.shift = false;
@@ -1001,8 +1049,9 @@ static bool SaveKeymapToDisk(std::string *error) {
   return false;
 }
 
-[[nodiscard]] static bool IsShortcutPressedForBinding(
-    const Keymap::ShortcutBinding &binding, bool repeat) {
+[[nodiscard]] static bool
+IsShortcutPressedForBinding(const Keymap::ShortcutBinding &binding,
+                            bool repeat) {
   if (binding.key == ImGuiKey_None) {
     return false;
   }
@@ -1051,8 +1100,8 @@ static void NormalizeBindingForModifierKey(Keymap::ShortcutBinding &binding) {
   }
 }
 
-[[nodiscard]] static bool ShortcutModifiersMatch(
-    const Keymap::ShortcutBinding &binding) {
+[[nodiscard]] static bool
+ShortcutModifiersMatch(const Keymap::ShortcutBinding &binding) {
   const ImGuiIO &io = ImGui::GetIO();
   const bool key_is_ctrl =
       binding.key == ImGuiKey_LeftCtrl || binding.key == ImGuiKey_RightCtrl;
@@ -1258,7 +1307,8 @@ const char *KeymapPath() { return kUiKeymapFile; }
 
 static ImU32 ToolFamilyBaseColor(ToolLibrary tool) {
   // 5 canonical tool families:
-  // Axiom=Magenta, Water=InfoBlue, Road=Cyan, District/Lot=Green, Building=Amber
+  // Axiom=Magenta, Water=InfoBlue, Road=Cyan, District/Lot=Green,
+  // Building=Amber
   switch (tool) {
   case ToolLibrary::Axiom:
     return UITokens::MagentaHighlight;
@@ -1281,8 +1331,8 @@ ImU32 ToolColor(ToolLibrary tool, int variation) {
 
   // Lot shares the Parcel family but gets a warmer variant.
   if (tool == ToolLibrary::Lot) {
-    const float t = std::clamp(0.36f + static_cast<float>(clamped_variation) * 0.08f,
-                               0.36f, 0.58f);
+    const float t = std::clamp(
+        0.36f + static_cast<float>(clamped_variation) * 0.08f, 0.36f, 0.58f);
     return LerpColor(base, UITokens::YellowWarning, t);
   }
 
@@ -1381,8 +1431,10 @@ static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
 [[nodiscard]] static int ToolActionColorVariation(Tools::ToolActionId id) {
   using Tools::ToolActionId;
   const uint16_t raw = static_cast<uint16_t>(id);
-  const uint16_t axiom_begin = static_cast<uint16_t>(ToolActionId::Axiom_Organic);
-  const uint16_t axiom_end = static_cast<uint16_t>(ToolActionId::Axiom_GridCorrective);
+  const uint16_t axiom_begin =
+      static_cast<uint16_t>(ToolActionId::Axiom_Organic);
+  const uint16_t axiom_end =
+      static_cast<uint16_t>(ToolActionId::Axiom_GridCorrective);
   if (raw >= axiom_begin && raw <= axiom_end) {
     // Spread 10 axiom actions across 5 visual variants.
     return static_cast<int>((raw - axiom_begin) % 5u);
@@ -1756,25 +1808,24 @@ static void RenderToolLibraryWindow(
               WithAlpha(LerpColor(action_color_active, UITokens::TextPrimary,
                                   0.18f + pulse * 0.24f),
                         240u);
-          const ImU32 active_fill = WithAlpha(
-              LerpColor(action_color, UITokens::PanelBackground,
-                        0.72f - pulse * 0.12f),
-              245u);
+          const ImU32 active_fill =
+              WithAlpha(LerpColor(action_color, UITokens::PanelBackground,
+                                  0.72f - pulse * 0.12f),
+                        245u);
 
           const ImU32 fill =
               !action_enabled
                   ? UITokens::ToolDisabledFill
                   : (action_active
                          ? active_fill
-                         : WithAlpha(
-                               LerpColor(action_color, UITokens::PanelBackground,
-                                         0.86f),
-                               220u));
+                         : WithAlpha(LerpColor(action_color,
+                                               UITokens::PanelBackground,
+                                               0.86f),
+                                     220u));
           const ImU32 border =
-              !action_enabled
-                  ? WithAlpha(UITokens::TextSecondary, 100u)
-                  : (action_active ? active_border
-                                   : WithAlpha(action_color, 190u));
+              !action_enabled ? WithAlpha(UITokens::TextSecondary, 100u)
+                              : (action_active ? active_border
+                                               : WithAlpha(action_color, 190u));
           draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
           draw_list->AddRect(bmin, bmax, border, 8.0f, 0,
                              action_active ? 2.0f : 1.5f);
@@ -1817,13 +1868,13 @@ static void RenderToolLibraryWindow(
               bmin.x + std::max(2.0f, (entry_size.x - label_size.x) * 0.5f),
               bmin.y + icon_size +
                   std::max(1.0f, (label_band_height - label_size.y) * 0.5f));
-          draw_list->AddText(label_pos,
-                             action_enabled
-                                 ? (action_active
-                                        ? ToolColorActive(tool, color_variation)
-                                        : WithAlpha(UITokens::TextPrimary, 215u))
-                                 : UITokens::TextDisabled,
-                             label_text.c_str());
+          draw_list->AddText(
+              label_pos,
+              action_enabled
+                  ? (action_active ? ToolColorActive(tool, color_variation)
+                                   : WithAlpha(UITokens::TextPrimary, 215u))
+                  : UITokens::TextDisabled,
+              label_text.c_str());
 
           if (clicked) {
             std::string dispatch_status;
@@ -1931,10 +1982,11 @@ static bool s_dock_layout_dirty = true;
 static bool s_legacy_window_settings_cleared = false;
 static ImVec2 s_last_layout_viewport_size{0.0f, 0.0f};
 
-// ── Global chrome state ───────────────────────────────────────────────────────
-static bool s_scanlines_enabled = true;   // View > Toggle Scanlines
-static bool s_show_about_modal  = false;  // Help > About
-static bool s_show_new_confirm  = false;  // File > New City confirmation
+// ── Global chrome state
+// ───────────────────────────────────────────────────────
+static bool s_scanlines_enabled = true; // View > Toggle Scanlines
+static bool s_show_about_modal = false; // Help > About
+static bool s_show_new_confirm = false; // File > New City confirmation
 
 // Platform-agnostic file/directory opener (delegates to shell).
 static void OpenOSPath(const char *path) {
@@ -2115,64 +2167,64 @@ DefaultDockTree(DockTreeProfile /*profile*/) {
 
   // ── Chrome (outside dockspace) ────────────────────────────────────────────
   DockTreeNode titlebar;
-  titlebar.id       = "titlebar";
+  titlebar.id = "titlebar";
   titlebar.panel_id = "Rogue Titlebar";
 
   DockTreeNode statusbar;
-  statusbar.id       = "statusbar";
+  statusbar.id = "statusbar";
   statusbar.panel_id = "Rogue Status Bar";
 
   // ── B1: far-left activity bar ─────────────────────────────────────────────
   DockTreeNode b1;
-  b1.id       = "b1_icons";
+  b1.id = "b1_icons";
   b1.panel_id = "ActivityBarLeft";
 
   // ── P3: tool panel / explorer ─────────────────────────────────────────────
   DockTreeNode p3;
-  p3.id       = "p3_tools";
+  p3.id = "p3_tools";
   p3.panel_id = "Master Panel";
 
   // ── Center: sacred viewport ───────────────────────────────────────────────
   DockTreeNode viz_bar;
-  viz_bar.id       = "viz_bar";
+  viz_bar.id = "viz_bar";
   viz_bar.panel_id = "VisualizerBar";
 
   DockTreeNode center;
-  center.id       = "viewport";
+  center.id = "viewport";
   center.panel_id = "[/ / / RC_VISUALIZER / / /]";
 
   DockTreeNode center_col;
-  center_col.id          = "center_column";
+  center_col.id = "center_column";
   center_col.orientation = "vertical";
-  center_col.children    = {viz_bar, center};
+  center_col.children = {viz_bar, center};
 
   // ── P4: inspector & diagnostics ───────────────────────────────────────────
   DockTreeNode p4;
-  p4.id       = "p4_inspector";
+  p4.id = "p4_inspector";
   p4.panel_id = "Inspector";
 
   // ── B2: far-right activity bar ────────────────────────────────────────────
   DockTreeNode b2;
-  b2.id       = "b2_icons";
+  b2.id = "b2_icons";
   b2.panel_id = "ActivityBarRight";
 
   // ── P5: system / terminals (bottom) ──────────────────────────────────────
   DockTreeNode p5;
-  p5.id          = "p5_system";
-  p5.panel_id    = "Dev Shell";
+  p5.id = "p5_system";
+  p5.panel_id = "Dev Shell";
   p5.orientation = "horizontal"; // tabs share the bottom band
 
   // ── Main horizontal band (excluding P5) ───────────────────────────────────
   DockTreeNode h_band;
-  h_band.id          = "h_band";
+  h_band.id = "h_band";
   h_band.orientation = "horizontal";
-  h_band.children    = {b1, p3, center_col, p4, b2};
+  h_band.children = {b1, p3, center_col, p4, b2};
 
   // ── Root: vertical stack (h_band on top, P5 on bottom) ───────────────────
   DockTreeNode root;
-  root.id          = "root";
+  root.id = "root";
   root.orientation = "vertical";
-  root.children    = {titlebar, h_band, p5, statusbar};
+  root.children = {titlebar, h_band, p5, statusbar};
 
   return root;
 }
@@ -2397,94 +2449,100 @@ static void BuildDefaultWorkspace(ImGuiID dockspace_id) {
   // deterministic on every call (e.g. after a ResetDockLayout()).
   ImGui::DockBuilderRemoveNodeDockedWindows(dockspace_id, true);
   ImGui::DockBuilderRemoveNode(dockspace_id);
-  ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_PassthruCentralNode);
+  ImGui::DockBuilderAddNode(dockspace_id,
+                            ImGuiDockNodeFlags_PassthruCentralNode);
   ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
 
   ImGuiID id_main = dockspace_id;
 
   // ── Step 1: Bottom — P5 System / Terminals ──────────────────────────────
   ImGuiID id_p5_system = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Down, 0.25f,
-                               &id_p5_system, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Down, 0.25f, &id_p5_system,
+                              &id_main);
 
   // ── Step 2: Left — B1 Activity Bar (far left, rigid icon strip) ─────────
   ImGuiID id_b1_icons = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.04f,
-                               &id_b1_icons, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.04f, &id_b1_icons,
+                              &id_main);
 
   // ── Step 3: Left — P3 Tool Panel / Explorer ─────────────────────────────
   ImGuiID id_p3_tools = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.20f,
-                               &id_p3_tools, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Left, 0.20f, &id_p3_tools,
+                              &id_main);
 
   // ── Step 4: Right — B2 Activity Bar (far right, rigid icon strip) ────────
   ImGuiID id_b2_icons = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.04f,
-                               &id_b2_icons, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.04f, &id_b2_icons,
+                              &id_main);
 
   // ── Step 5: Right — P4 Inspector & Diagnostics ──────────────────────────
   ImGuiID id_p4_inspector = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.25f,
-                               &id_p4_inspector, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Right, 0.25f, &id_p4_inspector,
+                              &id_main);
 
   // ── Step 6: Top — Visualizer Context / Info Bar ─────────────────────────
   ImGuiID id_viz_bar = 0;
-  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Up, 0.05f,
-                               &id_viz_bar, &id_main);
+  ImGui::DockBuilderSplitNode(id_main, ImGuiDir_Up, 0.05f, &id_viz_bar,
+                              &id_main);
   // id_main is now the sacred central viewport.
 
   // ── Node constraints: activity bars are rigid (VS Code feel) ─────────────
   if (ImGuiDockNode *n = ImGui::DockBuilderGetNode(id_b1_icons)) {
-    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(static_cast<int>(ImGuiDockNodeFlags_NoResize) | static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
+    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(
+        static_cast<int>(ImGuiDockNodeFlags_NoResize) |
+        static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
   }
   if (ImGuiDockNode *n = ImGui::DockBuilderGetNode(id_b2_icons)) {
-    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(static_cast<int>(ImGuiDockNodeFlags_NoResize) | static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
+    n->LocalFlags |= static_cast<ImGuiDockNodeFlags>(
+        static_cast<int>(ImGuiDockNodeFlags_NoResize) |
+        static_cast<int>(ImGuiDockNodeFlags_NoTabBar));
   }
 
   // ── Window routing ────────────────────────────────────────────────────────
   // B1 / B2 — future activity bar windows (docked when first created)
-  ImGui::DockBuilderDockWindow("ActivityBarLeft",  id_b1_icons);
+  ImGui::DockBuilderDockWindow("ActivityBarLeft", id_b1_icons);
   ImGui::DockBuilderDockWindow("ActivityBarRight", id_b2_icons);
 
   // P3 — Master Panel hosts all tools (HFSM-driven tab switcher)
-  ImGui::DockBuilderDockWindow("Master Panel",   id_p3_tools);
+  ImGui::DockBuilderDockWindow("Master Panel", id_p3_tools);
   // Individual tool windows tab-share P3 when popped out or opened standalone
-  ImGui::DockBuilderDockWindow("Axiom Editor",   id_p3_tools);
-  ImGui::DockBuilderDockWindow("Road Editor",    id_p3_tools);
+  ImGui::DockBuilderDockWindow("Axiom Editor", id_p3_tools);
+  ImGui::DockBuilderDockWindow("Road Editor", id_p3_tools);
   ImGui::DockBuilderDockWindow("Zoning Control", id_p3_tools);
+  ImGui::DockBuilderDockWindow("RC_DTD", id_p3_tools);
 
   // P4 — Inspector Sidebar tabs (Inspector / System Map / Validation)
-  ImGui::DockBuilderDockWindow("Inspector",    id_p4_inspector);
-  ImGui::DockBuilderDockWindow("System Map",   id_p4_inspector);
-  ImGui::DockBuilderDockWindow("UI Settings",  id_p4_inspector);
-  ImGui::DockBuilderDockWindow("Validation",   id_p4_inspector);
+  ImGui::DockBuilderDockWindow("Inspector", id_p4_inspector);
+  ImGui::DockBuilderDockWindow("System Map", id_p4_inspector);
+  ImGui::DockBuilderDockWindow("UI Settings", id_p4_inspector);
+  ImGui::DockBuilderDockWindow("Validation", id_p4_inspector);
 
   // P5 — System / Terminals
-  ImGui::DockBuilderDockWindow("Dev Shell",      id_p5_system);
-  ImGui::DockBuilderDockWindow("Log",            id_p5_system);
-  ImGui::DockBuilderDockWindow("AI Console",     id_p5_system);
-  ImGui::DockBuilderDockWindow("City Spec",      id_p5_system);
-  ImGui::DockBuilderDockWindow("UI Agent",       id_p5_system);
+  ImGui::DockBuilderDockWindow("Dev Shell", id_p5_system);
+  ImGui::DockBuilderDockWindow("Log", id_p5_system);
+  ImGui::DockBuilderDockWindow("AI Console", id_p5_system);
+  ImGui::DockBuilderDockWindow("City Spec", id_p5_system);
+  ImGui::DockBuilderDockWindow("UI Agent", id_p5_system);
 
   // Center — Sacred Viewport
   ImGui::DockBuilderDockWindow("[/ / / RC_VISUALIZER / / /]", id_main);
 
   // ── Store node IDs for runtime dock requests (QueueDockWindow) ───────────
-  s_dock_nodes.root        = dockspace_id;
-  s_dock_nodes.b1_icons    = id_b1_icons;
-  s_dock_nodes.p3_tools    = id_p3_tools;
-  s_dock_nodes.p4_inspector= id_p4_inspector;
-  s_dock_nodes.b2_icons    = id_b2_icons;
-  s_dock_nodes.p5_system   = id_p5_system;
-  s_dock_nodes.viz_bar     = id_viz_bar;
-  s_dock_nodes.center      = id_main;
+  s_dock_nodes.root = dockspace_id;
+  s_dock_nodes.b1_icons = id_b1_icons;
+  s_dock_nodes.p3_tools = id_p3_tools;
+  s_dock_nodes.p4_inspector = id_p4_inspector;
+  s_dock_nodes.b2_icons = id_b2_icons;
+  s_dock_nodes.p5_system = id_p5_system;
+  s_dock_nodes.viz_bar = id_viz_bar;
+  s_dock_nodes.center = id_main;
   // Legacy aliases — keep QueueDockWindow("...", "Left"/"Right"/"Bottom") valid
-  s_dock_nodes.left        = id_p3_tools;
-  s_dock_nodes.right       = id_p4_inspector;
-  s_dock_nodes.bottom      = id_p5_system;
+  s_dock_nodes.left = id_p3_tools;
+  s_dock_nodes.right = id_p4_inspector;
+  s_dock_nodes.bottom = id_p5_system;
   s_dock_nodes.bottom_tabs = id_p5_system;
-  s_dock_nodes.tool_deck   = 0;
-  s_dock_nodes.library     = 0;
+  s_dock_nodes.tool_deck = 0;
+  s_dock_nodes.library = 0;
 #else
   (void)dockspace_id;
   s_dock_nodes = {};
@@ -2502,12 +2560,14 @@ static ImGuiID NodeForDockArea(const std::string &dock_area) {
     return s_dock_nodes.p3_tools ? s_dock_nodes.p3_tools : s_dock_nodes.left;
   }
   if (dock_area == "P4" || dock_area == "Inspector" || dock_area == "Right") {
-    return s_dock_nodes.p4_inspector ? s_dock_nodes.p4_inspector : s_dock_nodes.right;
+    return s_dock_nodes.p4_inspector ? s_dock_nodes.p4_inspector
+                                     : s_dock_nodes.right;
   }
   if (dock_area == "P5" || dock_area == "System" || dock_area == "Bottom") {
-    return s_dock_nodes.p5_system ? s_dock_nodes.p5_system
-           : (s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs
-                                       : s_dock_nodes.bottom);
+    return s_dock_nodes.p5_system
+               ? s_dock_nodes.p5_system
+               : (s_dock_nodes.bottom_tabs ? s_dock_nodes.bottom_tabs
+                                           : s_dock_nodes.bottom);
   }
   if (dock_area == "B1" || dock_area == "ActivityBarLeft") {
     return s_dock_nodes.b1_icons;
@@ -2660,9 +2720,11 @@ static void UpdateDockLayout(ImGuiID dockspace_id) {
 #endif
 }
 
-// ── About modal ───────────────────────────────────────────────────────────────
+// ── About modal
+// ───────────────────────────────────────────────────────────────
 static void DrawAboutModal() {
-  if (!s_show_about_modal) return;
+  if (!s_show_about_modal)
+    return;
 
   ImGui::OpenPopup("About RogueCities##modal");
   ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -2671,7 +2733,7 @@ static void DrawAboutModal() {
 
   if (ImGui::BeginPopupModal("About RogueCities##modal", &s_show_about_modal,
                              ImGuiWindowFlags_NoResize |
-                             ImGuiWindowFlags_NoSavedSettings)) {
+                                 ImGuiWindowFlags_NoSavedSettings)) {
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
                        "RogueCities Urban Spatial Designer");
     ImGui::Separator();
@@ -2692,10 +2754,9 @@ static void DrawAboutModal() {
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::TextWrapped(
-        "Layer 0: Pure data (core/)\n"
-        "Layer 1: Generation algorithms (generators/)\n"
-        "Layer 2: UI + visualizer (app/, visualizer/)");
+    ImGui::TextWrapped("Layer 0: Pure data (core/)\n"
+                       "Layer 1: Generation algorithms (generators/)\n"
+                       "Layer 2: UI + visualizer (app/, visualizer/)");
     ImGui::Spacing();
 
     ImGui::PushStyleColor(ImGuiCol_Text,
@@ -2718,9 +2779,11 @@ static void DrawAboutModal() {
   }
 }
 
-// ── New City confirmation modal ───────────────────────────────────────────────
+// ── New City confirmation modal
+// ───────────────────────────────────────────────
 static void DrawNewCityConfirmModal() {
-  if (!s_show_new_confirm) return;
+  if (!s_show_new_confirm)
+    return;
 
   ImGui::OpenPopup("New City##confirm");
   ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -2729,7 +2792,7 @@ static void DrawNewCityConfirmModal() {
 
   if (ImGui::BeginPopupModal("New City##confirm", &s_show_new_confirm,
                              ImGuiWindowFlags_NoResize |
-                             ImGuiWindowFlags_NoSavedSettings)) {
+                                 ImGuiWindowFlags_NoSavedSettings)) {
     ImGui::TextWrapped("This will clear all city data. Continue?");
     ImGui::Spacing();
     ImGui::Separator();
@@ -2737,7 +2800,7 @@ static void DrawNewCityConfirmModal() {
 
     if (ImGui::Button("New City", ImVec2(120, 0))) {
       auto &hfsm = RogueCity::Core::Editor::GetEditorHFSM();
-      auto &gs   = RogueCity::Core::Editor::GetGlobalState();
+      auto &gs = RogueCity::Core::Editor::GetGlobalState();
       hfsm.handle_event(RogueCity::Core::Editor::EditorEvent::NewProject, gs);
       s_show_new_confirm = false;
       ImGui::CloseCurrentPopup();
@@ -2803,8 +2866,8 @@ static void DrawKeymapEditorWindow() {
   if (!s_keymap_capture_action.empty()) {
     ImGui::Separator();
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow),
-                       "Listening: %s", ShortcutActionLabel(
-                                            s_keymap_capture_action.c_str()));
+                       "Listening: %s",
+                       ShortcutActionLabel(s_keymap_capture_action.c_str()));
     ImGui::TextDisabled("Press any keyboard key or mouse button.");
     ImGui::TextDisabled("Press Escape to cancel. Press Backspace to unbind.");
 
@@ -2812,16 +2875,16 @@ static void DrawKeymapEditorWindow() {
             PollCapturedShortcutBinding();
         captured.has_value()) {
       std::string error;
-      const bool cancel_capture =
-          captured->key == ImGuiKey_Escape && !captured->ctrl &&
-          !captured->shift && !captured->alt && !captured->super;
+      const bool cancel_capture = captured->key == ImGuiKey_Escape &&
+                                  !captured->ctrl && !captured->shift &&
+                                  !captured->alt && !captured->super;
       if (cancel_capture) {
         s_keymap_status = "Capture cancelled.";
       } else {
         Keymap::ShortcutBinding binding = *captured;
-        const bool clear_binding =
-            captured->key == ImGuiKey_Backspace && !captured->ctrl &&
-            !captured->shift && !captured->alt && !captured->super;
+        const bool clear_binding = captured->key == ImGuiKey_Backspace &&
+                                   !captured->ctrl && !captured->shift &&
+                                   !captured->alt && !captured->super;
         if (clear_binding) {
           binding.key = ImGuiKey_None;
           binding.ctrl = false;
@@ -2829,10 +2892,11 @@ static void DrawKeymapEditorWindow() {
           binding.alt = false;
           binding.super = false;
         }
-        if (Keymap::SetBinding(s_keymap_capture_action.c_str(), binding, &error)) {
-          s_keymap_status = "Shortcut updated: " +
-                            std::string(ShortcutActionLabel(
-                                s_keymap_capture_action.c_str()));
+        if (Keymap::SetBinding(s_keymap_capture_action.c_str(), binding,
+                               &error)) {
+          s_keymap_status =
+              "Shortcut updated: " +
+              std::string(ShortcutActionLabel(s_keymap_capture_action.c_str()));
         } else {
           s_keymap_status = "Shortcut update failed: " + error;
         }
@@ -2854,16 +2918,19 @@ static void DrawKeymapEditorWindow() {
                         ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                             ImGuiTableFlags_Resizable |
                             ImGuiTableFlags_SizingStretchProp)) {
-    ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+    ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed,
+                            140.0f);
     ImGui::TableSetupColumn("Action");
-    ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthFixed, 220.0f);
-    ImGui::TableSetupColumn("Controls", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+    ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthFixed,
+                            220.0f);
+    ImGui::TableSetupColumn("Controls", ImGuiTableColumnFlags_WidthFixed,
+                            180.0f);
     ImGui::TableHeadersRow();
 
     for (const Keymap::ShortcutActionInfo &action : Keymap::GetActions()) {
       const std::string combo = Keymap::ShortcutLabel(action.id);
-      const bool has_conflict = (!combo.empty() && combo != "Unbound" &&
-                                 conflicts[combo] > 1);
+      const bool has_conflict =
+          (!combo.empty() && combo != "Unbound" && conflicts[combo] > 1);
       const bool is_capturing = s_keymap_capture_action == action.id;
 
       ImGui::TableNextRow();
@@ -2899,8 +2966,8 @@ static void DrawKeymapEditorWindow() {
       if (ImGui::SmallButton(reset_id.c_str())) {
         std::string error;
         if (Keymap::ResetBinding(action.id, &error)) {
-          s_keymap_status =
-              std::string("Reset to default: ") + ShortcutActionLabel(action.id);
+          s_keymap_status = std::string("Reset to default: ") +
+                            ShortcutActionLabel(action.id);
         } else {
           s_keymap_status = "Reset failed: " + error;
         }
@@ -2927,9 +2994,9 @@ static void DrawKeymapEditorWindow() {
 // automatically adjusts viewport->WorkPos/WorkSize for the dockspace.
 // ALL menu items are fully functional — no visual-only stubs.
 static void DrawRuntimeTitlebar() {
+  using RogueCity::Core::Editor::EditorEvent;
   using RogueCity::Core::Editor::GetEditorHFSM;
   using RogueCity::Core::Editor::GetGlobalState;
-  using RogueCity::Core::Editor::EditorEvent;
 
   // Draw any open modal dialogs (must be called every frame before
   // EndMainMenuBar so the popup stack is consistent).
@@ -2951,7 +3018,7 @@ static void DrawRuntimeTitlebar() {
 
   if (open) {
     auto &hist = RogueCity::App::GetEditorCommandHistory();
-    auto &gs   = GetGlobalState();
+    auto &gs = GetGlobalState();
     auto &hfsm = GetEditorHFSM();
 
     // ── Keyboard shortcuts handled here (outside menus so they work globally)
@@ -2993,12 +3060,27 @@ static void DrawRuntimeTitlebar() {
     }
     if (Keymap::IsPressed(Keymap::Action::kToggleRightPanel, false)) {
       if (s_inspector_sidebar) {
-        s_inspector_sidebar->SetWindowOpen(!s_inspector_sidebar->IsWindowOpen());
+        s_inspector_sidebar->SetWindowOpen(
+            !s_inspector_sidebar->IsWindowOpen());
       }
+    }
+    // Ruler hotkeys — L / Shift+L / Ctrl+L (viewport-context toggles)
+    if (Keymap::IsPressed(Keymap::Action::kRulerToggle, false)) {
+      Panels::AxiomEditor::SetRulerTicksVisible(
+          !Panels::AxiomEditor::IsRulerTicksVisible());
+    }
+    if (Keymap::IsPressed(Keymap::Action::kRulerCrosshair, false)) {
+      Panels::AxiomEditor::SetRulerCrosshairMode(
+          !Panels::AxiomEditor::IsRulerCrosshairMode());
+    }
+    if (Keymap::IsPressed(Keymap::Action::kRulerDivMode, false)) {
+      Panels::AxiomEditor::SetRulerSnapEnabled(
+          !Panels::AxiomEditor::IsRulerSnapEnabled());
     }
 
     // ── App icon / brand ──────────────────────────────────────────────────
-    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent), "RC");
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
+                       "RC");
     ImGui::SameLine();
     ImGui::Separator();
     ImGui::SameLine();
@@ -3010,9 +3092,8 @@ static void DrawRuntimeTitlebar() {
         s_show_new_confirm = true;
       }
       ImGui::Separator();
-      if (ImGui::MenuItem(
-              "Save Layout",
-              Keymap::ShortcutLabel(Keymap::Action::kSaveLayout))) {
+      if (ImGui::MenuItem("Save Layout",
+                          Keymap::ShortcutLabel(Keymap::Action::kSaveLayout))) {
         SaveWorkspacePreset("default");
       }
       if (ImGui::MenuItem("Load Layout")) {
@@ -3065,8 +3146,7 @@ static void DrawRuntimeTitlebar() {
       }
 
       ImGui::Separator();
-      ImGui::MenuItem("Snap to Grid", nullptr,
-                      &gs.params.snap_to_grid);
+      ImGui::MenuItem("Snap to Grid", nullptr, &gs.params.snap_to_grid);
       ImGui::MenuItem("Show Grid Overlay", nullptr,
                       &gs.config.show_grid_overlay);
       ImGui::EndMenu();
@@ -3080,6 +3160,34 @@ static void DrawRuntimeTitlebar() {
       ImGui::MenuItem("Scanlines", nullptr, &s_scanlines_enabled);
       ImGui::Separator();
 
+      // ── Ruler sub-group ──────────────────────────────────────────────
+      // Shortcuts: L = show/hide  |  Shift+L = crosshair  |  Ctrl+L = div snap
+      bool ruler_ticks = Panels::AxiomEditor::IsRulerTicksVisible();
+      if (ImGui::BeginMenu("Ruler")) {
+        if (ImGui::MenuItem("Show Ruler",
+                            Keymap::ShortcutLabel(Keymap::Action::kRulerToggle),
+                            ruler_ticks))
+          Panels::AxiomEditor::SetRulerTicksVisible(!ruler_ticks);
+
+        ImGui::BeginDisabled(!ruler_ticks);
+        {
+          bool ch = Panels::AxiomEditor::IsRulerCrosshairMode();
+          if (ImGui::MenuItem(
+                  "Crosshair Mode",
+                  Keymap::ShortcutLabel(Keymap::Action::kRulerCrosshair), ch))
+            Panels::AxiomEditor::SetRulerCrosshairMode(!ch);
+
+          bool snap = Panels::AxiomEditor::IsRulerSnapEnabled();
+          if (ImGui::MenuItem(
+                  "Snap to Division",
+                  Keymap::ShortcutLabel(Keymap::Action::kRulerDivMode), snap))
+            Panels::AxiomEditor::SetRulerSnapEnabled(!snap);
+        }
+        ImGui::EndDisabled();
+        ImGui::EndMenu();
+      }
+      ImGui::Separator();
+
       if (ImGui::BeginMenu("Panels")) {
         if (ImGui::MenuItem(
                 "panel-bottom-close",
@@ -3087,33 +3195,38 @@ static void DrawRuntimeTitlebar() {
                 false, s_show_bottom_status_bar)) {
           s_show_bottom_status_bar = false;
         }
-        if (ImGui::MenuItem("panel-bottom-open", nullptr, false, !s_show_bottom_status_bar)) {
+        if (ImGui::MenuItem("panel-bottom-open", nullptr, false,
+                            !s_show_bottom_status_bar)) {
           s_show_bottom_status_bar = true;
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("panel-left-close",
-                            Keymap::ShortcutLabel(Keymap::Action::kToggleLeftPanel), false,
-                            s_master_panel && s_master_panel->IsWindowOpen())) {
+        if (ImGui::MenuItem(
+                "panel-left-close",
+                Keymap::ShortcutLabel(Keymap::Action::kToggleLeftPanel), false,
+                s_master_panel && s_master_panel->IsWindowOpen())) {
           if (s_master_panel) {
             s_master_panel->SetWindowOpen(false);
           }
         }
         if (ImGui::MenuItem("panel-left-open", nullptr, false,
-                            s_master_panel && !s_master_panel->IsWindowOpen())) {
+                            s_master_panel &&
+                                !s_master_panel->IsWindowOpen())) {
           if (s_master_panel) {
             s_master_panel->SetWindowOpen(true);
           }
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("panel-right-close",
-                            Keymap::ShortcutLabel(Keymap::Action::kToggleRightPanel), false,
-                            s_inspector_sidebar && s_inspector_sidebar->IsWindowOpen())) {
+        if (ImGui::MenuItem(
+                "panel-right-close",
+                Keymap::ShortcutLabel(Keymap::Action::kToggleRightPanel), false,
+                s_inspector_sidebar && s_inspector_sidebar->IsWindowOpen())) {
           if (s_inspector_sidebar) {
             s_inspector_sidebar->SetWindowOpen(false);
           }
         }
         if (ImGui::MenuItem("panel-right-open", nullptr, false,
-                            s_inspector_sidebar && !s_inspector_sidebar->IsWindowOpen())) {
+                            s_inspector_sidebar &&
+                                !s_inspector_sidebar->IsWindowOpen())) {
           if (s_inspector_sidebar) {
             s_inspector_sidebar->SetWindowOpen(true);
           }
@@ -3125,20 +3238,20 @@ static void DrawRuntimeTitlebar() {
 
       // Layer visibility (directly bound to GlobalState fields)
       if (ImGui::BeginMenu("Layers")) {
-        ImGui::MenuItem("Axioms",    nullptr, &gs.show_layer_axioms);
-        ImGui::MenuItem("Water",     nullptr, &gs.show_layer_water);
-        ImGui::MenuItem("Roads",     nullptr, &gs.show_layer_roads);
+        ImGui::MenuItem("Axioms", nullptr, &gs.show_layer_axioms);
+        ImGui::MenuItem("Water", nullptr, &gs.show_layer_water);
+        ImGui::MenuItem("Roads", nullptr, &gs.show_layer_roads);
         ImGui::MenuItem("Districts", nullptr, &gs.show_layer_districts);
-        ImGui::MenuItem("Lots",      nullptr, &gs.show_layer_lots);
+        ImGui::MenuItem("Lots", nullptr, &gs.show_layer_lots);
         ImGui::MenuItem("Buildings", nullptr, &gs.show_layer_buildings);
         ImGui::EndMenu();
       }
 
       // Debug overlays
       if (ImGui::BeginMenu("Debug Overlays")) {
-        ImGui::MenuItem("Tensor Field",  nullptr, &gs.debug_show_tensor_overlay);
-        ImGui::MenuItem("Height Map",    nullptr, &gs.debug_show_height_overlay);
-        ImGui::MenuItem("Zone Map",      nullptr, &gs.debug_show_zone_overlay);
+        ImGui::MenuItem("Tensor Field", nullptr, &gs.debug_show_tensor_overlay);
+        ImGui::MenuItem("Height Map", nullptr, &gs.debug_show_height_overlay);
+        ImGui::MenuItem("Zone Map", nullptr, &gs.debug_show_zone_overlay);
         ImGui::EndMenu();
       }
 
@@ -3159,9 +3272,10 @@ static void DrawRuntimeTitlebar() {
 
     // ── Terminal ──────────────────────────────────────────────────────────
     if (ImGui::BeginMenu("Terminal")) {
-      if (ImGui::MenuItem("Dev Shell",
-                          Keymap::ShortcutLabel(Keymap::Action::kToggleDevShell),
-                          Panels::DevShell::IsOpen())) {
+      if (ImGui::MenuItem(
+              "Dev Shell",
+              Keymap::ShortcutLabel(Keymap::Action::kToggleDevShell),
+              Panels::DevShell::IsOpen())) {
         Panels::DevShell::Toggle();
       }
       if (ImGui::MenuItem("ImGui Error Agent", nullptr,
@@ -3190,8 +3304,7 @@ static void DrawRuntimeTitlebar() {
         s_show_keymap_window = true;
       }
       ImGui::Separator();
-      if (ImGui::MenuItem("RCDV Gallery...",
-                          nullptr,
+      if (ImGui::MenuItem("RCDV Gallery...", nullptr,
                           RC_UI::DataVizGallery::IsOpen())) {
         RC_UI::DataVizGallery::Toggle();
       }
@@ -3209,13 +3322,16 @@ static void DrawRuntimeTitlebar() {
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
                        "%s", mode.c_str());
 
-    uiint.RegisterWidget({"text", "Titlebar Brand",   "titlebar.brand",    {"titlebar"}});
-    uiint.RegisterWidget({"text", "Mode Indicator",   "titlebar.mode",     {"titlebar"}});
-    uiint.RegisterWidget({"menu", "File Menu",         "titlebar.file",     {"titlebar"}});
-    uiint.RegisterWidget({"menu", "Edit Menu",         "titlebar.edit",     {"titlebar"}});
-    uiint.RegisterWidget({"menu", "View Menu",         "titlebar.view",     {"titlebar"}});
-    uiint.RegisterWidget({"menu", "Terminal Menu",     "titlebar.terminal", {"titlebar"}});
-    uiint.RegisterWidget({"menu", "Help Menu",         "titlebar.help",     {"titlebar"}});
+    uiint.RegisterWidget(
+        {"text", "Titlebar Brand", "titlebar.brand", {"titlebar"}});
+    uiint.RegisterWidget(
+        {"text", "Mode Indicator", "titlebar.mode", {"titlebar"}});
+    uiint.RegisterWidget({"menu", "File Menu", "titlebar.file", {"titlebar"}});
+    uiint.RegisterWidget({"menu", "Edit Menu", "titlebar.edit", {"titlebar"}});
+    uiint.RegisterWidget({"menu", "View Menu", "titlebar.view", {"titlebar"}});
+    uiint.RegisterWidget(
+        {"menu", "Terminal Menu", "titlebar.terminal", {"titlebar"}});
+    uiint.RegisterWidget({"menu", "Help Menu", "titlebar.help", {"titlebar"}});
   }
 
   uiint.EndPanel();
@@ -3237,9 +3353,9 @@ static void DrawRuntimeStatusBar() {
   }
 
   constexpr float kStatusHeight = 28.0f;
-  const ImGuiWindowFlags flags =
-      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
-      ImGuiWindowFlags_NoNav;
+  const ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar |
+                                 ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoNav;
 
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
   const bool open = ImGui::BeginViewportSideBar(
@@ -3255,10 +3371,10 @@ static void DrawRuntimeStatusBar() {
 
   if (open) {
     auto &gs = RogueCity::Core::Editor::GetGlobalState();
-    const int log_events        = Panels::Log::GetEventCount();
+    const int log_events = Panels::Log::GetEventCount();
     const int validation_events = Panels::Validation::GetValidationEventCount();
-    const bool validation_failed= Panels::Validation::HasValidationFailure();
-    const bool dirty            = gs.dirty_layers.AnyDirty();
+    const bool validation_failed = Panels::Validation::HasValidationFailure();
+    const bool dirty = gs.dirty_layers.AnyDirty();
 
     const char *validation_state =
         validation_failed ? "REJECTED"
@@ -3284,8 +3400,9 @@ static void DrawRuntimeStatusBar() {
 
     if (validation_failed) {
       ImGui::SameLine();
-      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
-                         "| Warning: Validation failures detected");
+      ImGui::TextColored(
+          ImGui::ColorConvertU32ToFloat4(UITokens::YellowWarning),
+          "| Warning: Validation failures detected");
     }
 
     // Right-aligned: active tool domain badge
@@ -3295,8 +3412,10 @@ static void DrawRuntimeStatusBar() {
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent),
                        "[%s]", mode.c_str());
 
-    uiint.RegisterWidget({"text", "Status Summary",    "status.summary",  {"status"}});
-    uiint.RegisterWidget({"text", "Tool Domain Badge", "status.tool_domain", {"status"}});
+    uiint.RegisterWidget(
+        {"text", "Status Summary", "status.summary", {"status"}});
+    uiint.RegisterWidget(
+        {"text", "Tool Domain Badge", "status.tool_domain", {"status"}});
   }
 
   uiint.EndPanel();
@@ -3304,20 +3423,46 @@ static void DrawRuntimeStatusBar() {
 }
 
 static void DrawGlobalScanlines() {
-  if (!s_scanlines_enabled) return;
-  ImDrawList *bg_draw = ImGui::GetBackgroundDrawList();
-  ImVec2 display_size = ImGui::GetIO().DisplaySize;
+  if (!s_scanlines_enabled)
+    return;
+  // Foreground draw list — scanlines sit on top of all panel content.
+  // The Inspector Sidebar window (which contains the System Map tab) is
+  // excluded so the system map remains crisp and unobscured.
+  ImDrawList *fg = ImGui::GetForegroundDrawList();
+  const ImVec2 display_size = ImGui::GetIO().DisplaySize;
   const float time_sec = static_cast<float>(ImGui::GetTime());
-
-  // Repeating scanlines mimicking the CSS linear-gradient
   const float scroll = time_sec * 10.0f;
   const float line_height = 6.0f;
 
-  // We offset by negative line_height to hide the pop-in wrap
-  for (float y = std::fmod(-scroll, line_height) - line_height;
-       y < display_size.y; y += line_height) {
-    bg_draw->AddRectFilled(ImVec2(0, y), ImVec2(display_size.x, y + 2.0f),
-                           IM_COL32(0, 0, 0, 45));
+  // Helper: draw scrolling scanlines clipped to [r_min, r_max].
+  auto draw_strip = [&](ImVec2 r_min, ImVec2 r_max) {
+    if (r_max.x <= r_min.x || r_max.y <= r_min.y)
+      return;
+    fg->PushClipRect(r_min, r_max, true);
+    for (float y = std::fmod(-scroll, line_height) - line_height;
+         y < display_size.y; y += line_height) {
+      fg->AddRectFilled(ImVec2(r_min.x, y), ImVec2(r_max.x, y + 2.0f),
+                        IM_COL32(0, 0, 0, 45));
+    }
+    fg->PopClipRect();
+  };
+
+  // Inspector Sidebar window bounds — system map lives here as a tab.
+  // FindWindowByName is O(n) but cheap at 60 Hz with a short window list.
+  ImGuiWindow *excl = ImGui::FindWindowByName("Inspector Sidebar");
+  if (excl && excl->Active && !excl->Hidden) {
+    const ImVec2 e_min = excl->Pos;
+    const ImVec2 e_max =
+        ImVec2(excl->Pos.x + excl->Size.x, excl->Pos.y + excl->Size.y);
+    // Draw four strips that tile the full display around the exclusion rect:
+    //   left column | above | below | right column
+    draw_strip(ImVec2(0.0f, 0.0f), ImVec2(e_min.x, display_size.y));
+    draw_strip(ImVec2(e_min.x, 0.0f), ImVec2(e_max.x, e_min.y));
+    draw_strip(ImVec2(e_min.x, e_max.y), ImVec2(e_max.x, display_size.y));
+    draw_strip(ImVec2(e_max.x, 0.0f), ImVec2(display_size.x, display_size.y));
+  } else {
+    // System map not visible — cover full screen.
+    draw_strip(ImVec2(0.0f, 0.0f), display_size);
   }
 }
 
@@ -3331,11 +3476,10 @@ static void DrawToolLibraryWindows() {
         use_axiom_custom_content ? std::span<const Tools::ToolActionSpec>{}
                                  : action_catalog;
     const ToolLibraryContentRenderer content_renderer =
-        use_axiom_custom_content
-            ? ToolLibraryContentRenderer{[]() {
-                Panels::AxiomEditor::DrawAxiomLibraryContent();
-              }}
-            : ToolLibraryContentRenderer{};
+        use_axiom_custom_content ? ToolLibraryContentRenderer{[]() {
+          Panels::AxiomEditor::DrawAxiomLibraryContent();
+        }}
+                                 : ToolLibraryContentRenderer{};
 
     const char *window_name = ToolLibraryWindowName(tool);
     if (!kEmbedLibrariesInMasterPanel) {
@@ -3346,9 +3490,9 @@ static void DrawToolLibraryWindows() {
     const size_t index = ToolLibraryIndex(tool);
     bool *popout_state = &s_tool_library_popout[index];
     if (*popout_state) {
-      const std::string popout_name =
-          std::string(window_name) + " (Popout)###ToolLibraryPopout_" +
-          std::to_string(static_cast<int>(tool));
+      const std::string popout_name = std::string(window_name) +
+                                      " (Popout)###ToolLibraryPopout_" +
+                                      std::to_string(static_cast<int>(tool));
       RenderToolLibraryWindow(tool, popout_name.c_str(), kOwnerModule,
                               "Floating", action_view, true, popout_state,
                               content_renderer);
@@ -3357,9 +3501,6 @@ static void DrawToolLibraryWindows() {
 }
 
 void DrawRoot(float dt) {
-  // Global screen-space CRT FX
-  DrawGlobalScanlines();
-
   // Initialize viewport services on first call.
   EnsureMinimapService();
   ClearLegacyPanelWindowSettingsOnce();
@@ -3388,12 +3529,12 @@ void DrawRoot(float dt) {
   // MUST be drawn before the dockspace host so that BeginMainMenuBar and
   // BeginViewportSideBar update viewport->WorkPos / WorkSize before we
   // position the host window.  These are raw ImGui chrome, never docked.
-  DrawRuntimeTitlebar();   // BeginMainMenuBar  → adjusts WorkPos.y upward
-  DrawRuntimeStatusBar();  // BeginViewportSideBar(Down) → adjusts WorkSize.y
+  DrawRuntimeTitlebar();  // BeginMainMenuBar  → adjusts WorkPos.y upward
+  DrawRuntimeStatusBar(); // BeginViewportSideBar(Down) → adjusts WorkSize.y
 
 #if defined(IMGUI_HAS_DOCK)
   // Dockspace host fills the work area left after the two chrome bars.
-  ImGui::SetNextWindowPos(viewport->WorkPos,  ImGuiCond_Always);
+  ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
   ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
   ImGui::SetNextWindowViewport(viewport->ID);
 
@@ -3478,12 +3619,17 @@ void DrawRoot(float dt) {
   }
   DrawToolLibraryWindows();
   Panels::ImGuiError::Draw(dt);
+  Panels::RcdtdGenerator::DrawWindow(dt);
   // Panels::Telemetry::Draw(dt);
   // ... (18 more panels)
 
   // Update viewport services after UI composition. Minimap can run purely as an
   // overlay service or as an additional standalone viewport window.
   UpdateViewportServices(dt);
+
+  // CRT scanline FX — runs dead-last so it sits on top of all panel content.
+  // The System Map panel is excluded (see DrawGlobalScanlines).
+  DrawGlobalScanlines();
 }
 
 RogueCity::App::MinimapViewport *GetMinimapViewport() {
@@ -3622,19 +3768,18 @@ bool LoadWorkspacePreset(const char *presetName, std::string *error) {
   if (entry.has_metadata && entry.metadata.has_tool_runtime_state) {
     auto &gs = RogueCity::Core::Editor::GetGlobalState();
     const int selection_mode =
-      std::clamp(entry.metadata.viewport_selection_mode, 0, 2);
+        std::clamp(entry.metadata.viewport_selection_mode, 0, 2);
     const int edit_tool = std::clamp(entry.metadata.viewport_edit_tool, 0, 2);
     const int selection_target =
-      std::clamp(entry.metadata.viewport_selection_target, 0, 4);
+        std::clamp(entry.metadata.viewport_selection_target, 0, 4);
     gs.tool_runtime.viewport_selection_mode =
         static_cast<RogueCity::Core::Editor::ViewportSelectionMode>(
-        selection_mode);
+            selection_mode);
     gs.tool_runtime.viewport_edit_tool =
-        static_cast<RogueCity::Core::Editor::ViewportEditTool>(
-        edit_tool);
+        static_cast<RogueCity::Core::Editor::ViewportEditTool>(edit_tool);
     gs.tool_runtime.viewport_selection_target =
         static_cast<RogueCity::Core::Editor::ViewportSelectionTarget>(
-        selection_target);
+            selection_target);
   }
   return true;
 }
@@ -3676,11 +3821,9 @@ std::vector<WorkspacePresetMetadata> ListWorkspacePresetMetadata() {
     metadata.push_back(std::move(item));
   }
 
-  std::sort(
-      metadata.begin(), metadata.end(),
-      [](const WorkspacePresetMetadata &a, const WorkspacePresetMetadata &b) {
-        return a.name < b.name;
-      });
+  std::sort(metadata.begin(), metadata.end(),
+            [](const WorkspacePresetMetadata &a,
+               const WorkspacePresetMetadata &b) { return a.name < b.name; });
   return metadata;
 }
 

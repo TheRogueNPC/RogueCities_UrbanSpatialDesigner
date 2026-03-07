@@ -8,14 +8,21 @@
 #include "ui/viewport/rc_viewport_lod_policy.h"
 #include <RogueCity/Core/Infomatrix.hpp>
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <limits>
 #include <magic_enum/magic_enum.hpp>
+#include <nlohmann/json.hpp>
 #include <unordered_map>
+
+namespace RC_UI::Viewport {
+class ViewportOverlays;
+}
 
 namespace RC_UI::Viewport {
 
@@ -447,6 +454,7 @@ void ViewportOverlays::Render(RogueCity::Core::Editor::GlobalState &gs,
   if (config.show_city_boundary) {
     RenderCityBoundary(gs);
   }
+  // RC_DTD renders only inside its own standalone window, not here.
 
   if (config.show_gizmos) {
     RenderGizmos(gs);
@@ -457,6 +465,9 @@ void ViewportOverlays::Render(RogueCity::Core::Editor::GlobalState &gs,
 
   if (config.show_scale_ruler) {
     RenderScaleRulerHUD(gs);
+  }
+  if (config.show_ruler_ticks) {
+    RenderRulerTicksHUD(gs, config);
   }
   if (config.show_compass_gimbal) {
     RenderCompassGimbalHUD(config.compass_parented, config.compass_center,
@@ -616,6 +627,386 @@ void ViewportOverlays::RenderScaleRulerHUD(
   FormatDistance(buf, sizeof(buf), nice_m);
   ImVec2 text_sz = ImGui::CalcTextSize(buf);
   dl->AddText(ImVec2(base_pt.x - (text_sz.x * 0.5f), a.y - 20.0f), col, buf);
+}
+
+// ---------------------------------------------------------------------------
+// Photoshop-style world-scaled tick ruler (horizontal + vertical strips).
+//
+// Behavior:
+//   • Default: two 20 px strips (H top, V left) with world-snapped tick marks
+//     at major (labeled) and minor (sub-divided/5) intervals.
+//   • ruler_crosshair_mode=true: replaces bars with a full-viewport crosshair
+//     that tracks the mouse cursor and labels world coordinates.
+//   • Ruler interval adapts to zoom — major ticks target ~80 px spacing and
+//     always land on a "nice" world number (1,2,5,10,20,50,100…).
+//   • ruler_snap_enabled: caches the interval so SnapToRulerDivision() can
+//     snap world positions to the active grid without repeating the math.
+//
+// Layer: visualizer-only; reads view_transform_ + GlobalState mpp.
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// DivLineTracker methods
+// ---------------------------------------------------------------------------
+void DivLineTracker::Add(bool horizontal, double world_pos, std::string label) {
+  DivLine line;
+  line.id = next_id++;
+  line.horizontal = horizontal;
+  line.world_pos = world_pos;
+  line.enabled = true;
+  line.label = std::move(label);
+  lines.push_back(std::move(line));
+}
+
+void DivLineTracker::Remove(int id) {
+  lines.erase(std::remove_if(lines.begin(), lines.end(),
+                             [id](const DivLine &l) { return l.id == id; }),
+              lines.end());
+}
+
+void DivLineTracker::Clear() { lines.clear(); }
+
+bool DivLineTracker::SaveToJson(const std::string &path) const {
+  using json = nlohmann::json;
+  json j = json::array();
+  for (const auto &l : lines) {
+    j.push_back({
+        {"id", l.id},
+        {"horizontal", l.horizontal},
+        {"world_pos", l.world_pos},
+        {"enabled", l.enabled},
+        {"label", l.label},
+    });
+  }
+  std::ofstream f(path);
+  if (!f.is_open())
+    return false;
+  f << j.dump(2);
+  return f.good();
+}
+
+bool DivLineTracker::LoadFromJson(const std::string &path) {
+  std::ifstream f(path);
+  if (!f.is_open())
+    return false;
+  try {
+    using json = nlohmann::json;
+    const json j = json::parse(f);
+    if (!j.is_array())
+      return false;
+    lines.clear();
+    int max_id = 0;
+    for (const auto &elem : j) {
+      DivLine l;
+      l.id = elem.value("id", 0);
+      l.horizontal = elem.value("horizontal", true);
+      l.world_pos = elem.value("world_pos", 0.0);
+      l.enabled = elem.value("enabled", true);
+      l.label = elem.value("label", std::string{});
+      if (l.id > max_id)
+        max_id = l.id;
+      lines.push_back(std::move(l));
+    }
+    next_id = max_id + 1;
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+
+void ViewportOverlays::RenderRulerTicksHUD(
+    const RogueCity::Core::Editor::GlobalState &gs,
+    const OverlayConfig &config) {
+  // Render when ticks are requested OR while ruler_margin is animating out.
+  const float m = view_transform_.ruler_margin;
+  if (!config.show_ruler_ticks && m < 0.5f)
+    return;
+  if (view_transform_.viewport_size.x <= 0.0f ||
+      view_transform_.viewport_size.y <= 0.0f || view_transform_.zoom <= 1e-6f)
+    return;
+
+  // Pixels-per-meter at current zoom — mirrors RenderScaleRulerHUD formula.
+  const double mpp =
+      gs.HasTextureSpace()
+          ? gs.TextureSpaceRef().coordinateSystem().metersPerPixel()
+          : gs.city_meters_per_pixel;
+  const float ppm =
+      std::max(1e-4f, view_transform_.zoom / static_cast<float>(mpp));
+  const float nice_m = SnapNiceMeters(80.0f / ppm);
+  ruler_interval_meters_ = nice_m;
+  const double minor_m = static_cast<double>(nice_m) / 5.0;
+
+  ImDrawList *const dl = ImGui::GetWindowDrawList();
+  const ImVec2 vp = view_transform_.viewport_pos;  // canvas interior origin
+  const ImVec2 vs = view_transform_.viewport_size; // canvas dimensions
+
+  const ImVec2 canvas_min = vp;
+  const ImVec2 canvas_max = ImVec2(vp.x + vs.x, vp.y + vs.y);
+  // full area = canvas + ruler margins (strips live in the margin zone)
+  const ImVec2 full_min = ImVec2(vp.x - m, vp.y - m);
+  const ImVec2 full_max = canvas_max;
+
+  // Y2K palette
+  const ImU32 kRulerBg = IM_COL32(8, 12, 18, 210);
+  const ImU32 kBorder = IM_COL32(0, 255, 255, 50);
+  const ImU32 kTickMajor = IM_COL32(0, 255, 255, 200);
+  const ImU32 kTickMinor = IM_COL32(0, 180, 180, 90);
+  const ImU32 kLabel = IM_COL32(0, 220, 220, 220);
+  const ImU32 kCursorMark = IM_COL32(255, 200, 0, 200);
+  const ImU32 kDivLine = IM_COL32(0, 230, 200, 160);
+  const ImU32 kDivPreview = IM_COL32(255, 200, 0, 180);
+  const float kMinorFrac = 0.35f;
+
+  const ImVec2 mp = ImGui::GetIO().MousePos;
+  const bool strips_visible = m > 0.5f;
+
+  // Hit regions for drag-to-create interaction
+  const bool in_h_strip = strips_visible && mp.x >= full_min.x &&
+                          mp.x <= full_max.x && mp.y >= full_min.y &&
+                          mp.y < canvas_min.y;
+  const bool in_v_strip = strips_visible && mp.x >= full_min.x &&
+                          mp.x < canvas_min.x && mp.y >= full_min.y &&
+                          mp.y <= full_max.y;
+  const bool in_canvas = mp.x >= canvas_min.x && mp.x <= canvas_max.x &&
+                         mp.y >= canvas_min.y && mp.y <= canvas_max.y;
+
+  // Begin drag when LMB pressed inside a strip
+  if (ImGui::IsMouseClicked(0) && !ruler_drag_active_) {
+    if (in_h_strip) {
+      ruler_drag_active_ = true;
+      ruler_drag_horizontal_ = true;
+      ruler_drag_world_pos_ = ScreenToWorld(mp).y;
+    } else if (in_v_strip) {
+      ruler_drag_active_ = true;
+      ruler_drag_horizontal_ = false;
+      ruler_drag_world_pos_ = ScreenToWorld(mp).x;
+    }
+  }
+  // Track and commit drag
+  if (ruler_drag_active_) {
+    const RogueCity::Core::Vec2 wp = ScreenToWorld(mp);
+    ruler_drag_world_pos_ = ruler_drag_horizontal_ ? wp.y : wp.x;
+    if (!ImGui::IsMouseDown(0)) {
+      if (in_canvas) {
+        div_lines.Add(ruler_drag_horizontal_, ruler_drag_world_pos_);
+      }
+      ruler_drag_active_ = false;
+    }
+  }
+
+  // Ruler strips drawn in the margin zone; using intersect=false escapes
+  // the axis-editor's canvas PushClipRect that is active at this point.
+  if (strips_visible) {
+    dl->PushClipRect(full_min, full_max, false);
+
+    // H strip background (top)
+    dl->AddRectFilled(full_min, ImVec2(full_max.x, canvas_min.y), kRulerBg);
+    dl->AddLine(ImVec2(full_min.x, canvas_min.y),
+                ImVec2(full_max.x, canvas_min.y), kBorder, 1.0f);
+
+    // V strip background (left)
+    dl->AddRectFilled(full_min, ImVec2(canvas_min.x, full_max.y), kRulerBg);
+    dl->AddLine(ImVec2(canvas_min.x, full_min.y),
+                ImVec2(canvas_min.x, full_max.y), kBorder, 1.0f);
+
+    // Corner square
+    dl->AddRectFilled(full_min, canvas_min, IM_COL32(5, 8, 14, 240));
+
+    const RogueCity::Core::Vec2 w_tl = ScreenToWorld(canvas_min);
+    const RogueCity::Core::Vec2 w_br = ScreenToWorld(canvas_max);
+
+    // H ticks (X-axis labels along top strip)
+    {
+      const double x0 = std::floor(w_tl.x / minor_m) * minor_m - minor_m;
+      const double x1 = w_br.x + minor_m;
+      for (double wx = x0; wx <= x1; wx += minor_m) {
+        const float sx = WorldToScreen(RogueCity::Core::Vec2{wx, w_tl.y}).x;
+        if (sx < canvas_min.x || sx > canvas_max.x)
+          continue;
+        const bool is_major =
+            std::fabs(std::fmod(std::fabs(wx), static_cast<double>(nice_m))) <
+            minor_m * 0.1;
+        const float tick_h = m * (is_major ? 0.80f : kMinorFrac);
+        dl->AddLine(ImVec2(sx, canvas_min.y - tick_h), ImVec2(sx, canvas_min.y),
+                    is_major ? kTickMajor : kTickMinor, 1.0f);
+        if (is_major && nice_m * ppm >= 18.0f) {
+          char lbl[32];
+          FormatDistance(lbl, sizeof(lbl), static_cast<float>(wx));
+          dl->AddText(ImVec2(sx + 2.0f, full_min.y + 3.0f), kLabel, lbl);
+        }
+      }
+    }
+
+    // V ticks (Y-axis labels along left strip)
+    {
+      const double y0 = std::floor(w_tl.y / minor_m) * minor_m - minor_m;
+      const double y1 = w_br.y + minor_m;
+      for (double wy = y0; wy <= y1; wy += minor_m) {
+        const float sy = WorldToScreen(RogueCity::Core::Vec2{w_tl.x, wy}).y;
+        if (sy < canvas_min.y || sy > canvas_max.y)
+          continue;
+        const bool is_major =
+            std::fabs(std::fmod(std::fabs(wy), static_cast<double>(nice_m))) <
+            minor_m * 0.1;
+        const float tick_w = m * (is_major ? 0.80f : kMinorFrac);
+        dl->AddLine(ImVec2(canvas_min.x - tick_w, sy), ImVec2(canvas_min.x, sy),
+                    is_major ? kTickMajor : kTickMinor, 1.0f);
+        if (is_major && nice_m * ppm >= 18.0f) {
+          char lbl[32];
+          FormatDistance(lbl, sizeof(lbl), static_cast<float>(wy));
+          dl->AddText(ImVec2(full_min.x + 2.0f, sy + 2.0f), kLabel, lbl);
+        }
+      }
+    }
+
+    // Cursor notches in strips (amber tick at mouse X on H strip, mouse Y on V
+    // strip)
+    if (in_canvas) {
+      dl->AddLine(ImVec2(mp.x, full_min.y), ImVec2(mp.x, canvas_min.y - 1.0f),
+                  kCursorMark, 1.5f);
+      dl->AddLine(ImVec2(full_min.x, mp.y), ImVec2(canvas_min.x - 1.0f, mp.y),
+                  kCursorMark, 1.5f);
+    }
+
+    // Div-line tick marks on ruler strips
+    for (const auto &div : div_lines.lines) {
+      if (!div.enabled)
+        continue;
+      if (div.horizontal) {
+        const float sy = WorldToScreen({0.0, div.world_pos}).y;
+        if (sy >= canvas_min.y && sy <= canvas_max.y) {
+          dl->AddLine(ImVec2(full_min.x + 1.0f, sy),
+                      ImVec2(canvas_min.x - 1.0f, sy), kDivLine, 2.0f);
+        }
+      } else {
+        const float sx = WorldToScreen({div.world_pos, 0.0}).x;
+        if (sx >= canvas_min.x && sx <= canvas_max.x) {
+          dl->AddLine(ImVec2(sx, full_min.y + 1.0f),
+                      ImVec2(sx, canvas_min.y - 1.0f), kDivLine, 2.0f);
+        }
+      }
+    }
+
+    dl->PopClipRect();
+  }
+
+  // Crosshair mode: full-viewport crosshair tracking mouse
+  if (config.ruler_crosshair_mode && in_canvas) {
+    dl->PushClipRect(canvas_min, canvas_max, false);
+    dl->AddLine(ImVec2(canvas_min.x, mp.y), ImVec2(canvas_max.x, mp.y),
+                IM_COL32(0, 255, 255, 35), 5.0f);
+    dl->AddLine(ImVec2(mp.x, canvas_min.y), ImVec2(mp.x, canvas_max.y),
+                IM_COL32(0, 255, 255, 35), 5.0f);
+    dl->AddLine(ImVec2(canvas_min.x, mp.y), ImVec2(canvas_max.x, mp.y),
+                IM_COL32(0, 255, 255, 150), 1.0f);
+    dl->AddLine(ImVec2(mp.x, canvas_min.y), ImVec2(mp.x, canvas_max.y),
+                IM_COL32(0, 255, 255, 150), 1.0f);
+    const RogueCity::Core::Vec2 wp = ScreenToWorld(mp);
+    RogueCity::Core::Vec2 snapped = wp;
+    if (config.ruler_snap_enabled)
+      snapped = SnapToRulerDivision(wp);
+    char coord_buf[64];
+    std::snprintf(coord_buf, sizeof(coord_buf), "%.1f, %.1f m", snapped.x,
+                  snapped.y);
+    dl->AddText(ImVec2(mp.x + 8.0f, mp.y + 4.0f), IM_COL32(0, 255, 255, 230),
+                coord_buf);
+    dl->PopClipRect();
+  }
+
+  // Canvas content: committed div lines, drag preview, snap ghost
+  dl->PushClipRect(canvas_min, canvas_max, false);
+
+  for (const auto &div : div_lines.lines) {
+    if (!div.enabled)
+      continue;
+    const bool is_sel = (div.id == div_lines.selected_div_id);
+    const ImU32 col_glow =
+        is_sel ? IM_COL32(255, 200, 0, 30) : IM_COL32(0, 230, 200, 22);
+    const ImU32 col_line = is_sel ? IM_COL32(255, 200, 0, 220) : kDivLine;
+    const float lw = is_sel ? 1.5f : 1.0f;
+    if (div.horizontal) {
+      const float sy = WorldToScreen({0.0, div.world_pos}).y;
+      if (sy >= canvas_min.y && sy <= canvas_max.y) {
+        dl->AddLine(ImVec2(canvas_min.x, sy), ImVec2(canvas_max.x, sy),
+                    col_glow, 4.0f);
+        dl->AddLine(ImVec2(canvas_min.x, sy), ImVec2(canvas_max.x, sy),
+                    col_line, lw);
+        if (is_sel && !div.label.empty()) {
+          dl->AddText(ImVec2(canvas_min.x + 4.0f,
+                             sy - ImGui::GetTextLineHeight() - 2.0f),
+                      IM_COL32(255, 200, 0, 230), div.label.c_str());
+        }
+      }
+    } else {
+      const float sx = WorldToScreen({div.world_pos, 0.0}).x;
+      if (sx >= canvas_min.x && sx <= canvas_max.x) {
+        dl->AddLine(ImVec2(sx, canvas_min.y), ImVec2(sx, canvas_max.y),
+                    col_glow, 4.0f);
+        dl->AddLine(ImVec2(sx, canvas_min.y), ImVec2(sx, canvas_max.y),
+                    col_line, lw);
+        if (is_sel && !div.label.empty()) {
+          dl->AddText(ImVec2(sx + 4.0f, canvas_min.y + 4.0f),
+                      IM_COL32(255, 200, 0, 230), div.label.c_str());
+        }
+      }
+    }
+  }
+
+  // Drag-preview follows mouse
+  if (ruler_drag_active_) {
+    if (ruler_drag_horizontal_) {
+      const float sy = WorldToScreen({0.0, ruler_drag_world_pos_}).y;
+      dl->AddLine(ImVec2(canvas_min.x, sy), ImVec2(canvas_max.x, sy),
+                  kDivPreview, 1.5f);
+    } else {
+      const float sx = WorldToScreen({ruler_drag_world_pos_, 0.0}).x;
+      dl->AddLine(ImVec2(sx, canvas_min.y), ImVec2(sx, canvas_max.y),
+                  kDivPreview, 1.5f);
+    }
+  }
+
+  // Snap ghost crosshair at nearest ruler/divline anchor
+  if (config.ruler_snap_enabled && in_canvas) {
+    const RogueCity::Core::Vec2 sw = SnapToRulerDivision(ScreenToWorld(mp));
+    const ImVec2 snp = WorldToScreen(sw);
+    const ImU32 snap_col = IM_COL32(255, 200, 0, 30);
+    dl->AddLine(ImVec2(canvas_min.x, snp.y), ImVec2(canvas_max.x, snp.y),
+                snap_col, 1.0f);
+    dl->AddLine(ImVec2(snp.x, canvas_min.y), ImVec2(snp.x, canvas_max.y),
+                snap_col, 1.0f);
+  }
+
+  dl->PopClipRect();
+}
+
+RogueCity::Core::Vec2 ViewportOverlays::SnapToRulerDivision(
+    const RogueCity::Core::Vec2 &world_pos) const {
+  // Snap world_pos to closest of:
+  //   1. Nearest major ruler tick grid (round to interval)
+  //   2. Any enabled DivLine within half the major interval
+  const double interval = static_cast<double>(
+      ruler_interval_meters_ > 1e-6f ? ruler_interval_meters_ : 1.0f);
+
+  double best_x = std::round(world_pos.x / interval) * interval;
+  double best_y = std::round(world_pos.y / interval) * interval;
+
+  const double half = interval * 0.5;
+  for (const auto &div : div_lines.lines) {
+    if (!div.enabled)
+      continue;
+    if (div.horizontal) {
+      const double dy_grid = std::fabs(world_pos.y - best_y);
+      const double dy_div = std::fabs(world_pos.y - div.world_pos);
+      if (dy_div < dy_grid && dy_div < half)
+        best_y = div.world_pos;
+    } else {
+      const double dx_grid = std::fabs(world_pos.x - best_x);
+      const double dx_div = std::fabs(world_pos.x - div.world_pos);
+      if (dx_div < dx_grid && dx_div < half)
+        best_x = div.world_pos;
+    }
+  }
+
+  return RogueCity::Core::Vec2{best_x, best_y};
 }
 
 void ViewportOverlays::RenderFlightDeckHUD(

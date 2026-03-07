@@ -17,6 +17,12 @@
 #include <cmath>
 #include <limits>
 #include <imgui.h>
+#ifdef ROGUECITY_HAS_IMPLOT
+#include <implot.h> // must precede namespace RC_UI::DataViz
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+#include <implot3d.h> // must precede namespace RC_UI::DataViz
+#endif
 
 namespace RC_UI::DataViz {
 
@@ -695,7 +701,7 @@ inline void DrawCollision(CollisionSpec& spec) {
 
     // Claim interactive canvas region
     ImGui::InvisibleButton("##col_canvas", ImVec2(W, H));
-    const bool canvas_hovered = ImGui::IsItemHovered();
+    (void)ImGui::IsItemHovered(); // reserved for future drag-over highlight
     const bool canvas_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
     // Per-instance drag state
@@ -953,5 +959,648 @@ inline void DrawSmoothZoom(const SmoothZoomSpec& spec) {
 
     ImGui::PopID();
 }
+
+// ---------------------------------------------------------------------------
+// Easing animation primitives
+// Mirrors D3's easing principles:
+//   - Normalized time input t in [0,1]
+//   - Easing remaps temporal progression to output y (not position directly)
+//   - Same timeline can drive multiple motions for visual comparison
+// ---------------------------------------------------------------------------
+
+enum class EasingType {
+    Linear = 0,
+    PolyIn,
+    PolyOut,
+    PolyInOut,
+    CubicInOut,
+    SinInOut,
+    ExpInOut,
+    CircleInOut,
+    BackInOut,
+    ElasticOut,
+    BounceOut,
+};
+
+struct EasingParams {
+    // Used by Poly* curves (must be > 0).
+    float poly_exponent    = 3.0f;
+    // Used by BackInOut (controls overshoot amount).
+    float back_overshoot   = 1.70158f;
+    // Used by ElasticOut.
+    float elastic_amplitude = 1.0f;
+    float elastic_period    = 0.30f;
+};
+
+inline const char* EasingTypeName(EasingType easing) {
+    switch (easing) {
+        case EasingType::Linear:      return "Linear";
+        case EasingType::PolyIn:      return "Poly In";
+        case EasingType::PolyOut:     return "Poly Out";
+        case EasingType::PolyInOut:   return "Poly InOut";
+        case EasingType::CubicInOut:  return "Cubic InOut";
+        case EasingType::SinInOut:    return "Sin InOut";
+        case EasingType::ExpInOut:    return "Exp InOut";
+        case EasingType::CircleInOut: return "Circle InOut";
+        case EasingType::BackInOut:   return "Back InOut";
+        case EasingType::ElasticOut:  return "Elastic Out";
+        case EasingType::BounceOut:   return "Bounce Out";
+    }
+    return "Unknown";
+}
+
+namespace detail {
+
+inline float EaseBounceOut(float t) {
+    constexpr float n1 = 7.5625f;
+    constexpr float d1 = 2.75f;
+
+    if (t < 1.0f / d1)
+        return n1 * t * t;
+    if (t < 2.0f / d1) {
+        t -= 1.5f / d1;
+        return n1 * t * t + 0.75f;
+    }
+    if (t < 2.5f / d1) {
+        t -= 2.25f / d1;
+        return n1 * t * t + 0.9375f;
+    }
+    t -= 2.625f / d1;
+    return n1 * t * t + 0.984375f;
+}
+
+} // namespace detail
+
+/// EvaluateEasing — map normalized time t->[0,1] through a selected easing.
+/// Some curves (back/elastic) intentionally overshoot outside [0,1].
+inline float EvaluateEasing(EasingType easing, float t,
+                            const EasingParams& params = {}) {
+    constexpr float kPi  = 3.14159265359f;
+    constexpr float kTau = 6.28318530718f;
+
+    t = std::clamp(t, 0.0f, 1.0f);
+    if (t <= 0.0f)
+        return 0.0f;
+    if (t >= 1.0f)
+        return 1.0f;
+
+    switch (easing) {
+        case EasingType::Linear:
+            return t;
+        case EasingType::PolyIn: {
+            const float e = std::max(params.poly_exponent, 0.001f);
+            return std::pow(t, e);
+        }
+        case EasingType::PolyOut: {
+            const float e = std::max(params.poly_exponent, 0.001f);
+            return 1.0f - std::pow(1.0f - t, e);
+        }
+        case EasingType::PolyInOut: {
+            const float e = std::max(params.poly_exponent, 0.001f);
+            if (t < 0.5f)
+                return 0.5f * std::pow(2.0f * t, e);
+            return 1.0f - 0.5f * std::pow(2.0f * (1.0f - t), e);
+        }
+        case EasingType::CubicInOut:
+            if (t < 0.5f) {
+                const float u = 2.0f * t;
+                return 0.5f * u * u * u;
+            } else {
+                const float u = -2.0f * t + 2.0f;
+                return 1.0f - 0.5f * u * u * u;
+            }
+        case EasingType::SinInOut:
+            return -(std::cos(kPi * t) - 1.0f) * 0.5f;
+        case EasingType::ExpInOut:
+            if (t < 0.5f)
+                return 0.5f * std::pow(2.0f, 20.0f * t - 10.0f);
+            return 1.0f - 0.5f * std::pow(2.0f, -20.0f * t + 10.0f);
+        case EasingType::CircleInOut:
+            if (t < 0.5f)
+                return (1.0f - std::sqrt(std::max(0.0f, 1.0f - 4.0f * t * t))) * 0.5f;
+            {
+                const float u = -2.0f * t + 2.0f;
+                return (std::sqrt(std::max(0.0f, 1.0f - u * u)) + 1.0f) * 0.5f;
+            }
+        case EasingType::BackInOut: {
+            const float s = std::max(params.back_overshoot, 0.0f) * 1.525f;
+            if (t < 0.5f) {
+                const float u = 2.0f * t;
+                return 0.5f * (u * u * ((s + 1.0f) * u - s));
+            }
+            const float u = 2.0f * t - 2.0f;
+            return 0.5f * (u * u * ((s + 1.0f) * u + s) + 2.0f);
+        }
+        case EasingType::ElasticOut: {
+            const float amplitude = std::max(params.elastic_amplitude, 0.0f);
+            const float period    = std::max(params.elastic_period, 0.01f);
+            const float expo      = std::pow(2.0f, -10.0f * t);
+            const float angle     = (t - period * 0.25f) * (kTau / period);
+            return amplitude * expo * std::sin(angle) + 1.0f;
+        }
+        case EasingType::BounceOut:
+            return detail::EaseBounceOut(t);
+    }
+    return t;
+}
+
+struct EasingCurveSpec {
+    const char*   id = nullptr;      // ImGui PushID key
+    EasingType    easing = EasingType::CubicInOut;
+    EasingParams  params{};
+    float         width = 0.0f;      // 0 = ContentRegionAvail.x
+    float         height = 150.0f;
+    float         t = 0.0f;          // marker time in [0,1]
+    bool          auto_range = true; // true = fit y-range from sampled curve
+    float         min_output = -0.25f;
+    float         max_output = 1.25f;
+    bool          show_linear_reference = true;
+    ImU32         background_color = WithAlpha(UITokens::BackgroundDark, 220);
+    ImU32         border_color     = WithAlpha(UITokens::CyanAccent, 60);
+    ImU32         curve_color      = UITokens::CyanAccent;
+    ImU32         reference_color  = WithAlpha(UITokens::TextDisabled, 160);
+    ImU32         marker_color     = UITokens::AmberGlow;
+};
+
+/// DrawEasingCurve — chart y = ease(t) with optional linear reference + marker.
+inline void DrawEasingCurve(const EasingCurveSpec& spec) {
+    if (!spec.id)
+        return;
+
+    ImGui::PushID(spec.id);
+
+    const float W = (spec.width > 0.0f)
+                        ? spec.width
+                        : ImGui::GetContentRegionAvail().x;
+    const float H = spec.height;
+    if (W <= 0.0f || H <= 0.0f) {
+        ImGui::PopID();
+        return;
+    }
+
+    ImDrawList*  draw   = ImGui::GetWindowDrawList();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    draw->AddRectFilled(origin, ImVec2(origin.x + W, origin.y + H),
+                        spec.background_color, UITokens::RoundingSubtle);
+    draw->AddRect(origin, ImVec2(origin.x + W, origin.y + H),
+                  spec.border_color, UITokens::RoundingSubtle, 0,
+                  UITokens::BorderThin);
+
+    // Claim layout before issuing custom draws.
+    ImGui::Dummy(ImVec2(W, H));
+
+    constexpr int kSamples = 96;
+    float ys[kSamples + 1];
+
+    float y_min = std::min(0.0f, 1.0f);
+    float y_max = std::max(0.0f, 1.0f);
+
+    for (int i = 0; i <= kSamples; ++i) {
+        const float x = static_cast<float>(i) / static_cast<float>(kSamples);
+        const float y = EvaluateEasing(spec.easing, x, spec.params);
+        ys[i] = y;
+        if (spec.auto_range) {
+            y_min = std::min(y_min, y);
+            y_max = std::max(y_max, y);
+        }
+    }
+
+    if (spec.auto_range) {
+        const float span = std::max(0.10f, y_max - y_min);
+        const float pad  = span * 0.08f;
+        y_min -= pad;
+        y_max += pad;
+    } else {
+        y_min = std::min(spec.min_output, spec.max_output);
+        y_max = std::max(spec.min_output, spec.max_output);
+        if (y_max - y_min < 1e-4f)
+            y_max = y_min + 1e-4f;
+    }
+
+    const float left_pad   = 10.0f;
+    const float right_pad  = 10.0f;
+    const float top_pad    = 8.0f;
+    const float bottom_pad = 14.0f;
+    const ImVec2 plot_min(origin.x + left_pad, origin.y + top_pad);
+    const ImVec2 plot_max(origin.x + W - right_pad, origin.y + H - bottom_pad);
+    const float plot_w = std::max(1.0f, plot_max.x - plot_min.x);
+    const float plot_h = std::max(1.0f, plot_max.y - plot_min.y);
+    const float y_span = std::max(1e-6f, y_max - y_min);
+
+    const auto ToScreen = [&](float x, float y) -> ImVec2 {
+        const float px = plot_min.x + std::clamp(x, 0.0f, 1.0f) * plot_w;
+        const float ny = (y - y_min) / y_span;
+        const float py = plot_max.y - ny * plot_h;
+        return ImVec2(px, py);
+    };
+
+    // Guides at y=0 and y=1.
+    draw->AddLine(ToScreen(0.0f, 0.0f), ToScreen(1.0f, 0.0f),
+                  spec.reference_color, 1.0f);
+    draw->AddLine(ToScreen(0.0f, 1.0f), ToScreen(1.0f, 1.0f),
+                  WithAlpha(spec.reference_color, 96), 1.0f);
+
+    // Optional linear reference: y=x.
+    if (spec.show_linear_reference) {
+        draw->AddLine(ToScreen(0.0f, 0.0f), ToScreen(1.0f, 1.0f),
+                      WithAlpha(UITokens::InfoBlue, 150), 1.0f);
+    }
+
+    // Easing curve polyline.
+    ImVec2 prev = ToScreen(0.0f, ys[0]);
+    for (int i = 1; i <= kSamples; ++i) {
+        const float x = static_cast<float>(i) / static_cast<float>(kSamples);
+        const ImVec2 p = ToScreen(x, ys[i]);
+        draw->AddLine(prev, p, spec.curve_color, 2.0f);
+        prev = p;
+    }
+
+    // Animated marker.
+    const float t  = std::clamp(spec.t, 0.0f, 1.0f);
+    const float yt = EvaluateEasing(spec.easing, t, spec.params);
+    draw->AddCircleFilled(ToScreen(t, yt), 4.0f, spec.marker_color, 16);
+    draw->AddText(ImVec2(plot_min.x + 2.0f, plot_min.y + 2.0f),
+                  UITokens::TextSecondary, EasingTypeName(spec.easing));
+
+    ImGui::PopID();
+}
+
+struct EasingMotionSpec {
+    const char*   id = nullptr;      // ImGui PushID key
+    EasingType    easing = EasingType::CubicInOut;
+    EasingParams  params{};
+    float         width = 0.0f;      // 0 = ContentRegionAvail.x
+    float         height = 36.0f;
+    float         t = 0.0f;          // normalized timeline [0,1]
+    const char*   label = nullptr;   // optional row label
+    bool          show_linear_reference = true;
+    float         marker_radius = 5.0f;
+    ImU32         background_color = WithAlpha(UITokens::BackgroundDark, 190);
+    ImU32         border_color     = WithAlpha(UITokens::CyanAccent, 45);
+    ImU32         track_color      = WithAlpha(UITokens::TextDisabled, 140);
+    ImU32         linear_color     = WithAlpha(UITokens::InfoBlue, 180);
+    ImU32         eased_color      = UITokens::AmberGlow;
+};
+
+/// DrawEasingMotion — one horizontal motion track driven by an easing curve.
+/// Linear ghost marker can be shown to contrast timing distortion.
+inline void DrawEasingMotion(const EasingMotionSpec& spec) {
+    if (!spec.id)
+        return;
+
+    ImGui::PushID(spec.id);
+
+    const float W = (spec.width > 0.0f)
+                        ? spec.width
+                        : ImGui::GetContentRegionAvail().x;
+    const float H = spec.height;
+    if (W <= 0.0f || H <= 0.0f) {
+        ImGui::PopID();
+        return;
+    }
+
+    ImDrawList*  draw   = ImGui::GetWindowDrawList();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    draw->AddRectFilled(origin, ImVec2(origin.x + W, origin.y + H),
+                        spec.background_color, UITokens::RoundingSubtle);
+    draw->AddRect(origin, ImVec2(origin.x + W, origin.y + H),
+                  spec.border_color, UITokens::RoundingSubtle, 0,
+                  UITokens::BorderThin);
+
+    // Claim layout space before drawing custom content.
+    ImGui::Dummy(ImVec2(W, H));
+
+    const bool has_label = (spec.label && spec.label[0] != '\0');
+    if (has_label) {
+        draw->AddText(ImVec2(origin.x + 8.0f, origin.y + 3.0f),
+                      UITokens::TextSecondary, spec.label);
+    }
+
+    const float x0 = origin.x + 10.0f;
+    const float x1 = origin.x + W - 10.0f;
+    const float y  = has_label ? (origin.y + H * 0.68f) : (origin.y + H * 0.50f);
+
+    draw->AddLine(ImVec2(x0, y), ImVec2(x1, y), spec.track_color, 1.5f);
+    draw->AddLine(ImVec2(x0, y - 4.0f), ImVec2(x0, y + 4.0f), spec.track_color, 1.0f);
+    draw->AddLine(ImVec2(x1, y - 4.0f), ImVec2(x1, y + 4.0f), spec.track_color, 1.0f);
+
+    const float t_linear = std::clamp(spec.t, 0.0f, 1.0f);
+    const float t_eased  = EvaluateEasing(spec.easing, t_linear, spec.params);
+    const float x_linear = x0 + (x1 - x0) * t_linear;
+    const float x_eased  = x0 + (x1 - x0) * t_eased;
+
+    if (spec.show_linear_reference) {
+        draw->AddCircleFilled(ImVec2(x_linear, y), std::max(2.0f, spec.marker_radius - 2.0f),
+                              spec.linear_color, 12);
+    }
+    draw->AddCircleFilled(ImVec2(x_eased, y), std::max(2.0f, spec.marker_radius),
+                          spec.eased_color, 16);
+    ImGui::PopID();
+}
+
+// ===========================================================================
+// ImPlot-backed primitives  (requires ROGUECITY_HAS_IMPLOT=1)
+// ===========================================================================
+// Pan/zoom, crosshair, tooltip, legend — a richer complement to the inline
+// custom-draw primitives above.  Each Draw* wraps BeginPlot/EndPlot.
+// Call RC_UI::API::InitImPlot() / ShutdownImPlot() around the Dear ImGui
+// context lifetime; see rc_imgui_api.h.
+// ===========================================================================
+#ifdef ROGUECITY_HAS_IMPLOT
+// Multi-series line chart with optional area fill.
+struct ImPlotTimeSeriesSpec {
+    const char*         id;             // ImGui PushID key (unique per panel)
+    const char*         title;          // plot title (nullptr = hidden)
+    const float* const* ys;             // [series_count][value_count] arrays
+    const char* const*  series_labels;  // per-series legend labels (nullable)
+    const float*        xs;             // shared x-axis (nullptr = 0,1,2,...)
+    int                 series_count;
+    int                 value_count;
+    float               width;          // 0 = ContentRegionAvail.x
+    float               height;
+    const ImU32*        colors;         // per-series color override (nullable)
+    bool                fill_area;      // shade area under each line, alpha=0.2
+};
+
+// Single-series scatter plot.
+struct ImPlotScatterSpec {
+    const char*  id;
+    const char*  title;
+    const char*  label;     // series name in legend (nullable)
+    const float* xs;
+    const float* ys;
+    int          count;
+    float        width;
+    float        height;
+    ImU32        color;     // 0 = ImPlot auto-cycle
+};
+
+// 2-D heatmap — ideal for AESP spatial readouts and zoning density grids.
+struct ImPlotHeatmapSpec {
+    const char*     id;
+    const char*     title;
+    const char*     label;      // series label for colorbar tooltip
+    const float*    values;     // row-major: values[row * cols + col]
+    int             rows;
+    int             cols;
+    double          scale_min;
+    double          scale_max;
+    float           width;      // 0 = auto (leaves 70px for colorbar)
+    float           height;
+    ImPlotColormap  colormap;   // e.g. ImPlotColormap_Viridis
+    const char*     label_fmt;  // per-cell annotation (nullptr = no labels)
+};
+
+// Histogram with auto-binning, density/cumulative modes.
+struct ImPlotHistogramSpec {
+    const char*  id;
+    const char*  title;
+    const char*  label;
+    const float* values;
+    int          count;
+    int          bins;      // ImPlotBin_Auto (-1) for automatic binning
+    float        width;
+    float        height;
+    bool         cumulative;
+    bool         density;   // normalize to probability density
+    ImU32        bar_color; // 0 = ImPlot auto-cycle
+};
+
+// ---------------------------------------------------------------------------
+// Inline Draw functions — each is self-contained (PushID/BeginPlot/EndPlot).
+// ---------------------------------------------------------------------------
+
+inline void DrawImPlotTimeSeries(const ImPlotTimeSeriesSpec& spec) {
+    if (!spec.ys || spec.series_count <= 0 || spec.value_count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    if (ImPlot::BeginPlot(spec.title ? spec.title : "##ts",
+                          ImVec2(w, spec.height), ImPlotFlags_NoMenus)) {
+        ImPlot::SetupAxes(nullptr, nullptr,
+                          ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+        for (int s = 0; s < spec.series_count; ++s) {
+            ImGui::PushID(s);
+            // v0.18: per-call ImPlotSpec replaces PushStyleColor(ImPlotCol_Line/Fill)
+            // and the obsoleted SetNextFillStyle()
+            ImPlotSpec ispec;
+            if (spec.colors && spec.colors[s]) {
+                ImVec4 c = ImGui::ColorConvertU32ToFloat4(spec.colors[s]);
+                ispec.LineColor = c;
+                if (spec.fill_area) {
+                    ispec.FillColor = c;
+                    ispec.FillAlpha = 0.2f;
+                }
+            }
+            if (spec.fill_area)
+                ispec.Flags = ImPlotLineFlags_Shaded;
+            const char* lbl = (spec.series_labels && spec.series_labels[s])
+                                  ? spec.series_labels[s] : "##s";
+            if (spec.xs)
+                ImPlot::PlotLine(lbl, spec.xs, spec.ys[s], spec.value_count, ispec);
+            else
+                ImPlot::PlotLine(lbl, spec.ys[s], spec.value_count, 1.0, 0.0, ispec);
+            ImGui::PopID();
+        }
+        ImPlot::EndPlot();
+    }
+    ImGui::PopID();
+}
+
+inline void DrawImPlotScatter(const ImPlotScatterSpec& spec) {
+    if (!spec.xs || !spec.ys || spec.count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    if (ImPlot::BeginPlot(spec.title ? spec.title : "##sc",
+                          ImVec2(w, spec.height), ImPlotFlags_NoMenus)) {
+        ImPlot::SetupAxes(nullptr, nullptr,
+                          ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+        // v0.18: ImPlotCol_MarkerFill/MarkerOutline removed; use ImPlotSpec fields
+        ImPlotSpec ispec;
+        if (spec.color) {
+            ImVec4 c = ImGui::ColorConvertU32ToFloat4(spec.color);
+            ispec.MarkerFillColor = c;
+            ispec.MarkerLineColor = c;
+        }
+        ispec.Marker = ImPlotMarker_Circle;
+        ImPlot::PlotScatter(spec.label ? spec.label : "##sc",
+                            spec.xs, spec.ys, spec.count, ispec);
+        ImPlot::EndPlot();
+    }
+    ImGui::PopID();
+}
+
+inline void DrawImPlotHeatmap(const ImPlotHeatmapSpec& spec) {
+    if (!spec.values || spec.rows <= 0 || spec.cols <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f)
+                        ? spec.width
+                        : ImGui::GetContentRegionAvail().x;
+    ImPlot::PushColormap(spec.colormap);
+    if (ImPlot::BeginPlot(spec.title ? spec.title : "##hm",
+                          ImVec2(w - 70.0f, spec.height),
+                          ImPlotFlags_NoLegend | ImPlotFlags_NoMenus)) {
+        ImPlot::SetupAxes(nullptr, nullptr,
+                          ImPlotAxisFlags_Lock, ImPlotAxisFlags_Lock);
+        ImPlot::SetupAxesLimits(0.0, static_cast<double>(spec.cols),
+                                0.0, static_cast<double>(spec.rows));
+        ImPlot::PlotHeatmap(spec.label ? spec.label : "##hm",
+                            spec.values, spec.rows, spec.cols,
+                            spec.scale_min, spec.scale_max,
+                            spec.label_fmt,
+                            ImPlotPoint(0.0, 0.0),
+                            ImPlotPoint(spec.cols, spec.rows));
+        ImPlot::EndPlot();
+    }
+    ImGui::SameLine();
+    ImPlot::ColormapScale("##cb", spec.scale_min, spec.scale_max,
+                          ImVec2(60.0f, spec.height));
+    ImPlot::PopColormap();
+    ImGui::PopID();
+}
+
+inline void DrawImPlotHistogram(const ImPlotHistogramSpec& spec) {
+    if (!spec.values || spec.count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    if (ImPlot::BeginPlot(spec.title ? spec.title : "##hist",
+                          ImVec2(w, spec.height), ImPlotFlags_NoMenus)) {
+        ImPlot::SetupAxes(nullptr, spec.density ? "Density" : "Count",
+                          ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+        // v0.18: ImPlotCol_Fill removed; use ImPlotSpec.FillColor + flags in Flags field
+        ImPlotSpec ispec;
+        if (spec.bar_color)
+            ispec.FillColor = ImGui::ColorConvertU32ToFloat4(spec.bar_color);
+        ImPlotHistogramFlags flags = ImPlotHistogramFlags_None;
+        if (spec.cumulative) flags |= ImPlotHistogramFlags_Cumulative;
+        if (spec.density)    flags |= ImPlotHistogramFlags_Density;
+        ispec.Flags = flags;
+        ImPlot::PlotHistogram(spec.label ? spec.label : "##hist",
+                              spec.values, spec.count,
+                              spec.bins, 1.0, ImPlotRange(), ispec);
+        ImPlot::EndPlot();
+    }
+    ImGui::PopID();
+}
+
+#endif // ROGUECITY_HAS_IMPLOT
+
+// ===========================================================================
+// ImPlot3D-backed primitives  (requires ROGUECITY_HAS_IMPLOT3D=1)
+// ===========================================================================
+// 3D scatter/line/surface plots for spatial city data (building volumes,
+// terrain elevation, AESP accessibility surfaces, lot distribution clouds).
+// Each Draw* wraps ImPlot3D::BeginPlot / EndPlot.
+// Call RC_UI::API::InitImPlot3D() / ShutdownImPlot3D() alongside the ImGui
+// context lifetime; see rc_imgui_api.h.
+// ===========================================================================
+#ifdef ROGUECITY_HAS_IMPLOT3D
+
+// 3D scatter — world-space point cloud (e.g. building centroid cloud).
+struct ImPlot3DScatterSpec {
+    const char*  id;            // ImGui PushID key (unique per panel)
+    const char*  title;         // plot title (nullptr = hidden)
+    const char*  label;         // series legend label (nullable)
+    const float* xs;            // world X (meters or normalised)
+    const float* ys;            // world Y
+    const float* zs;            // world Z / elevation
+    int          count;
+    float        width;         // 0 = ContentRegionAvail.x
+    float        height;
+    ImU32        color;         // 0 = ImPlot3D auto-cycle
+};
+
+// 3D line — trajectory or road path in 3D space.
+struct ImPlot3DLineSpec {
+    const char*  id;
+    const char*  title;
+    const char*  label;
+    const float* xs;
+    const float* ys;
+    const float* zs;
+    int          count;
+    float        width;
+    float        height;
+    ImU32        color;         // 0 = auto
+    float        line_weight;   // 0 = default (1px)
+};
+
+// 3D surface — AESP score grid, terrain DEM, or density field.
+// xs[x_count], ys[y_count] define the axis ticks;
+// zs[y_count][x_count] (row-major) holds the surface heights.
+struct ImPlot3DSurfaceSpec {
+    const char*  id;
+    const char*  title;
+    const char*  label;
+    const float* xs;            // x-axis values [x_count]
+    const float* ys;            // y-axis values [y_count]
+    const float* zs;            // surface heights [y_count * x_count], row-major
+    int          x_count;
+    int          y_count;
+    double       scale_min;     // colormap low bound  (0 = auto)
+    double       scale_max;     // colormap high bound (0 = auto)
+    float        width;
+    float        height;
+    ImPlot3DColormap colormap;  // e.g. ImPlot3DColormap_Viridis
+};
+
+// ---------------------------------------------------------------------------
+
+inline void DrawImPlot3DScatter(const ImPlot3DScatterSpec& spec) {
+    if (!spec.xs || !spec.ys || !spec.zs || spec.count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    if (ImPlot3D::BeginPlot(spec.title ? spec.title : "##3dsc",
+                            ImVec2(w, spec.height), ImPlot3DFlags_NoMenus)) {
+        ImPlot3D::SetupAxes("X", "Y", "Z");
+        ImPlot3DSpec ispec;
+        if (spec.color) {
+            ImVec4 c = ImGui::ColorConvertU32ToFloat4(spec.color);
+            ispec.MarkerFillColor = c;
+            ispec.MarkerLineColor = c;
+        }
+        ispec.Marker = ImPlot3DMarker_Circle;
+        ImPlot3D::PlotScatter(spec.label ? spec.label : "##3dsc",
+                              spec.xs, spec.ys, spec.zs, spec.count, ispec);
+        ImPlot3D::EndPlot();
+    }
+    ImGui::PopID();
+}
+
+inline void DrawImPlot3DLine(const ImPlot3DLineSpec& spec) {
+    if (!spec.xs || !spec.ys || !spec.zs || spec.count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    if (ImPlot3D::BeginPlot(spec.title ? spec.title : "##3dln",
+                            ImVec2(w, spec.height), ImPlot3DFlags_NoMenus)) {
+        ImPlot3D::SetupAxes("X", "Y", "Z");
+        ImPlot3DSpec ispec;
+        if (spec.color) ispec.LineColor = ImGui::ColorConvertU32ToFloat4(spec.color);
+        if (spec.line_weight > 0.0f) ispec.LineWeight = spec.line_weight;
+        ImPlot3D::PlotLine(spec.label ? spec.label : "##3dln",
+                           spec.xs, spec.ys, spec.zs, spec.count, ispec);
+        ImPlot3D::EndPlot();
+    }
+    ImGui::PopID();
+}
+
+inline void DrawImPlot3DSurface(const ImPlot3DSurfaceSpec& spec) {
+    if (!spec.zs || spec.x_count <= 0 || spec.y_count <= 0) return;
+    ImGui::PushID(spec.id);
+    const float w = (spec.width > 0.0f) ? spec.width : ImGui::GetContentRegionAvail().x;
+    ImPlot3D::PushColormap(spec.colormap);
+    if (ImPlot3D::BeginPlot(spec.title ? spec.title : "##3dsrf",
+                            ImVec2(w, spec.height), ImPlot3DFlags_NoMenus)) {
+        ImPlot3D::SetupAxes("X", "Y", "Z");
+        ImPlot3D::PlotSurface(spec.label ? spec.label : "##3dsrf",
+                              spec.xs, spec.ys, spec.zs,
+                              spec.x_count, spec.y_count,
+                              spec.scale_min, spec.scale_max);
+        ImPlot3D::EndPlot();
+    }
+    ImPlot3D::PopColormap();
+    ImGui::PopID();
+}
+
+#endif // ROGUECITY_HAS_IMPLOT3D
 
 } // namespace RC_UI::DataViz

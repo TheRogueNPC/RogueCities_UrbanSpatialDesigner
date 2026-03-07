@@ -17,6 +17,12 @@
 #include <cstring>
 #include <filesystem>
 #include <imgui.h>
+#ifdef ROGUECITY_HAS_IMPLOT
+#include <implot.h>
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+#include <implot3d.h>
+#endif
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -388,9 +394,21 @@ int main(int argc, char **argv) {
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+#ifdef ROGUECITY_HAS_IMPLOT
+  ImPlot::CreateContext(); // must follow ImGui::CreateContext
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+  ImPlot3D::CreateContext(); // must follow ImGui::CreateContext
+#endif
 
 #if defined(ROGUECITY_HEADLESS_GL_SCREENSHOT)
   if (wants_screenshot && !InitScreenshotImGuiBackends(screenshot_ctx)) {
+#ifdef ROGUECITY_HAS_IMPLOT
+    ImPlot::DestroyContext();
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+    ImPlot3D::DestroyContext();
+#endif
     ImGui::DestroyContext();
     ShutdownScreenshotRuntime(screenshot_ctx);
     return 3;
@@ -685,6 +703,12 @@ int main(int argc, char **argv) {
         ShutdownScreenshotRuntime(screenshot_ctx);
       }
 #endif
+#ifdef ROGUECITY_HAS_IMPLOT
+      ImPlot::DestroyContext();
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+      ImPlot3D::DestroyContext();
+#endif
       ImGui::DestroyContext();
       return 2;
     }
@@ -699,6 +723,12 @@ int main(int argc, char **argv) {
       std::fprintf(stderr, "Failed to export runtime screenshot to '%s'.\n",
                    opts.export_ui_screenshot_path.c_str());
       ShutdownScreenshotRuntime(screenshot_ctx);
+#ifdef ROGUECITY_HAS_IMPLOT
+      ImPlot::DestroyContext();
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+      ImPlot3D::DestroyContext();
+#endif
       ImGui::DestroyContext();
       return 4;
     }
@@ -714,6 +744,12 @@ int main(int argc, char **argv) {
   }
 #endif
   RC_UI::Panels::ImGuiError::Shutdown();
+#ifdef ROGUECITY_HAS_IMPLOT
+  ImPlot::DestroyContext(); // must precede ImGui::DestroyContext
+#endif
+#ifdef ROGUECITY_HAS_IMPLOT3D
+  ImPlot3D::DestroyContext(); // must precede ImGui::DestroyContext
+#endif
   ImGui::DestroyContext();
   return 0;
 }

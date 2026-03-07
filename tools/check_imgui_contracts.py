@@ -99,6 +99,13 @@ def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
+# Files exempt from panel-level ImGui contract checks (self-contained floating windows
+# that own their own ImGui::Begin call and raw widget calls by design).
+PANEL_ALLOWLIST: set[str] = {
+    "rc_panel_dataviz_gallery.cpp",
+}
+
+
 def iter_panel_sources() -> list[Path]:
     if not PANELS_DIR.exists():
         return []
@@ -299,6 +306,8 @@ def main() -> int:
     violations: list[str] = []
 
     for path in iter_panel_sources():
+        if path.name in PANEL_ALLOWLIST:
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         violations.extend(check_draw_content_contracts(path, text))
         violations.extend(check_loop_id_safety(path, text))

@@ -11,8 +11,41 @@
 #include <imgui.h>
 
 #include <array>
+#include <string>
+#include <vector>
 
 namespace RC_UI::Viewport {
+
+// ---------------------------------------------------------------------------
+// Photoshop-style div (guide) lines — viewport-space snapping anchors.
+// ---------------------------------------------------------------------------
+struct DivLine {
+  int id = 0;
+  bool horizontal = true; ///< true = horizontally oriented (constant world Y);
+                          ///< false = vertical (constant world X)
+  double world_pos =
+      0.0; ///< world-space coordinate on the relevant axis (meters)
+  bool enabled = true;
+  std::string label; ///< optional user-facing name
+};
+
+// Tracks the full set of guide lines for a session.
+// JSON round-trip is explicit (not automatic) to keep the visualizer layer
+// clean.
+struct DivLineTracker {
+  std::vector<DivLine> lines;
+  int next_id = 1;
+  int selected_div_id = -1; ///< ID of the viewport-selected guide (-1 = none)
+
+  void Add(bool horizontal, double world_pos, std::string label = "");
+  void Remove(int id);
+  void Clear();
+
+  // Returns true on success. Path is an absolute or workspace-relative
+  // filepath.
+  [[nodiscard]] bool SaveToJson(const std::string &path) const;
+  [[nodiscard]] bool LoadFromJson(const std::string &path);
+};
 
 // Overlay visibility toggles
 struct OverlayConfig {
@@ -41,11 +74,19 @@ struct OverlayConfig {
   bool show_city_boundary = true;
   bool show_connector_graph = true;
   bool show_building_search = false;
+  // NOTE: RC_DTD graph renders inside its own standalone RC_DTD window only.
+  //       It does not inject into the main viewport overlay.
 
   // AESP component selection (for heatmap)
   enum class AESPComponent { Access, Exposure, Service, Privacy, Combined };
   AESPComponent aesp_component = AESPComponent::Combined;
   bool show_scale_ruler = true;
+  bool show_ruler_ticks =
+      false; ///< Photoshop-style world-scaled tick ruler (H + V strips)
+  bool ruler_crosshair_mode =
+      false; ///< Full-viewport crosshair at mouse cursor instead of bars
+  bool ruler_snap_enabled =
+      false; ///< Snap dragged positions to visible ruler divisions
   bool show_compass_gimbal = true;
   bool compass_parented = false;
   ImVec2 compass_center{0.0f, 0.0f};
@@ -83,6 +124,9 @@ public:
     bool is_3d{false};
     ImVec2 viewport_pos{0.0f, 0.0f};
     ImVec2 viewport_size{0.0f, 0.0f};
+    // Animated ruler border margin (pixels). When >0 the canvas interior is
+    // inset by this amount on the top and left edges for the ruler strips.
+    float ruler_margin{0.0f};
   };
 
   struct HighlightState {
@@ -123,14 +167,31 @@ public:
   void RenderLotBoundaries(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderCityBoundary(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderConnectorGraph(const RogueCity::Core::Editor::GlobalState &gs);
+  // RenderRcdtd removed — RC_DTD is a standalone window, not a viewport overlay.
 
   void RenderFlightDeckHUD(const RogueCity::Core::Editor::GlobalState &gs);
   void Render2DCursorHUD(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderToolBadgeHUD(const RogueCity::Core::Editor::GlobalState &gs);
   void RenderScaleRulerHUD(const RogueCity::Core::Editor::GlobalState &gs);
+  void RenderRulerTicksHUD(const RogueCity::Core::Editor::GlobalState &gs,
+                           const OverlayConfig &config);
   void RenderCompassGimbalHUD(bool parented, const ImVec2 &center,
                               float radius);
   std::optional<float> requested_yaw_{};
+
+  // Guide lines (Photoshop-style div lines). Public so View submenu can
+  // iterate/manage.
+  DivLineTracker div_lines{};
+
+  /// Returns world_pos snapped to the current ruler major-division interval.
+  /// Call when ruler_snap_enabled is true. Returns unmodified pos if ruler
+  /// has not been rendered this frame (interval defaults to 1 m).
+  [[nodiscard]] RogueCity::Core::Vec2
+  SnapToRulerDivision(const RogueCity::Core::Vec2 &world_pos) const;
+
+  /// Last computed major tick interval (meters). Updated each
+  /// RenderRulerTicksHUD call.
+  float GetRulerIntervalMeters() const { return ruler_interval_meters_; }
 
   void SetViewTransform(const ViewTransform &transform) {
     view_transform_ = transform;
@@ -197,6 +258,14 @@ private:
   void RecordFallbackFullScan();
   ViewTransform view_transform_{};
   HighlightState highlights_{};
+  mutable float ruler_interval_meters_{
+      1.0f}; ///< Major tick interval (m); updated by RenderRulerTicksHUD
+  // Div-line drag state: set when mouse held inside a ruler strip.
+  bool ruler_drag_active_{false};
+  bool ruler_drag_horizontal_{
+      false}; ///< true = dragging from H strip (creates H guide at world Y)
+  double ruler_drag_world_pos_{
+      0.0}; ///< preview world coordinate during active drag
   mutable std::vector<ImVec2> scratch_screen_points_{};
   mutable std::vector<uint32_t> scratch_triangle_indices_{};
   mutable std::vector<uint32_t> scratch_dedupe_stamps_{};

@@ -60,6 +60,14 @@ void SetMinimapAdaptiveQualityEnabled(bool enabled);
 void SetMinimapVisible(bool visible);
 void ToggleMinimapVisible();
 
+// Photoshop-style ruler tick overlay controls
+[[nodiscard]] bool IsRulerTicksVisible();
+void SetRulerTicksVisible(bool v);
+[[nodiscard]] bool IsRulerCrosshairMode();
+void SetRulerCrosshairMode(bool v);
+[[nodiscard]] bool IsRulerSnapEnabled();
+void SetRulerSnapEnabled(bool v);
+
 [[nodiscard]] bool CanUndo();
 [[nodiscard]] bool CanRedo();
 void Undo();
