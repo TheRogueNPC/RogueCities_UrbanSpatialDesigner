@@ -3,6 +3,7 @@
 // reveal animations and hover-expansion.
 #include "ui/panels/rc_panel_log.h"
 
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
@@ -163,7 +164,7 @@ void DrawContent(float dt) {
         ico_path = LC::Info; break;
       }
       if (auto ico = RC::SvgTextureCache::Get().Load(ico_path, 11.f)) {
-        ImGui::Image(ico, ImVec2(11, 11)); ImGui::SameLine(0, 3);
+        ImGui::Image(ico, ImVec2(11, 11)); API::SameLine(0, 3);
       }
     }
 
@@ -177,11 +178,11 @@ void DrawContent(float dt) {
         std::string rest = msg.substr(bracket_end + 1);
         
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "[");
-        ImGui::SameLine(0, 0);
+        API::SameLine(0, 0);
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "%s", prefix.c_str());
-        ImGui::SameLine(0, 0);
+        API::SameLine(0, 0);
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "]");
-        ImGui::SameLine(0, 0);
+        API::SameLine(0, 0);
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", rest.c_str());
     } else {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary), "%s", msg.c_str());

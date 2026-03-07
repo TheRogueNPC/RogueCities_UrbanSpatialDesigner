@@ -44,6 +44,7 @@ set(APP_SOURCES
     
     # Integration (Generator bridge)
     src/Integration/CityOutputApplier.cpp
+    src/Integration/DatabaseComputeWorker.cpp
     src/Integration/GenerationCoordinator.cpp
     src/Integration/GeneratorBridge.cpp
     src/Integration/RealTimePreview.cpp
@@ -88,6 +89,7 @@ set(APP_HEADERS
     
     # Integration
     include/RogueCity/App/Integration/CityOutputApplier.hpp
+    include/RogueCity/App/Integration/DatabaseComputeWorker.hpp
     include/RogueCity/App/Integration/GenerationCoordinator.hpp
     include/RogueCity/App/Integration/GeneratorBridge.hpp
     include/RogueCity/App/Integration/RealTimePreview.hpp

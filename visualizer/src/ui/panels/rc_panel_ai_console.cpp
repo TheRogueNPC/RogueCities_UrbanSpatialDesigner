@@ -2,6 +2,7 @@
 // PURPOSE: AI Bridge runtime control and status monitoring
 
 #include "rc_panel_ai_console.h"
+#include "ui/api/rc_imgui_api.h"
 #include "runtime/AiBridgeRuntime.h"
 #include "runtime/AiAvailability.h"
 #include "config/AiConfig.h"
@@ -44,40 +45,38 @@ static void DrawUnlockFeaturesMock() {
     ImGui::EndChild();
     ImGui::PopStyleColor();
     
-    DesignSystem::Separator();
-    DesignSystem::SectionHeader("AI Bridge Unavailable");
-    
-    const char* reason = AI::AiAvailability::GetUnavailableReason();
-    if (reason && reason[0]) {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::ErrorRed));
-        ImGui::TextWrapped("Reason: %s", reason);
-        ImGui::PopStyleColor();
-        DesignSystem::Separator();
-    }
-    
-    ImGui::TextWrapped("AI features require additional dependencies:");
-
-    ImGui::TextWrapped("AI features require additional dependencies:");
-    ImGui::Spacing();
-    ImGui::Bullet(); ImGui::Text("Python 3.10+ with FastAPI");
-    ImGui::Bullet(); ImGui::Text("WinHTTP.dll (Windows HTTP Services)");
-    ImGui::Bullet(); ImGui::Text("AI Bridge toolserver (tools/toolserver.py)");
-    ImGui::Spacing();
-    
-    DesignSystem::Separator();
-    
-    ImGui::TextWrapped("Enable Dev Mode in the Dev Shell panel to unlock AI features (requires runtime dependencies).");
-    ImGui::Spacing();
-    
-    if (gs.config.dev_mode_enabled) {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::SuccessGreen));
-        ImGui::Text("Dev Mode: ENABLED");
-        ImGui::PopStyleColor();
-        ImGui::TextWrapped("AI features unlocked but dependencies are missing. Install Python and run Start_Ai_Bridge_Fixed.ps1");
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::TextSecondary));
-        ImGui::Text("Dev Mode: DISABLED");
-        ImGui::PopStyleColor();
+    API::Separator();
+    if (API::SectionHeader("AI Bridge Unavailable", RC_UI::UITokens::YellowWarning, true)) {
+        const char* reason = AI::AiAvailability::GetUnavailableReason();
+        if (reason && reason[0]) {
+            ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::ErrorRed));
+            ImGui::TextWrapped("Reason: %s", reason);
+            ImGui::PopStyleColor();
+            API::Separator();
+        }
+        
+        ImGui::TextWrapped("AI features require additional dependencies:");
+        API::Spacing();
+        ImGui::Bullet(); ImGui::Text("Python 3.10+ with FastAPI");
+        ImGui::Bullet(); ImGui::Text("WinHTTP.dll (Windows HTTP Services)");
+        ImGui::Bullet(); ImGui::Text("AI Bridge toolserver (tools/toolserver.py)");
+        API::Spacing();
+        
+        API::Separator();
+        
+        ImGui::TextWrapped("Enable Dev Mode in the Dev Shell panel to unlock AI features (requires runtime dependencies).");
+        API::Spacing();
+        
+        if (gs.config.dev_mode_enabled) {
+            ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::SuccessGreen));
+            ImGui::Text("Dev Mode: ENABLED");
+            ImGui::PopStyleColor();
+            ImGui::TextWrapped("AI features unlocked but dependencies are missing. Install Python and run Start_Ai_Bridge_Fixed.ps1");
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(DesignTokens::TextSecondary));
+            ImGui::Text("Dev Mode: DISABLED");
+            ImGui::PopStyleColor();
+        }
     }
 }
 
@@ -108,82 +107,83 @@ void AiConsolePanel::RenderContent() {
     auto& config = AI::AiConfigManager::Instance().GetConfig();
     
     // === STATUS DISPLAY ===
-    DesignSystem::SectionHeader("Bridge Status");
-    
-    ImU32 statusColor = runtime.IsOnline() ? RC_UI::UITokens::SuccessGreen : RC_UI::UITokens::YellowWarning;
-    if (runtime.GetStatus() == AI::BridgeStatus::Failed) {
-        statusColor = RC_UI::UITokens::ErrorRed;
-    }
-    
-    ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(statusColor));
-    ImGui::Text("Status: %s", runtime.GetStatusString().c_str());
-    ImGui::PopStyleColor();
-    
-    if (runtime.GetStatus() == AI::BridgeStatus::Failed && !runtime.GetLastError().empty()) {
-        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(RC_UI::UITokens::ErrorRed));
-        ImGui::Text("Error: %s", runtime.GetLastError().c_str());
+    if (API::SectionHeader("Bridge Status", RC_UI::UITokens::InfoBlue, true)) {
+        ImU32 statusColor = runtime.IsOnline() ? RC_UI::UITokens::SuccessGreen : RC_UI::UITokens::YellowWarning;
+        if (runtime.GetStatus() == AI::BridgeStatus::Failed) {
+            statusColor = RC_UI::UITokens::ErrorRed;
+        }
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(statusColor));
+        ImGui::Text("Status: %s", runtime.GetStatusString().c_str());
         ImGui::PopStyleColor();
-    }
-    
-    DesignSystem::Separator();
-
-    // === DEV TERMINAL (SAFE COMMAND BRIDGE) ===
-    DesignSystem::SectionHeader("Dev Terminal (Safe)");
-    ImGui::TextWrapped("Runs allowlisted dev-shell commands in a background PowerShell process.");
-    static int selectedCommand = 0;
-    static std::string commandResult;
-    static const std::array<const char*, 8> kCommandIds = {
-        "rc-cfg-ai",
-        "rc-bld-vis",
-        "rc-tst-core",
-        "rc-doctor",
-        "rc-ai-smoke-live",
-        "rc-ai-eval-fast",
-        "rc-perceive-ui",
-        "rc-perception-audit",
-    };
-
-    ImGui::SetNextItemWidth(260.0f);
-    ImGui::Combo("Command", &selectedCommand, kCommandIds.data(), static_cast<int>(kCommandIds.size()));
-    ImGui::SameLine();
-    if (DesignSystem::ButtonSecondary("Run Command", ImVec2(140, 0))) {
-        std::string error;
-        const std::string id = kCommandIds[static_cast<size_t>(selectedCommand)];
-        if (runtime.RunDevShellCommand(id, &error)) {
-            commandResult = "Launched: " + id;
-        } else {
-            commandResult = "Failed: " + id + " | " + error;
+        
+        if (runtime.GetStatus() == AI::BridgeStatus::Failed && !runtime.GetLastError().empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, DesignSystem::ToVec4(RC_UI::UITokens::ErrorRed));
+            ImGui::Text("Error: %s", runtime.GetLastError().c_str());
+            ImGui::PopStyleColor();
         }
     }
-    if (!commandResult.empty()) {
-        ImGui::TextWrapped("%s", commandResult.c_str());
+    
+    API::Separator();
+
+    // === DEV TERMINAL (SAFE COMMAND BRIDGE) ===
+    if (API::SectionHeader("Dev Terminal (Safe)", RC_UI::UITokens::CyanAccent, true)) {
+        ImGui::TextWrapped("Runs allowlisted dev-shell commands in a background PowerShell process.");
+        static int selectedCommand = 0;
+        static std::string commandResult;
+        static const std::array<const char*, 8> kCommandIds = {
+            "rc-cfg-ai",
+            "rc-bld-vis",
+            "rc-tst-core",
+            "rc-doctor",
+            "rc-ai-smoke-live",
+            "rc-ai-eval-fast",
+            "rc-perceive-ui",
+            "rc-perception-audit",
+        };
+
+        API::SetNextItemWidth(260.0f);
+        API::Combo("Command", &selectedCommand, kCommandIds.data(), static_cast<int>(kCommandIds.size()));
+        API::SameLine();
+        if (DesignSystem::ButtonSecondary("Run Command", ImVec2(140, 0))) {
+            std::string error;
+            const std::string id = kCommandIds[static_cast<size_t>(selectedCommand)];
+            if (runtime.RunDevShellCommand(id, &error)) {
+                commandResult = "Launched: " + id;
+            } else {
+                commandResult = "Failed: " + id + " | " + error;
+            }
+        }
+        if (!commandResult.empty()) {
+            ImGui::TextWrapped("%s", commandResult.c_str());
+        }
     }
 
-    DesignSystem::Separator();
+    API::Separator();
     
     // === CONTROL BUTTONS ===
-    DesignSystem::SectionHeader("Control");
-    
-    ImGui::BeginDisabled(runtime.IsOnline() || runtime.GetStatus() == AI::BridgeStatus::Starting);
-    if (DesignSystem::ButtonPrimary("Start AI Bridge", ImVec2(180, 30))) {
-        runtime.StartBridge();
+    if (API::SectionHeader("Control", RC_UI::UITokens::GreenHUD, true)) {
+        API::BeginDisabled(runtime.IsOnline() || runtime.GetStatus() == AI::BridgeStatus::Starting);
+        if (DesignSystem::ButtonPrimary("Start AI Bridge", ImVec2(180, 30))) {
+            runtime.StartBridge();
+        }
+        uiint.RegisterWidget({"button", "Start AI Bridge", "action:ai.bridge.start", {"action", "ai"}});
+        API::EndDisabled();
+        
+        API::SameLine();
+        
+        API::BeginDisabled(!runtime.IsOnline());
+        if (DesignSystem::ButtonDanger("Stop AI Bridge", ImVec2(180, 30))) {
+            runtime.StopBridge();
+        }
+        uiint.RegisterWidget({"button", "Stop AI Bridge", "action:ai.bridge.stop", {"action", "ai"}});
+        API::EndDisabled();
     }
-    uiint.RegisterWidget({"button", "Start AI Bridge", "action:ai.bridge.start", {"action", "ai"}});
-    ImGui::EndDisabled();
     
-    ImGui::SameLine();
-    
-    ImGui::BeginDisabled(!runtime.IsOnline());
-    if (DesignSystem::ButtonDanger("Stop AI Bridge", ImVec2(180, 30))) {
-        runtime.StopBridge();
-    }
-    uiint.RegisterWidget({"button", "Stop AI Bridge", "action:ai.bridge.stop", {"action", "ai"}});
-    ImGui::EndDisabled();
-    
-    DesignSystem::Separator();
+    API::Separator();
     
     // === MODEL CONFIGURATION ===
-    if (ImGui::CollapsingHeader("Model Configuration")) {
+    if (API::SectionHeader("Model Configuration", RC_UI::UITokens::MagentaHighlight, false)) {
         ImGui::Text("UI Agent:      %s", config.uiAgentModel.c_str());
         ImGui::Text("City Spec:     %s", config.citySpecModel.c_str());
         ImGui::Text("Code Assistant: %s", config.codeAssistantModel.c_str());
@@ -191,7 +191,7 @@ void AiConsolePanel::RenderContent() {
     }
     
     // === CONNECTION INFO ===
-    if (ImGui::CollapsingHeader("Connection")) {
+    if (API::SectionHeader("Connection", RC_UI::UITokens::InfoBlue, false)) {
         ImGui::Text("Bridge URL: %s", config.bridgeBaseUrl.c_str());
         ImGui::Text("Health Check Timeout: %d sec", config.healthCheckTimeoutSec);
         ImGui::Text("PowerShell Preference: %s", config.preferPwsh ? "pwsh" : "powershell");

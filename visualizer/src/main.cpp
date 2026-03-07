@@ -1,5 +1,6 @@
 // namespace main.cpp: Entry point for the visualizer, demonstrating integration
 // of the EditorHFSM with a simple ImGui interface.
+#include "RogueCity/App/Integration/DatabaseComputeWorker.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
@@ -399,6 +400,10 @@ int main(int argc, char **argv) {
   auto &hfsm = RogueCity::Core::Editor::GetEditorHFSM();
   auto &gs = RogueCity::Core::Editor::GetGlobalState();
 
+  RogueCity::App::Integration::DatabaseComputeWorker db_worker(
+      gs, "rogue_cities_db", "http://localhost:3000");
+  db_worker.Start();
+
   hfsm.handle_event(EditorEvent::BootComplete, gs);
   hfsm.handle_event(EditorEvent::NewProject, gs);
   hfsm.handle_event(EditorEvent::ProjectLoaded, gs);
@@ -446,9 +451,12 @@ int main(int argc, char **argv) {
     ImGui::NewFrame();
 
     apply_theme_once();
-    RC_UI::DrawRoot(io.DeltaTime);
-
+    // HFSM is the application state driver. Update state FIRST so that
+    // DrawRoot, draw_main_menu, and draw_editor_windows all see the same
+    // current-frame HFSM state in one render call.
+    // (Matches the canonical game loop: Poll → UpdateState → Render → Present)
     hfsm.update(gs, io.DeltaTime);
+    RC_UI::DrawRoot(io.DeltaTime);
     draw_main_menu(hfsm, gs);
     draw_editor_windows(hfsm, gs);
 

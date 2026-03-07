@@ -8,6 +8,7 @@
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/EditorUtils.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
+#include "ui/rc_ui_root.h"
 #include "ui/tools/rc_tool_interaction_metrics.h"
 
 #include <boost/geometry.hpp>
@@ -1260,7 +1261,8 @@ void ProcessViewportCommandTriggers(
   }
 
   if (params.editor_config->viewport_hotkey_space_enabled &&
-      ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+      RC_UI::Keymap::IsPressed(
+          RC_UI::Keymap::Action::kViewportOpenSmartList, false)) {
     if (state_bundle.smart_menu != nullptr) {
       RC_UI::Commands::RequestOpenSmartMenu(*state_bundle.smart_menu,
                                             params.mouse_pos, domain_library);
@@ -1268,7 +1270,8 @@ void ProcessViewportCommandTriggers(
   }
 
   if (params.editor_config->viewport_hotkey_grave_enabled &&
-      ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) {
+      RC_UI::Keymap::IsPressed(
+          RC_UI::Keymap::Action::kViewportOpenPieMenu, false)) {
     if (state_bundle.pie_menu != nullptr) {
       RC_UI::Commands::RequestOpenPieMenu(*state_bundle.pie_menu,
                                           params.mouse_pos, domain_library);
@@ -1276,9 +1279,11 @@ void ProcessViewportCommandTriggers(
   }
 
   if ((params.editor_config->viewport_hotkey_slash_enabled &&
-       ImGui::IsKeyPressed(ImGuiKey_Slash, false)) ||
-      (params.editor_config->viewport_hotkey_p_enabled && !io.KeyCtrl &&
-       ImGui::IsKeyPressed(ImGuiKey_P, false))) {
+       RC_UI::Keymap::IsPressed(
+           RC_UI::Keymap::Action::kViewportOpenPalettePrimary, false)) ||
+      (params.editor_config->viewport_hotkey_p_enabled &&
+       RC_UI::Keymap::IsPressed(
+           RC_UI::Keymap::Action::kViewportOpenPaletteAlt, false))) {
     if (state_bundle.command_palette != nullptr) {
       RC_UI::Commands::RequestOpenCommandPalette(*state_bundle.command_palette);
     }
@@ -1286,21 +1291,20 @@ void ProcessViewportCommandTriggers(
 
   if (params.editor_config->viewport_hotkey_domain_context_enabled) {
     using RC_UI::ToolLibrary;
-    static constexpr std::array<std::pair<ImGuiKey, ToolLibrary>, 6>
+    static constexpr std::array<std::pair<const char *, ToolLibrary>, 6>
         kDomainKeys{{
-            {ImGuiKey_A, ToolLibrary::Axiom},
-            {ImGuiKey_W, ToolLibrary::Water},
-            {ImGuiKey_R, ToolLibrary::Road},
-            {ImGuiKey_D, ToolLibrary::District},
-            {ImGuiKey_L, ToolLibrary::Lot},
-            {ImGuiKey_B, ToolLibrary::Building},
+            {RC_UI::Keymap::Action::kViewportDomainHoldA, ToolLibrary::Axiom},
+            {RC_UI::Keymap::Action::kViewportDomainHoldW, ToolLibrary::Water},
+            {RC_UI::Keymap::Action::kViewportDomainHoldR, ToolLibrary::Road},
+            {RC_UI::Keymap::Action::kViewportDomainHoldD, ToolLibrary::District},
+            {RC_UI::Keymap::Action::kViewportDomainHoldL, ToolLibrary::Lot},
+            {RC_UI::Keymap::Action::kViewportDomainHoldB, ToolLibrary::Building},
         }};
     constexpr float kHoldOpenSeconds = 0.28f;
 
     for (size_t i = 0; i < kDomainKeys.size(); ++i) {
       auto &hold = s_domain_hold[i];
-      const bool key_down = ImGui::IsKeyDown(kDomainKeys[i].first) &&
-                            !io.KeyCtrl && !io.KeyShift && !io.KeyAlt;
+      const bool key_down = RC_UI::Keymap::IsDown(kDomainKeys[i].first);
 
       if (!key_down) {
         hold.held_seconds = 0.0f;
@@ -1342,15 +1346,14 @@ ProcessAxiomViewportInteraction(const AxiomInteractionParams &params) {
   result.nav_active = orbit || pan || zoom_drag;
 
   if (params.allow_viewport_key_actions && params.global_state != nullptr) {
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-      if (io.KeyShift) {
-        params.axiom_tool->redo();
-      } else {
-        params.axiom_tool->undo();
-      }
-      params.global_state->dirty_layers.MarkFromAxiomEdit();
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+    const bool redo_pressed =
+        RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedoShiftZ) ||
+        RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedo);
+    if (redo_pressed) {
       params.axiom_tool->redo();
+      params.global_state->dirty_layers.MarkFromAxiomEdit();
+    } else if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kUndo)) {
+      params.axiom_tool->undo();
       params.global_state->dirty_layers.MarkFromAxiomEdit();
     }
   }

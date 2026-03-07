@@ -3,8 +3,10 @@
 
 Checks:
 - DrawContent() functions must not open top-level windows.
-- Loop widgets with static labels should be ID-scoped (PushID) to avoid collisions.
+- Loop interactive calls with static labels/ids should be ID-scoped (PushID) to
+  avoid collisions.
 - Legacy direct ImGuiIO state writes are forbidden in main loop.
+- Panel interactive/widget actions must route through RC_UI::API, not raw ImGui.
 """
 
 from __future__ import annotations
@@ -17,11 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PANELS_DIR = ROOT / "visualizer" / "src" / "ui" / "panels"
 MAIN_GUI = ROOT / "visualizer" / "src" / "main_gui.cpp"
 INPUT_GATE_CPP = ROOT / "visualizer" / "src" / "ui" / "rc_ui_input_gate.cpp"
+VISUALIZER_SRC = ROOT / "visualizer" / "src"
+KEYMAP_CPP = ROOT / "visualizer" / "src" / "ui" / "rc_ui_root.cpp"
 
 FORBIDDEN_IN_DRAW_CONTENT = [
     (re.compile(r"\bImGui::Begin\s*\("), "DrawContent() must not call ImGui::Begin()."),
     (re.compile(r"\bComponents::BeginTokenPanel\s*\("), "DrawContent() must not open token panels."),
     (re.compile(r"\bRC_UI::BeginDockableWindow\s*\("), "DrawContent() must not open dockable windows."),
+    (re.compile(r"\bAPI::BeginPanel\s*\("), "DrawContent() must not open API panels."),
 ]
 
 LEGACY_IO_ASSIGNMENTS = [
@@ -33,12 +38,61 @@ LEGACY_IO_ASSIGNMENTS = [
 ]
 
 WIDGET_IN_LOOP = re.compile(
-    r"\bImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo)\s*\(\s*\"([^\"]+)\""
+    r"\b(?:ImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo|Combo|CollapsingHeader|MenuItem)"
+    r"|API::(?:Button|DragFloat|DragInt|SliderScalar|ActionButton|SectionHeader))\s*\(\s*\"([^\"]+)\""
 )
 
 WIDGET_WITH_LITERAL_LABEL = re.compile(
-    r"\bImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo|Combo|CollapsingHeader|MenuItem)\s*\(\s*\"([^\"]+)\""
+    r"\b(?:ImGui::(?:Button|SmallButton|InvisibleButton|Selectable|Checkbox|RadioButton|InputText|InputTextMultiline|TreeNode|BeginCombo|Combo|CollapsingHeader|MenuItem)"
+    r"|API::(?:Button|DragFloat|DragInt|SliderScalar|ActionButton|SectionHeader))\s*\(\s*\"([^\"]+)\""
 )
+
+
+API_INCLUDE = re.compile(r'#include\s+"ui/api/rc_imgui_api\.h"')
+FORBIDDEN_RAW_WIDGET_CALLS = [
+    re.compile(r"\bImGui::Button\s*\("),
+    re.compile(r"\bImGui::SmallButton\s*\("),
+    re.compile(r"\bImGui::InvisibleButton\s*\("),
+    re.compile(r"\bImGui::Checkbox\s*\("),
+    re.compile(r"\bImGui::RadioButton\s*\("),
+    re.compile(r"\bImGui::Selectable\s*\("),
+    re.compile(r"\bImGui::InputText\s*\("),
+    re.compile(r"\bImGui::InputTextMultiline\s*\("),
+    re.compile(r"\bImGui::InputInt\s*\("),
+    re.compile(r"\bImGui::InputFloat\s*\("),
+    re.compile(r"\bImGui::InputFloat2\s*\("),
+    re.compile(r"\bImGui::InputScalar\s*\("),
+    re.compile(r"\bImGui::DragFloat\s*\("),
+    re.compile(r"\bImGui::DragInt\s*\("),
+    re.compile(r"\bImGui::SliderFloat\s*\("),
+    re.compile(r"\bImGui::SliderInt\s*\("),
+    re.compile(r"\bImGui::SliderScalar\s*\("),
+    re.compile(r"\bImGui::SliderAngle\s*\("),
+    re.compile(r"\bImGui::Combo\s*\("),
+    re.compile(r"\bImGui::BeginCombo\s*\("),
+    re.compile(r"\bImGui::EndCombo\s*\("),
+    re.compile(r"\bImGui::CollapsingHeader\s*\("),
+    re.compile(r"\bImGui::MenuItem\s*\("),
+    re.compile(r"\bImGui::TextDisabled\s*\("),
+    re.compile(r"\bImGui::SetNextItemWidth\s*\("),
+    re.compile(r"\bImGui::Indent\s*\("),
+    re.compile(r"\bImGui::Unindent\s*\("),
+    re.compile(r"\bImGui::BeginDisabled\s*\("),
+    re.compile(r"\bImGui::EndDisabled\s*\("),
+    re.compile(r"\bImGui::Spacing\s*\("),
+    re.compile(r"\bImGui::Separator\s*\("),
+    re.compile(r"\bImGui::SameLine\s*\("),
+    re.compile(r"\bImGui::OpenPopup\s*\("),
+    re.compile(r"\bImGui::BeginPopup\s*\("),
+    re.compile(r"\bImGui::BeginPopupModal\s*\("),
+    re.compile(r"\bImGui::EndPopup\s*\("),
+    re.compile(r"\bImGui::CloseCurrentPopup\s*\("),
+]
+
+FORBIDDEN_DIRECT_KEY_QUERIES = [
+    re.compile(r"\bImGui::IsKeyPressed\s*\("),
+    re.compile(r"\bImGui::IsKeyDown\s*\("),
+]
 
 
 def rel(path: Path) -> str:
@@ -200,6 +254,47 @@ def check_input_gate_contract() -> list[str]:
     return violations
 
 
+def check_panel_widget_wrapper_contract(path: Path, text: str) -> list[str]:
+    violations: list[str] = []
+    if "API::" in text and not API_INCLUDE.search(text):
+        violations.append(
+            f"{rel(path)}: Panel uses API:: calls but is missing #include \"ui/api/rc_imgui_api.h\"."
+        )
+
+    lines = text.splitlines()
+    for idx, line in enumerate(lines, start=1):
+        for pattern in FORBIDDEN_RAW_WIDGET_CALLS:
+            if pattern.search(line):
+                violations.append(
+                    f"{rel(path)}:{idx}: Raw ImGui widget call detected; use RC_UI::API wrappers (or API::Mutate for explicit exceptions)."
+                )
+                break
+    return violations
+
+
+def check_keymap_query_contract() -> list[str]:
+    violations: list[str] = []
+    if not VISUALIZER_SRC.exists():
+        return violations
+
+    allowed = {KEYMAP_CPP.resolve()}
+    for path in sorted(VISUALIZER_SRC.rglob("*")):
+        if not path.is_file() or path.suffix not in {".cpp", ".h"}:
+            continue
+        if path.resolve() in allowed:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+        for idx, line in enumerate(lines, start=1):
+            for pattern in FORBIDDEN_DIRECT_KEY_QUERIES:
+                if pattern.search(line):
+                    violations.append(
+                        f"{rel(path)}:{idx}: Direct key query detected; route keyboard checks through RC_UI::Keymap."
+                    )
+                    break
+    return violations
+
+
 def main() -> int:
     violations: list[str] = []
 
@@ -208,9 +303,11 @@ def main() -> int:
         violations.extend(check_draw_content_contracts(path, text))
         violations.extend(check_loop_id_safety(path, text))
         violations.extend(check_duplicate_labels_in_draw_content(path, text))
+        violations.extend(check_panel_widget_wrapper_contract(path, text))
 
     violations.extend(check_legacy_io_writes())
     violations.extend(check_input_gate_contract())
+    violations.extend(check_keymap_query_contract())
 
     if violations:
         print("ImGui contract violations detected:")

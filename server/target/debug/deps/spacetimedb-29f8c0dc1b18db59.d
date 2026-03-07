@@ -1,0 +1,11 @@
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\server\target\debug\deps\spacetimedb-29f8c0dc1b18db59.d: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\log_stopwatch.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\logger.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rng.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rt.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\table.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\../README.md
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\server\target\debug\deps\libspacetimedb-29f8c0dc1b18db59.rmeta: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\log_stopwatch.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\logger.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rng.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rt.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\table.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\../README.md
+
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\lib.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\log_stopwatch.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\logger.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rng.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\rt.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\table.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-2.0.3\src\../README.md:

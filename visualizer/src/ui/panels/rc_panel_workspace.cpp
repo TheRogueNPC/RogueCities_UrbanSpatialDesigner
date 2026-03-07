@@ -12,6 +12,7 @@
 // (or the "Left" dock area) — never fullscreen, never obstructing the 3D view.
 
 #include "ui/panels/rc_panel_workspace.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/App/UI/ThemeManager.h"
 #include "RogueCity/Visualizer/MockupTokenParser.hpp"
 #include "RogueCity/Visualizer/MockupWatcher.hpp"
@@ -143,21 +144,21 @@ void DrawContent(float dt) {
                    s_open);
 
   // ---- Persona buttons ---------------------------------------------------
-  ImGui::TextDisabled("PERSONA");
-  ImGui::SameLine();
-  ImGui::TextDisabled("(%s)", kPersonaDescriptions[s_active_persona]);
-  ImGui::Spacing();
+  API::TextDisabled("PERSONA");
+  API::SameLine();
+  API::TextDisabled("(%s)", kPersonaDescriptions[s_active_persona]);
+  API::Spacing();
 
   const float btn_w = (ImGui::GetContentRegionAvail().x - 4.0f * 4.0f) / 5.0f;
   for (int i = 0; i < 5; ++i) {
     if (i > 0)
-      ImGui::SameLine(0.0f, 4.0f);
+      API::SameLine(0.0f, 4.0f);
     const bool active = (s_active_persona == i);
     if (active) {
       ImGui::PushStyleColor(ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4(
                                                  UITokens::CyanAccent));
     }
-    if (ImGui::Button(kPersonaLabels[i], ImVec2(btn_w, 0.0f))) {
+    if (API::Button(kPersonaLabels[i], ImVec2(btn_w, 0.0f))) {
       s_active_persona = i;
       ApplyProfile(profiles[i]);
       uiint.RegisterWidget({"button",
@@ -169,25 +170,25 @@ void DrawContent(float dt) {
       ImGui::PopStyleColor();
   }
 
-  ImGui::Spacing();
-  ImGui::Separator();
-  ImGui::Spacing();
+  API::Spacing();
+  API::Separator();
+  API::Spacing();
 
   // ---- Active theme name -------------------------------------------------
-  ImGui::TextDisabled("THEME");
-  ImGui::SameLine();
+  API::TextDisabled("THEME");
+  API::SameLine();
   ImGui::Text("%s", tm.GetActiveThemeName().c_str());
 
-  ImGui::Spacing();
-  ImGui::Separator();
-  ImGui::Spacing();
+  API::Spacing();
+  API::Separator();
+  API::Spacing();
 
   // ---- Save current layout + theme as named preset -----------------------
-  ImGui::TextDisabled("SAVE PRESET");
-  ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 52.0f);
-  ImGui::InputText("##preset_name", s_preset_name, sizeof(s_preset_name));
-  ImGui::SameLine();
-  if (ImGui::Button("Save", ImVec2(48.0f, 0.0f))) {
+  API::TextDisabled("SAVE PRESET");
+  API::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 52.0f);
+  API::InputText("##preset_name", s_preset_name, sizeof(s_preset_name));
+  API::SameLine();
+  if (API::Button("Save", ImVec2(48.0f, 0.0f))) {
     std::string err;
     if (SaveWorkspacePreset(s_preset_name, &err)) {
       std::snprintf(s_last_status, sizeof(s_last_status), "Saved \"%s\"",
@@ -211,17 +212,17 @@ void DrawContent(float dt) {
                        s_last_error);
   }
 
-  ImGui::Spacing();
-  ImGui::Separator();
-  ImGui::Spacing();
+  API::Spacing();
+  API::Separator();
+  API::Spacing();
 
   // ---- Mockup Live Link --------------------------------------------------
-  ImGui::TextDisabled("MOCKUP LINK");
+  API::TextDisabled("MOCKUP LINK");
   uiint.RegisterWidget(
       {"label", "MOCKUP LINK", "workspace.mockup_link", {"mockup"}});
 
   bool link_changed =
-      ImGui::Checkbox("Live Link##mockup", &s_mockup_link_enabled);
+      API::Checkbox("Live Link##mockup", &s_mockup_link_enabled);
   uiint.RegisterWidget({"checkbox",
                         "Mockup Live Link",
                         "workspace.mockup_link_enabled",
@@ -237,16 +238,16 @@ void DrawContent(float dt) {
     }
   }
 
-  ImGui::SameLine();
-  ImGui::BeginDisabled(!s_mockup_link_enabled);
-  if (ImGui::SmallButton("Load Now")) {
+  API::SameLine();
+  API::BeginDisabled(!s_mockup_link_enabled);
+  if (API::SmallButton("Load Now")) {
     ForceMockupReload();
     uiint.RegisterWidget(
         {"button", "Load Now", "workspace.mockup_force_reload", {"mockup"}});
   }
-  ImGui::EndDisabled();
+  API::EndDisabled();
 
-  ImGui::TextDisabled("%s", kDefaultMockupPath);
+  API::TextDisabled("%s", kDefaultMockupPath);
 
   if (s_mockup_status[0] != '\0') {
     ImGui::TextWrapped("%s", s_mockup_status);
@@ -257,9 +258,9 @@ void DrawContent(float dt) {
     s_mockup_watcher.Update(dt);
   }
 
-  ImGui::Spacing();
-  ImGui::Separator();
-  ImGui::Spacing();
+  API::Spacing();
+  API::Separator();
+  API::Spacing();
 
   // ---- Embed Global UI Settings ------------------------------------------
   // Draw the entire UiSettings directly natively inside the Workspace dock

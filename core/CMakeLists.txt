@@ -42,6 +42,7 @@ set(CORE_HEADERS
     include/RogueCity/Core/Validation/DeterminismHash.hpp
     include/RogueCity/Core/Validation/AiTelemetry.hpp
     include/RogueCity/Core/Validation/CityInvariants.hpp
+    include/RogueCity/Core/Database/SpacetimeBridge.hpp
 )
 
 set(CORE_SOURCES
@@ -71,6 +72,7 @@ set(CORE_SOURCES
     src/Core/Validation/DeterminismHash.cpp
     src/Core/Validation/AiTelemetry.cpp
     src/Core/Validation/CityInvariants.cpp
+    src/Core/Database/SpacetimeBridge.cpp
 )
 
 # === LIBRARY TARGET ===
@@ -105,6 +107,8 @@ find_package(Threads REQUIRED)
 target_link_libraries(RogueCityCore
     PUBLIC
         Threads::Threads
+    PRIVATE
+        rc_db_client
 )
 
 if(TARGET Clipper2)

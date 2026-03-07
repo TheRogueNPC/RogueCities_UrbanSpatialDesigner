@@ -3,6 +3,7 @@
 // ARCHITECTURE: Single ImGui window, routes to drawers via PanelRegistry
 
 #include "RcMasterPanel.h"
+#include "ui/api/rc_imgui_api.h"
 #include "PanelRegistry.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Editor/EditorState.hpp"
@@ -85,9 +86,7 @@ void RcMasterPanel::Draw(float dt) {
   }
 
   // Handle search overlay (/)
-  const ImGuiIO &io = ImGui::GetIO();
-  if (ImGui::IsKeyPressed(ImGuiKey_Slash) && !io.KeyCtrl && !io.KeyAlt &&
-      !io.KeyShift) {
+  if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kMasterSearchOpen)) {
     OpenSearch();
   }
 
@@ -205,7 +204,7 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
 
   if (is_tools_tab_active) {
     DrawModeSwitches(ctx);
-    ImGui::Spacing();
+    API::Spacing();
     DrawActiveDrawers(ctx);
   } else {
     if (active_panels.empty()) {
@@ -229,12 +228,12 @@ void RcMasterPanel::DrawTabBar(DrawContext &ctx) {
     }
 
     DrawCategoryTab(m_active_category, active_panels);
-    ImGui::Spacing();
+    API::Spacing();
 
     ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("%s", "(/ for search)");
+    API::TextDisabled("%s", "(/ for search)");
     ImGui::PopTextWrapPos();
-    ImGui::Separator();
+    API::Separator();
 
     DrawActiveDrawer(ctx);
   }
@@ -291,32 +290,32 @@ void RcMasterPanel::DrawCategoryTab(PanelCategory cat,
 
       if (ImGui::IsItemHovered() &&
           ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
-        ImGui::OpenPopup("##MasterPanelContextMenu");
+        API::OpenPopup("##MasterPanelContextMenu");
         m_context_menu_target = type;
       }
     }
 
-    if (ImGui::BeginPopup("##MasterPanelContextMenu")) {
+    if (API::BeginPopup("##MasterPanelContextMenu")) {
       IPanelDrawer *target_drawer = registry.GetDrawer(m_context_menu_target);
       if (target_drawer) {
-        ImGui::TextDisabled("%s Actions", target_drawer->display_name());
-        ImGui::Separator();
+        API::TextDisabled("%s Actions", target_drawer->display_name());
+        API::Separator();
 
-        if (ImGui::MenuItem("Pop Out (Float)")) {
-          ImGui::CloseCurrentPopup();
+        if (API::MenuItem("Pop Out (Float)")) {
+          API::CloseCurrentPopup();
         }
-        if (ImGui::MenuItem("Duplicate View")) {
-          ImGui::CloseCurrentPopup();
+        if (API::MenuItem("Duplicate View")) {
+          API::CloseCurrentPopup();
         }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Pin to Edge")) {
-          ImGui::CloseCurrentPopup();
+        API::Separator();
+        if (API::MenuItem("Pin to Edge")) {
+          API::CloseCurrentPopup();
         }
-        if (ImGui::MenuItem("Minimize to Shelf")) {
-          ImGui::CloseCurrentPopup();
+        if (API::MenuItem("Minimize to Shelf")) {
+          API::CloseCurrentPopup();
         }
       }
-      ImGui::EndPopup();
+      API::EndPopup();
     }
 
     ImGui::EndTabBar();
@@ -353,18 +352,18 @@ void RcMasterPanel::DrawActiveDrawer(DrawContext &ctx) {
     // Popout button
     if (drawer->can_popout()) {
       bool is_popout = IsPopout(m_active_panel);
-      if (ImGui::Button(is_popout ? "Dock" : "Popout")) {
+      if (API::Button(is_popout ? "Dock" : "Popout")) {
         SetPopout(m_active_panel, !is_popout);
       }
-      ImGui::Spacing();
+      API::Spacing();
     }
 
     // Drawer content
     drawer->draw(ctx);
   } else if (!drawer) {
-    ImGui::TextDisabled("Panel not available");
+    API::TextDisabled("Panel not available");
   } else {
-    ImGui::TextDisabled("Panel not visible in current state");
+    API::TextDisabled("Panel not visible in current state");
   }
 
   float scroll_y = ImGui::GetScrollY();
@@ -411,11 +410,11 @@ void RcMasterPanel::DrawActiveDrawers(DrawContext &ctx) {
     if (drawer->can_popout()) {
       bool is_popout = IsPopout(type);
       ImGui::PushID("PopoutBtn");
-      if (ImGui::Button(is_popout ? "Dock" : "Popout")) {
+      if (API::Button(is_popout ? "Dock" : "Popout")) {
         SetPopout(type, !is_popout);
       }
       ImGui::PopID();
-      ImGui::Spacing();
+      API::Spacing();
     }
 
     // Drawer content
@@ -468,39 +467,39 @@ void RcMasterPanel::DrawActiveDrawers(DrawContext &ctx) {
 
   if (!any_visible) {
     ImGui::BeginChild("##EmptyContext", ImVec2(0, 0), true);
-    ImGui::TextDisabled("No tool active in current context.");
+    API::TextDisabled("No tool active in current context.");
     ImGui::EndChild();
   }
 }
 
 void RcMasterPanel::DrawSearchOverlay(DrawContext &ctx) {
-  ImGui::OpenPopup("##PanelSearch");
+  API::OpenPopup("##PanelSearch");
 
   ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Always);
   ImVec2 center = ImGui::GetMainViewport()->GetCenter();
   ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
-  if (ImGui::BeginPopupModal("##PanelSearch", &m_search_open,
+  if (API::BeginPopupModal("##PanelSearch", &m_search_open,
                              ImGuiWindowFlags_NoTitleBar |
                                  ImGuiWindowFlags_NoResize)) {
 
     ImGui::Text("Search Panels");
-    ImGui::Separator();
+    API::Separator();
 
     // Search input (auto-focus)
     ImGui::SetKeyboardFocusHere();
     bool enter_pressed =
-        ImGui::InputText("##search", m_search_filter, sizeof(m_search_filter),
+        API::InputText("##search", m_search_filter, sizeof(m_search_filter),
                          ImGuiInputTextFlags_EnterReturnsTrue);
 
     // Filter results
     m_search_results = FilterPanelsBySearch(m_search_filter);
 
-    ImGui::Separator();
+    API::Separator();
 
     // Results list
     if (m_search_results.empty()) {
-      ImGui::TextDisabled("No results");
+      API::TextDisabled("No results");
     } else {
       auto &registry = PanelRegistry::Instance();
 
@@ -511,18 +510,18 @@ void RcMasterPanel::DrawSearchOverlay(DrawContext &ctx) {
           continue;
 
         bool is_selected = (static_cast<int>(i) == m_search_selected_index);
-        if (ImGui::Selectable(drawer->display_name(), is_selected)) {
+        if (API::Selectable(drawer->display_name(), is_selected)) {
           SelectSearchResult(static_cast<int>(i));
         }
 
         // Keyboard navigation
         if (is_selected) {
-          if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+          if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kMasterSearchNext)) {
             m_search_selected_index =
                 std::min(m_search_selected_index + 1,
                          static_cast<int>(m_search_results.size()) - 1);
           }
-          if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+          if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kMasterSearchPrev)) {
             m_search_selected_index = std::max(m_search_selected_index - 1, 0);
           }
         }
@@ -535,11 +534,11 @@ void RcMasterPanel::DrawSearchOverlay(DrawContext &ctx) {
     }
 
     // Close on Escape
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kMasterSearchClose)) {
       CloseSearch();
     }
 
-    ImGui::EndPopup();
+    API::EndPopup();
   }
 }
 

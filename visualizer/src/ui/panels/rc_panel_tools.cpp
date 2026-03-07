@@ -2,6 +2,7 @@
 // PURPOSE: Bottom tools strip (viewport-centric cockpit controls).
 
 #include "ui/panels/rc_panel_tools.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
@@ -65,17 +66,10 @@ void DrawContent(float dt) {
 
   ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
                      "Mode: %s | Seed: %u", mode_str, AxiomEditor::GetSeed());
-  ImGui::Spacing();
+  API::Spacing();
 
-  // Restore iconified mode switching as the primary cockpit surface.
-  if (Components::DrawSectionHeader("Tool Deck", UITokens::CyanAccent,
-                                    /*default_open=*/true)) {
-    ImGui::Indent();
-    RC_UI::Panels::DrawContext ctx{gs, hfsm, uiint, nullptr, dt, false};
-    Components::DrawToolLibrarySwitcher(ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
-  }
+  // Tool-library switching is rendered once at the Master Panel surface.
+  // Keep this drawer focused on sub-tool/action content to avoid duplicate rows.
 
   // Draw active sub-tool grid if in a tool-compatible mode
   if (active_lib.has_value() && active_lib != ToolLibrary::Axiom) {
@@ -83,12 +77,12 @@ void DrawContent(float dt) {
     if (Components::DrawSectionHeader(section_label.c_str(),
                                       UITokens::CyanAccent,
                                       /*default_open=*/true)) {
-      ImGui::Indent();
+      API::Indent();
       // Construct temporary context for the shared component
       RC_UI::Panels::DrawContext ctx{gs, hfsm, uiint, nullptr, dt, false};
       Components::DrawToolActionGrid(*active_lib, ctx);
-      ImGui::Unindent();
-      ImGui::Spacing();
+      API::Unindent();
+      API::Spacing();
     }
   }
 
@@ -96,31 +90,31 @@ void DrawContent(float dt) {
   if (active_lib == ToolLibrary::Axiom) {
     if (Components::DrawSectionHeader("Axiom Library", UITokens::AmberGlow,
                                       /*default_open=*/true)) {
-      ImGui::Indent();
+      API::Indent();
       AxiomEditor::DrawAxiomLibraryContent();
-      ImGui::Unindent();
-      ImGui::Spacing();
+      API::Unindent();
+      API::Spacing();
     }
   }
 
   // Helper used by all sections — defined here so it stays in scope.
   const auto same_line_if_room = [](float min_remaining_width = 96.0f) {
     if (ImGui::GetContentRegionAvail().x > min_remaining_width) {
-      ImGui::SameLine();
+      API::SameLine();
     }
   };
 
   if (Components::DrawSectionHeader("Actions", UITokens::CyanAccent)) {
-    ImGui::Indent();
+    API::Indent();
 
     // Undo / Redo (prefer global history, fallback to legacy axiom history)
     auto &global_history = RogueCity::App::GetEditorCommandHistory();
     const bool can_undo = global_history.CanUndo() || AxiomEditor::CanUndo();
     const bool can_redo = global_history.CanRedo() || AxiomEditor::CanRedo();
     if (!can_undo) {
-      ImGui::BeginDisabled();
+      API::BeginDisabled();
     }
-    if (ImGui::Button("Undo")) {
+    if (API::Button("Undo")) {
       if (global_history.CanUndo()) {
         global_history.Undo();
       } else {
@@ -128,7 +122,7 @@ void DrawContent(float dt) {
       }
     }
     if (!can_undo) {
-      ImGui::EndDisabled();
+      API::EndDisabled();
     }
     uiint.RegisterWidget(
         {"button", "Undo", "action:editor.undo", {"action", "history"}});
@@ -144,9 +138,9 @@ void DrawContent(float dt) {
 
     same_line_if_room();
     if (!can_redo) {
-      ImGui::BeginDisabled();
+      API::BeginDisabled();
     }
-    if (ImGui::Button("Redo")) {
+    if (API::Button("Redo")) {
       if (global_history.CanRedo()) {
         global_history.Redo();
       } else {
@@ -154,7 +148,7 @@ void DrawContent(float dt) {
       }
     }
     if (!can_redo) {
-      ImGui::EndDisabled();
+      API::EndDisabled();
     }
     uiint.RegisterWidget(
         {"button", "Redo", "action:editor.redo", {"action", "history"}});
@@ -171,9 +165,9 @@ void DrawContent(float dt) {
     // Generation controls
     const bool can_generate = AxiomEditor::CanGenerate();
     if (!can_generate) {
-      ImGui::BeginDisabled();
+      API::BeginDisabled();
     }
-    if (ImGui::Button("Generate / Regenerate")) {
+    if (API::Button("Generate / Regenerate")) {
       AxiomEditor::ForceGenerate();
     }
     uiint.RegisterWidget({"button",
@@ -186,13 +180,13 @@ void DrawContent(float dt) {
                           {},
                           "AxiomEditor::ForceGenerate"});
     if (!can_generate) {
-      ImGui::EndDisabled();
+      API::EndDisabled();
     }
 
     // === Clear Operations (Undoable) ===
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    API::Spacing();
+    API::Separator();
+    API::Spacing();
 
     // Clear All Data button (warning style)
     ImGui::PushStyleColor(ImGuiCol_Button,
@@ -203,7 +197,7 @@ void DrawContent(float dt) {
                           ImGui::ColorConvertU32ToFloat4(0xFF5A2A2A));
 
     static bool show_clear_all_confirm = false;
-    if (ImGui::Button("Clear All Data")) {
+    if (API::Button("Clear All Data")) {
       show_clear_all_confirm = true;
     }
     ImGui::PopStyleColor(3);
@@ -216,11 +210,11 @@ void DrawContent(float dt) {
 
     // Confirmation modal
     if (show_clear_all_confirm) {
-      ImGui::OpenPopup("Confirm Clear All");
+      API::OpenPopup("Confirm Clear All");
       show_clear_all_confirm = false;
     }
 
-    if (ImGui::BeginPopupModal("Confirm Clear All", nullptr,
+    if (API::BeginPopupModal("Confirm Clear All", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
                          "WARNING:");
@@ -231,84 +225,84 @@ void DrawContent(float dt) {
       ImGui::BulletText("Districts");
       ImGui::BulletText("Lots");
       ImGui::BulletText("Buildings");
-      ImGui::Spacing();
+      API::Spacing();
       ImGui::Text("You can undo this operation with Ctrl+Z.");
-      ImGui::Spacing();
-      ImGui::Separator();
-      ImGui::Spacing();
+      API::Spacing();
+      API::Separator();
+      API::Spacing();
 
-      if (ImGui::Button("Yes, Clear All", ImVec2(120, 0))) {
+      if (API::Button("Yes, Clear All", ImVec2(120, 0))) {
         AxiomEditor::ClearAllData();
-        ImGui::CloseCurrentPopup();
+        API::CloseCurrentPopup();
       }
-      ImGui::SameLine();
-      if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-        ImGui::CloseCurrentPopup();
+      API::SameLine();
+      if (API::Button("Cancel", ImVec2(120, 0))) {
+        API::CloseCurrentPopup();
       }
-      ImGui::EndPopup();
+      API::EndPopup();
     }
 
     // Clear by Layer (collapsing header)
-    ImGui::Spacing();
-    if (ImGui::CollapsingHeader("Clear by Layer")) {
-      ImGui::Indent();
+    API::Spacing();
+    if (API::CollapsingHeader("Clear by Layer")) {
+      API::Indent();
 
-      if (ImGui::Button("Clear Axioms")) {
+      if (API::Button("Clear Axioms")) {
         AxiomEditor::ClearAxioms();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Axioms (UNDOABLE with Ctrl+Z)");
       }
 
-      if (ImGui::Button("Clear Water")) {
+      if (API::Button("Clear Water")) {
         AxiomEditor::ClearWater();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Water Bodies (UNDOABLE with Ctrl+Z)");
       }
 
-      if (ImGui::Button("Clear Roads")) {
+      if (API::Button("Clear Roads")) {
         AxiomEditor::ClearRoads();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Roads (UNDOABLE with Ctrl+Z)");
       }
 
-      if (ImGui::Button("Clear Districts")) {
+      if (API::Button("Clear Districts")) {
         AxiomEditor::ClearDistricts();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Districts (UNDOABLE with Ctrl+Z)");
       }
 
-      if (ImGui::Button("Clear Lots")) {
+      if (API::Button("Clear Lots")) {
         AxiomEditor::ClearLots();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Lots (UNDOABLE with Ctrl+Z)");
       }
 
-      if (ImGui::Button("Clear Buildings")) {
+      if (API::Button("Clear Buildings")) {
         AxiomEditor::ClearBuildings();
       }
       if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Clear all Buildings (UNDOABLE with Ctrl+Z)");
       }
 
-      ImGui::Unindent();
+      API::Unindent();
     }
 
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   } // Editor Tools section
 
-  ImGui::Spacing();
-  ImGui::TextDisabled("Layer, Dirty, Debug overlays, and Minimap LOD controls moved to Inspector/System Map.");
+  API::Spacing();
+  API::TextDisabled("Layer, Dirty, Debug overlays, and Minimap LOD controls moved to Inspector/System Map.");
 
-  ImGui::Spacing();
-  ImGui::TextDisabled(
+  API::Spacing();
+  API::TextDisabled(
       "Texture authoring moved to dedicated Texture Editing panel.");
-  ImGui::TextDisabled(
+  API::TextDisabled(
       "Texture size/policy/live preview/seed controls moved to Tool Deck.");
 }
 

@@ -3,6 +3,7 @@
 
 #include "ui/viewport/rc_viewport_overlays.h"
 #include "RogueCity/App/UI/ThemeManager.h"
+#include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/viewport/rc_viewport_lod_policy.h"
 #include <RogueCity/Core/Infomatrix.hpp>
@@ -862,10 +863,10 @@ void ViewportOverlays::RenderCompassGimbalHUD(bool parented,
 void ViewportOverlays::Render2DCursorHUD(
     const RogueCity::Core::Editor::GlobalState &gs) {
   (void)gs;
-  ImDrawList *dl = ImGui::GetWindowDrawList();
-  const ImVec2 center_idle = ImVec2(
-      view_transform_.viewport_pos.x + view_transform_.viewport_size.x * 0.5f,
-      view_transform_.viewport_pos.y + view_transform_.viewport_size.y * 0.5f);
+  ImGuiViewport *viewport = ImGui::GetWindowViewport();
+  if (viewport == nullptr) {
+    return;
+  }
   const ImVec2 viewport_min = view_transform_.viewport_pos;
   const ImVec2 viewport_max =
       ImVec2(view_transform_.viewport_pos.x + view_transform_.viewport_size.x,
@@ -874,24 +875,22 @@ void ViewportOverlays::Render2DCursorHUD(
   const bool mouse_in_viewport =
       mouse.x >= viewport_min.x && mouse.x <= viewport_max.x &&
       mouse.y >= viewport_min.y && mouse.y <= viewport_max.y;
-  const ImVec2 center = mouse_in_viewport ? mouse : center_idle;
-
-  if (mouse_in_viewport) {
-    ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+  if (!mouse_in_viewport) {
+    return;
   }
+  ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+  ImDrawList *dl = ImGui::GetForegroundDrawList(viewport);
+  const ImVec2 center = mouse;
 
   const float time = static_cast<float>(ImGui::GetTime());
   const float pulse = (std::sin(time * 4.0f) * 0.5f + 0.5f);
 
-  const float base_r = mouse_in_viewport ? 8.0f : 12.0f;
-  const float pulse_r = base_r + pulse * (mouse_in_viewport ? 2.0f : 4.0f);
+  const float base_r = 8.0f;
+  const float pulse_r = base_r + pulse * 2.0f;
 
   const ImU32 col_glow =
-      mouse_in_viewport
-          ? IM_COL32(0, 255, 255, static_cast<int>(70.0f + 45.0f * pulse))
-          : IM_COL32(0, 255, 255, static_cast<int>(50.0f * pulse));
-  const ImU32 col = mouse_in_viewport ? IM_COL32(0, 255, 255, 235)
-                                      : IM_COL32(0, 255, 255, 180);
+      IM_COL32(0, 255, 255, static_cast<int>(70.0f + 45.0f * pulse));
+  const ImU32 col = IM_COL32(0, 255, 255, 235);
 
   // Outer pulsing brackets
   dl->AddLine(ImVec2(center.x - pulse_r, center.y - 4.0f),
@@ -2711,7 +2710,7 @@ void BuildingSearchOverlay::Render(
       ImGui::EndChild();
     }
 
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kCommandCancel)) {
       SetActive(false);
     }
   }

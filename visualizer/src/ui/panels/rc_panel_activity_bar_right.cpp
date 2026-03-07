@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_activity_bar_right.h"
 
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/IPanelDrawer.h"
 #include "ui/panels/RcMasterPanel.h"
@@ -16,6 +17,9 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include <algorithm>
+#include <string>
+
 namespace RC_UI::Panels::ActivityBarRight {
 
 namespace {
@@ -27,12 +31,14 @@ struct P4Entry {
     const char* action_id;
     const char* icon_path;
     int tab_index; // matches RcInspectorSidebar tab order: 0=Inspector 1=SystemMap 2=Health
+    ToolLibrary color_tool;
+    int color_variant;
 };
 
 static constexpr P4Entry kP4Entries[] = {
-    { "IN", "Inspector Runtime",   "b2.inspector",   LC::Activity,   0 },
-    { "SM", "System Map",          "b2.system_map",  LC::Map,        1 },
-    { "HT", "City Health",         "b2.health",      LC::MonitorCog, 2 },
+    { "IN", "Inspector Runtime",   "b2.inspector",   LC::Activity,   0, ToolLibrary::Axiom,    0 },
+    { "SM", "System Map",          "b2.system_map",  LC::Map,        1, ToolLibrary::Road,     0 },
+    { "HT", "City Health",         "b2.health",      LC::MonitorCog, 2, ToolLibrary::District, 0 },
 };
 
 // ── Global config entries ─────────────────────────────────────────────────────
@@ -43,15 +49,18 @@ struct ConfigEntry {
     const char*  action_id;
     const char*  icon_path;
     PanelType    panel;   // RequestPanel() target
+    ToolLibrary  color_tool;
+    int          color_variant;
 };
 
 static constexpr ConfigEntry kConfigEntries[] = {
     // UISettings drawer = Workspace + Theme controls
-    { "UI", "UI Settings / Workspace", "b2.workspace", LC::Sliders,    PanelType::UISettings },
-    { "SY", "System / Dev Shell",      "b2.devshell",  LC::MonitorCog, PanelType::Log        },
+    { "UI", "UI Settings / Workspace", "b2.workspace", LC::Sliders,    PanelType::UISettings, ToolLibrary::Water,    0 },
+    { "SY", "System / Dev Shell",      "b2.devshell",  LC::MonitorCog, PanelType::Log,        ToolLibrary::Building, 0 },
 };
 
-bool IconButton(const char* label, const char* tooltip,
+bool IconButton(const char* id, const char* fallback_label,
+                const char* tooltip,
                 const char* icon_path,
                 bool active, float size, ImU32 accent) {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
@@ -66,20 +75,22 @@ bool IconButton(const char* label, const char* tooltip,
         ImGui::GetWindowDrawList()->AddRectFilled(
             cursor,
             ImVec2(cursor.x + size, cursor.y + size),
-            RC_UI::WithAlpha(UITokens::AmberGlow, 40), // AmberGlow tint
+            RC_UI::WithAlpha(accent, 40),
             3.0f);
     }
 
     ImGui::PushStyleColor(ImGuiCol_Button,        UITokens::Transparent);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RC_UI::WithAlpha(UITokens::AmberGlow, 30));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  RC_UI::WithAlpha(UITokens::AmberGlow, 70));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RC_UI::WithAlpha(accent, 30));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  RC_UI::WithAlpha(accent, 70));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
 
-    const bool clicked = ImGui::Button(label, ImVec2(size, size));
+    const std::string button_id = std::string("##") + (id ? id : "activity.right.icon");
+    const bool clicked = API::Button(button_id.c_str(), ImVec2(size, size));
 
+    bool drew_icon = false;
     if (icon_path != nullptr) {
-        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, size * 0.56f)) {
-            const float icon_size = size * 0.56f;
+        const float icon_size = std::min(size * 0.56f, std::max(12.0f, size - 10.0f));
+        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, icon_size)) {
             const ImVec2 icon_pos(cursor.x + (size - icon_size) * 0.5f,
                                   cursor.y + (size - icon_size) * 0.5f);
             ImGui::GetWindowDrawList()->AddImage(icon,
@@ -87,8 +98,16 @@ bool IconButton(const char* label, const char* tooltip,
                                                  ImVec2(icon_pos.x + icon_size,
                                                         icon_pos.y + icon_size),
                                                  ImVec2(0, 0), ImVec2(1, 1),
-                                                 UITokens::TextPrimary);
+                                                 active ? LerpColor(accent, UITokens::TextPrimary, 0.20f)
+                                                        : accent);
+            drew_icon = true;
         }
+    }
+    if (!drew_icon && fallback_label && fallback_label[0] != '\0') {
+        const ImVec2 text_size = ImGui::CalcTextSize(fallback_label);
+        const ImVec2 text_pos(cursor.x + (size - text_size.x) * 0.5f,
+                              cursor.y + (size - text_size.y) * 0.5f);
+        ImGui::GetWindowDrawList()->AddText(text_pos, accent, fallback_label);
     }
 
     ImGui::PopStyleVar();
@@ -130,36 +149,38 @@ void Draw(float /*dt*/) {
 
     const int active_tab = RcInspectorSidebar::GetRequestedTab();
 
-    ImGui::Spacing();
+    API::Spacing();
 
     // ── P4 tab buttons ────────────────────────────────────────────────────────
     for (const auto& e : kP4Entries) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
-        if (IconButton(e.label, e.tooltip, e.icon_path,
-                   active_tab == e.tab_index, btn_size, UITokens::AmberGlow)) {
+        const ImU32 accent = RC_UI::ToolColor(e.color_tool, e.color_variant);
+        if (IconButton(e.action_id, e.label, e.tooltip, e.icon_path,
+                   active_tab == e.tab_index, btn_size, accent)) {
             RcInspectorSidebar::RequestTab(e.tab_index);
         }
         uiint.RegisterWidget({"button", e.tooltip, e.action_id,
                                {"activity","p4","inspector"}});
-        ImGui::Spacing();
+        API::Spacing();
     }
 
     // ── Separator ─────────────────────────────────────────────────────────────
-    ImGui::Separator();
-    ImGui::Spacing();
+    API::Separator();
+    API::Spacing();
 
     // ── Global config buttons — route to P3 System/Config panels ─────────────
     const PanelCategory cur_cat = RcMasterPanel::GetRequestedCategory();
     for (const auto& c : kConfigEntries) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (cur_cat == PanelCategory::System);
-        if (IconButton(c.label, c.tooltip, c.icon_path,
-                   active, btn_size, UITokens::GreenHUD)) {
+        const ImU32 accent = RC_UI::ToolColor(c.color_tool, c.color_variant);
+        if (IconButton(c.action_id, c.label, c.tooltip, c.icon_path,
+                   active, btn_size, accent)) {
             RcMasterPanel::RequestPanel(c.panel);
         }
         uiint.RegisterWidget({"button", c.tooltip, c.action_id,
                                {"activity","config","global"}});
-        ImGui::Spacing();
+        API::Spacing();
     }
 
     uiint.EndPanel();

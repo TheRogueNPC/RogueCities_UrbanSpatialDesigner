@@ -2,6 +2,7 @@
 // PURPOSE: Live validation panel showing generator constraints and rule violations.
 
 #include "ui/panels/rc_panel_validation.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_panel_macros.h"
@@ -32,7 +33,7 @@ void DrawContent(float dt) {
             ImU32 color = is_fail ? UITokens::ErrorRed : UITokens::GreenHUD;
             const char* ico_path = is_fail ? LC::XCircle : LC::CheckCircle;
             if (auto ico = RC::SvgTextureCache::Get().Load(ico_path, 12.f)) {
-                ImGui::Image(ico, ImVec2(12, 12)); ImGui::SameLine(0, 4);
+                ImGui::Image(ico, ImVec2(12, 12)); API::SameLine(0, 4);
             }
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(color));
             ImGui::TextUnformatted(ev.msg.c_str());

@@ -1,0 +1,11 @@
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\rc_db_client\target\debug\deps\decorum-974175a246e9627b.d: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\canonical.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\cmp.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\constraint.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\hash.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\primitive.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\proxy.rs
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\rc_db_client\target\debug\deps\libdecorum-974175a246e9627b.rmeta: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\canonical.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\cmp.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\constraint.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\hash.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\primitive.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\proxy.rs
+
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\lib.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\canonical.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\cmp.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\constraint.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\hash.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\primitive.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\decorum-0.3.1\src\proxy.rs:

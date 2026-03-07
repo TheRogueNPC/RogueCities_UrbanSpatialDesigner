@@ -5,6 +5,7 @@
 // CATEGORY: Control_Panel
 
 #include "ui/panels/rc_panel_lot_control.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_tokens.h"
@@ -42,25 +43,25 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader(
           "Actions", UITokens::CyanAccent, true,
           RC::SvgTextureCache::Get().Load(LC::Plus, 14.f))) {
-    ImGui::Indent();
-    ImGui::Spacing();
+    API::Indent();
+    API::Spacing();
     RC_UI::Components::DrawToolActionGrid(RC_UI::ToolLibrary::Lot, ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Lot Parameters", UITokens::CyanAccent)) {
-    ImGui::Indent();
-    ImGui::SliderInt("Min Lot Width (m)", &s_lot_params.min_lot_width, 5, 30);
+    API::Indent();
+    API::SliderInt("Min Lot Width (m)", &s_lot_params.min_lot_width, 5, 30);
     uiint.RegisterWidget(
         {"slider", "Min Lot Width", "lot.min_width", {"lot", "sizing"}});
-    ImGui::SliderInt("Max Lot Width (m)", &s_lot_params.max_lot_width, 20, 80);
+    API::SliderInt("Max Lot Width (m)", &s_lot_params.max_lot_width, 20, 80);
     uiint.RegisterWidget(
         {"slider", "Max Lot Width", "lot.max_width", {"lot", "sizing"}});
-    ImGui::SliderInt("Min Lot Depth (m)", &s_lot_params.min_lot_depth, 10, 40);
+    API::SliderInt("Min Lot Depth (m)", &s_lot_params.min_lot_depth, 10, 40);
     uiint.RegisterWidget(
         {"slider", "Min Lot Depth", "lot.min_depth", {"lot", "sizing"}});
-    ImGui::SliderInt("Max Lot Depth (m)", &s_lot_params.max_lot_depth, 30, 100);
+    API::SliderInt("Max Lot Depth (m)", &s_lot_params.max_lot_depth, 30, 100);
     uiint.RegisterWidget(
         {"slider", "Max Lot Depth", "lot.max_depth", {"lot", "sizing"}});
     if (s_lot_params.min_lot_width > s_lot_params.max_lot_width) {
@@ -69,17 +70,17 @@ void DrawContent(float dt) {
     if (s_lot_params.min_lot_depth > s_lot_params.max_lot_depth) {
       std::swap(s_lot_params.min_lot_depth, s_lot_params.max_lot_depth);
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Building Coverage", UITokens::InfoBlue)) {
-    ImGui::Indent();
-    ImGui::SliderFloat("Min Coverage", &s_lot_params.min_building_coverage,
+    API::Indent();
+    API::SliderFloat("Min Coverage", &s_lot_params.min_building_coverage,
                        0.2f, 0.6f, "%.1f%%");
     uiint.RegisterWidget(
         {"slider", "Min Coverage", "lot.min_coverage", {"lot", "building"}});
-    ImGui::SliderFloat("Max Coverage", &s_lot_params.max_building_coverage,
+    API::SliderFloat("Max Coverage", &s_lot_params.max_building_coverage,
                        0.5f, 0.9f, "%.1f%%");
     uiint.RegisterWidget(
         {"slider", "Max Coverage", "lot.max_coverage", {"lot", "building"}});
@@ -88,8 +89,8 @@ void DrawContent(float dt) {
       std::swap(s_lot_params.min_building_coverage,
                 s_lot_params.max_building_coverage);
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // === Generation Button (Y2K pulse affordance) ===
@@ -102,7 +103,7 @@ void DrawContent(float dt) {
                           ImGui::ColorConvertU32ToFloat4(pulse_color));
   }
 
-  if (ImGui::Button("Generate Lots", ImVec2(-1, 40))) {
+  if (API::Button("Generate Lots", ImVec2(-1, 40))) {
     // DEBUG_TAG: LOT_CONTROL_GENERATE_CLICKED
     s_zoning_bridge.Generate(s_lot_params, gs);
     s_is_generating = true;
@@ -124,22 +125,22 @@ void DrawContent(float dt) {
     }
   }
 
-  ImGui::Spacing();
+  API::Spacing();
 
   if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
-    ImGui::Indent();
+    API::Indent();
     ImGui::Text("Total Lots: %zu", gs.lots.size());
     auto stats = s_zoning_bridge.GetLastStats();
     if (stats.lots_created > 0) {
       ImGui::Text("Last Generation:");
-      ImGui::Indent();
+      API::Indent();
       ImGui::Text("  Lots Created: %d", stats.lots_created);
       ImGui::Text("  Buildings: %d", stats.buildings_placed);
       ImGui::Text("  Generation Time: %.1f ms", stats.generation_time_ms);
-      ImGui::Unindent();
+      API::Unindent();
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 }
 

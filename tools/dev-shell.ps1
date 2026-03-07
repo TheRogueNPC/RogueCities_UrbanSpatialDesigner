@@ -159,7 +159,9 @@ $pathCandidates = @(
     "C:\Program Files\CMake\bin",
     "C:\Program Files\Ninja",
     "C:\tools\ninja",
-    "C:\Program Files\LLVM\bin"
+    "C:\Program Files\LLVM\bin",
+    (Join-Path $env:USERPROFILE ".cargo\bin"),
+    (Join-Path $env:LOCALAPPDATA "SpacetimeDB")
 )
 if ($env:VSINSTALLDIR) {
     $pathCandidates += @(
@@ -305,8 +307,11 @@ function rc-help {
     Write-Host "  rc-console   (Starts the interactive cyberpunk UI TUI/REPL)" -ForegroundColor DarkCyan
     Write-Host ""
     Write-Host "Advanced Tooling:" -ForegroundColor Cyan
-    Write-Host "  rc-watch   [-Target RogueCityVisualizerGui]" -ForegroundColor Magenta
+    Write-Host "  rc-watch          [-Target RogueCityVisualizerGui]" -ForegroundColor Magenta
     Write-Host "  rc-index" -ForegroundColor Magenta
+    Write-Host "  rc-install-natvis [-Force]  (copies imgui.natvis to VS per-user Visualizers dirs)" -ForegroundColor Magenta
+    Write-Host "  rc-imgui-debug-smoke [-ForceNatvis] [-SkipTests] [-ProjectName RogueCityVisualizer] [-PvsDir 'C:\...\PVS-Studio']" -ForegroundColor Magenta
+    Write-Host "  rc-pvs-studio     [-PvsDir 'C:\...\PVS-Studio'] [-ProjectName RogueCityVisualizer] [-OutputDir tools/.run/pvs_studio] [-Severity GA:1,2;OP:1] [-OpenReport]" -ForegroundColor Magenta
     Write-Host ""
     Write-Host "AI Integration (Ollama / Local):" -ForegroundColor Cyan
     Write-Host "  rc-ai-setup      (Pulls Gemma-first local AI stack)" -ForegroundColor DarkCyan
@@ -331,6 +336,122 @@ function rc-help {
     Write-Host "  rc-claude        [-Prompt '...'] (Open Claude Code; optional one-shot prompt)" -ForegroundColor Blue
     Write-Host "  rc-claude-status (Show active agent config + memory snapshot)" -ForegroundColor Blue
     Write-Host "  rc-claude-handoff [-Summary '...'] [-NextAgent gemini] (Write session brief to AI/collaboration/)" -ForegroundColor Blue
+    Write-Host ""
+    Write-Host "SpacetimeDB (Live Database):" -ForegroundColor Cyan
+    Write-Host "  rc-db-publish    [-Server http://127.0.0.1:3000] [-Clear] (Build + publish server module)" -ForegroundColor Green
+    Write-Host "  rc-db-generate   (Regenerate Rust client bindings from server schema)" -ForegroundColor Green
+    Write-Host "  rc-db-status     [-Server http://127.0.0.1:3000] (Show database connection + table row counts)" -ForegroundColor Green
+    Write-Host "  rc-db-logs       [-Server http://127.0.0.1:3000] [-Lines 50] (Tail server reducer logs)" -ForegroundColor Green
+    Write-Host "  rc-db-clear      [-Server http://127.0.0.1:3000] (Call clear_generated + clear_axioms reducers)" -ForegroundColor Green
+    Write-Host "  rc-db-sql        [-Server http://127.0.0.1:3000] -Query '...' (Run SQL query against DB)" -ForegroundColor Green
+    Write-Host "  rc-db-build-ffi  (Cargo build rc_db_client staticlib)" -ForegroundColor Green
+}
+
+# ----------------------------------------------------------------------------------------------------------
+# SpacetimeDB Dev Commands
+# ----------------------------------------------------------------------------------------------------------
+
+function rc-db-publish {
+    param(
+        [string]$Server = "http://127.0.0.1:3000",
+        [switch]$Clear
+    )
+    $dbName = "rogue_cities"
+    Push-Location "$env:RC_ROOT"
+    try {
+        Write-Host "[rc-db-publish] Building + publishing server module to $Server..." -ForegroundColor Green
+        if ($Clear) {
+            Write-Host "[rc-db-publish] --clear flag: database will be wiped on publish" -ForegroundColor Yellow
+            spacetime publish $dbName --project-path server --server $Server --clear-database -y
+        } else {
+            spacetime publish $dbName --project-path server --server $Server -y
+        }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[rc-db-publish] Published successfully to $Server/$dbName" -ForegroundColor Green
+        } else {
+            # spacetime publish may use a different arg syntax, try alternative
+            Write-Host "[rc-db-publish] Retrying with positional args..." -ForegroundColor Yellow
+            spacetime publish $dbName server --server $Server -y
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+function rc-db-generate {
+    Push-Location "$env:RC_ROOT"
+    try {
+        Write-Host "[rc-db-generate] Regenerating Rust client bindings from server schema..." -ForegroundColor Green
+        spacetime generate --lang rust --module-path server --out-dir rc_db_client/src/bindings -y
+        Write-Host "[rc-db-generate] Bindings written to rc_db_client/src/bindings/" -ForegroundColor Green
+        Write-Host "[rc-db-generate] Run 'rc-db-build-ffi' to recompile the FFI staticlib." -ForegroundColor DarkGreen
+    } finally {
+        Pop-Location
+    }
+}
+
+function rc-db-status {
+    param(
+        [string]$Server = "http://127.0.0.1:3000"
+    )
+    $dbName = "rogue_cities"
+    Write-Host "[rc-db-status] Querying $Server/$dbName..." -ForegroundColor Green
+    $tables = @("axiom", "road", "district", "lot", "building", "generation_stats", "generation_intent")
+    foreach ($tbl in $tables) {
+        try {
+            $result = spacetime sql $dbName "SELECT COUNT(*) as cnt FROM $tbl" --server $Server 2>&1
+            Write-Host "  $($tbl.PadRight(20)) $result" -ForegroundColor DarkGreen
+        } catch {
+            Write-Host "  $($tbl.PadRight(20)) (query failed)" -ForegroundColor DarkYellow
+        }
+    }
+}
+
+function rc-db-logs {
+    param(
+        [string]$Server = "http://127.0.0.1:3000",
+        [int]$Lines = 50
+    )
+    $dbName = "rogue_cities"
+    Write-Host "[rc-db-logs] Tailing last $Lines log lines from $dbName..." -ForegroundColor Green
+    spacetime logs $dbName --server $Server -n $Lines
+}
+
+function rc-db-clear {
+    param(
+        [string]$Server = "http://127.0.0.1:3000"
+    )
+    $dbName = "rogue_cities"
+    Write-Host "[rc-db-clear] Calling clear_generated + clear_axioms reducers..." -ForegroundColor Yellow
+    spacetime call $dbName clear_generated --server $Server 2>&1
+    spacetime call $dbName clear_axioms --server $Server 2>&1
+    Write-Host "[rc-db-clear] Done." -ForegroundColor Green
+}
+
+function rc-db-sql {
+    param(
+        [string]$Server = "http://127.0.0.1:3000",
+        [Parameter(Mandatory=$true)]
+        [string]$Query
+    )
+    $dbName = "rogue_cities"
+    Write-Host "[rc-db-sql] $Query" -ForegroundColor DarkGreen
+    spacetime sql $dbName $Query --server $Server
+}
+
+function rc-db-build-ffi {
+    Push-Location "$env:RC_ROOT/rc_db_client"
+    try {
+        Write-Host "[rc-db-build-ffi] Building rc_db_client staticlib..." -ForegroundColor Green
+        cargo build --release
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[rc-db-build-ffi] rc_db_client.lib built successfully." -ForegroundColor Green
+        } else {
+            Write-Host "[rc-db-build-ffi] Build failed." -ForegroundColor Red
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 function rc-env {
@@ -848,6 +969,210 @@ Claude Code project memory: ``.claude\projects\C--Users-teamc-Documents-Rogue-Ci
     Set-Content -LiteralPath $outPath -Value $content -Encoding UTF8
     Write-Host "Handoff brief written: $outPath" -ForegroundColor Green
     Write-Host "Share with ${NextAgent}: AI/collaboration/$filename" -ForegroundColor Cyan
+}
+
+# ==============================================================================
+# Debugger Support — Natvis
+# ==============================================================================
+
+function rc-install-natvis {
+    <#
+    .SYNOPSIS
+        Copies imgui.natvis to all discovered Visual Studio per-user Visualizers
+        directories so the VS debugger picks it up automatically for every solution.
+    .DESCRIPTION
+        Option 1 of the Dear ImGui natvis setup: per-user auto-load path.
+        Option 2 (CMake target_sources) wires it into the generated .vcxproj
+        for project-scoped loading. Running both ensures coverage regardless of
+        how VS / VS Code loads the project.
+    .PARAMETER Force
+        Overwrite an existing imgui.natvis in each Visualizers directory.
+    .EXAMPLE
+        rc-install-natvis
+        rc-install-natvis -Force
+    #>
+    param([switch]$Force)
+
+    $natvis_src = Join-Path $env:RC_ROOT "3rdparty\imgui\misc\debuggers\imgui.natvis"
+    if (-not (Test-Path -LiteralPath $natvis_src)) {
+        Write-Warning "imgui.natvis not found at '$natvis_src'. Ensure the imgui submodule is initialised."
+        return
+    }
+
+    $docs = [Environment]::GetFolderPath("MyDocuments")
+
+    # Seed with known VS versions, then include any discovered Visual Studio folders.
+    $vs_dirs = @(
+        "Visual Studio 2026\Visualizers",
+        "Visual Studio 2022\Visualizers",
+        "Visual Studio 2019\Visualizers",
+        "Visual Studio 2017\Visualizers"
+    ) | ForEach-Object { Join-Path $docs $_ }
+
+    $discovered = Get-ChildItem -Path $docs -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "Visual Studio *" } |
+        ForEach-Object { Join-Path $_.FullName "Visualizers" }
+    $vs_dirs = @($vs_dirs + $discovered | Select-Object -Unique)
+
+    $installed = 0
+    foreach ($dir in $vs_dirs) {
+        $dest = Join-Path $dir "imgui.natvis"
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        if ((Test-Path -LiteralPath $dest) -and -not $Force) {
+            Write-Host "  [skip] already exists: $dest  (use -Force to overwrite)" -ForegroundColor DarkGray
+            $installed++
+            continue
+        }
+        Copy-Item -LiteralPath $natvis_src -Destination $dest -Force
+        Write-Host "  [ok]   $dest" -ForegroundColor Green
+        $installed++
+    }
+
+    Write-Host "`n[natvis] imgui.natvis installed for $installed VS version(s)." -ForegroundColor Cyan
+    Write-Host "  Restart Visual Studio / VS Code debugger session to apply." -ForegroundColor DarkCyan
+    Write-Host "  CMake target_sources also wires it into .vcxproj on next rc-cfg." -ForegroundColor DarkCyan
+}
+
+function rc-imgui-debug-smoke {
+    <#
+    .SYNOPSIS
+        One-shot ImGui debug tooling smoke check: natvis install, PVS presence, and core tests.
+    #>
+    param(
+        [switch]$ForceNatvis,
+        [switch]$SkipTests,
+        [string]$ProjectName = "RogueCityVisualizer",
+        [string]$PvsDir = "C:\Program Files (x86)\PVS-Studio"
+    )
+
+    Write-Host "[imgui-debug-smoke] Step 1/3: Natvis install check" -ForegroundColor Cyan
+    rc-install-natvis -Force:$ForceNatvis
+
+    Write-Host "[imgui-debug-smoke] Step 2/3: PVS-Studio readiness" -ForegroundColor Cyan
+    $pvsCmd = Join-Path $PvsDir "PVS-Studio_Cmd.exe"
+    if (Test-Path -LiteralPath $pvsCmd) {
+        Write-Host "  [ok] PVS-Studio found at: $pvsCmd" -ForegroundColor Green
+    } else {
+        Write-Warning "  [warn] PVS-Studio not found at '$pvsCmd'."
+        Write-Warning "        Install it or pass -PvsDir, then run rc-pvs-studio."
+    }
+
+    Write-Host "[imgui-debug-smoke] Step 3/3: CTest core smoke" -ForegroundColor Cyan
+    if ($SkipTests) {
+        Write-Host "  [skip] core tests skipped by -SkipTests." -ForegroundColor DarkGray
+    } else {
+        rc-tst-core
+    }
+
+    $summary = [ordered]@{
+        natvis_source = Join-Path $env:RC_ROOT "3rdparty\imgui\misc\debuggers\imgui.natvis"
+        pvs_cmd = $pvsCmd
+        pvs_present = (Test-Path -LiteralPath $pvsCmd)
+        tests_ran = (-not $SkipTests)
+    }
+    Write-Host "[imgui-debug-smoke] Summary:" -ForegroundColor Cyan
+    Write-Output ($summary | ConvertTo-Json -Depth 4)
+}
+
+# ==============================================================================
+# Static Analysis — PVS-Studio
+# ==============================================================================
+
+function rc-pvs-studio {
+    <#
+    .SYNOPSIS
+        Run PVS-Studio static analysis on a RogueCities MSVC project and emit
+        HTML, FullHTML, TXT, and Totals reports.
+    .DESCRIPTION
+        PowerShell adaptation of the run_pvs_studio.bat recipe from the Dear ImGui
+        developer tips. Locates the .vcxproj under RC_BUILD_DIR, runs analysis,
+        converts the .plog, and optionally opens the HTML report.
+    .PARAMETER PvsDir
+        PVS-Studio installation directory.
+        Default: "C:\Program Files (x86)\PVS-Studio"
+    .PARAMETER ProjectName
+        MSVC project name to analyze (searched recursively under RC_BUILD_DIR).
+        Default: "RogueCityVisualizer"
+    .PARAMETER OutputDir
+        Directory for analysis reports. Created if absent.
+        Default: tools/.run/pvs_studio
+    .PARAMETER Severity
+        PVS-Studio severity filter passed to PlogConverter.
+        Default: "GA:1,2;OP:1"  (general analysis levels 1-2 + optimization level 1)
+    .PARAMETER OpenReport
+        When set, open fullhtml/index.html in the default browser after analysis.
+    .EXAMPLE
+        rc-pvs-studio
+        rc-pvs-studio -ProjectName RogueCityCore -OpenReport
+        rc-pvs-studio -PvsDir "D:\PVS-Studio" -OutputDir "out/pvs"
+    #>
+    param(
+        [string]$PvsDir      = "C:\Program Files (x86)\PVS-Studio",
+        [string]$ProjectName = "RogueCityVisualizer",
+        [string]$OutputDir   = (Join-Path $env:RC_ROOT "tools\.run\pvs_studio"),
+        [string]$Severity    = "GA:1,2;OP:1",
+        [switch]$OpenReport
+    )
+
+    $pvs_cmd       = Join-Path $PvsDir "PVS-Studio_Cmd.exe"
+    $plog_conv     = Join-Path $PvsDir "PlogConverter.exe"
+
+    if (-not (Test-Path -LiteralPath $pvs_cmd)) {
+        Write-Warning "[PVS-Studio] PVS-Studio_Cmd.exe not found at '$pvs_cmd'."
+        Write-Warning "  Install PVS-Studio from https://pvs-studio.com (free licence available for OSS)."
+        Write-Warning "  Or pass -PvsDir '<install-path>'."
+        return
+    }
+
+    if (-not $env:RC_BUILD_DIR) {
+        Write-Warning "[PVS-Studio] RC_BUILD_DIR is not set. Run rc-cfg first."
+        return
+    }
+
+    $proj_file = Get-ChildItem -Path $env:RC_BUILD_DIR `
+                               -Filter "$ProjectName.vcxproj" `
+                               -Recurse `
+                               -ErrorAction SilentlyContinue |
+                 Select-Object -First 1
+
+    if (-not $proj_file) {
+        Write-Warning "[PVS-Studio] Could not find '$ProjectName.vcxproj' under '$env:RC_BUILD_DIR'."
+        Write-Warning "  Ensure the project is configured (rc-cfg) and check -ProjectName."
+        return
+    }
+
+    $plog_path = Join-Path $proj_file.DirectoryName "$ProjectName.plog"
+
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+
+    Write-Host "[PVS-Studio] Analysing: $($proj_file.FullName)" -ForegroundColor Cyan
+    & "$pvs_cmd" -r -t "$($proj_file.FullName)" -o "$plog_path"
+
+    if (-not (Test-Path -LiteralPath $plog_path)) {
+        Write-Warning "[PVS-Studio] No .plog produced at '$plog_path'. Analysis may have failed."
+        return
+    }
+
+    Write-Host "[PVS-Studio] Converting report (severity: $Severity)..." -ForegroundColor Cyan
+    & "$plog_conv" -a $Severity -t "Html,FullHtml,Txt,Totals" "$plog_path" -o "$OutputDir"
+    Remove-Item -LiteralPath $plog_path -ErrorAction SilentlyContinue
+
+    $totals = Join-Path $OutputDir "$ProjectName.plog_totals.txt"
+    if (Test-Path -LiteralPath $totals) {
+        Write-Host "`n---- PVS-Studio Totals:" -ForegroundColor Yellow
+        Get-Content -LiteralPath $totals
+    }
+
+    Write-Host "`n[PVS-Studio] Reports written to: $OutputDir" -ForegroundColor Green
+
+    if ($OpenReport) {
+        $index = Join-Path $OutputDir "fullhtml\index.html"
+        if (Test-Path -LiteralPath $index) {
+            Start-Process $index
+        } else {
+            Write-Warning "[PVS-Studio] Full HTML report not found at '$index'."
+        }
+    }
 }
 
 # ==============================================================================

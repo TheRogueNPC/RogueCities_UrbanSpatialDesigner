@@ -3,6 +3,7 @@
 // Y2K GEOMETRY: Pulse animations, glow affordances, state-reactive colors
 
 #include "ui/panels/rc_panel_zoning_control.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/Core/Editor/EditorState.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_components.h"
@@ -62,64 +63,64 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader(
           "Actions", UITokens::CyanAccent, true,
           RC::SvgTextureCache::Get().Load(LC::Plus, 14.f))) {
-    ImGui::Indent();
-    ImGui::Spacing();
+    API::Indent();
+    API::Spacing();
     RC_UI::Components::DrawToolActionGrid(RC_UI::ToolLibrary::District, ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // === PARAMETER SLIDERS ===
   bool changed = false;
 
   if (Components::DrawSectionHeader("Lot Sizing", UITokens::CyanAccent)) {
-    ImGui::Indent();
+    API::Indent();
     changed |=
-        ImGui::SliderInt("Min Lot Width", &state.config.min_lot_width, 5, 30);
+        API::SliderInt("Min Lot Width", &state.config.min_lot_width, 5, 30);
     changed |=
-        ImGui::SliderInt("Max Lot Width", &state.config.max_lot_width, 30, 80);
+        API::SliderInt("Max Lot Width", &state.config.max_lot_width, 30, 80);
     changed |=
-        ImGui::SliderInt("Min Lot Depth", &state.config.min_lot_depth, 10, 40);
+        API::SliderInt("Min Lot Depth", &state.config.min_lot_depth, 10, 40);
     changed |=
-        ImGui::SliderInt("Max Lot Depth", &state.config.max_lot_depth, 40, 100);
-    ImGui::Unindent();
-    ImGui::Spacing();
+        API::SliderInt("Max Lot Depth", &state.config.max_lot_depth, 40, 100);
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Building Constraints",
                                     UITokens::CyanAccent)) {
-    ImGui::Indent();
+    API::Indent();
     changed |=
-        ImGui::SliderFloat("Min Coverage", &state.config.min_building_coverage,
+        API::SliderFloat("Min Coverage", &state.config.min_building_coverage,
                            0.2f, 0.6f, "%.1f%%");
     changed |=
-        ImGui::SliderFloat("Max Coverage", &state.config.max_building_coverage,
+        API::SliderFloat("Max Coverage", &state.config.max_building_coverage,
                            0.6f, 0.95f, "%.1f%%");
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Budget & Population",
                                     UITokens::AmberGlow)) {
-    ImGui::Indent();
+    API::Indent();
     changed |=
-        ImGui::SliderFloat("Budget per Capita", &state.config.budget_per_capita,
+        API::SliderFloat("Budget per Capita", &state.config.budget_per_capita,
                            50000.0f, 200000.0f, "$%.0f");
-    changed |= ImGui::SliderInt("Target Population",
+    changed |= API::SliderInt("Target Population",
                                 &state.config.target_population, 10000, 100000);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Performance", UITokens::GreenHUD)) {
-    ImGui::Indent();
-    changed |= ImGui::Checkbox("Auto Threading", &state.config.auto_threading);
+    API::Indent();
+    changed |= API::Checkbox("Auto Threading", &state.config.auto_threading);
     if (state.config.auto_threading) {
-      changed |= ImGui::SliderInt("Thread Threshold",
+      changed |= API::SliderInt("Thread Threshold",
                                   &state.config.threading_threshold, 50, 500);
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   state.parameters_changed = changed;
@@ -132,7 +133,7 @@ void DrawContent(float dt) {
   }
 
   // === GENERATE BUTTON (with pulse animation) ===
-  ImGui::Separator();
+  API::Separator();
 
   if (state.parameters_changed) {
     state.pulse_phase += dt * 3.0f;
@@ -146,7 +147,7 @@ void DrawContent(float dt) {
                           ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
   }
 
-  if (ImGui::Button("Generate Zones & Buildings", ImVec2(-1, 40))) {
+  if (API::Button("Generate Zones & Buildings", ImVec2(-1, 40))) {
     state.is_generating = true;
 
     std::string pipeline_error;
@@ -167,7 +168,7 @@ void DrawContent(float dt) {
   ImGui::PopStyleColor();
 
   // === STATISTICS DISPLAY ===
-  ImGui::Separator();
+  API::Separator();
   ImGui::Text("Last Generation:");
 
   auto stats = bridge.GetLastStats();
@@ -190,7 +191,7 @@ void DrawContent(float dt) {
   if (gs.world_constraints.isValid() &&
       Components::DrawSectionHeader("Site Diagnostics",
                                     UITokens::YellowWarning)) {
-    ImGui::Indent();
+    API::Indent();
     ImGui::BulletText("Mode: %s", GenerationModeLabel(gs.site_profile.mode));
     ImGui::BulletText("Buildable Area: %.1f%%",
                       gs.site_profile.buildable_fraction * 100.0f);
@@ -213,8 +214,8 @@ void DrawContent(float dt) {
                         violation.message.empty() ? "Validation issue"
                                                   : violation.message.c_str());
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 }
 

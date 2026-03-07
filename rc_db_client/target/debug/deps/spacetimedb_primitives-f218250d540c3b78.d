@@ -1,0 +1,9 @@
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\rc_db_client\target\debug\deps\spacetimedb_primitives-f218250d540c3b78.d: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\attr.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\col_list.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\errno.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\ids.rs
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\rc_db_client\target\debug\deps\libspacetimedb_primitives-f218250d540c3b78.rmeta: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\attr.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\col_list.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\errno.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\ids.rs
+
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\lib.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\attr.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\col_list.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\errno.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-primitives-2.0.3\src\ids.rs:

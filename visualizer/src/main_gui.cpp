@@ -738,19 +738,19 @@ int main(int, char **) {
     float dt = io.DeltaTime;
     hfsm.update(gs, dt);
 
-    // Hard reset (Ctrl+Shift+R): clear all saved ImGui window state.
-    if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_R)) {
+    // Hard reset (default Ctrl+Shift+R): clear all saved ImGui window state.
+    if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kHardResetLayout)) {
       ImGui::LoadIniSettingsFromMemory("", 0);
       RC_UI::ResetDockLayout();
     }
-    // Soft reset (Ctrl+Shift+L): rebuild dock tree but keep persisted window
-    // settings.
-    else if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_L)) {
+    // Soft reset (default Ctrl+Shift+L): rebuild dock tree but keep persisted
+    // window settings.
+    else if (RC_UI::Keymap::IsPressed(
+                 RC_UI::Keymap::Action::kSoftResetLayout)) {
       RC_UI::ResetDockLayout();
     }
-    // Redo (Ctrl+R): note viewport handles Ctrl+Z for undo, Ctrl+Y for redo as
-    // well
-    else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+    // Redo (default Ctrl+R): viewport also handles Ctrl+Z/Ctrl+Y.
+    else if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedoAlt)) {
       RC_UI::Panels::AxiomEditor::Redo();
     }
 

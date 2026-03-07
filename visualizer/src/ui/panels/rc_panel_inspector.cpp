@@ -3,6 +3,7 @@
 // focus.
 #include "ui/panels/rc_panel_inspector.h"
 
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/rc_property_editor.h"
@@ -24,50 +25,50 @@ void DrawActiveToolControls(RogueCity::Core::Editor::GlobalState &gs,
   switch (gs.tool_runtime.active_domain) {
   case ToolDomain::Road:
   case ToolDomain::Paths:
-    ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.0f);
-    ImGui::SliderInt("Samples##SplineRoad",
+    API::Checkbox("Spline Editing", &gs.spline_editor.enabled);
+    API::SameLine();
+    API::SetNextItemWidth(120.0f);
+    API::SliderInt("Samples##SplineRoad",
                      &gs.spline_editor.samples_per_segment, 2, 24);
     break;
   case ToolDomain::Water:
-    ImGui::Checkbox("Spline Editing", &gs.spline_editor.enabled);
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(120.0f);
-    ImGui::SliderInt("Samples##SplineWater",
+    API::Checkbox("Spline Editing", &gs.spline_editor.enabled);
+    API::SameLine();
+    API::SetNextItemWidth(120.0f);
+    API::SliderInt("Samples##SplineWater",
                      &gs.spline_editor.samples_per_segment, 2, 24);
     break;
   case ToolDomain::Flow:
     ImGui::SeparatorText("Simulation Setup");
-    ImGui::Checkbox("Enable Pedestrians",
+    API::Checkbox("Enable Pedestrians",
                     &gs.flow_simulation.enable_pedestrians);
     if (gs.flow_simulation.enable_pedestrians) {
-      ImGui::SetNextItemWidth(150.0f);
-      ImGui::SliderFloat("Pedestrian Density",
+      API::SetNextItemWidth(150.0f);
+      API::SliderFloat("Pedestrian Density",
                          &gs.flow_simulation.pedestrian_density, 0.0f, 1.0f);
     }
-    ImGui::Checkbox("Enable Traffic", &gs.flow_simulation.enable_traffic);
+    API::Checkbox("Enable Traffic", &gs.flow_simulation.enable_traffic);
     if (gs.flow_simulation.enable_traffic) {
-      ImGui::SetNextItemWidth(150.0f);
-      ImGui::SliderFloat("Traffic Density", &gs.flow_simulation.traffic_density,
+      API::SetNextItemWidth(150.0f);
+      API::SliderFloat("Traffic Density", &gs.flow_simulation.traffic_density,
                          0.0f, 1.0f);
     }
     ImGui::SeparatorText("Environment");
-    ImGui::SetNextItemWidth(150.0f);
-    ImGui::SliderFloat("Time of Day", &gs.flow_simulation.time_of_day, 0.0f,
+    API::SetNextItemWidth(150.0f);
+    API::SliderFloat("Time of Day", &gs.flow_simulation.time_of_day, 0.0f,
                        24.0f, "%.1f h");
-    ImGui::SetNextItemWidth(150.0f);
-    ImGui::SliderInt("Sim Speed", &gs.flow_simulation.simulation_speed, 0, 10,
+    API::SetNextItemWidth(150.0f);
+    API::SliderInt("Sim Speed", &gs.flow_simulation.simulation_speed, 0, 10,
                      "%d x");
     break;
   case ToolDomain::District:
   case ToolDomain::Zone:
-    ImGui::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Snap", &gs.district_boundary_editor.snap_to_grid);
+    API::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
+    API::SameLine();
+    API::Checkbox("Snap", &gs.district_boundary_editor.snap_to_grid);
     if (gs.district_boundary_editor.snap_to_grid) {
-      ImGui::SetNextItemWidth(120.0f);
-      ImGui::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size,
+      API::SetNextItemWidth(120.0f);
+      API::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size,
                        0.5f, 0.5f, 200.0f, "%.1f");
     }
     break;
@@ -109,7 +110,7 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader("RUNTIME PANEL",
                                     UITokens::AmberGlow, true,
                                     RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
-    ImGui::Indent();
+    API::Indent();
     const auto active_domain_name =
         magic_enum::enum_name(gs.tool_runtime.active_domain);
     Components::DrawDiagRow("Domain",
@@ -181,85 +182,85 @@ void DrawContent(float dt) {
       break;
     }
     DrawActiveToolControls(gs, dt);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // GIZMO
   if (Components::DrawSectionHeader("GIZMO", UITokens::CyanAccent, true,
                                     RC::SvgTextureCache::Get().Load(LC::Move, 14.f))) {
-    ImGui::Indent();
-    ImGui::Checkbox("Enabled##Gizmo", &gs.gizmo.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Visible##Gizmo", &gs.gizmo.visible);
-    ImGui::SameLine();
-    ImGui::Checkbox("Snapping##Gizmo", &gs.gizmo.snapping);
+    API::Indent();
+    API::Checkbox("Enabled##Gizmo", &gs.gizmo.enabled);
+    API::SameLine();
+    API::Checkbox("Visible##Gizmo", &gs.gizmo.visible);
+    API::SameLine();
+    API::Checkbox("Snapping##Gizmo", &gs.gizmo.snapping);
     // Operation combo
     {
       static const char *k_ops[] = {"Translate", "Rotate", "Scale"};
       int op_idx = static_cast<int>(gs.gizmo.operation);
       op_idx = std::clamp(op_idx, 0, 2);
-      ImGui::SetNextItemWidth(120.0f);
-      if (ImGui::Combo("Operation##Gizmo", &op_idx, k_ops, 3)) {
+      API::SetNextItemWidth(120.0f);
+      if (API::Combo("Operation##Gizmo", &op_idx, k_ops, 3)) {
         gs.gizmo.operation =
             static_cast<RogueCity::Core::Editor::GizmoOperation>(op_idx);
       }
     }
 
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::SliderFloat("Translate Snap", &gs.gizmo.translate_snap, 0.1f, 100.0f,
+    API::SetNextItemWidth(100.0f);
+    API::SliderFloat("Translate Snap", &gs.gizmo.translate_snap, 0.1f, 100.0f,
                        "%.1f");
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::SliderFloat("Rotate Snap (deg)", &gs.gizmo.rotate_snap_degrees, 1.0f,
+    API::SetNextItemWidth(100.0f);
+    API::SliderFloat("Rotate Snap (deg)", &gs.gizmo.rotate_snap_degrees, 1.0f,
                        90.0f, "%.1f");
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.1f, 10.0f, "%.2f");
+    API::SetNextItemWidth(100.0f);
+    API::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.1f, 10.0f, "%.2f");
 
     ImGui::SeparatorText("Debug Overlays");
-    ImGui::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
-    ImGui::SameLine();
-    ImGui::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
-    ImGui::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
+    API::Checkbox("Tensor Field Overlay", &gs.debug_show_tensor_overlay);
+    API::SameLine();
+    API::Checkbox("Height Field Overlay", &gs.debug_show_height_overlay);
+    API::Checkbox("Zone Field Overlay", &gs.debug_show_zone_overlay);
 
     ImGui::SeparatorText("Validation Overlay");
-    ImGui::Checkbox("Show Validation Overlay", &gs.validation_overlay.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Warnings", &gs.validation_overlay.show_warnings);
-    ImGui::Checkbox("Show Labels", &gs.validation_overlay.show_labels);
+    API::Checkbox("Show Validation Overlay", &gs.validation_overlay.enabled);
+    API::SameLine();
+    API::Checkbox("Show Warnings", &gs.validation_overlay.show_warnings);
+    API::Checkbox("Show Labels", &gs.validation_overlay.show_labels);
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen),
                        "Errors: %d",
                        static_cast<int>(gs.validation_overlay.errors.size()));
 
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // LAYER MANAGER
   if (Components::DrawSectionHeader("LAYER MANAGER", UITokens::GreenHUD, true,
                                     RC::SvgTextureCache::Get().Load(LC::Layers, 14.f))) {
-    ImGui::Indent();
+    API::Indent();
     for (auto &layer : gs.layer_manager.layers) {
-      ImGui::Checkbox(layer.name.c_str(), &layer.visible);
-      ImGui::SameLine(120.0f);
-      ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-      ImGui::SliderFloat((std::string("##op_") + layer.name).c_str(),
+      API::Checkbox(layer.name.c_str(), &layer.visible);
+      API::SameLine(120.0f);
+      API::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+      API::SliderFloat((std::string("##op_") + layer.name).c_str(),
                          &layer.opacity, 0.0f, 1.0f, "");
     }
-    ImGui::Checkbox("Dim Inactive Layers", &gs.layer_manager.dim_inactive);
-    ImGui::Checkbox("See Through Hidden Layers",
+    API::Checkbox("Dim Inactive Layers", &gs.layer_manager.dim_inactive);
+    API::Checkbox("See Through Hidden Layers",
                     &gs.layer_manager.allow_through_hidden);
 
     ImGui::SeparatorText("Layer Visibility");
-    ImGui::Checkbox("Axioms", &gs.show_layer_axioms);
-    ImGui::SameLine();
-    ImGui::Checkbox("Water", &gs.show_layer_water);
-    ImGui::SameLine();
-    ImGui::Checkbox("Roads", &gs.show_layer_roads);
-    ImGui::Checkbox("Districts", &gs.show_layer_districts);
-    ImGui::SameLine();
-    ImGui::Checkbox("Lots", &gs.show_layer_lots);
-    ImGui::SameLine();
-    ImGui::Checkbox("Buildings", &gs.show_layer_buildings);
+    API::Checkbox("Axioms", &gs.show_layer_axioms);
+    API::SameLine();
+    API::Checkbox("Water", &gs.show_layer_water);
+    API::SameLine();
+    API::Checkbox("Roads", &gs.show_layer_roads);
+    API::Checkbox("Districts", &gs.show_layer_districts);
+    API::SameLine();
+    API::Checkbox("Lots", &gs.show_layer_lots);
+    API::SameLine();
+    API::Checkbox("Buildings", &gs.show_layer_buildings);
 
     ImGui::SeparatorText("Dirty Layers");
     const bool dirty_any = gs.dirty_layers.AnyDirty();
@@ -278,7 +279,7 @@ void DrawContent(float dt) {
     const float dirty_ratio =
         static_cast<float>(dirty_count) /
         static_cast<float>(static_cast<int>(DirtyLayer::Count));
-    ImGui::SetNextItemWidth(150.0f);
+    API::SetNextItemWidth(150.0f);
     ImGui::ProgressBar(dirty_ratio, ImVec2(150.0f, 0.0f),
                        dirty_any ? "Rebuild pending" : "Clean");
 
@@ -303,7 +304,7 @@ void DrawContent(float dt) {
       ImGui::PushStyleColor(ImGuiCol_Button, color);
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
       ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
-      ImGui::SmallButton(label);
+      API::SmallButton(label);
       ImGui::PopStyleColor(3);
     };
 
@@ -314,36 +315,36 @@ void DrawContent(float dt) {
       draw_chip(chip.label, gs.dirty_layers.IsDirty(chip.layer));
       ImGui::PopID();
       if (chip_index + 1 < kDirtyChips.size()) {
-        ImGui::SameLine();
+        API::SameLine();
       }
     }
     ImGui::PopID();
 
     if (dirty_any) {
-      if (ImGui::Button("Clear Dirty Flags")) {
-        ImGui::OpenPopup("ClearDirtyFlagsHelp");
+      if (API::Button("Clear Dirty Flags")) {
+        API::OpenPopup("ClearDirtyFlagsHelp");
       }
-      if (ImGui::BeginPopupModal("ClearDirtyFlagsHelp", nullptr,
+      if (API::BeginPopupModal("ClearDirtyFlagsHelp", nullptr,
                                  ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextWrapped("Clearing dirty flags marks downstream layers as clean without rebuilding.");
         ImGui::TextWrapped("Use this only if you intentionally want to suppress regeneration prompts.");
-        if (ImGui::Button("Clear Flags", ImVec2(120, 0))) {
+        if (API::Button("Clear Flags", ImVec2(120, 0))) {
           gs.dirty_layers.MarkAllClean();
-          ImGui::CloseCurrentPopup();
+          API::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-          ImGui::CloseCurrentPopup();
+        API::SameLine();
+        if (API::Button("Cancel", ImVec2(120, 0))) {
+          API::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        API::EndPopup();
       }
     }
 
-    ImGui::Spacing();
+    API::Spacing();
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Layers, 14.f)) {
-      ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+      ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Assign Selection \xe2\x86\x92 Active Layer")) {
+    if (API::Button("Assign Selection \xe2\x86\x92 Active Layer")) {
       for (const auto &item : gs.selection_manager.Items()) {
         const uint64_t key =
             (static_cast<uint64_t>(static_cast<uint8_t>(item.kind)) << 32ull) |
@@ -351,8 +352,8 @@ void DrawContent(float dt) {
         gs.entity_layers[key] = gs.layer_manager.active_layer;
       }
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // PROPERTY EDITOR / QUERY

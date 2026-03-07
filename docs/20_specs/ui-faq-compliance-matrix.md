@@ -4,13 +4,14 @@ Purpose: map Dear ImGui FAQ rules to concrete implementation contracts in RogueC
 
 ## Scope
 - FAQ reference source: `docs/60_operations/imgui-faq-reference.md`
-- Enforced paths: `visualizer/src/main_gui.cpp`, `visualizer/src/ui/`, `visualizer/src/ui/panels/`, `tools/check_ui_compliance.py`, `tools/check_imgui_contracts.py`
+- Enforced paths: `visualizer/src/main_gui.cpp`, `visualizer/src/ui/`, `visualizer/src/ui/panels/`, `visualizer/src/ui/api/`, `tools/check_ui_compliance.py`, `tools/check_imgui_contracts.py`
 - Policy: hard-gate on compliance script failures.
 
 ## Matrix
 
 | Rule Area | FAQ Reference | Contract | Implementation Owner | Gate/Verification |
 |---|---|---|---|---|
+| Canonical wrapper API | FAQ usage + local architecture policy | Panel-level interactive/widget calls must route through `RC_UI::API` wrappers; specialized raw ImGui is explicit via `RC_UI::API::Mutate`. Direct `ImGui::Button/Checkbox/...` in panel sources is prohibited. | `visualizer/src/ui/api/rc_imgui_api.h`, `visualizer/src/ui/api/rc_imgui_api.cpp` | `tools/check_imgui_contracts.py` strict raw-widget ban |
 | Input dispatch and capture | `imgui-faq-reference.md` section "How can I tell whether to dispatch mouse/keyboard" | Viewport actions are allowed only through centralized gate using `io.WantCaptureMouse/Keyboard/TextInput`. | `visualizer/src/ui/rc_ui_input_gate.cpp`, `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp` | Runtime check in Dev Shell input diagnostics + manual regression tests |
 | Avoid manual hover-only arbitration | same section as above | No standalone hover heuristics for editor actions without gate arbitration. | `visualizer/src/ui/panels/rc_panel_axiom_editor.cpp` | `tools/check_imgui_contracts.py` + manual interaction tests |
 | Clip rect correctness | FAQ clipping guidance | Renderer backend clipping must remain upstream backend behavior. | `3rdparty/imgui/backends/*` (do not fork behavior) | Build + visual sanity checks |
@@ -26,6 +27,7 @@ Purpose: map Dear ImGui FAQ rules to concrete implementation contracts in RogueC
 - Root orchestrator (`rc_ui_root.cpp`) is the only owner of top-level library windows.
 - `Panels::AxiomEditor::DrawAxiomLibraryContent()` is content-only and must not open/close windows.
 - All viewport interaction paths publish gate state each frame with `PublishUiInputGateState()`.
+- All panel sources are canonical-wrapper surfaces for interactive/widget calls; raw `ImGui::...` widget usage is contract-violating.
 
 ## Required Test Pass
 1. `python3 tools/check_ui_compliance.py`

@@ -2,6 +2,7 @@
 // PURPOSE: Implementation of the Road Network Editor Panel.
 
 #include "ui/panels/rc_panel_road_editor.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/Core/Data/CityTypes.hpp"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
@@ -55,7 +56,7 @@ void RenderSubtoolToggle(const char *label, RoadEditorSubtool tool) {
   }
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-  if (ImGui::Button(label)) {
+  if (API::Button(label)) {
     s_active_subtool = tool;
   }
 
@@ -70,11 +71,11 @@ bool DrawEnumCombo(const char *label, EnumType &value) {
   const auto current_name = std::string(magic_enum::enum_name(value));
   bool changed = false;
 
-  if (ImGui::BeginCombo(label, current_name.c_str())) {
+  if (API::BeginCombo(label, current_name.c_str())) {
     for (size_t i = 0; i < values.size(); ++i) {
       const bool selected = (values[i] == value);
       const std::string name = std::string(names[i]);
-      if (ImGui::Selectable(name.c_str(), selected)) {
+      if (API::Selectable(name.c_str(), selected)) {
         value = values[i];
         changed = true;
       }
@@ -82,7 +83,7 @@ bool DrawEnumCombo(const char *label, EnumType &value) {
         ImGui::SetItemDefaultFocus();
       }
     }
-    ImGui::EndCombo();
+    API::EndCombo();
   }
   return changed;
 }
@@ -149,17 +150,17 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader(
           "Mode / Actions", UITokens::CyanAccent, true,
           RC::SvgTextureCache::Get().Load(LC::Plus, 14.f))) {
-    ImGui::Indent();
-    ImGui::Spacing();
+    API::Indent();
+    API::Spacing();
     RC_UI::Components::DrawToolActionGrid(RC_UI::ToolLibrary::Road, ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader(
           "Station B: Telemetry", UITokens::InfoBlue, true,
           RC::SvgTextureCache::Get().Load(LC::Activity, 14.f))) {
-    ImGui::Indent();
+    API::Indent();
     if (gs.selection.selected_road) {
       RogueCity::Core::Road *road =
           FindRoad(gs, gs.selection.selected_road->id);
@@ -179,14 +180,14 @@ void DrawContent(float dt) {
       ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextDisabled),
                          "No road selected in ViewportIndex.");
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader(
           "Station C: Mutation", UITokens::AmberGlow, true,
           RC::SvgTextureCache::Get().Load(LC::Pencil, 14.f))) {
-    ImGui::Indent();
+    API::Indent();
     switch (s_active_subtool) {
     case RoadEditorSubtool::Select:
       ImGui::Text("Select a road segment in the viewport.");
@@ -216,8 +217,8 @@ void DrawContent(float dt) {
       }
       break;
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 }
 

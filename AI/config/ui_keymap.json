@@ -1,0 +1,510 @@
+{
+  "actions": {
+    "command.cancel": {
+      "alt": false,
+      "combo": "Escape",
+      "ctrl": false,
+      "key": 526,
+      "key_name": "Escape",
+      "shift": false,
+      "super": false
+    },
+    "debug.redo_alt": {
+      "alt": false,
+      "combo": "Ctrl+R",
+      "ctrl": true,
+      "key": 563,
+      "key_name": "R",
+      "shift": false,
+      "super": false
+    },
+    "debug.reset_hard": {
+      "alt": false,
+      "combo": "Ctrl+Shift+R",
+      "ctrl": true,
+      "key": 563,
+      "key_name": "R",
+      "shift": true,
+      "super": false
+    },
+    "debug.reset_layout": {
+      "alt": false,
+      "combo": "Ctrl+Shift+L",
+      "ctrl": true,
+      "key": 557,
+      "key_name": "L",
+      "shift": true,
+      "super": false
+    },
+    "edit.redo": {
+      "alt": false,
+      "combo": "Ctrl+Y",
+      "ctrl": true,
+      "key": 570,
+      "key_name": "Y",
+      "shift": false,
+      "super": false
+    },
+    "edit.redo_shift_z": {
+      "alt": false,
+      "combo": "Ctrl+Shift+Z",
+      "ctrl": true,
+      "key": 571,
+      "key_name": "Z",
+      "shift": true,
+      "super": false
+    },
+    "edit.undo": {
+      "alt": false,
+      "combo": "Ctrl+Z",
+      "ctrl": true,
+      "key": 571,
+      "key_name": "Z",
+      "shift": false,
+      "super": false
+    },
+    "file.new_city": {
+      "alt": false,
+      "combo": "Ctrl+N",
+      "ctrl": true,
+      "key": 559,
+      "key_name": "N",
+      "shift": false,
+      "super": false
+    },
+    "file.quit": {
+      "alt": true,
+      "combo": "Alt+F4",
+      "ctrl": false,
+      "key": 575,
+      "key_name": "F4",
+      "shift": false,
+      "super": false
+    },
+    "file.save_layout": {
+      "alt": false,
+      "combo": "Ctrl+S",
+      "ctrl": true,
+      "key": 564,
+      "key_name": "S",
+      "shift": false,
+      "super": false
+    },
+    "master.search_close": {
+      "alt": false,
+      "combo": "Escape",
+      "ctrl": false,
+      "key": 526,
+      "key_name": "Escape",
+      "shift": false,
+      "super": false
+    },
+    "master.search_next": {
+      "alt": false,
+      "combo": "DownArrow",
+      "ctrl": false,
+      "key": 516,
+      "key_name": "DownArrow",
+      "shift": false,
+      "super": false
+    },
+    "master.search_open": {
+      "alt": false,
+      "combo": "/",
+      "ctrl": false,
+      "key": 600,
+      "key_name": "/",
+      "shift": false,
+      "super": false
+    },
+    "master.search_prev": {
+      "alt": false,
+      "combo": "UpArrow",
+      "ctrl": false,
+      "key": 515,
+      "key_name": "UpArrow",
+      "shift": false,
+      "super": false
+    },
+    "minimap.adaptive_toggle": {
+      "alt": false,
+      "combo": "K",
+      "ctrl": false,
+      "key": 556,
+      "key_name": "K",
+      "shift": false,
+      "super": false
+    },
+    "minimap.lod_0": {
+      "alt": false,
+      "combo": "1",
+      "ctrl": false,
+      "key": 537,
+      "key_name": "1",
+      "shift": false,
+      "super": false
+    },
+    "minimap.lod_1": {
+      "alt": false,
+      "combo": "2",
+      "ctrl": false,
+      "key": 538,
+      "key_name": "2",
+      "shift": false,
+      "super": false
+    },
+    "minimap.lod_2": {
+      "alt": false,
+      "combo": "3",
+      "ctrl": false,
+      "key": 539,
+      "key_name": "3",
+      "shift": false,
+      "super": false
+    },
+    "minimap.lod_auto": {
+      "alt": false,
+      "combo": "Shift+L",
+      "ctrl": false,
+      "key": 557,
+      "key_name": "L",
+      "shift": true,
+      "super": false
+    },
+    "minimap.lod_cycle": {
+      "alt": false,
+      "combo": "L",
+      "ctrl": false,
+      "key": 557,
+      "key_name": "L",
+      "shift": false,
+      "super": false
+    },
+    "minimap.toggle_search": {
+      "alt": false,
+      "combo": "Ctrl+F",
+      "ctrl": true,
+      "key": 551,
+      "key_name": "F",
+      "shift": false,
+      "super": false
+    },
+    "minimap.toggle_visible": {
+      "alt": false,
+      "combo": "M",
+      "ctrl": false,
+      "key": 558,
+      "key_name": "M",
+      "shift": false,
+      "super": false
+    },
+    "terminal.toggle_dev_shell": {
+      "alt": false,
+      "combo": "Ctrl+`",
+      "ctrl": true,
+      "key": 606,
+      "key_name": "`",
+      "shift": false,
+      "super": false
+    },
+    "view.dock_mode_modifier": {
+      "alt": false,
+      "combo": "LeftShift",
+      "ctrl": false,
+      "key": 528,
+      "key_name": "LeftShift",
+      "shift": false,
+      "super": false
+    },
+    "view.toggle_activity_left": {
+      "alt": false,
+      "combo": "B",
+      "ctrl": false,
+      "key": 547,
+      "key_name": "B",
+      "shift": false,
+      "super": false
+    },
+    "view.toggle_activity_right": {
+      "alt": false,
+      "combo": "Shift+B",
+      "ctrl": false,
+      "key": 547,
+      "key_name": "B",
+      "shift": true,
+      "super": false
+    },
+    "view.toggle_bottom_panel": {
+      "alt": false,
+      "combo": "Ctrl+P",
+      "ctrl": true,
+      "key": 561,
+      "key_name": "P",
+      "shift": false,
+      "super": false
+    },
+    "view.toggle_left_panel": {
+      "alt": false,
+      "combo": "P",
+      "ctrl": false,
+      "key": 561,
+      "key_name": "P",
+      "shift": false,
+      "super": false
+    },
+    "view.toggle_right_panel": {
+      "alt": false,
+      "combo": "Shift+P",
+      "ctrl": false,
+      "key": 561,
+      "key_name": "P",
+      "shift": true,
+      "super": false
+    },
+    "viewport.delete_selected": {
+      "alt": false,
+      "combo": "Delete",
+      "ctrl": false,
+      "key": 522,
+      "key_name": "Delete",
+      "shift": false,
+      "super": false
+    },
+    "viewport.delete_selected_alt": {
+      "alt": false,
+      "combo": "Backspace",
+      "ctrl": false,
+      "key": 523,
+      "key_name": "Backspace",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_axiom": {
+      "alt": false,
+      "combo": "A",
+      "ctrl": false,
+      "key": 546,
+      "key_name": "A",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_building": {
+      "alt": false,
+      "combo": "B",
+      "ctrl": false,
+      "key": 547,
+      "key_name": "B",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_district": {
+      "alt": false,
+      "combo": "D",
+      "ctrl": false,
+      "key": 549,
+      "key_name": "D",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_lot": {
+      "alt": false,
+      "combo": "L",
+      "ctrl": false,
+      "key": 557,
+      "key_name": "L",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_road": {
+      "alt": false,
+      "combo": "R",
+      "ctrl": false,
+      "key": 563,
+      "key_name": "R",
+      "shift": false,
+      "super": false
+    },
+    "viewport.domain_hold_water": {
+      "alt": false,
+      "combo": "W",
+      "ctrl": false,
+      "key": 568,
+      "key_name": "W",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_rotate": {
+      "alt": false,
+      "combo": "E",
+      "ctrl": false,
+      "key": 550,
+      "key_name": "E",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_scale": {
+      "alt": false,
+      "combo": "R",
+      "ctrl": false,
+      "key": 563,
+      "key_name": "R",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_scale_alt": {
+      "alt": false,
+      "combo": "S",
+      "ctrl": false,
+      "key": 564,
+      "key_name": "S",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_snap_toggle": {
+      "alt": false,
+      "combo": "X",
+      "ctrl": false,
+      "key": 569,
+      "key_name": "X",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_translate": {
+      "alt": false,
+      "combo": "W",
+      "ctrl": false,
+      "key": 568,
+      "key_name": "W",
+      "shift": false,
+      "super": false
+    },
+    "viewport.gizmo_translate_alt": {
+      "alt": false,
+      "combo": "G",
+      "ctrl": false,
+      "key": 552,
+      "key_name": "G",
+      "shift": false,
+      "super": false
+    },
+    "viewport.layer_0": {
+      "alt": false,
+      "combo": "1",
+      "ctrl": false,
+      "key": 537,
+      "key_name": "1",
+      "shift": false,
+      "super": false
+    },
+    "viewport.layer_1": {
+      "alt": false,
+      "combo": "2",
+      "ctrl": false,
+      "key": 538,
+      "key_name": "2",
+      "shift": false,
+      "super": false
+    },
+    "viewport.layer_2": {
+      "alt": false,
+      "combo": "3",
+      "ctrl": false,
+      "key": 539,
+      "key_name": "3",
+      "shift": false,
+      "super": false
+    },
+    "viewport.open_palette_alt": {
+      "alt": false,
+      "combo": "P",
+      "ctrl": false,
+      "key": 561,
+      "key_name": "P",
+      "shift": false,
+      "super": false
+    },
+    "viewport.open_palette_primary": {
+      "alt": false,
+      "combo": "/",
+      "ctrl": false,
+      "key": 600,
+      "key_name": "/",
+      "shift": false,
+      "super": false
+    },
+    "viewport.open_pie_menu": {
+      "alt": false,
+      "combo": "`",
+      "ctrl": false,
+      "key": 606,
+      "key_name": "`",
+      "shift": false,
+      "super": false
+    },
+    "viewport.open_smart_list": {
+      "alt": false,
+      "combo": "Space",
+      "ctrl": false,
+      "key": 524,
+      "key_name": "Space",
+      "shift": false,
+      "super": false
+    },
+    "viewport.quick_handle_move": {
+      "alt": false,
+      "combo": "4",
+      "ctrl": false,
+      "key": 540,
+      "key_name": "4",
+      "shift": false,
+      "super": false
+    },
+    "viewport.quick_lasso_select": {
+      "alt": false,
+      "combo": "2",
+      "ctrl": false,
+      "key": 538,
+      "key_name": "2",
+      "shift": false,
+      "super": false
+    },
+    "viewport.quick_move_nodes": {
+      "alt": false,
+      "combo": "3",
+      "ctrl": false,
+      "key": 539,
+      "key_name": "3",
+      "shift": false,
+      "super": false
+    },
+    "viewport.quick_rect_select": {
+      "alt": false,
+      "combo": "1",
+      "ctrl": false,
+      "key": 537,
+      "key_name": "1",
+      "shift": false,
+      "super": false
+    },
+    "viewport.select_auto": {
+      "alt": false,
+      "combo": "Q",
+      "ctrl": false,
+      "key": 562,
+      "key_name": "Q",
+      "shift": false,
+      "super": false
+    },
+    "viewport.tool_palette_toggle": {
+      "alt": false,
+      "combo": "G",
+      "ctrl": false,
+      "key": 552,
+      "key_name": "G",
+      "shift": false,
+      "super": false
+    }
+  },
+  "schema": 1,
+  "updated_at_utc": "2026-03-06T22:44:34Z"
+}

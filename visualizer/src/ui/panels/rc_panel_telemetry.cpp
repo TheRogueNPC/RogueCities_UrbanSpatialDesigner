@@ -2,6 +2,7 @@
 // PURPOSE: Live analytics panel showing procedural generation metrics.
 
 #include "ui/panels/rc_panel_telemetry.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_anim.h"
 #include "ui/rc_ui_components.h"
@@ -33,7 +34,7 @@ void DrawGridQualityIndexSection() {
     Components::DrawMeter("4-Way Prop", gq.four_way_proportion,
                           UITokens::YellowWarning);
 
-    ImGui::Spacing();
+    API::Spacing();
   }
 }
 
@@ -80,14 +81,14 @@ void DrawUrbanHellDiagnosticsSection(bool include_quick_fix_stubs) {
                             std::to_string(gq.total_intersections).c_str());
 
     if (include_quick_fix_stubs) {
-      ImGui::Spacing();
+      API::Spacing();
       ImGui::SeparatorText("Quick Fixes");
-      ImGui::BeginDisabled();
-      ImGui::Button("Reconnect Islands (stub)", ImVec2(220.0f, 0.0f));
-      ImGui::Button("Reduce Dead Ends (stub)", ImVec2(220.0f, 0.0f));
-      ImGui::Button("Prune Micro-Segments (stub)", ImVec2(220.0f, 0.0f));
-      ImGui::EndDisabled();
-      ImGui::TextDisabled("Quick-fix actions are planned and not yet wired.");
+      API::BeginDisabled();
+      API::Button("Reconnect Islands (stub)", ImVec2(220.0f, 0.0f));
+      API::Button("Reduce Dead Ends (stub)", ImVec2(220.0f, 0.0f));
+      API::Button("Prune Micro-Segments (stub)", ImVec2(220.0f, 0.0f));
+      API::EndDisabled();
+      API::TextDisabled("Quick-fix actions are planned and not yet wired.");
     }
   }
 }
@@ -135,13 +136,13 @@ void DrawContent(float dt) {
       snprintf(ent_str, sizeof(ent_str), "R:%zu D:%zu L:%zu B:%zu", gs.roads.size(), gs.districts.size(), gs.lots.size(), gs.buildings.size());
       Components::DrawDiagRow("Entities", ent_str);
       
-      ImGui::Spacing();
+      API::Spacing();
       if (auto ico = RC::SvgTextureCache::Get().Load(
               gs.plan_approved ? LC::CheckCircle : LC::XCircle, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
       }
       Components::StatusChip(gs.plan_approved ? "PLAN OK" : "PLAN BLOCKED", gs.plan_approved ? UITokens::SuccessGreen : UITokens::ErrorRed, true);
-      ImGui::Spacing();
+      API::Spacing();
   }
 
   uiint.RegisterWidget(

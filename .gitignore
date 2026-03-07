@@ -18,7 +18,10 @@ CMakeFiles/
 desktop.ini
 imgui.ini
 /mcp-server/
+/tools/mcp-server/
+/tools/mcp-server/ast-grep-mcp/
 /3rdparty/vcpkg/
+/3rdparty/Clipper2/
 .vscode/mcp.json
 
 # Vendored/third-party dependencies (managed externally)

@@ -1,0 +1,10 @@
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\AI\ai_repl\target\debug\deps\futures_task-3d78b450e4cbf1de.d: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\spawn.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\future_obj.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\noop_waker.rs
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\AI\ai_repl\target\debug\deps\libfutures_task-3d78b450e4cbf1de.rlib: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\spawn.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\future_obj.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\noop_waker.rs
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\AI\ai_repl\target\debug\deps\libfutures_task-3d78b450e4cbf1de.rmeta: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\spawn.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\future_obj.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\noop_waker.rs
+
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\lib.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\spawn.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\future_obj.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\futures-task-0.3.32\src\noop_waker.rs:

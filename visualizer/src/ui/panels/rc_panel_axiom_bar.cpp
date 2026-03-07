@@ -2,6 +2,7 @@
 // PURPOSE: Tool Deck dock with reactive deck chips.
 #include "ui/panels/rc_panel_axiom_bar.h"
 
+#include "ui/api/rc_imgui_api.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_theme.h"
 #include "ui/rc_ui_components.h"
@@ -94,8 +95,8 @@ namespace {
         return "Toggle Tool Library";
     }
 
-    void DrawToolIcon(ImDrawList* draw_list, RC_UI::ToolLibrary tool, const ImVec2& center, float size) {
-        const ImU32 color = ImGui::ColorConvertFloat4ToU32(ColorBG);
+    void DrawToolIcon(ImDrawList* draw_list, RC_UI::ToolLibrary tool,
+                      const ImVec2& center, float size, ImU32 color) {
         const float half = size * 0.5f;
         switch (tool) {
             case RC_UI::ToolLibrary::Axiom:
@@ -178,11 +179,11 @@ void DrawContent(float dt)
     for (size_t i = 0; i < RC_UI::kToolLibraryOrder.size(); ++i) {
         const auto tool = RC_UI::kToolLibraryOrder[i];
         if (i > 0 && (static_cast<int>(i) % columns) != 0) {
-            ImGui::SameLine(0.0f, spacing);
+            API::SameLine(0.0f, spacing);
         }
         ImGui::PushID(static_cast<int>(i));
 
-        ImGui::InvisibleButton("ToolChip", ImVec2(icon_size, icon_size));
+        API::InvisibleButton("ToolChip", ImVec2(icon_size, icon_size));
         const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
         const bool double_clicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
         if (double_clicked && tool != RC_UI::ToolLibrary::Axiom) {
@@ -225,23 +226,24 @@ void DrawContent(float dt)
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
         const bool selected = is_open || is_popout;
+        const int color_variant = (tool == RC_UI::ToolLibrary::Lot) ? 1 : 0;
+        const ImU32 tool_color = RC_UI::ToolColor(tool, color_variant);
+        const ImU32 tool_color_active = RC_UI::ToolColorActive(tool, color_variant);
 
         // Base styling (Y2K Asset Grid)
         ImU32 fill = WithAlpha(UITokens::BackgroundDark, 255u);
-        ImU32 border = WithAlpha(UITokens::GridOverlay, 200u);
+        ImU32 border = WithAlpha(tool_color, 150u);
         float border_thickness = 1.0f;
 
         if (selected) {
-            fill = WithAlpha(UITokens::AmberGlow, 40u); // --primary-dim
-            border = UITokens::AmberGlow;               // --primary
+            fill = WithAlpha(tool_color, 40u);
+            border = tool_color_active;
             border_thickness = 2.0f;
-            // Primary glow
-            draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::AmberGlow, 20u), 0.0f);
+            draw_list->AddRectFilled(bmin, bmax, WithAlpha(tool_color, 20u), 0.0f);
         } else if (hovered) {
-            fill = WithAlpha(UITokens::PanelBackground, 255u); // --bg-elevated
-            border = UITokens::CyanAccent;                     // --secondary
-            // Secondary inset glow approximation
-            draw_list->AddRectFilled(bmin, bmax, WithAlpha(UITokens::CyanAccent, 20u), 0.0f);
+            fill = WithAlpha(LerpColor(tool_color, UITokens::PanelBackground, 0.86f), 255u);
+            border = tool_color;
+            draw_list->AddRectFilled(bmin, bmax, WithAlpha(tool_color, 20u), 0.0f);
         }
 
         // Hard Y2K corners (0.0f rounding)
@@ -250,12 +252,15 @@ void DrawContent(float dt)
 
         // Optional outer glow on hover
         if (hovered && !selected) {
-            draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::CyanAccent, 100u), 0.0f, 0, 4.0f);
+            draw_list->AddRect(bmin, bmax, WithAlpha(tool_color, 100u), 0.0f, 0, 4.0f);
         } else if (selected) {
-            draw_list->AddRect(bmin, bmax, WithAlpha(UITokens::AmberGlow, 100u), 0.0f, 0, 6.0f);
+            draw_list->AddRect(bmin, bmax, WithAlpha(tool_color_active, 100u), 0.0f, 0, 6.0f);
         }
 
-        DrawToolIcon(draw_list, tool, center, icon_size * 0.44f);
+        const ImU32 icon_color = selected ? tool_color_active
+                                          : (hovered ? tool_color
+                                                     : RC_UI::ToolColorMuted(tool, color_variant));
+        DrawToolIcon(draw_list, tool, center, icon_size * 0.44f, icon_color);
 
         if (hovered) {
             if (tool == RC_UI::ToolLibrary::Axiom) {
@@ -266,7 +271,7 @@ void DrawContent(float dt)
         }
         ImGui::PopID();
     }
-    ImGui::Spacing();
+    API::Spacing();
 
     if (Components::DrawSectionHeader("Visualizer", UITokens::CyanAccent,
                                       true)) {
@@ -281,8 +286,8 @@ void DrawContent(float dt)
         }
 
         using SP = RogueCity::Core::Editor::ScalePolicy;
-        ImGui::SetNextItemWidth(130.0f);
-        if (ImGui::Combo("Texture Size", &tex_idx, kTexSizes, 5)) {
+        API::SetNextItemWidth(130.0f);
+        if (API::Combo("Texture Size", &tex_idx, kTexSizes, 5)) {
             if (gs.config.scale_policy == SP::FixedWorldExtent) {
                 const double prev_extent =
                     static_cast<double>(gs.city_texture_size) *
@@ -301,41 +306,41 @@ void DrawContent(float dt)
         }
 
         int pol = gs.config.scale_policy == SP::FixedMetersPerPixel ? 0 : 1;
-        if (ImGui::RadioButton("Policy A", pol == 0)) {
+        if (API::RadioButton("Policy A", pol == 0)) {
             gs.config.scale_policy = SP::FixedMetersPerPixel;
         }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Policy B", pol == 1)) {
+        API::SameLine();
+        if (API::RadioButton("Policy B", pol == 1)) {
             gs.config.scale_policy = SP::FixedWorldExtent;
         }
 
         bool live_preview = AxiomEditor::IsLivePreviewEnabled();
-        if (ImGui::Checkbox("Live Preview", &live_preview)) {
+        if (API::Checkbox("Live Preview", &live_preview)) {
             AxiomEditor::SetLivePreviewEnabled(live_preview);
         }
 
         float debounce = AxiomEditor::GetDebounceSeconds();
-        ImGui::SetNextItemWidth(120.0f);
-        if (ImGui::DragFloat("Debounce", &debounce, 0.01f, 0.0f, 1.5f,
+        API::SetNextItemWidth(120.0f);
+        if (API::DragFloat("Debounce", &debounce, 0.01f, 0.0f, 1.5f,
                              "%.2fs")) {
             AxiomEditor::SetDebounceSeconds(debounce);
         }
 
-        if (ImGui::Button("Random Seed", ImVec2(140.0f, 0.0f))) {
+        if (API::Button("Random Seed", ImVec2(140.0f, 0.0f))) {
             AxiomEditor::RandomizeSeed();
             if (AxiomEditor::IsLivePreviewEnabled()) {
                 AxiomEditor::ForceGenerate();
             }
         }
-        ImGui::SameLine();
+        API::SameLine();
         ImGui::Text("Seed: %u", AxiomEditor::GetSeed());
     }
 
-    ImGui::Spacing();
+    API::Spacing();
     ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("Click opens in library frame. Double-click pops out a duplicate.");
+    API::TextDisabled("Click opens in library frame. Double-click pops out a duplicate.");
     ImGui::PopTextWrapPos();
-    if (ImGui::Button("Reset Dock Layout")) {
+    if (API::Button("Reset Dock Layout")) {
         RC_UI::ResetDockLayout();
     }
 }

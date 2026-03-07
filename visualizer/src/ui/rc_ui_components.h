@@ -514,7 +514,7 @@ inline void DrawToolLibrarySwitcher(TDrawContext &ctx,
     // Draw the iconic shape in the center
     DrawToolIcon(ImGui::GetWindowDrawList(), mode.lib, center,
                  button_size * 0.44f,
-                 ImGui::ColorConvertFloat4ToU32(RC_UI::ColorText));
+                 RC_UI::ToolColorActive(mode.lib));
 
     if (ImGui::IsItemHovered()) {
       ImGui::SetTooltip("%s Mode", mode.label);

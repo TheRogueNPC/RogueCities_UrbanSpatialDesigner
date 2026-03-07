@@ -206,6 +206,7 @@ endif()
 # find required vcpkg packages
 find_package(Clipper2 CONFIG QUIET)
 
+
 if(ROGUECITY_ENABLE_FASTNOISE2)
     find_package(FastNoise2 CONFIG REQUIRED)
 endif()
@@ -214,7 +215,6 @@ endif()
 target_link_libraries(RogueCityGenerators
     PUBLIC
         RogueCityCore    # Phase 1 core library
-        Clipper2::Clipper2
         RogueCity::OpenDRIVE
 )
 

@@ -13,6 +13,7 @@
 #include "ui/panels/rc_panel_building_index.h" // NEW: Building index (RC-0.10)
 #include "ui/panels/rc_panel_city_spec.h" // NEW: CitySpec generator (Phase 3)
 #include "ui/panels/rc_panel_dev_shell.h"
+#include "ui/panels/rc_panel_imgui_error.h"
 #include "ui/panels/rc_panel_district_index.h"
 #include "ui/panels/rc_panel_inspector.h"
 #include "ui/panels/rc_panel_log.h"
@@ -44,10 +45,13 @@
 #include "ui/panels/rc_panel_inspector_sidebar.h"
 
 #include "RogueCity/App/UI/ThemeManager.h"
+#include "ui/panels/rc_panel_dataviz_gallery.h"
 #include "ui/panels/rc_panel_workspace.h"
 
 #include <algorithm>
 #include <array>
+#include <cctype>
+#include <cstdlib>
 #include <ctime>
 #include <cmath>
 #include <filesystem>
@@ -58,6 +62,7 @@
 #include <imgui_internal.h>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <sstream>
 #include <span>
 #include <string>
@@ -392,6 +397,927 @@ static DockLayoutPreferences s_dock_layout_preferences =
     GetDefaultDockLayoutPreferences();
 static DockTreeProfile s_dock_tree_profile = DockTreeProfile::Adaptive;
 static UiInputGateState s_last_input_gate{};
+static bool s_show_keymap_window = false;
+static std::string s_keymap_capture_action;
+static std::string s_keymap_status;
+
+namespace {
+constexpr const char *kUiKeymapFile = "AI/config/ui_keymap.json";
+
+struct ShortcutDefinition {
+  Keymap::ShortcutActionInfo info;
+  Keymap::ShortcutBinding defaults;
+};
+
+constexpr std::array kShortcutDefinitions = {
+    ShortcutDefinition{{Keymap::Action::kUndo, "Edit", "Undo"},
+                       {ImGuiKey_Z, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kRedo, "Edit", "Redo"},
+                       {ImGuiKey_Y, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kRedoShiftZ, "Edit", "Redo (Shift+Z)"},
+                       {ImGuiKey_Z, true, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kSaveLayout, "File", "Save Layout"},
+                       {ImGuiKey_S, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kNewCity, "File", "New City"},
+                       {ImGuiKey_N, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kQuit, "File", "Quit"},
+                       {ImGuiKey_F4, false, false, true, false}},
+    ShortcutDefinition{{Keymap::Action::kCommandCancel, "Command", "Cancel"},
+                       {ImGuiKey_Escape, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMasterSearchOpen, "Master", "Open Search"},
+                       {ImGuiKey_Slash, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMasterSearchNext, "Master", "Search Next"},
+                       {ImGuiKey_DownArrow, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMasterSearchPrev, "Master", "Search Previous"},
+                       {ImGuiKey_UpArrow, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMasterSearchClose, "Master", "Close Search"},
+                       {ImGuiKey_Escape, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportOpenSmartList, "Viewport", "Open Smart List"},
+                       {ImGuiKey_Space, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportOpenPieMenu, "Viewport", "Open Pie Menu"},
+                       {ImGuiKey_GraveAccent, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportOpenPalettePrimary, "Viewport",
+                        "Open Command Palette"},
+                       {ImGuiKey_Slash, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportOpenPaletteAlt, "Viewport",
+                        "Open Command Palette (Alt)"},
+                       {ImGuiKey_P, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldA, "Viewport", "Domain Hold Axiom"},
+                       {ImGuiKey_A, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldW, "Viewport", "Domain Hold Water"},
+                       {ImGuiKey_W, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldR, "Viewport", "Domain Hold Road"},
+                       {ImGuiKey_R, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldD, "Viewport", "Domain Hold District"},
+                       {ImGuiKey_D, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldL, "Viewport", "Domain Hold Lot"},
+                       {ImGuiKey_L, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDomainHoldB, "Viewport", "Domain Hold Building"},
+                       {ImGuiKey_B, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportSelectAuto, "Viewport", "Select Tool"},
+                       {ImGuiKey_Q, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoTranslate, "Viewport", "Gizmo Move"},
+                       {ImGuiKey_W, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoTranslateAlt, "Viewport", "Gizmo Move (Alt)"},
+                       {ImGuiKey_G, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoRotate, "Viewport", "Gizmo Rotate"},
+                       {ImGuiKey_E, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoScale, "Viewport", "Gizmo Scale"},
+                       {ImGuiKey_R, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoScaleAlt, "Viewport", "Gizmo Scale (Alt)"},
+                       {ImGuiKey_S, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportGizmoSnapToggle, "Viewport", "Toggle Snap"},
+                       {ImGuiKey_X, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportLayer0, "Viewport", "Layer 0"},
+                       {ImGuiKey_1, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportLayer1, "Viewport", "Layer 1"},
+                       {ImGuiKey_2, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportLayer2, "Viewport", "Layer 2"},
+                       {ImGuiKey_3, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDeleteSelected, "Viewport", "Delete Selection"},
+                       {ImGuiKey_Delete, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportDeleteSelectedAlt, "Viewport",
+                        "Delete Selection (Backspace)"},
+                       {ImGuiKey_Backspace, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportToolPaletteToggle, "Viewport",
+                        "Toggle Global Palette"},
+                       {ImGuiKey_G, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportQuickRect, "Viewport", "Quick Rectangle Select"},
+                       {ImGuiKey_1, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportQuickLasso, "Viewport", "Quick Lasso Select"},
+                       {ImGuiKey_2, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportQuickMove, "Viewport", "Quick Move Nodes"},
+                       {ImGuiKey_3, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kViewportQuickHandle, "Viewport", "Quick Handle Move"},
+                       {ImGuiKey_4, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapLodCycle, "Minimap", "Cycle LOD"},
+                       {ImGuiKey_L, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapLodAuto, "Minimap", "Auto LOD"},
+                       {ImGuiKey_L, false, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapLod0, "Minimap", "LOD 0"},
+                       {ImGuiKey_1, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapLod1, "Minimap", "LOD 1"},
+                       {ImGuiKey_2, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapLod2, "Minimap", "LOD 2"},
+                       {ImGuiKey_3, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapAdaptiveToggle, "Minimap",
+                        "Toggle Adaptive Quality"},
+                       {ImGuiKey_K, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapToggleVisible, "Minimap",
+                        "Toggle Minimap Visibility"},
+                       {ImGuiKey_M, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kMinimapToggleSearch, "Minimap",
+                        "Toggle Minimap Search"},
+                       {ImGuiKey_F, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleBottomPanel, "View", "Toggle Bottom Panel"},
+                       {ImGuiKey_P, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleLeftPanel, "View", "Toggle Left Panel"},
+                       {ImGuiKey_P, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleRightPanel, "View", "Toggle Right Panel"},
+                       {ImGuiKey_P, false, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kDockModeModifier, "View", "Dock Mode Modifier"},
+                       {ImGuiKey_LeftShift, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleActivityBarLeft, "View", "Toggle Activity Bar Left"},
+                       {ImGuiKey_B, false, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleActivityBarRight, "View", "Toggle Activity Bar Right"},
+                       {ImGuiKey_B, false, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kToggleDevShell, "Terminal", "Toggle Dev Shell"},
+                       {ImGuiKey_GraveAccent, true, false, false, false}},
+    ShortcutDefinition{{Keymap::Action::kSoftResetLayout, "Debug", "Soft Reset Layout"},
+                       {ImGuiKey_L, true, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kHardResetLayout, "Debug", "Hard Reset UI"},
+                       {ImGuiKey_R, true, true, false, false}},
+    ShortcutDefinition{{Keymap::Action::kRedoAlt, "Debug", "Redo (Alt)"},
+                       {ImGuiKey_R, true, false, false, false}},
+};
+
+static_assert(kShortcutDefinitions.size() > 0,
+              "Shortcut definition table must not be empty.");
+
+std::unordered_map<std::string, Keymap::ShortcutBinding> s_keymap_bindings;
+std::unordered_map<std::string, std::string> s_keymap_labels;
+bool s_keymap_loaded = false;
+static void NormalizeBindingForModifierKey(Keymap::ShortcutBinding &binding);
+
+[[nodiscard]] static std::filesystem::path UiKeymapPath() {
+  return std::filesystem::path(kUiKeymapFile);
+}
+
+[[nodiscard]] static const ShortcutDefinition *
+FindShortcutDefinition(const char *action_id) {
+  if (action_id == nullptr) {
+    return nullptr;
+  }
+  for (const ShortcutDefinition &def : kShortcutDefinitions) {
+    if (std::string_view(def.info.id) == std::string_view(action_id)) {
+      return &def;
+    }
+  }
+  return nullptr;
+}
+
+[[nodiscard]] static bool IsMouseShortcutKey(const ImGuiKey key) {
+  return key == ImGuiKey_MouseLeft || key == ImGuiKey_MouseRight ||
+         key == ImGuiKey_MouseMiddle || key == ImGuiKey_MouseX1 ||
+         key == ImGuiKey_MouseX2;
+}
+
+[[nodiscard]] static int MouseButtonFromShortcutKey(const ImGuiKey key) {
+  switch (key) {
+  case ImGuiKey_MouseLeft:
+    return ImGuiMouseButton_Left;
+  case ImGuiKey_MouseRight:
+    return ImGuiMouseButton_Right;
+  case ImGuiKey_MouseMiddle:
+    return ImGuiMouseButton_Middle;
+  case ImGuiKey_MouseX1:
+    return 3;
+  case ImGuiKey_MouseX2:
+    return 4;
+  default:
+    return -1;
+  }
+}
+
+[[nodiscard]] static std::string ShortcutKeyLabel(const ImGuiKey key) {
+  if (key == ImGuiKey_None) {
+    return "Unbound";
+  }
+  if (key >= ImGuiKey_A && key <= ImGuiKey_Z) {
+    const char c = static_cast<char>('A' + (static_cast<int>(key) -
+                                            static_cast<int>(ImGuiKey_A)));
+    return std::string(1, c);
+  }
+  if (key >= ImGuiKey_0 && key <= ImGuiKey_9) {
+    const char c = static_cast<char>('0' + (static_cast<int>(key) -
+                                            static_cast<int>(ImGuiKey_0)));
+    return std::string(1, c);
+  }
+  if (key >= ImGuiKey_F1 && key <= ImGuiKey_F24) {
+    const int index = static_cast<int>(key) - static_cast<int>(ImGuiKey_F1) + 1;
+    return "F" + std::to_string(index);
+  }
+  switch (key) {
+  case ImGuiKey_GraveAccent:
+    return "`";
+  case ImGuiKey_Slash:
+    return "/";
+  case ImGuiKey_Backslash:
+    return "\\";
+  case ImGuiKey_MouseLeft:
+    return "MouseLeft";
+  case ImGuiKey_MouseRight:
+    return "MouseRight";
+  case ImGuiKey_MouseMiddle:
+    return "MouseMiddle";
+  case ImGuiKey_MouseX1:
+    return "MouseX1";
+  case ImGuiKey_MouseX2:
+    return "MouseX2";
+  default:
+    break;
+  }
+
+  if (const char *name = ImGui::GetKeyName(key);
+      name != nullptr && name[0] != '\0') {
+    return std::string(name);
+  }
+  return "Key#" + std::to_string(static_cast<int>(key));
+}
+
+[[nodiscard]] static std::string
+ShortcutBindingToLabel(const Keymap::ShortcutBinding &binding) {
+  if (binding.key == ImGuiKey_None) {
+    return "Unbound";
+  }
+  std::string label;
+  if (binding.ctrl) {
+    label += "Ctrl+";
+  }
+  if (binding.shift) {
+    label += "Shift+";
+  }
+  if (binding.alt) {
+    label += "Alt+";
+  }
+  if (binding.super) {
+    label += "Super+";
+  }
+  label += ShortcutKeyLabel(binding.key);
+  return label;
+}
+
+static void RefreshShortcutLabel(const char *action_id) {
+  const auto it_binding = s_keymap_bindings.find(action_id);
+  if (it_binding == s_keymap_bindings.end()) {
+    return;
+  }
+  s_keymap_labels[action_id] = ShortcutBindingToLabel(it_binding->second);
+}
+
+static void RefreshAllShortcutLabels() {
+  s_keymap_labels.clear();
+  for (const auto &def : kShortcutDefinitions) {
+    RefreshShortcutLabel(def.info.id);
+  }
+}
+
+static void SeedDefaultKeymapBindings() {
+  s_keymap_bindings.clear();
+  for (const auto &def : kShortcutDefinitions) {
+    s_keymap_bindings.emplace(def.info.id, def.defaults);
+  }
+  RefreshAllShortcutLabels();
+}
+
+[[nodiscard]] static std::string NormalizeShortcutToken(std::string token) {
+  std::string normalized;
+  normalized.reserve(token.size());
+  for (const char ch : token) {
+    if (ch == ' ' || ch == '-' || ch == '_') {
+      continue;
+    }
+    normalized.push_back(
+        static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+  }
+  return normalized;
+}
+
+[[nodiscard]] static bool ParseShortcutKeyName(const std::string &name,
+                                               ImGuiKey *out_key) {
+  if (out_key == nullptr) {
+    return false;
+  }
+  const std::string token = NormalizeShortcutToken(name);
+  if (token.empty()) {
+    return false;
+  }
+
+  if (token == "none" || token == "unbound") {
+    *out_key = ImGuiKey_None;
+    return true;
+  }
+
+  if (token.size() == 1) {
+    const char c = token[0];
+    if (c >= 'a' && c <= 'z') {
+      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_A) +
+                                       (c - 'a'));
+      return true;
+    }
+    if (c >= '0' && c <= '9') {
+      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_0) +
+                                       (c - '0'));
+      return true;
+    }
+    if (c == '`') {
+      *out_key = ImGuiKey_GraveAccent;
+      return true;
+    }
+    if (c == '/') {
+      *out_key = ImGuiKey_Slash;
+      return true;
+    }
+  }
+
+  if (token[0] == 'f' && token.size() <= 3) {
+    const int value = std::atoi(token.c_str() + 1);
+    if (value >= 1 && value <= 24) {
+      *out_key = static_cast<ImGuiKey>(static_cast<int>(ImGuiKey_F1) + value -
+                                       1);
+      return true;
+    }
+  }
+
+  if (token == "escape" || token == "esc") {
+    *out_key = ImGuiKey_Escape;
+    return true;
+  }
+  if (token == "enter" || token == "return") {
+    *out_key = ImGuiKey_Enter;
+    return true;
+  }
+  if (token == "tab") {
+    *out_key = ImGuiKey_Tab;
+    return true;
+  }
+  if (token == "space") {
+    *out_key = ImGuiKey_Space;
+    return true;
+  }
+  if (token == "backspace") {
+    *out_key = ImGuiKey_Backspace;
+    return true;
+  }
+  if (token == "delete" || token == "del") {
+    *out_key = ImGuiKey_Delete;
+    return true;
+  }
+  if (token == "left") {
+    *out_key = ImGuiKey_LeftArrow;
+    return true;
+  }
+  if (token == "right") {
+    *out_key = ImGuiKey_RightArrow;
+    return true;
+  }
+  if (token == "up") {
+    *out_key = ImGuiKey_UpArrow;
+    return true;
+  }
+  if (token == "down") {
+    *out_key = ImGuiKey_DownArrow;
+    return true;
+  }
+  if (token == "grave" || token == "graveaccent" || token == "tilde") {
+    *out_key = ImGuiKey_GraveAccent;
+    return true;
+  }
+  if (token == "mouseleft" || token == "lmb" || token == "mouse1") {
+    *out_key = ImGuiKey_MouseLeft;
+    return true;
+  }
+  if (token == "mouseright" || token == "rmb" || token == "mouse2") {
+    *out_key = ImGuiKey_MouseRight;
+    return true;
+  }
+  if (token == "mousemiddle" || token == "mmb" || token == "mouse3") {
+    *out_key = ImGuiKey_MouseMiddle;
+    return true;
+  }
+  if (token == "mousex1" || token == "mouse4") {
+    *out_key = ImGuiKey_MouseX1;
+    return true;
+  }
+  if (token == "mousex2" || token == "mouse5") {
+    *out_key = ImGuiKey_MouseX2;
+    return true;
+  }
+
+  for (int key_index = static_cast<int>(ImGuiKey_NamedKey_BEGIN);
+       key_index < static_cast<int>(ImGuiKey_NamedKey_END); ++key_index) {
+    const ImGuiKey key = static_cast<ImGuiKey>(key_index);
+    const char *raw_name = ImGui::GetKeyName(key);
+    if (raw_name == nullptr || raw_name[0] == '\0') {
+      continue;
+    }
+    if (NormalizeShortcutToken(raw_name) == token) {
+      *out_key = key;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+[[nodiscard]] static bool ParseShortcutCombo(const std::string &combo,
+                                             Keymap::ShortcutBinding *out) {
+  if (out == nullptr) {
+    return false;
+  }
+  Keymap::ShortcutBinding parsed{};
+  bool has_key = false;
+  std::stringstream stream(combo);
+  std::string part;
+  while (std::getline(stream, part, '+')) {
+    const std::string token = NormalizeShortcutToken(part);
+    if (token.empty()) {
+      continue;
+    }
+    if (token == "ctrl" || token == "control") {
+      parsed.ctrl = true;
+      continue;
+    }
+    if (token == "shift") {
+      parsed.shift = true;
+      continue;
+    }
+    if (token == "alt" || token == "option") {
+      parsed.alt = true;
+      continue;
+    }
+    if (token == "super" || token == "win" || token == "meta" ||
+        token == "cmd" || token == "command") {
+      parsed.super = true;
+      continue;
+    }
+
+    ImGuiKey key = ImGuiKey_None;
+    if (!ParseShortcutKeyName(token, &key)) {
+      return false;
+    }
+    parsed.key = key;
+    has_key = true;
+  }
+
+  if (!has_key) {
+    return false;
+  }
+  *out = parsed;
+  return true;
+}
+
+[[nodiscard]] static bool ParseShortcutBindingJson(const nlohmann::json &j,
+                                                   Keymap::ShortcutBinding *out) {
+  if (!j.is_object() || out == nullptr) {
+    return false;
+  }
+  Keymap::ShortcutBinding binding{};
+  bool has_key = false;
+
+  if (j.contains("key") && j["key"].is_number_integer()) {
+    const int key_value = j["key"].get<int>();
+    if (key_value >= static_cast<int>(ImGuiKey_None) &&
+        key_value < static_cast<int>(ImGuiKey_COUNT)) {
+      binding.key = static_cast<ImGuiKey>(key_value);
+      has_key = true;
+    }
+  }
+  if (!has_key && j.contains("combo") && j["combo"].is_string()) {
+    has_key = ParseShortcutCombo(j["combo"].get<std::string>(), &binding);
+  }
+  if (!has_key && j.contains("key_name") && j["key_name"].is_string()) {
+    has_key = ParseShortcutKeyName(j["key_name"].get<std::string>(),
+                                   &binding.key);
+  }
+  if (!has_key) {
+    return false;
+  }
+
+  if (j.contains("ctrl")) binding.ctrl = j.value("ctrl", false);
+  if (j.contains("shift")) binding.shift = j.value("shift", false);
+  if (j.contains("alt")) binding.alt = j.value("alt", false);
+  if (j.contains("super")) binding.super = j.value("super", false);
+  if (binding.key == ImGuiKey_None) {
+    binding.ctrl = false;
+    binding.shift = false;
+    binding.alt = false;
+    binding.super = false;
+  }
+  NormalizeBindingForModifierKey(binding);
+  *out = binding;
+  return true;
+}
+
+[[nodiscard]] static nlohmann::json
+ShortcutBindingToJson(const Keymap::ShortcutBinding &binding) {
+  nlohmann::json j;
+  j["key"] = static_cast<int>(binding.key);
+  j["key_name"] = ShortcutKeyLabel(binding.key);
+  j["ctrl"] = binding.ctrl;
+  j["shift"] = binding.shift;
+  j["alt"] = binding.alt;
+  j["super"] = binding.super;
+  j["combo"] = ShortcutBindingToLabel(binding);
+  return j;
+}
+
+static bool LoadKeymapFromDisk(std::string *error) {
+  const std::filesystem::path path = UiKeymapPath();
+  if (!std::filesystem::exists(path)) {
+    return true;
+  }
+
+  std::ifstream in(path, std::ios::binary);
+  if (!in.is_open()) {
+    if (error != nullptr) {
+      *error = "Failed to open keymap file: " + path.string();
+    }
+    return false;
+  }
+
+  try {
+    nlohmann::json j;
+    in >> j;
+    if (!j.contains("actions") || !j["actions"].is_object()) {
+      if (error != nullptr) {
+        *error = "Invalid keymap schema: missing object 'actions'.";
+      }
+      return false;
+    }
+
+    const auto &actions = j["actions"];
+    for (const auto &def : kShortcutDefinitions) {
+      const auto it = actions.find(def.info.id);
+      if (it == actions.end() || !it->is_object()) {
+        continue;
+      }
+      Keymap::ShortcutBinding binding = def.defaults;
+      if (ParseShortcutBindingJson(*it, &binding)) {
+        s_keymap_bindings[def.info.id] = binding;
+      }
+    }
+    RefreshAllShortcutLabels();
+    return true;
+  } catch (const std::exception &e) {
+    if (error != nullptr) {
+      *error = e.what();
+    }
+    return false;
+  }
+}
+
+static bool SaveKeymapToDisk(std::string *error) {
+  try {
+    const std::filesystem::path path = UiKeymapPath();
+    std::filesystem::create_directories(path.parent_path());
+
+    nlohmann::json j;
+    j["schema"] = 1;
+    j["updated_at_utc"] = CurrentUtcIso8601();
+    j["actions"] = nlohmann::json::object();
+    for (const auto &def : kShortcutDefinitions) {
+      const auto it = s_keymap_bindings.find(def.info.id);
+      if (it == s_keymap_bindings.end()) {
+        j["actions"][def.info.id] = ShortcutBindingToJson(def.defaults);
+      } else {
+        j["actions"][def.info.id] = ShortcutBindingToJson(it->second);
+      }
+    }
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) {
+      if (error != nullptr) {
+        *error = "Failed to open keymap for writing: " + path.string();
+      }
+      return false;
+    }
+    out << j.dump(2);
+    return true;
+  } catch (const std::exception &e) {
+    if (error != nullptr) {
+      *error = e.what();
+    }
+    return false;
+  }
+}
+
+[[nodiscard]] static bool IsGamepadShortcutKey(const ImGuiKey key) {
+  return key >= ImGuiKey_GamepadStart && key <= ImGuiKey_GamepadRStickDown;
+}
+
+[[nodiscard]] static bool IsSyntheticModifierShortcutKey(const ImGuiKey key) {
+  (void)key;
+  return false;
+}
+
+[[nodiscard]] static bool IsShortcutPressedForBinding(
+    const Keymap::ShortcutBinding &binding, bool repeat) {
+  if (binding.key == ImGuiKey_None) {
+    return false;
+  }
+  if (IsMouseShortcutKey(binding.key)) {
+    const int button = MouseButtonFromShortcutKey(binding.key);
+    if (button < 0) {
+      return false;
+    }
+    return ImGui::IsMouseClicked(button, repeat);
+  }
+  return ImGui::IsKeyPressed(binding.key, repeat);
+}
+
+[[nodiscard]] static bool
+IsShortcutDownForBinding(const Keymap::ShortcutBinding &binding) {
+  if (binding.key == ImGuiKey_None) {
+    return false;
+  }
+  if (IsMouseShortcutKey(binding.key)) {
+    const int button = MouseButtonFromShortcutKey(binding.key);
+    return button >= 0 && ImGui::IsMouseDown(button);
+  }
+  return ImGui::IsKeyDown(binding.key);
+}
+
+static void NormalizeBindingForModifierKey(Keymap::ShortcutBinding &binding) {
+  switch (binding.key) {
+  case ImGuiKey_LeftCtrl:
+  case ImGuiKey_RightCtrl:
+    binding.ctrl = false;
+    break;
+  case ImGuiKey_LeftShift:
+  case ImGuiKey_RightShift:
+    binding.shift = false;
+    break;
+  case ImGuiKey_LeftAlt:
+  case ImGuiKey_RightAlt:
+    binding.alt = false;
+    break;
+  case ImGuiKey_LeftSuper:
+  case ImGuiKey_RightSuper:
+    binding.super = false;
+    break;
+  default:
+    break;
+  }
+}
+
+[[nodiscard]] static bool ShortcutModifiersMatch(
+    const Keymap::ShortcutBinding &binding) {
+  const ImGuiIO &io = ImGui::GetIO();
+  const bool key_is_ctrl =
+      binding.key == ImGuiKey_LeftCtrl || binding.key == ImGuiKey_RightCtrl;
+  const bool key_is_shift =
+      binding.key == ImGuiKey_LeftShift || binding.key == ImGuiKey_RightShift;
+  const bool key_is_alt =
+      binding.key == ImGuiKey_LeftAlt || binding.key == ImGuiKey_RightAlt;
+  const bool key_is_super =
+      binding.key == ImGuiKey_LeftSuper || binding.key == ImGuiKey_RightSuper;
+
+  const bool expected_ctrl = binding.ctrl || key_is_ctrl;
+  const bool expected_shift = binding.shift || key_is_shift;
+  const bool expected_alt = binding.alt || key_is_alt;
+  const bool expected_super = binding.super || key_is_super;
+
+  return expected_ctrl == io.KeyCtrl && expected_shift == io.KeyShift &&
+         expected_alt == io.KeyAlt && expected_super == io.KeySuper;
+}
+
+[[nodiscard]] static std::optional<Keymap::ShortcutBinding>
+PollCapturedShortcutBinding() {
+  const ImGuiIO &io = ImGui::GetIO();
+  for (int key_index = static_cast<int>(ImGuiKey_NamedKey_BEGIN);
+       key_index < static_cast<int>(ImGuiKey_NamedKey_END); ++key_index) {
+    const ImGuiKey key = static_cast<ImGuiKey>(key_index);
+    if (IsSyntheticModifierShortcutKey(key) || IsGamepadShortcutKey(key)) {
+      continue;
+    }
+    bool pressed = false;
+    if (IsMouseShortcutKey(key)) {
+      const int button = MouseButtonFromShortcutKey(key);
+      pressed = button >= 0 && ImGui::IsMouseClicked(button, false);
+    } else {
+      pressed = ImGui::IsKeyPressed(key, false);
+    }
+    if (!pressed) {
+      continue;
+    }
+    Keymap::ShortcutBinding captured{};
+    captured.key = key;
+    captured.ctrl = io.KeyCtrl;
+    captured.shift = io.KeyShift;
+    captured.alt = io.KeyAlt;
+    captured.super = io.KeySuper;
+    NormalizeBindingForModifierKey(captured);
+    return captured;
+  }
+  return std::nullopt;
+}
+} // namespace
+
+namespace Keymap {
+
+void EnsureLoaded() {
+  if (s_keymap_loaded) {
+    return;
+  }
+
+  SeedDefaultKeymapBindings();
+  std::string error;
+  const bool loaded = LoadKeymapFromDisk(&error);
+  if (!loaded) {
+    s_keymap_status = "Keymap load fallback to defaults: " + error;
+  }
+
+  std::string save_error;
+  if (!SaveKeymapToDisk(&save_error)) {
+    s_keymap_status = "Keymap save failed: " + save_error;
+  }
+
+  s_keymap_loaded = true;
+}
+
+bool IsPressed(const char *action_id, bool repeat) {
+  EnsureLoaded();
+  if (IsEditorOpen()) {
+    return false;
+  }
+  if (action_id == nullptr) {
+    return false;
+  }
+  const auto it = s_keymap_bindings.find(action_id);
+  if (it == s_keymap_bindings.end()) {
+    return false;
+  }
+  if (!ShortcutModifiersMatch(it->second)) {
+    return false;
+  }
+  return IsShortcutPressedForBinding(it->second, repeat);
+}
+
+bool IsDown(const char *action_id) {
+  EnsureLoaded();
+  if (IsEditorOpen()) {
+    return false;
+  }
+  if (action_id == nullptr) {
+    return false;
+  }
+  const auto it = s_keymap_bindings.find(action_id);
+  if (it == s_keymap_bindings.end()) {
+    return false;
+  }
+  if (!ShortcutModifiersMatch(it->second)) {
+    return false;
+  }
+  return IsShortcutDownForBinding(it->second);
+}
+
+const char *ShortcutLabel(const char *action_id) {
+  EnsureLoaded();
+  if (action_id == nullptr) {
+    return "";
+  }
+  const auto it = s_keymap_labels.find(action_id);
+  if (it == s_keymap_labels.end()) {
+    return "";
+  }
+  return it->second.c_str();
+}
+
+ShortcutBinding GetBinding(const char *action_id) {
+  EnsureLoaded();
+  if (action_id == nullptr) {
+    return {};
+  }
+  const auto it = s_keymap_bindings.find(action_id);
+  if (it == s_keymap_bindings.end()) {
+    return {};
+  }
+  return it->second;
+}
+
+bool SetBinding(const char *action_id, const ShortcutBinding &binding,
+                std::string *error) {
+  EnsureLoaded();
+  const ShortcutDefinition *def = FindShortcutDefinition(action_id);
+  if (def == nullptr) {
+    if (error != nullptr) {
+      *error = "Unknown action id.";
+    }
+    return false;
+  }
+
+  ShortcutBinding normalized = binding;
+  NormalizeBindingForModifierKey(normalized);
+  s_keymap_bindings[def->info.id] = normalized;
+  RefreshShortcutLabel(def->info.id);
+
+  std::string save_error;
+  if (!SaveKeymapToDisk(&save_error)) {
+    if (error != nullptr) {
+      *error = save_error;
+    }
+    return false;
+  }
+  return true;
+}
+
+bool ResetBinding(const char *action_id, std::string *error) {
+  EnsureLoaded();
+  const ShortcutDefinition *def = FindShortcutDefinition(action_id);
+  if (def == nullptr) {
+    if (error != nullptr) {
+      *error = "Unknown action id.";
+    }
+    return false;
+  }
+  return SetBinding(def->info.id, def->defaults, error);
+}
+
+bool ResetAll(std::string *error) {
+  EnsureLoaded();
+  SeedDefaultKeymapBindings();
+
+  std::string save_error;
+  if (!SaveKeymapToDisk(&save_error)) {
+    if (error != nullptr) {
+      *error = save_error;
+    }
+    return false;
+  }
+  return true;
+}
+
+std::span<const ShortcutActionInfo> GetActions() {
+  static std::array<ShortcutActionInfo, kShortcutDefinitions.size()> actions{};
+  static bool initialized = false;
+  if (!initialized) {
+    for (size_t i = 0; i < kShortcutDefinitions.size(); ++i) {
+      actions[i] = kShortcutDefinitions[i].info;
+    }
+    initialized = true;
+  }
+  return std::span<const ShortcutActionInfo>(actions);
+}
+
+bool IsEditorOpen() { return s_show_keymap_window; }
+
+const char *KeymapPath() { return kUiKeymapFile; }
+
+} // namespace Keymap
+
+static ImU32 ToolFamilyBaseColor(ToolLibrary tool) {
+  // 5 canonical tool families:
+  // Axiom=Magenta, Water=InfoBlue, Road=Cyan, District/Lot=Green, Building=Amber
+  switch (tool) {
+  case ToolLibrary::Axiom:
+    return UITokens::MagentaHighlight;
+  case ToolLibrary::Water:
+    return UITokens::InfoBlue;
+  case ToolLibrary::Road:
+    return UITokens::CyanAccent;
+  case ToolLibrary::District:
+  case ToolLibrary::Lot:
+    return UITokens::GreenHUD;
+  case ToolLibrary::Building:
+    return UITokens::AmberGlow;
+  }
+  return UITokens::TextPrimary;
+}
+
+ImU32 ToolColor(ToolLibrary tool, int variation) {
+  const int clamped_variation = std::max(0, variation);
+  const ImU32 base = ToolFamilyBaseColor(tool);
+
+  // Lot shares the Parcel family but gets a warmer variant.
+  if (tool == ToolLibrary::Lot) {
+    const float t = std::clamp(0.36f + static_cast<float>(clamped_variation) * 0.08f,
+                               0.36f, 0.58f);
+    return LerpColor(base, UITokens::YellowWarning, t);
+  }
+
+  // Axiom gets richer variant stepping across multiple accents.
+  if (tool == ToolLibrary::Axiom) {
+    switch (clamped_variation % 5) {
+    case 1:
+      return LerpColor(base, UITokens::CyanAccent, 0.34f);
+    case 2:
+      return LerpColor(base, UITokens::AmberGlow, 0.28f);
+    case 3:
+      return LerpColor(base, UITokens::TextPrimary, 0.24f);
+    case 4:
+      return LerpColor(base, UITokens::GreenHUD, 0.24f);
+    default:
+      return base;
+    }
+  }
+
+  if (clamped_variation <= 0) {
+    return base;
+  }
+  const float t =
+      std::clamp(0.10f * static_cast<float>(clamped_variation), 0.10f, 0.35f);
+  return LerpColor(base, UITokens::TextPrimary, t);
+}
+
+ImU32 ToolColorActive(ToolLibrary tool, int variation) {
+  return LerpColor(ToolColor(tool, variation), UITokens::TextPrimary, 0.18f);
+}
+
+ImU32 ToolColorMuted(ToolLibrary tool, int variation) {
+  const ImU32 base = ToolColor(tool, variation);
+  return WithAlpha(LerpColor(base, UITokens::PanelBackground, 0.55f), 190u);
+}
 
 static size_t ToolLibraryIndex(ToolLibrary tool);
 
@@ -442,8 +1368,7 @@ static void DrawDefaultToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
 }
 
 static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
-                                const ImVec2 &center, float size) {
-  const ImU32 color = UITokens::TextPrimary;
+                                const ImVec2 &center, float size, ImU32 color) {
   const ToolLibraryIconRenderer custom_renderer =
       s_tool_library_icon_renderers[ToolLibraryIndex(tool)];
   if (custom_renderer != nullptr) {
@@ -451,6 +1376,18 @@ static void DrawToolLibraryIcon(ImDrawList *draw_list, ToolLibrary tool,
     return;
   }
   DrawDefaultToolLibraryIcon(draw_list, tool, center, size, color);
+}
+
+[[nodiscard]] static int ToolActionColorVariation(Tools::ToolActionId id) {
+  using Tools::ToolActionId;
+  const uint16_t raw = static_cast<uint16_t>(id);
+  const uint16_t axiom_begin = static_cast<uint16_t>(ToolActionId::Axiom_Organic);
+  const uint16_t axiom_end = static_cast<uint16_t>(ToolActionId::Axiom_GridCorrective);
+  if (raw >= axiom_begin && raw <= axiom_end) {
+    // Spread 10 axiom actions across 5 visual variants.
+    return static_cast<int>((raw - axiom_begin) % 5u);
+  }
+  return 0;
 }
 
 [[nodiscard]] static bool
@@ -808,16 +1745,20 @@ static void RenderToolLibraryWindow(
           const ImVec2 center((bmin.x + bmax.x) * 0.5f,
                               bmin.y + icon_size * 0.48f);
           ImDrawList *draw_list = ImGui::GetWindowDrawList();
+          const int color_variation = ToolActionColorVariation(action.id);
+          const ImU32 action_color = ToolColor(tool, color_variation);
+          const ImU32 action_color_active =
+              ToolColorActive(tool, color_variation);
           const float pulse =
               0.5f + 0.5f * static_cast<float>(std::sin(ImGui::GetTime() * 4.0 +
                                                         action_index * 0.37));
           const ImU32 active_border =
-              WithAlpha(LerpColor(UITokens::ToolActiveBorder,
-                                  UITokens::CyanAccent, pulse),
+              WithAlpha(LerpColor(action_color_active, UITokens::TextPrimary,
+                                  0.18f + pulse * 0.24f),
                         240u);
           const ImU32 active_fill = WithAlpha(
-              LerpColor(UITokens::ToolActiveFill, UITokens::PanelBackground,
-                        1.0f - pulse * 0.35f),
+              LerpColor(action_color, UITokens::PanelBackground,
+                        0.72f - pulse * 0.12f),
               245u);
 
           const ImU32 fill =
@@ -825,12 +1766,15 @@ static void RenderToolLibraryWindow(
                   ? UITokens::ToolDisabledFill
                   : (action_active
                          ? active_fill
-                         : WithAlpha(UITokens::PanelBackground, 220u));
+                         : WithAlpha(
+                               LerpColor(action_color, UITokens::PanelBackground,
+                                         0.86f),
+                               220u));
           const ImU32 border =
               !action_enabled
                   ? WithAlpha(UITokens::TextSecondary, 100u)
                   : (action_active ? active_border
-                                   : WithAlpha(UITokens::TextSecondary, 180u));
+                                   : WithAlpha(action_color, 190u));
           draw_list->AddRectFilled(bmin, bmax, fill, 8.0f);
           draw_list->AddRect(bmin, bmax, border, 8.0f, 0,
                              action_active ? 2.0f : 1.5f);
@@ -839,7 +1783,13 @@ static void RenderToolLibraryWindow(
                                      ImVec2(bmax.x - 3.0f, bmin.y + 6.0f),
                                      WithAlpha(active_border, 220u), 2.0f);
           }
-          DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.34f);
+          const ImU32 icon_tint =
+              action_enabled
+                  ? (action_active ? ToolColorActive(tool, color_variation)
+                                   : ToolColor(tool, color_variation))
+                  : UITokens::TextDisabled;
+          DrawToolLibraryIcon(draw_list, tool, center, icon_size * 0.34f,
+                              icon_tint);
 
           std::string label_text = action.label;
           const float max_label_width = std::max(10.0f, entry_size.x - 8.0f);
@@ -869,8 +1819,9 @@ static void RenderToolLibraryWindow(
                   std::max(1.0f, (label_band_height - label_size.y) * 0.5f));
           draw_list->AddText(label_pos,
                              action_enabled
-                                 ? WithAlpha(UITokens::TextPrimary,
-                                             action_active ? 255u : 215u)
+                                 ? (action_active
+                                        ? ToolColorActive(tool, color_variation)
+                                        : WithAlpha(UITokens::TextPrimary, 215u))
                                  : UITokens::TextDisabled,
                              label_text.c_str());
 
@@ -1800,6 +2751,178 @@ static void DrawNewCityConfirmModal() {
   }
 }
 
+[[nodiscard]] static const char *ShortcutActionLabel(const char *action_id) {
+  if (const ShortcutDefinition *def = FindShortcutDefinition(action_id);
+      def != nullptr) {
+    return def->info.label;
+  }
+  return action_id != nullptr ? action_id : "";
+}
+
+static void DrawKeymapEditorWindow() {
+  Keymap::EnsureLoaded();
+  if (!s_show_keymap_window) {
+    return;
+  }
+
+  ImGui::SetNextWindowSize(ImVec2(900.0f, 560.0f), ImGuiCond_FirstUseEver);
+  if (!ImGui::Begin("Shortcut Keymap##rc_help", &s_show_keymap_window,
+                    ImGuiWindowFlags_NoCollapse)) {
+    ImGui::End();
+    return;
+  }
+
+  ImGui::TextWrapped(
+      "Canonical input contract: all global shortcuts are loaded from and "
+      "saved to %s. Changes persist immediately.",
+      Keymap::KeymapPath());
+  if (!s_keymap_status.empty()) {
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue), "%s",
+                       s_keymap_status.c_str());
+  }
+
+  if (ImGui::Button("Reset All to Defaults")) {
+    std::string error;
+    if (Keymap::ResetAll(&error)) {
+      s_keymap_status = "All shortcuts reset to defaults.";
+    } else {
+      s_keymap_status = "Reset-all failed: " + error;
+    }
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Reload From JSON")) {
+    SeedDefaultKeymapBindings();
+    std::string error;
+    if (LoadKeymapFromDisk(&error)) {
+      s_keymap_status = "Keymap reloaded from JSON.";
+    } else {
+      s_keymap_status = "Reload failed, defaults kept: " + error;
+    }
+  }
+
+  if (!s_keymap_capture_action.empty()) {
+    ImGui::Separator();
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow),
+                       "Listening: %s", ShortcutActionLabel(
+                                            s_keymap_capture_action.c_str()));
+    ImGui::TextDisabled("Press any keyboard key or mouse button.");
+    ImGui::TextDisabled("Press Escape to cancel. Press Backspace to unbind.");
+
+    if (const std::optional<Keymap::ShortcutBinding> captured =
+            PollCapturedShortcutBinding();
+        captured.has_value()) {
+      std::string error;
+      const bool cancel_capture =
+          captured->key == ImGuiKey_Escape && !captured->ctrl &&
+          !captured->shift && !captured->alt && !captured->super;
+      if (cancel_capture) {
+        s_keymap_status = "Capture cancelled.";
+      } else {
+        Keymap::ShortcutBinding binding = *captured;
+        const bool clear_binding =
+            captured->key == ImGuiKey_Backspace && !captured->ctrl &&
+            !captured->shift && !captured->alt && !captured->super;
+        if (clear_binding) {
+          binding.key = ImGuiKey_None;
+          binding.ctrl = false;
+          binding.shift = false;
+          binding.alt = false;
+          binding.super = false;
+        }
+        if (Keymap::SetBinding(s_keymap_capture_action.c_str(), binding, &error)) {
+          s_keymap_status = "Shortcut updated: " +
+                            std::string(ShortcutActionLabel(
+                                s_keymap_capture_action.c_str()));
+        } else {
+          s_keymap_status = "Shortcut update failed: " + error;
+        }
+      }
+      s_keymap_capture_action.clear();
+    }
+  }
+
+  std::unordered_map<std::string, int> conflicts;
+  for (const Keymap::ShortcutActionInfo &action : Keymap::GetActions()) {
+    const std::string combo = Keymap::ShortcutLabel(action.id);
+    if (!combo.empty() && combo != "Unbound") {
+      ++conflicts[combo];
+    }
+  }
+
+  ImGui::Separator();
+  if (ImGui::BeginTable("##shortcut_table", 4,
+                        ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                            ImGuiTableFlags_Resizable |
+                            ImGuiTableFlags_SizingStretchProp)) {
+    ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+    ImGui::TableSetupColumn("Action");
+    ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+    ImGui::TableSetupColumn("Controls", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+    ImGui::TableHeadersRow();
+
+    for (const Keymap::ShortcutActionInfo &action : Keymap::GetActions()) {
+      const std::string combo = Keymap::ShortcutLabel(action.id);
+      const bool has_conflict = (!combo.empty() && combo != "Unbound" &&
+                                 conflicts[combo] > 1);
+      const bool is_capturing = s_keymap_capture_action == action.id;
+
+      ImGui::TableNextRow();
+      ImGui::TableSetColumnIndex(0);
+      ImGui::TextUnformatted(action.category);
+
+      ImGui::TableSetColumnIndex(1);
+      if (has_conflict) {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
+                           "%s", action.label);
+      } else {
+        ImGui::TextUnformatted(action.label);
+      }
+
+      ImGui::TableSetColumnIndex(2);
+      if (is_capturing) {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow),
+                           "Listening...");
+      } else if (has_conflict) {
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
+                           "%s", combo.c_str());
+      } else {
+        ImGui::TextUnformatted(combo.c_str());
+      }
+
+      ImGui::TableSetColumnIndex(3);
+      const std::string bind_id = std::string("Bind##") + action.id;
+      if (ImGui::SmallButton(bind_id.c_str())) {
+        s_keymap_capture_action = action.id;
+      }
+      ImGui::SameLine();
+      const std::string reset_id = std::string("Reset##") + action.id;
+      if (ImGui::SmallButton(reset_id.c_str())) {
+        std::string error;
+        if (Keymap::ResetBinding(action.id, &error)) {
+          s_keymap_status =
+              std::string("Reset to default: ") + ShortcutActionLabel(action.id);
+        } else {
+          s_keymap_status = "Reset failed: " + error;
+        }
+      }
+    }
+    ImGui::EndTable();
+  }
+
+  int conflict_count = 0;
+  for (const auto &[combo, count] : conflicts) {
+    if (count > 1) {
+      ++conflict_count;
+    }
+  }
+  if (conflict_count > 0) {
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
+                       "Conflicts detected: %d", conflict_count);
+  }
+
+  ImGui::End();
+}
+
 // DrawRuntimeTitlebar — renders as the native main-menu bar so ImGui
 // automatically adjusts viewport->WorkPos/WorkSize for the dockspace.
 // ALL menu items are fully functional — no visual-only stubs.
@@ -1812,6 +2935,8 @@ static void DrawRuntimeTitlebar() {
   // EndMainMenuBar so the popup stack is consistent).
   DrawAboutModal();
   DrawNewCityConfirmModal();
+  RC_UI::DataVizGallery::Draw();
+  Keymap::EnsureLoaded();
 
   auto &uiint = RogueCity::UIInt::UiIntrospector::Instance();
   const bool open = ImGui::BeginMainMenuBar();
@@ -1830,33 +2955,45 @@ static void DrawRuntimeTitlebar() {
     auto &hfsm = GetEditorHFSM();
 
     // ── Keyboard shortcuts handled here (outside menus so they work globally)
-    const ImGuiIO &io = ImGui::GetIO();
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) { if (hist.CanUndo()) hist.Undo(); }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { if (hist.CanRedo()) hist.Redo(); }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { SaveWorkspacePreset("default"); }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) { s_show_new_confirm = true; }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
-      s_show_bottom_status_bar = !s_show_bottom_status_bar;
-    }
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) {
-      Panels::DevShell::Toggle();
-    }
-    if (!io.KeyCtrl && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_B, false)) {
-      if (io.KeyShift) {
-        s_show_activity_bar_right = !s_show_activity_bar_right;
-      } else {
-        s_show_activity_bar_left = !s_show_activity_bar_left;
+    if (Keymap::IsPressed(Keymap::Action::kUndo, false)) {
+      if (hist.CanUndo()) {
+        hist.Undo();
       }
     }
-    if (!io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_P, false)) {
-      if (io.KeyShift) {
-        if (s_inspector_sidebar) {
-          s_inspector_sidebar->SetWindowOpen(!s_inspector_sidebar->IsWindowOpen());
-        }
-      } else if (!io.KeyCtrl) {
-        if (s_master_panel) {
-          s_master_panel->SetWindowOpen(!s_master_panel->IsWindowOpen());
-        }
+    if (Keymap::IsPressed(Keymap::Action::kRedo, false)) {
+      if (hist.CanRedo()) {
+        hist.Redo();
+      }
+    }
+    if (Keymap::IsPressed(Keymap::Action::kSaveLayout, false)) {
+      SaveWorkspacePreset("default");
+    }
+    if (Keymap::IsPressed(Keymap::Action::kNewCity, false)) {
+      s_show_new_confirm = true;
+    }
+    if (Keymap::IsPressed(Keymap::Action::kQuit, false)) {
+      hfsm.handle_event(EditorEvent::Quit, gs);
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleBottomPanel, false)) {
+      s_show_bottom_status_bar = !s_show_bottom_status_bar;
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleDevShell, false)) {
+      Panels::DevShell::Toggle();
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleActivityBarLeft, false)) {
+      s_show_activity_bar_left = !s_show_activity_bar_left;
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleActivityBarRight, false)) {
+      s_show_activity_bar_right = !s_show_activity_bar_right;
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleLeftPanel, false)) {
+      if (s_master_panel) {
+        s_master_panel->SetWindowOpen(!s_master_panel->IsWindowOpen());
+      }
+    }
+    if (Keymap::IsPressed(Keymap::Action::kToggleRightPanel, false)) {
+      if (s_inspector_sidebar) {
+        s_inspector_sidebar->SetWindowOpen(!s_inspector_sidebar->IsWindowOpen());
       }
     }
 
@@ -1868,11 +3005,14 @@ static void DrawRuntimeTitlebar() {
 
     // ── File ─────────────────────────────────────────────────────────────
     if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("New City", "Ctrl+N")) {
+      if (ImGui::MenuItem("New City",
+                          Keymap::ShortcutLabel(Keymap::Action::kNewCity))) {
         s_show_new_confirm = true;
       }
       ImGui::Separator();
-      if (ImGui::MenuItem("Save Layout", "Ctrl+S")) {
+      if (ImGui::MenuItem(
+              "Save Layout",
+              Keymap::ShortcutLabel(Keymap::Action::kSaveLayout))) {
         SaveWorkspacePreset("default");
       }
       if (ImGui::MenuItem("Load Layout")) {
@@ -1887,7 +3027,8 @@ static void DrawRuntimeTitlebar() {
         OpenOSPath("CHANGELOG.md");
       }
       ImGui::Separator();
-      if (ImGui::MenuItem("Quit", "Alt+F4")) {
+      if (ImGui::MenuItem("Quit",
+                          Keymap::ShortcutLabel(Keymap::Action::kQuit))) {
         hfsm.handle_event(EditorEvent::Quit, gs);
       }
       ImGui::EndMenu();
@@ -1905,7 +3046,9 @@ static void DrawRuntimeTitlebar() {
         undo_str = std::string("Undo: ") + hist.PeekUndo()->GetDescription();
         undo_label = undo_str.c_str();
       }
-      if (ImGui::MenuItem(undo_label, "Ctrl+Z", false, can_undo)) {
+      if (ImGui::MenuItem(undo_label,
+                          Keymap::ShortcutLabel(Keymap::Action::kUndo), false,
+                          can_undo)) {
         hist.Undo();
       }
 
@@ -1915,7 +3058,9 @@ static void DrawRuntimeTitlebar() {
         redo_str = std::string("Redo: ") + hist.PeekRedo()->GetDescription();
         redo_label = redo_str.c_str();
       }
-      if (ImGui::MenuItem(redo_label, "Ctrl+Y", false, can_redo)) {
+      if (ImGui::MenuItem(redo_label,
+                          Keymap::ShortcutLabel(Keymap::Action::kRedo), false,
+                          can_redo)) {
         hist.Redo();
       }
 
@@ -1936,14 +3081,18 @@ static void DrawRuntimeTitlebar() {
       ImGui::Separator();
 
       if (ImGui::BeginMenu("Panels")) {
-        if (ImGui::MenuItem("panel-bottom-close", "Ctrl+P", false, s_show_bottom_status_bar)) {
+        if (ImGui::MenuItem(
+                "panel-bottom-close",
+                Keymap::ShortcutLabel(Keymap::Action::kToggleBottomPanel),
+                false, s_show_bottom_status_bar)) {
           s_show_bottom_status_bar = false;
         }
         if (ImGui::MenuItem("panel-bottom-open", nullptr, false, !s_show_bottom_status_bar)) {
           s_show_bottom_status_bar = true;
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("panel-left-close", "P", false,
+        if (ImGui::MenuItem("panel-left-close",
+                            Keymap::ShortcutLabel(Keymap::Action::kToggleLeftPanel), false,
                             s_master_panel && s_master_panel->IsWindowOpen())) {
           if (s_master_panel) {
             s_master_panel->SetWindowOpen(false);
@@ -1956,7 +3105,8 @@ static void DrawRuntimeTitlebar() {
           }
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("panel-right-close", "Shift+P", false,
+        if (ImGui::MenuItem("panel-right-close",
+                            Keymap::ShortcutLabel(Keymap::Action::kToggleRightPanel), false,
                             s_inspector_sidebar && s_inspector_sidebar->IsWindowOpen())) {
           if (s_inspector_sidebar) {
             s_inspector_sidebar->SetWindowOpen(false);
@@ -2009,9 +3159,14 @@ static void DrawRuntimeTitlebar() {
 
     // ── Terminal ──────────────────────────────────────────────────────────
     if (ImGui::BeginMenu("Terminal")) {
-      if (ImGui::MenuItem("Dev Shell", "Ctrl+`",
+      if (ImGui::MenuItem("Dev Shell",
+                          Keymap::ShortcutLabel(Keymap::Action::kToggleDevShell),
                           Panels::DevShell::IsOpen())) {
         Panels::DevShell::Toggle();
+      }
+      if (ImGui::MenuItem("ImGui Error Agent", nullptr,
+                          Panels::ImGuiError::IsOpen())) {
+        Panels::ImGuiError::Toggle();
       }
       ImGui::Separator();
       if (ImGui::MenuItem("Explore Workspace Presets")) {
@@ -2030,6 +3185,15 @@ static void DrawRuntimeTitlebar() {
       }
       if (ImGui::MenuItem("Changelog")) {
         OpenOSPath("CHANGELOG.md");
+      }
+      if (ImGui::MenuItem("Shortcut Keymap...")) {
+        s_show_keymap_window = true;
+      }
+      ImGui::Separator();
+      if (ImGui::MenuItem("RCDV Gallery...",
+                          nullptr,
+                          RC_UI::DataVizGallery::IsOpen())) {
+        RC_UI::DataVizGallery::Toggle();
       }
       ImGui::Separator();
       if (ImGui::MenuItem("About RogueCities...")) {
@@ -2056,6 +3220,7 @@ static void DrawRuntimeTitlebar() {
 
   uiint.EndPanel();
   ImGui::EndMainMenuBar();
+  DrawKeymapEditorWindow();
 }
 
 // DrawRuntimeStatusBar — renders as a viewport side bar pinned to the bottom.
@@ -2312,6 +3477,7 @@ void DrawRoot(float dt) {
     s_inspector_sidebar->Draw(dt);
   }
   DrawToolLibraryWindows();
+  Panels::ImGuiError::Draw(dt);
   // Panels::Telemetry::Draw(dt);
   // ... (18 more panels)
 
@@ -2693,7 +3859,8 @@ void DrawButtonDockedPanel(ButtonDockedPanel &panel, float dt) {
   ImGui::Text("%s", "Panel");
 
   // Optional: hold Shift to toggle between docked/floating behavior.
-  if (ImGui::IsItemHovered() && ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+  if (ImGui::IsItemHovered() &&
+      RC_UI::Keymap::IsDown(RC_UI::Keymap::Action::kDockModeModifier)) {
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
       panel.m_docked = !panel.m_docked;
       if (panel.m_docked) {

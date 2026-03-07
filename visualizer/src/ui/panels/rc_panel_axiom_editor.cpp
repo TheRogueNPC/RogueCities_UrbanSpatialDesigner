@@ -2,6 +2,7 @@
 // Full axiom placement workflow and minimap controls
 
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/App/Editor/CommandHistory.hpp"
 #include "RogueCity/App/Editor/EditorManipulation.hpp"
 #include "RogueCity/App/Editor/ViewportIndexBuilder.hpp"
@@ -2231,15 +2232,16 @@ void DrawAxiomLibraryContent() {
   const auto actions =
       RC_UI::Tools::GetToolActionsForLibrary(ToolLibrary::Axiom);
 
-  const auto default_type = s_axiom_tool->default_axiom_type();
   const bool apply_to_selected = ImGui::GetIO().KeyCtrl;
   auto *selected_axiom = s_axiom_tool->get_selected_axiom();
+  const bool editing_selection =
+      apply_to_selected && (selected_axiom != nullptr);
 
   // Applies a chosen type either to the selected axiom (Ctrl modifier) or to
   // the default type used for subsequent placements. The dispatch call keeps
   // HFSM/tool telemetry in sync with direct UI clicks.
   const auto apply_axiom_type = [&](RogueCity::App::AxiomType axiom_type) {
-    if (apply_to_selected) {
+    if (editing_selection) {
       if (selected_axiom != nullptr) {
         selected_axiom->set_type(axiom_type);
         selected_axiom->set_terminal_features(
@@ -2258,7 +2260,7 @@ void DrawAxiomLibraryContent() {
     }
     std::string dispatch_status;
     RC_UI::Tools::DispatchContext dispatch_context{
-        &hfsm, &gs, &uiint, "Axiom Library", !apply_to_selected};
+        &hfsm, &gs, &uiint, "Axiom Library", !editing_selection};
     (void)RC_UI::Tools::DispatchToolAction(action_id, dispatch_context,
                                            &dispatch_status);
   };
@@ -2272,11 +2274,11 @@ void DrawAxiomLibraryContent() {
     const auto &info = RogueCity::App::GetAxiomTypeInfo(axiom_type);
 
     if (i > 0 && (i % columns) != 0) {
-      ImGui::SameLine(0.0f, spacing);
+      API::SameLine(0.0f, spacing);
     }
 
     ImGui::PushID(i);
-    if (ImGui::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
+    if (API::InvisibleButton("AxiomType", ImVec2(icon_size, icon_size))) {
       apply_axiom_type(axiom_type);
     }
 
@@ -2285,7 +2287,7 @@ void DrawAxiomLibraryContent() {
     const ImVec2 c((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f);
 
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    const bool is_default = (default_type == axiom_type);
+    const bool is_default = (s_axiom_tool->default_axiom_type() == axiom_type);
     const ImU32 bg = TokenColor(UITokens::BackgroundDark,
                                 ImGui::IsItemHovered() ? 200u : 140u);
     const ImU32 border = is_default ? TokenColor(UITokens::TextPrimary, 220u)
@@ -2310,8 +2312,10 @@ void DrawAxiomLibraryContent() {
   uiint.RegisterWidget(
       {"table", "Axiom Types", "axiom.types[]", {"axiom", "library"}});
 
+  const RogueCity::App::AxiomType default_type =
+      s_axiom_tool->default_axiom_type();
   const RogueCity::App::AxiomType focus_type =
-      (selected_axiom != nullptr) ? selected_axiom->type() : default_type;
+      editing_selection ? selected_axiom->type() : default_type;
   for (const auto &axiom : s_axiom_tool->axioms()) {
     if (axiom == nullptr || axiom.get() == selected_axiom) {
       continue;
@@ -2322,7 +2326,7 @@ void DrawAxiomLibraryContent() {
   const auto *terminal_desc =
       RogueCity::App::AxiomTypeRegistry::Instance().Get(focus_type);
 
-  ImGui::Spacing();
+  API::Spacing();
   ImGui::SeparatorText("Terminal");
   ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 230u), "Context Cue");
   ImGui::TextWrapped(
@@ -2331,13 +2335,13 @@ void DrawAxiomLibraryContent() {
                 : "Terminal: select a base axiom to reveal compatible alternates.");
   ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 220u),
                      "Active: %s  (%s)", focus_info.name,
-                     (selected_axiom != nullptr) ? "Editing Selection"
-                                                 : "Editing Defaults");
+                     editing_selection ? "Editing Selection"
+                                       : "Editing Defaults");
 
-  ImGui::Spacing();
+  API::Spacing();
   ImGui::TextColored(TokenColorF(UITokens::InfoBlue, 230u), "Features");
   RogueCity::Generators::TerminalFeatureSet feature_set =
-      (selected_axiom != nullptr)
+      editing_selection
           ? selected_axiom->terminal_features()
           : s_axiom_tool->default_terminal_features(focus_type);
   const auto allowed_features =
@@ -2352,9 +2356,9 @@ void DrawAxiomLibraryContent() {
         std::string(RogueCity::Generators::terminalFeatureShortName(feature)) +
         "##terminal_" + std::to_string(static_cast<int>(focus_type)) + "_" +
         std::to_string(static_cast<int>(feature));
-    if (ImGui::Checkbox(label.c_str(), &enabled)) {
+    if (API::Checkbox(label.c_str(), &enabled)) {
       feature_set.set(feature, enabled);
-      if (selected_axiom != nullptr) {
+      if (editing_selection) {
         selected_axiom->set_terminal_feature(feature, enabled);
         s_library_modified = true;
       } else {
@@ -2372,14 +2376,14 @@ void DrawAxiomLibraryContent() {
         s_terminal_hover_elapsed += ImGui::GetIO().DeltaTime;
       }
 
-      if (selected_axiom != nullptr &&
+      if (editing_selection &&
           s_terminal_hover_elapsed >= kTerminalHoverDelaySeconds) {
         selected_axiom->set_preview_feature(feature);
         if (ImGui::BeginTooltip()) {
           ImGui::TextColored(
               TokenColorF(UITokens::TextPrimary, 235u), "%s",
               RogueCity::Generators::terminalFeatureShortName(feature).data());
-          ImGui::Separator();
+          API::Separator();
           ImGui::TextWrapped(
               "%s", RogueCity::Generators::terminalFeatureInfluenceHint(feature)
                         .data());
@@ -2399,12 +2403,12 @@ void DrawAxiomLibraryContent() {
 
   if (focus_type == RogueCity::App::AxiomType::Radial) {
     float ring_rotation =
-        (selected_axiom != nullptr)
+        editing_selection
             ? selected_axiom->radial_ring_rotation()
             : s_axiom_tool->default_radial_ring_rotation(focus_type);
-    if (ImGui::SliderAngle("Rotate Rings", &ring_rotation, -180.0f, 180.0f,
+    if (API::SliderAngle("Rotate Rings", &ring_rotation, -180.0f, 180.0f,
                            "%.0f deg")) {
-      if (selected_axiom != nullptr) {
+      if (editing_selection) {
         selected_axiom->set_radial_ring_rotation(ring_rotation);
         s_library_modified = true;
       } else {
@@ -2424,7 +2428,7 @@ void DrawAxiomLibraryContent() {
     const auto alt_type = alternates[i];
     const auto &alt_info = RogueCity::App::GetAxiomTypeInfo(alt_type);
     if (i > 0) {
-      ImGui::SameLine();
+      API::SameLine();
     }
     ImGui::PushID(static_cast<int>(alt_type));
     ImGui::PushStyleColor(ImGuiCol_Button,
@@ -2433,7 +2437,7 @@ void DrawAxiomLibraryContent() {
                           TokenColorF(alt_info.primary_color, 225u));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,
                           TokenColorF(alt_info.primary_color, 245u));
-    if (ImGui::Button(alt_info.name)) {
+    if (API::Button(alt_info.name)) {
       apply_axiom_type(alt_type);
     }
     ImGui::PopStyleColor(3);
@@ -2489,7 +2493,7 @@ void DrawContent(float dt) {
 
   // Viewport/Minimap State (required for overlays)
   const auto camera_pos = s_primary_viewport->get_camera_xy();
-  ImGui::InvisibleButton("##ViewportCanvas", viewport_size);
+  API::InvisibleButton("##ViewportCanvas", viewport_size);
   const bool viewport_canvas_hovered = ImGui::IsItemHovered();
   const bool viewport_canvas_active = ImGui::IsItemActive();
   const ImVec2 viewport_min = ImGui::GetItemRectMin();
@@ -2651,10 +2655,10 @@ void DrawContent(float dt) {
       !ImGui::GetIO().KeyAlt && !ImGui::GetIO().KeyShift &&
       !ImGui::GetIO().KeyCtrl &&
       ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-    ImGui::OpenPopup("##viewport_context_actions");
+    API::OpenPopup("##viewport_context_actions");
   }
 
-  if (ImGui::BeginPopup("##viewport_context_actions")) {
+  if (API::BeginPopup("##viewport_context_actions")) {
     auto &editor_history = RogueCity::App::GetEditorCommandHistory();
     const bool has_selection = gs.selection_manager.Count() > 0;
     const char *undo_label = axiom_mode ? GetUndoLabel() : "Undo";
@@ -2662,14 +2666,18 @@ void DrawContent(float dt) {
     const bool can_undo = axiom_mode ? CanUndo() : editor_history.CanUndo();
     const bool can_redo = axiom_mode ? CanRedo() : editor_history.CanRedo();
 
-    if (ImGui::MenuItem(undo_label, "Ctrl+Z", false, can_undo)) {
+    if (API::MenuItem(
+            undo_label, RC_UI::Keymap::ShortcutLabel(RC_UI::Keymap::Action::kUndo),
+            false, can_undo)) {
       if (axiom_mode) {
         Undo();
       } else {
         editor_history.Undo();
       }
     }
-    if (ImGui::MenuItem(redo_label, "Ctrl+Y", false, can_redo)) {
+    if (API::MenuItem(
+            redo_label, RC_UI::Keymap::ShortcutLabel(RC_UI::Keymap::Action::kRedo),
+            false, can_redo)) {
       if (axiom_mode) {
         Redo();
       } else {
@@ -2677,22 +2685,31 @@ void DrawContent(float dt) {
       }
     }
 
-    ImGui::Separator();
-    if (ImGui::MenuItem("Select Tool", "Q")) {
+    API::Separator();
+    if (API::MenuItem(
+            "Select Tool",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportSelectAuto))) {
       gs.tool_runtime.viewport_selection_mode =
           RogueCity::Core::Editor::ViewportSelectionMode::Auto;
       gs.tool_runtime.viewport_edit_tool =
           RogueCity::Core::Editor::ViewportEditTool::Auto;
     }
-    if (ImGui::MenuItem("Rectangle Select", "1")) {
+    if (API::MenuItem(
+            "Rectangle Select",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportQuickRect))) {
       dispatch_viewport_action(
           RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect);
     }
-    if (ImGui::MenuItem("Lasso Select", "2")) {
+    if (API::MenuItem(
+            "Lasso Select",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportQuickLasso))) {
       dispatch_viewport_action(
           RC_UI::Tools::ToolActionId::Visualizer_LassoSelect);
     }
-    if (ImGui::MenuItem("Paint Select")) {
+    if (API::MenuItem("Paint Select")) {
       dispatch_viewport_action(resolve_contextual_action(
           RC_UI::Tools::ToolActionId::RoadSpline_Selection,
           RC_UI::Tools::ToolActionId::WaterSpline_Selection,
@@ -2707,7 +2724,7 @@ void DrawContent(float dt) {
           [&](const char *label, ViewportSelectionTarget target) {
             const bool selected =
                 gs.tool_runtime.viewport_selection_target == target;
-            if (ImGui::MenuItem(label, nullptr, selected)) {
+            if (API::MenuItem(label, nullptr, selected)) {
               gs.tool_runtime.viewport_selection_target = target;
             }
           };
@@ -2719,34 +2736,47 @@ void DrawContent(float dt) {
       ImGui::EndMenu();
     }
 
-    ImGui::Separator();
-    if (ImGui::MenuItem("Move", "W",
+    API::Separator();
+    if (API::MenuItem("Move",
+                        RC_UI::Keymap::ShortcutLabel(
+                            RC_UI::Keymap::Action::kViewportGizmoTranslate),
                         gs.gizmo.enabled &&
                             gs.gizmo.operation ==
                                 RogueCity::Core::Editor::GizmoOperation::Translate)) {
       set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Translate);
     }
-    if (ImGui::MenuItem("Rotate", "E",
+    if (API::MenuItem("Rotate",
+                        RC_UI::Keymap::ShortcutLabel(
+                            RC_UI::Keymap::Action::kViewportGizmoRotate),
                         gs.gizmo.enabled &&
                             gs.gizmo.operation ==
                                 RogueCity::Core::Editor::GizmoOperation::Rotate)) {
       set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Rotate);
     }
-    if (ImGui::MenuItem("Scale", "R",
+    if (API::MenuItem("Scale",
+                        RC_UI::Keymap::ShortcutLabel(
+                            RC_UI::Keymap::Action::kViewportGizmoScale),
                         gs.gizmo.enabled &&
                             gs.gizmo.operation ==
                                 RogueCity::Core::Editor::GizmoOperation::Scale)) {
       set_gizmo_operation(RogueCity::Core::Editor::GizmoOperation::Scale);
     }
-    if (ImGui::MenuItem("Handle Move", "4")) {
+    if (API::MenuItem(
+            "Handle Move",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportQuickHandle))) {
       dispatch_viewport_action(RC_UI::Tools::ToolActionId::Visualizer_HandleMove);
     }
-    if (ImGui::MenuItem("Snap", "X", gs.gizmo.snapping)) {
+    if (API::MenuItem(
+            "Snap",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportGizmoSnapToggle),
+            gs.gizmo.snapping)) {
       gs.gizmo.snapping = !gs.gizmo.snapping;
     }
 
-    ImGui::Separator();
-    if (ImGui::MenuItem("Add / Split")) {
+    API::Separator();
+    if (API::MenuItem("Add / Split")) {
       dispatch_viewport_action(resolve_contextual_action(
           RC_UI::Tools::ToolActionId::RoadSpline_AddRemoveAnchor,
           RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
@@ -2754,7 +2784,7 @@ void DrawContent(float dt) {
           RC_UI::Tools::ToolActionId::Lot_Slice,
           RC_UI::Tools::ToolActionId::Building_Assign));
     }
-    if (ImGui::MenuItem("Merge / Snap")) {
+    if (API::MenuItem("Merge / Snap")) {
       dispatch_viewport_action(resolve_contextual_action(
           RC_UI::Tools::ToolActionId::RoadSpline_SnapAlign,
           RC_UI::Tools::ToolActionId::WaterSpline_SnapAlign,
@@ -2762,7 +2792,7 @@ void DrawContent(float dt) {
           RC_UI::Tools::ToolActionId::Lot_Merge,
           RC_UI::Tools::ToolActionId::Building_Assign));
     }
-    if (ImGui::MenuItem("Activate Trim Mode")) {
+    if (API::MenuItem("Activate Trim Mode")) {
       const RC_UI::Tools::ToolActionId trim_action = resolve_contextual_action(
           RC_UI::Tools::ToolActionId::Road_Disconnect,
           RC_UI::Tools::ToolActionId::WaterSpline_AddRemoveAnchor,
@@ -2779,29 +2809,35 @@ void DrawContent(float dt) {
       }
     }
 
-    ImGui::Separator();
-    if (ImGui::MenuItem("Delete Selected", "Del", false, has_selection)) {
+    API::Separator();
+    if (API::MenuItem(
+            "Delete Selected",
+            RC_UI::Keymap::ShortcutLabel(
+                RC_UI::Keymap::Action::kViewportDeleteSelected),
+            false, has_selection)) {
       DeleteSelectedEntities("Delete Selected");
     }
-    if (ImGui::MenuItem("Clear Selection", nullptr, false, has_selection)) {
+    if (API::MenuItem("Clear Selection", nullptr, false, has_selection)) {
       gs.selection_manager.Clear();
       RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
     }
 
-    ImGui::EndPopup();
+    API::EndPopup();
   }
 
   if (allow_viewport_key_actions && in_viewport && !overlay_blocked_hovered &&
       !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
-      !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyAlt &&
-      (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
-       ImGui::IsKeyPressed(ImGuiKey_Backspace, false))) {
+      (RC_UI::Keymap::IsPressed(
+           RC_UI::Keymap::Action::kViewportDeleteSelected, false) ||
+       RC_UI::Keymap::IsPressed(
+           RC_UI::Keymap::Action::kViewportDeleteSelectedAlt, false))) {
     DeleteSelectedEntities("Delete Selected");
   }
 
   if (gs.config.feature_tool_palette_slideout && viewport_canvas_hovered &&
-      allow_viewport_key_actions && !ImGui::GetIO().KeyCtrl &&
-      ImGui::IsKeyPressed(ImGuiKey_G)) {
+      allow_viewport_key_actions &&
+      RC_UI::Keymap::IsPressed(
+          RC_UI::Keymap::Action::kViewportToolPaletteToggle, false)) {
     gs.tool_runtime.viewport_global_palette_visible =
         !gs.tool_runtime.viewport_global_palette_visible;
   }
@@ -2846,9 +2882,14 @@ void DrawContent(float dt) {
                           ImGuiWindowFlags_NoNav |
                               ImGuiWindowFlags_NoScrollbar |
                               ImGuiWindowFlags_NoScrollWithMouse)) {
+      const std::string palette_header =
+          std::string("Visualizer Tools  [") +
+          RC_UI::Keymap::ShortcutLabel(
+              RC_UI::Keymap::Action::kViewportToolPaletteToggle) +
+          "]";
       ImGui::TextColored(TokenColorF(UITokens::TextPrimary, 225u),
-                         "Visualizer Tools  [G]");
-      ImGui::Separator();
+                         "%s", palette_header.c_str());
+      API::Separator();
 
       const float usable_w =
           std::max(20.0f, ImGui::GetContentRegionAvail().x - 4.0f);
@@ -2861,17 +2902,21 @@ void DrawContent(float dt) {
                                                    &dispatch_status);
           };
 
-      if (allow_viewport_key_actions && !ImGui::GetIO().KeyCtrl) {
-        if (ImGui::IsKeyPressed(ImGuiKey_1, false)) {
+      if (allow_viewport_key_actions) {
+        if (RC_UI::Keymap::IsPressed(
+                RC_UI::Keymap::Action::kViewportQuickRect, false)) {
           dispatch_visualizer_action(
               RC_UI::Tools::ToolActionId::Visualizer_RectangleSelect);
-        } else if (ImGui::IsKeyPressed(ImGuiKey_2, false)) {
+        } else if (RC_UI::Keymap::IsPressed(
+                       RC_UI::Keymap::Action::kViewportQuickLasso, false)) {
           dispatch_visualizer_action(
               RC_UI::Tools::ToolActionId::Visualizer_LassoSelect);
-        } else if (ImGui::IsKeyPressed(ImGuiKey_3, false)) {
+        } else if (RC_UI::Keymap::IsPressed(
+                       RC_UI::Keymap::Action::kViewportQuickMove, false)) {
           dispatch_visualizer_action(
               RC_UI::Tools::ToolActionId::Visualizer_MoveNodes);
-        } else if (ImGui::IsKeyPressed(ImGuiKey_4, false)) {
+        } else if (RC_UI::Keymap::IsPressed(
+                       RC_UI::Keymap::Action::kViewportQuickHandle, false)) {
           dispatch_visualizer_action(
               RC_UI::Tools::ToolActionId::Visualizer_HandleMove);
         }
@@ -2909,8 +2954,8 @@ void DrawContent(float dt) {
                                     TokenColorF(UITokens::InfoBlue, 178u));
             }
             const bool pressed =
-                (width > 0.0f) ? ImGui::Button(label, ImVec2(width, 0.0f))
-                               : ImGui::Button(label);
+                (width > 0.0f) ? API::Button(label, ImVec2(width, 0.0f))
+                               : API::Button(label);
             if (active) {
               ImGui::PopStyleColor();
             }
@@ -2930,8 +2975,8 @@ void DrawContent(float dt) {
                 road_action, water_action, district_action, lot_action,
                 building_action);
             const bool pressed =
-                (width > 0.0f) ? ImGui::Button(label, ImVec2(width, 0.0f))
-                               : ImGui::Button(label);
+                (width > 0.0f) ? API::Button(label, ImVec2(width, 0.0f))
+                               : API::Button(label);
             if (pressed) {
               dispatch_visualizer_action(action_id);
             }
@@ -2947,13 +2992,13 @@ void DrawContent(float dt) {
       const auto draw_layer_toggle_button = [&](float width = -1.0f) {
         const bool pressed =
             (width > 0.0f)
-                ? ImGui::Button("Layer Toggles##g_tool_layer_toggles_btn",
+                ? API::Button("Layer Toggles##g_tool_layer_toggles_btn",
                                 ImVec2(width, 0.0f))
-                : ImGui::Button("Layer Toggles##g_tool_layer_toggles_btn");
+                : API::Button("Layer Toggles##g_tool_layer_toggles_btn");
         if (pressed) {
-          ImGui::OpenPopup("##g_tool_layer_toggles_popup");
+          API::OpenPopup("##g_tool_layer_toggles_popup");
         }
-        if (ImGui::BeginPopup("##g_tool_layer_toggles_popup")) {
+        if (API::BeginPopup("##g_tool_layer_toggles_popup")) {
           const auto set_all_layers_visible = [&](bool visible) {
             gs.show_layer_axioms = visible;
             gs.show_layer_water = visible;
@@ -2966,39 +3011,39 @@ void DrawContent(float dt) {
             }
           };
 
-          if (ImGui::Button("All On##g_tool_layers")) {
+          if (API::Button("All On##g_tool_layers")) {
             set_all_layers_visible(true);
           }
-          ImGui::SameLine();
-          if (ImGui::Button("All Off##g_tool_layers")) {
+          API::SameLine();
+          if (API::Button("All Off##g_tool_layers")) {
             set_all_layers_visible(false);
           }
-          ImGui::Separator();
-          ImGui::Checkbox("Axioms##g_tool_layers", &gs.show_layer_axioms);
-          ImGui::Checkbox("Water##g_tool_layers", &gs.show_layer_water);
-          ImGui::Checkbox("Roads##g_tool_layers", &gs.show_layer_roads);
-          ImGui::Checkbox("Districts##g_tool_layers", &gs.show_layer_districts);
-          ImGui::Checkbox("Lots##g_tool_layers", &gs.show_layer_lots);
-          ImGui::Checkbox("Buildings##g_tool_layers", &gs.show_layer_buildings);
-          ImGui::Separator();
-          ImGui::Checkbox("Dim Inactive##g_tool_layers",
+          API::Separator();
+          API::Checkbox("Axioms##g_tool_layers", &gs.show_layer_axioms);
+          API::Checkbox("Water##g_tool_layers", &gs.show_layer_water);
+          API::Checkbox("Roads##g_tool_layers", &gs.show_layer_roads);
+          API::Checkbox("Districts##g_tool_layers", &gs.show_layer_districts);
+          API::Checkbox("Lots##g_tool_layers", &gs.show_layer_lots);
+          API::Checkbox("Buildings##g_tool_layers", &gs.show_layer_buildings);
+          API::Separator();
+          API::Checkbox("Dim Inactive##g_tool_layers",
                           &gs.layer_manager.dim_inactive);
-          ImGui::Checkbox("See Through Hidden##g_tool_layers",
+          API::Checkbox("See Through Hidden##g_tool_layers",
                           &gs.layer_manager.allow_through_hidden);
-          ImGui::EndPopup();
+          API::EndPopup();
         }
       };
 
       const auto draw_query_select_button = [&](float width = -1.0f) {
         const bool pressed =
             (width > 0.0f)
-                ? ImGui::Button("Select By Query##g_tool_select_query_btn",
+                ? API::Button("Select By Query##g_tool_select_query_btn",
                                 ImVec2(width, 0.0f))
-                : ImGui::Button("Select By Query##g_tool_select_query_btn");
+                : API::Button("Select By Query##g_tool_select_query_btn");
         if (pressed) {
-          ImGui::OpenPopup("##g_tool_select_query_popup");
+          API::OpenPopup("##g_tool_select_query_popup");
         }
-        if (ImGui::BeginPopup("##g_tool_select_query_popup")) {
+        if (API::BeginPopup("##g_tool_select_query_popup")) {
           static int mode_filter = 0; // 0 Replace, 1 Add, 2 Toggle
           static int kind_filter = 0; // 0 Any, 1 Road, 2 District, 3 Lot, 4 Building, 5 Water
           static int id_min = -1;
@@ -3011,22 +3056,22 @@ void DrawContent(float dt) {
           const char *kinds[] = {"Any", "Road", "District", "Lot", "Building",
                                  "Water"};
 
-          ImGui::SetNextItemWidth(140.0f);
-          ImGui::Combo("Mode##g_tool_query", &mode_filter, modes,
+          API::SetNextItemWidth(140.0f);
+          API::Combo("Mode##g_tool_query", &mode_filter, modes,
                        IM_ARRAYSIZE(modes));
-          ImGui::SetNextItemWidth(140.0f);
-          ImGui::Combo("Kind##g_tool_query", &kind_filter, kinds,
+          API::SetNextItemWidth(140.0f);
+          API::Combo("Kind##g_tool_query", &kind_filter, kinds,
                        IM_ARRAYSIZE(kinds));
-          ImGui::SetNextItemWidth(110.0f);
-          ImGui::InputInt("ID Min##g_tool_query", &id_min);
-          ImGui::SetNextItemWidth(110.0f);
-          ImGui::InputInt("ID Max##g_tool_query", &id_max);
-          ImGui::SetNextItemWidth(110.0f);
-          ImGui::InputInt("District ID##g_tool_query", &district_filter);
-          ImGui::Checkbox("User-Created Only##g_tool_query", &user_only);
-          ImGui::Checkbox("Visible Only##g_tool_query", &visible_only);
+          API::SetNextItemWidth(110.0f);
+          API::InputInt("ID Min##g_tool_query", &id_min);
+          API::SetNextItemWidth(110.0f);
+          API::InputInt("ID Max##g_tool_query", &id_max);
+          API::SetNextItemWidth(110.0f);
+          API::InputInt("District ID##g_tool_query", &district_filter);
+          API::Checkbox("User-Created Only##g_tool_query", &user_only);
+          API::Checkbox("Visible Only##g_tool_query", &visible_only);
 
-          if (ImGui::Button("Apply Query##g_tool_query", ImVec2(140.0f, 0.0f))) {
+          if (API::Button("Apply Query##g_tool_query", ImVec2(140.0f, 0.0f))) {
             std::vector<SelectionItem> items;
             items.reserve(gs.viewport_index.size());
             auto id_in_range = [&](uint32_t id) {
@@ -3132,26 +3177,26 @@ void DrawContent(float dt) {
 
             RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
           }
-          ImGui::SameLine();
-          if (ImGui::Button("Clear Selection##g_tool_query")) {
+          API::SameLine();
+          if (API::Button("Clear Selection##g_tool_query")) {
             gs.selection_manager.Clear();
             RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
           }
 
-          ImGui::EndPopup();
+          API::EndPopup();
         }
       };
 
       const auto draw_delete_trim_button = [&](float width = -1.0f) {
         const bool pressed =
             (width > 0.0f)
-                ? ImGui::Button("Delete / Trim##g_tool_delete_trim_btn",
+                ? API::Button("Delete / Trim##g_tool_delete_trim_btn",
                                 ImVec2(width, 0.0f))
-                : ImGui::Button("Delete / Trim##g_tool_delete_trim_btn");
+                : API::Button("Delete / Trim##g_tool_delete_trim_btn");
         if (pressed) {
-          ImGui::OpenPopup("##g_tool_delete_trim_popup");
+          API::OpenPopup("##g_tool_delete_trim_popup");
         }
-        if (ImGui::BeginPopup("##g_tool_delete_trim_popup")) {
+        if (API::BeginPopup("##g_tool_delete_trim_popup")) {
           const RC_UI::Tools::ToolActionId trim_action =
               resolve_contextual_action(
                   RC_UI::Tools::ToolActionId::Road_Disconnect,
@@ -3160,7 +3205,7 @@ void DrawContent(float dt) {
                   RC_UI::Tools::ToolActionId::Lot_Slice,
                   RC_UI::Tools::ToolActionId::Building_Select);
 
-          if (ImGui::Button("Activate Trim Mode##g_tool_delete_trim",
+          if (API::Button("Activate Trim Mode##g_tool_delete_trim",
                             ImVec2(180.0f, 0.0f))) {
             dispatch_visualizer_action(trim_action);
             using RogueCity::Core::Editor::ToolDomain;
@@ -3170,7 +3215,7 @@ void DrawContent(float dt) {
               gs.district_boundary_editor.insert_mode = false;
               gs.district_boundary_editor.delete_mode = true;
             }
-            ImGui::CloseCurrentPopup();
+            API::CloseCurrentPopup();
           }
           if (ImGui::IsItemHovered()) {
             if (const auto *spec = RC_UI::Tools::FindToolAction(trim_action);
@@ -3182,19 +3227,19 @@ void DrawContent(float dt) {
 
           const bool has_selection = gs.selection_manager.Count() > 0;
           if (!has_selection) {
-            ImGui::BeginDisabled();
+            API::BeginDisabled();
           }
-          if (ImGui::Button("Delete Selected##g_tool_delete_trim",
+          if (API::Button("Delete Selected##g_tool_delete_trim",
                             ImVec2(180.0f, 0.0f))) {
             DeleteSelectedEntities("Delete Selected");
-            ImGui::CloseCurrentPopup();
+            API::CloseCurrentPopup();
           }
           if (!has_selection) {
-            ImGui::EndDisabled();
-            ImGui::TextDisabled("No selection");
+            API::EndDisabled();
+            API::TextDisabled("No selection");
           }
 
-          ImGui::EndPopup();
+          API::EndPopup();
         }
       };
 
@@ -3244,7 +3289,7 @@ void DrawContent(float dt) {
       ImGui::SeparatorText("G Options");
       ImGui::TextColored(TokenColorF(UITokens::TextSecondary, 225u),
                          "Selection Target");
-      if (ImGui::Button(SelectionTargetLabel(
+      if (API::Button(SelectionTargetLabel(
               gs.tool_runtime.viewport_selection_target),
                         ImVec2(usable_w - 4.0f, 0.0f))) {
         using RogueCity::Core::Editor::ViewportSelectionTarget;
@@ -3440,27 +3485,27 @@ void DrawContent(float dt) {
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,
                           TokenColorF(UITokens::TextSecondary, 60u));
 
-    if (ImGui::Button(active_domain)) {
-      ImGui::OpenPopup("ModeSelectorGhost");
+    if (API::Button(active_domain)) {
+      API::OpenPopup("ModeSelectorGhost");
     }
     if (ImGui::IsItemHovered()) {
       ImGui::SetTooltip("Switch Editor Mode");
     }
 
     ImGui::SetNextWindowBgAlpha(0.9f);
-    if (ImGui::BeginPopup("ModeSelectorGhost")) {
+    if (API::BeginPopup("ModeSelectorGhost")) {
       const char *modes[] = {"AXIOM", "ROAD", "DISTRICT", "WATER", "TERRAIN"};
       for (const auto *m : modes) {
-        if (ImGui::Selectable(m, std::strcmp(active_domain, m) == 0)) {
+        if (API::Selectable(m, std::strcmp(active_domain, m) == 0)) {
           // Note: Domain switching would trigger HFSM transitions here.
         }
       }
-      ImGui::EndPopup();
+      API::EndPopup();
     }
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar();
 
-    ImGui::SameLine();
+    API::SameLine();
 
     // Street Sweeper Status Animation
     static float status_reveal_t = 1.0f;
@@ -3585,7 +3630,7 @@ void DrawContent(float dt) {
                          axiom_count, road_count, gs.districts.size());
       ImGui::TextColored(TokenColorF(UITokens::CyanAccent, 180u), "Lots: %zu",
                          gs.lots.size());
-      ImGui::SameLine();
+      API::SameLine();
       ImGui::TextColored(
           TokenColorF(UITokens::AmberGlow, 255u), "| XYZ: %.1f, %.1f, 0.0",
           static_cast<float>(camera_pos.x), static_cast<float>(camera_pos.y));
@@ -4041,7 +4086,7 @@ void DrawContent(float dt) {
         return best_index;
       };
       ImGui::TextColored(TokenColorF(UITokens::CyanAccent), "Inspect");
-      ImGui::Separator();
+      API::Separator();
       ImGui::Text("Kind: %u", static_cast<unsigned>(hovered.kind));
       ImGui::Text("ID: %u", hovered.id);
       switch (hovered.kind) {
@@ -4136,12 +4181,17 @@ void DrawContent(float dt) {
       }
 
       const ImGuiIO &io = ImGui::GetIO();
-      if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_L)) {
+      if (allow_viewport_key_actions &&
+          (RC_UI::Keymap::IsPressed(
+               RC_UI::Keymap::Action::kMinimapLodAuto, false) ||
+           RC_UI::Keymap::IsPressed(
+               RC_UI::Keymap::Action::kMinimapLodCycle, false))) {
         // LOD hotkey behavior:
         // - Shift+L: return to auto LOD,
         // - L in auto: pin current effective level to manual mode,
         // - L in manual: cycle manual level.
-        if (io.KeyShift) {
+        if (RC_UI::Keymap::IsPressed(
+                RC_UI::Keymap::Action::kMinimapLodAuto, false)) {
           // Release manual pin and return to auto LOD switching.
           s_minimap_auto_lod = true;
         } else if (s_minimap_auto_lod) {
@@ -4153,19 +4203,27 @@ void DrawContent(float dt) {
           CycleManualMinimapLOD();
         }
       }
-      if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_1)) {
+      if (allow_viewport_key_actions &&
+          RC_UI::Keymap::IsPressed(
+              RC_UI::Keymap::Action::kMinimapLod0, false)) {
         s_minimap_auto_lod = false;
         s_minimap_lod = MinimapLODFromLevel(0);
       }
-      if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_2)) {
+      if (allow_viewport_key_actions &&
+          RC_UI::Keymap::IsPressed(
+              RC_UI::Keymap::Action::kMinimapLod1, false)) {
         s_minimap_auto_lod = false;
         s_minimap_lod = MinimapLODFromLevel(1);
       }
-      if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_3)) {
+      if (allow_viewport_key_actions &&
+          RC_UI::Keymap::IsPressed(
+              RC_UI::Keymap::Action::kMinimapLod2, false)) {
         s_minimap_auto_lod = false;
         s_minimap_lod = MinimapLODFromLevel(2);
       }
-      if (allow_viewport_key_actions && ImGui::IsKeyPressed(ImGuiKey_K)) {
+      if (allow_viewport_key_actions &&
+          RC_UI::Keymap::IsPressed(
+              RC_UI::Keymap::Action::kMinimapAdaptiveToggle, false)) {
         s_minimap_adaptive_quality = !s_minimap_adaptive_quality;
       }
 
@@ -4205,12 +4263,14 @@ void DrawContent(float dt) {
   }
 
   if (viewport_window_hovered && allow_viewport_key_actions &&
-      ImGui::IsKeyPressed(ImGuiKey_M)) {
+      RC_UI::Keymap::IsPressed(
+          RC_UI::Keymap::Action::kMinimapToggleVisible, false)) {
     ToggleMinimapVisible();
   }
 
   if (viewport_window_hovered && allow_viewport_key_actions &&
-      ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_F)) {
+      RC_UI::Keymap::IsPressed(
+          RC_UI::Keymap::Action::kMinimapToggleSearch, false)) {
     RC_UI::Viewport::GetBuildingSearchOverlay().Toggle();
   }
 

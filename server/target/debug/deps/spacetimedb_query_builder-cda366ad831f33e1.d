@@ -1,0 +1,8 @@
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\server\target\debug\deps\spacetimedb_query_builder-cda366ad831f33e1.d: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\expr.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\join.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\table.rs
+
+C:\Users\teamc\Documents\Rogue Cities\RogueCities_UrbanSpatialDesigner\server\target\debug\deps\libspacetimedb_query_builder-cda366ad831f33e1.rmeta: C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\lib.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\expr.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\join.rs C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\table.rs
+
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\lib.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\expr.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\join.rs:
+C:\Users\teamc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spacetimedb-query-builder-2.0.3\src\table.rs:

@@ -3,6 +3,7 @@
 //          coloured category rows, pulsing run button, scrollable violation list.
 
 #include "ui/panels/rc_panel_city_health.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/panels/rc_panel_telemetry.h"
 
 #include "ui/rc_ui_tokens.h"
@@ -74,17 +75,17 @@ void DrawCategoryRow(
     dl->AddCircleFilled(ImVec2(p.x + kR + 2.0f, p.y + ImGui::GetTextLineHeight() * 0.5f),
                         kR, dot_color);
     ImGui::Dummy(ImVec2(kR * 2.0f + 6.0f, ImGui::GetTextLineHeight()));
-    ImGui::SameLine();
+    API::SameLine();
 
     // Label
     ImGui::TextUnformatted(label);
-    ImGui::SameLine();
+    API::SameLine();
 
     // Count chips — errors first, then warnings
     if (errors > 0) {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
                            "%zu error%s", errors, errors == 1 ? "" : "s");
-        if (warnings > 0) { ImGui::SameLine(); }
+        if (warnings > 0) { API::SameLine(); }
     }
     if (warnings > 0) {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow),
@@ -110,21 +111,21 @@ void DrawViolationList(const InvariantCheckResult& result) {
             // Icon glyph
             ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(col),
                                is_error ? "[!]" : "[~]");
-            ImGui::SameLine();
+            API::SameLine();
 
             // rule_id (dimmed) + description
             ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
                                "%s", v.rule_id.c_str());
-            ImGui::SameLine();
+            API::SameLine();
             ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextPrimary),
                                "%s", v.description.c_str());
 
             // ID badge — click copies to clipboard
-            ImGui::SameLine();
+            API::SameLine();
             const std::string badge = "id=" + std::to_string(v.entity_id);
             ImGui::PushStyleColor(ImGuiCol_Text,
                                   ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
-            if (ImGui::SmallButton(badge.c_str())) {
+            if (API::SmallButton(badge.c_str())) {
                 ImGui::SetClipboardText(std::to_string(v.entity_id).c_str());
             }
             ImGui::PopStyleColor();
@@ -149,7 +150,7 @@ void DrawContent(float dt) {
     {
         const ImVec4 title_col = ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent);
         ImGui::TextColored(title_col, "CITY HEALTH");
-        ImGui::SameLine();
+        API::SameLine();
 
         if (s_cache.has_run) {
             ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextDisabled),
@@ -157,7 +158,7 @@ void DrawContent(float dt) {
         }
     }
 
-    ImGui::Separator();
+    API::Separator();
 
     // ---- Run Check button -------------------------------------------------
     {
@@ -176,7 +177,7 @@ void DrawContent(float dt) {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,
                               ImGui::ColorConvertU32ToFloat4(UITokens::CyanAccent));
 
-        if (ImGui::Button("  Run Check  ")) {
+        if (API::Button("  Run Check  ")) {
             auto& gs = RogueCity::Core::Editor::GetGlobalState();
 
             // Convert fva::Container → std::vector for the checker
@@ -200,7 +201,7 @@ void DrawContent(float dt) {
         return;
     }
 
-    ImGui::Spacing();
+    API::Spacing();
 
     // ---- Overall status badge --------------------------------------------
     {
@@ -221,16 +222,16 @@ void DrawContent(float dt) {
         }
 
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(badge_col), "[%s]", badge_label);
-        ImGui::SameLine();
+        API::SameLine();
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
                            "%zu error%s, %zu warning%s",
                            total_errors,   total_errors   == 1 ? "" : "s",
                            total_warnings, total_warnings == 1 ? "" : "s");
     }
 
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    API::Spacing();
+    API::Separator();
+    API::Spacing();
 
     // ---- Per-category rows -----------------------------------------------
     DrawCategoryRow("Roads     ", s_cache.result, "Roads");
@@ -238,22 +239,22 @@ void DrawContent(float dt) {
     DrawCategoryRow("Lots      ", s_cache.result, "Lots");
     DrawCategoryRow("Buildings ", s_cache.result, "Buildings");
 
-    ImGui::Spacing();
-    ImGui::Separator();
+    API::Spacing();
+    API::Separator();
 
     // ---- Violation list header -------------------------------------------
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
                        "VIOLATIONS");
-    ImGui::Spacing();
+    API::Spacing();
 
     DrawViolationList(s_cache.result);
 
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    API::Spacing();
+    API::Separator();
+    API::Spacing();
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary),
                        "DIAGNOSTICS");
-    ImGui::Spacing();
+    API::Spacing();
     RC_UI::Panels::Telemetry::DrawGridQualityIndexSection();
     RC_UI::Panels::Telemetry::DrawUrbanHellDiagnosticsSection(
         /*include_quick_fix_stubs=*/true);

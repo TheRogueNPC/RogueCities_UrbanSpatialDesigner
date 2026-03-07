@@ -10,6 +10,7 @@
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "RogueCity/App/Tools/AxiomVisual.hpp"
 #include "ui/panels/rc_panel_axiom_editor.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
@@ -57,7 +58,7 @@ static void RenderBusyIndicator(std::atomic<bool>& busyFlag, float& busyTimeSeco
         ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(RC_UI::UITokens::InfoBlue, static_cast<uint8_t>(alpha * 255.0f))));
     ImGui::Text("AI processing...");
     ImGui::PopStyleColor();
-    ImGui::Separator();
+    API::Separator();
 }
 
 static std::string ToUpperCopy(std::string value) {
@@ -336,130 +337,132 @@ void UiAgentPanel::RenderContent() {
     }
     
     // === MODE 1: LAYOUT COMMANDS ===
-    DesignSystem::SectionHeader("Layout Optimization");
-    RenderBusyIndicator(m_processing, m_busyTime);
-    
-    ImGui::Text("Ask AI to adjust the UI layout:");
-    ImGui::InputTextMultiline("##goal", m_goalBuffer, sizeof(m_goalBuffer), ImVec2(-1, 60));
-    uiint.RegisterWidget({"text", "Goal", "ui_agent.goal", {"input"}});
-    
-    ImGui::BeginDisabled(m_processing.load());
-    if (DesignSystem::ButtonPrimary("Apply AI Layout", ImVec2(180, 30))) {
-        if (!m_processing.exchange(true)) {
-            m_busyTime = 0.0f;
-            {
-                std::scoped_lock lock(m_resultMutex);
-                m_lastResult = "Processing...";
-            }
-
-            std::string goal = std::string(m_goalBuffer);
-            const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
-            std::thread([this, goal, snapshot]() {
-                try {
-                    auto commands = AI::UiAgentClient::QueryAgent(snapshot, goal);
-                    if (commands.empty()) {
-                        std::scoped_lock lock(m_resultMutex);
-                        m_lastResult = "No commands returned (check console for errors)";
-                    } else {
-                        std::scoped_lock lock(m_pendingCommandsMutex);
-                        m_pendingCommands = std::move(commands);
-                    }
-                } catch (const std::exception& e) {
+    if (API::SectionHeader("Layout Optimization", RC_UI::UITokens::CyanAccent, true)) {
+        RenderBusyIndicator(m_processing, m_busyTime);
+        
+        ImGui::Text("Ask AI to adjust the UI layout:");
+        API::InputTextMultiline("##goal", m_goalBuffer, sizeof(m_goalBuffer), ImVec2(-1, 60));
+        uiint.RegisterWidget({"text", "Goal", "ui_agent.goal", {"input"}});
+        
+        API::BeginDisabled(m_processing.load());
+        if (DesignSystem::ButtonPrimary("Apply AI Layout", ImVec2(180, 30))) {
+            if (!m_processing.exchange(true)) {
+                m_busyTime = 0.0f;
+                {
                     std::scoped_lock lock(m_resultMutex);
-                    m_lastResult = std::string("UI Agent failed: ") + e.what();
-                } catch (...) {
-                    std::scoped_lock lock(m_resultMutex);
-                    m_lastResult = "UI Agent failed: unknown exception";
+                    m_lastResult = "Processing...";
                 }
 
-                m_processing = false;
-            }).detach();
+                std::string goal = std::string(m_goalBuffer);
+                const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
+                std::thread([this, goal, snapshot]() {
+                    try {
+                        auto commands = AI::UiAgentClient::QueryAgent(snapshot, goal);
+                        if (commands.empty()) {
+                            std::scoped_lock lock(m_resultMutex);
+                            m_lastResult = "No commands returned (check console for errors)";
+                        } else {
+                            std::scoped_lock lock(m_pendingCommandsMutex);
+                            m_pendingCommands = std::move(commands);
+                        }
+                    } catch (const std::exception& e) {
+                        std::scoped_lock lock(m_resultMutex);
+                        m_lastResult = std::string("UI Agent failed: ") + e.what();
+                    } catch (...) {
+                        std::scoped_lock lock(m_resultMutex);
+                        m_lastResult = "UI Agent failed: unknown exception";
+                    }
+
+                    m_processing = false;
+                }).detach();
+            }
+        }
+        API::EndDisabled();
+        uiint.RegisterWidget({"button", "Apply AI Layout", "action:ai.ui_agent.apply_layout", {"action", "ai"}});
+        
+        {
+            std::scoped_lock lock(m_resultMutex);
+            if (!m_lastResult.empty()) {
+                ImGui::TextWrapped("%s", m_lastResult.c_str());
+            }
         }
     }
-    ImGui::EndDisabled();
-    uiint.RegisterWidget({"button", "Apply AI Layout", "action:ai.ui_agent.apply_layout", {"action", "ai"}});
     
-    {
-        std::scoped_lock lock(m_resultMutex);
-        if (!m_lastResult.empty()) {
-            ImGui::TextWrapped("%s", m_lastResult.c_str());
-        }
-    }
-    
-    DesignSystem::Separator();
+    API::Separator();
     
     // === MODE 2: DESIGN/REFACTOR PLANNING ===
-    DesignSystem::SectionHeader("Design & Refactoring");
-    RenderBusyIndicator(m_designProcessing, m_designBusyTime);
-    
-    ImGui::Text("Ask AI to analyze UI structure and suggest refactorings:");
-    ImGui::InputTextMultiline("##design_goal", m_designGoalBuffer, sizeof(m_designGoalBuffer), ImVec2(-1, 60));
-    uiint.RegisterWidget({"text", "Design Goal", "ui_design.goal", {"input"}});
-    
-    ImGui::BeginDisabled(m_designProcessing.load());
-    if (DesignSystem::ButtonSecondary("Generate Refactor Plan", ImVec2(180, 30))) {
-        if (!m_designProcessing.exchange(true)) {
-            m_designBusyTime = 0.0f;
-            {
-                std::scoped_lock lock(m_designResultMutex);
-                m_lastDesignResult = "Generating plan...";
-            }
-
-            std::string goal = std::string(m_designGoalBuffer);
-            const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
-            std::thread([this, goal, snapshot]() {
-                try {
-                    auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, goal);
-
-                    // Generate timestamped filename
-                    auto now = std::chrono::system_clock::now();
-                    auto t = std::chrono::system_clock::to_time_t(now);
-                    std::tm tm{};
-#ifdef _WIN32
-                    localtime_s(&tm, &t);
-#else
-                    tm = *std::localtime(&t);
-#endif
-                    std::stringstream ss;
-                    ss << std::put_time(&tm, "%Y%m%d_%H%M%S");
-                    std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
-
-                    std::string result;
-                    if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
-                        result = "Saved plan to: " + filename + "\n\n";
-                        result += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
-                        result += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
-
-                        if (!plan.summary.empty()) {
-                            result += "Summary:\n" + plan.summary;
-                        }
-                    } else {
-                        result = "Failed to save plan (check console)";
-                    }
-
-                    {
-                        std::scoped_lock lock(m_designResultMutex);
-                        m_lastDesignResult = result;
-                    }
-                } catch (const std::exception& e) {
+    if (API::SectionHeader("Design & Refactoring", RC_UI::UITokens::MagentaHighlight, true)) {
+        RenderBusyIndicator(m_designProcessing, m_designBusyTime);
+        
+        ImGui::Text("Ask AI to analyze UI structure and suggest refactorings:");
+        API::InputTextMultiline("##design_goal", m_designGoalBuffer, sizeof(m_designGoalBuffer), ImVec2(-1, 60));
+        uiint.RegisterWidget({"text", "Design Goal", "ui_design.goal", {"input"}});
+        
+        API::BeginDisabled(m_designProcessing.load());
+        if (DesignSystem::ButtonSecondary("Generate Refactor Plan", ImVec2(180, 30))) {
+            if (!m_designProcessing.exchange(true)) {
+                m_designBusyTime = 0.0f;
+                {
                     std::scoped_lock lock(m_designResultMutex);
-                    m_lastDesignResult = std::string("Design assistant failed: ") + e.what();
-                } catch (...) {
-                    std::scoped_lock lock(m_designResultMutex);
-                    m_lastDesignResult = "Design assistant failed: unknown exception";
+                    m_lastDesignResult = "Generating plan...";
                 }
 
-                m_designProcessing = false;
-            }).detach();
+                std::string goal = std::string(m_designGoalBuffer);
+                const AI::UiSnapshot snapshot = BuildEnhancedSnapshot();
+                std::thread([this, goal, snapshot]() {
+                    try {
+                        auto plan = AI::UiDesignAssistant::GenerateDesignPlan(snapshot, goal);
+
+                        // Generate timestamped filename
+                        auto now = std::chrono::system_clock::now();
+                        auto t = std::chrono::system_clock::to_time_t(now);
+                        std::tm tm{};
+#ifdef _WIN32
+                        localtime_s(&tm, &t);
+#else
+                        tm = *std::localtime(&t);
+#endif
+                        std::stringstream ss;
+                        ss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+                        std::string filename = "AI/docs/ui/ui_refactor_" + ss.str() + ".json";
+
+                        std::string result;
+                        if (AI::UiDesignAssistant::SaveDesignPlan(plan, filename)) {
+                            result = "Saved plan to: " + filename + "\n\n";
+                            result += "Patterns: " + std::to_string(plan.component_patterns.size()) + "\n";
+                            result += "Refactoring opportunities: " + std::to_string(plan.refactoring_opportunities.size()) + "\n\n";
+
+                            if (!plan.summary.empty()) {
+                                result += "Summary:\n" + plan.summary;
+                            }
+                        } else {
+                            result = "Failed to save plan (check console)";
+                        }
+
+                        {
+                            std::scoped_lock lock(m_designResultMutex);
+                            m_lastDesignResult = result;
+                        }
+                    } catch (const std::exception& e) {
+                        std::scoped_lock lock(m_designResultMutex);
+                        m_lastDesignResult = std::string("Design assistant failed: ") + e.what();
+                    } catch (...) {
+                        std::scoped_lock lock(m_designResultMutex);
+                        m_lastDesignResult = "Design assistant failed: unknown exception";
+                    }
+
+                    m_designProcessing = false;
+                }).detach();
+            }
         }
-    }
-    ImGui::EndDisabled();
-    uiint.RegisterWidget({"button", "Generate Refactor Plan", "action:ai.ui_design.generate_plan", {"action", "ai"}});
-    
-    {
-        std::scoped_lock lock(m_designResultMutex);
-        if (!m_lastDesignResult.empty()) {
-            ImGui::TextWrapped("%s", m_lastDesignResult.c_str());
+        API::EndDisabled();
+        uiint.RegisterWidget({"button", "Generate Refactor Plan", "action:ai.ui_design.generate_plan", {"action", "ai"}});
+        
+        {
+            std::scoped_lock lock(m_designResultMutex);
+            if (!m_lastDesignResult.empty()) {
+                ImGui::TextWrapped("%s", m_lastDesignResult.c_str());
+            }
         }
     }
 

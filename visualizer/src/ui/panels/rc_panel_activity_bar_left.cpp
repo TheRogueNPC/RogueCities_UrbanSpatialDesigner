@@ -3,6 +3,7 @@
 
 #include "ui/panels/rc_panel_activity_bar_left.h"
 
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/panels/RcMasterPanel.h"
 #include "ui/panels/IPanelDrawer.h"
@@ -17,6 +18,9 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+
+#include <algorithm>
+#include <string>
 
 namespace RC_UI::Panels::ActivityBarLeft {
 
@@ -33,17 +37,19 @@ struct DomainEntry {
     const char* tooltip;    // Shown on hover
     const char* action_id;  // For introspector
     const char* icon_path;
+    ToolLibrary tool;
+    int color_variant;
     EditorEvent event;      // HFSM event to fire on click
     EditorState state;      // State that represents "active" for highlight
 };
 
 static constexpr DomainEntry kDomains[] = {
-    { "AX", "Axiom = radius",                "activity.axiom",    LC::Radius,       EditorEvent::Tool_Axioms,    EditorState::Editing_Axioms    },
-    { "WA", "Water = waves",                 "activity.water",    LC::Waves,        EditorEvent::Tool_Water,     EditorState::Editing_Water     },
-    { "RD", "Road = waypoints",              "activity.road",     LC::Waypoints,    EditorEvent::Tool_Roads,     EditorState::Editing_Roads     },
-    { "ZN", "Zone/Districts = chart-network", "activity.zone",     LC::ChartNetwork, EditorEvent::Tool_Districts, EditorState::Editing_Districts },
-    { "LT", "Lot = map-pin-house",           "activity.lot",      LC::MapPinHouse,  EditorEvent::Tool_Lots,      EditorState::Editing_Lots      },
-    { "BL", "Building = building-2",         "activity.building", LC::Building2,    EditorEvent::Tool_Buildings, EditorState::Editing_Buildings },
+    { "AX", "Axiom = radius",                "activity.axiom",    LC::Radius,       ToolLibrary::Axiom,    0, EditorEvent::Tool_Axioms,    EditorState::Editing_Axioms    },
+    { "WA", "Water = waves",                 "activity.water",    LC::Waves,        ToolLibrary::Water,    0, EditorEvent::Tool_Water,     EditorState::Editing_Water     },
+    { "RD", "Road = waypoints",              "activity.road",     LC::Waypoints,    ToolLibrary::Road,     0, EditorEvent::Tool_Roads,     EditorState::Editing_Roads     },
+    { "ZN", "Zone/Districts = chart-network","activity.zone",     LC::ChartNetwork, ToolLibrary::District, 0, EditorEvent::Tool_Districts, EditorState::Editing_Districts },
+    { "LT", "Lot = map-pin-house",           "activity.lot",      LC::MapPinHouse,  ToolLibrary::Lot,      1, EditorEvent::Tool_Lots,      EditorState::Editing_Lots      },
+    { "BL", "Building = building-2",         "activity.building", LC::Building2,    ToolLibrary::Building, 0, EditorEvent::Tool_Buildings, EditorState::Editing_Buildings },
 };
 
 // ── Index / Explorer mode entries ────────────────────────────────────────────
@@ -53,19 +59,22 @@ struct IndexEntry {
     const char* action_id;
     const char* icon_path;
     PanelCategory category;
+    ToolLibrary tool;
+    int color_variant;
 };
 
 static constexpr IndexEntry kIndexModes[] = {
-    { "ID", "Indices = book-marked (ID)", "activity.idx.road",      LC::BookMarked, PanelCategory::Indices },
-    { "Tu", "Indices = book-marked (Tu)", "activity.idx.district",  LC::BookMarked, PanelCategory::Indices },
-    { "Ix", "Indices = book-marked",      "activity.idx.lot",       LC::BookMarked, PanelCategory::Indices },
+    { "ID", "Indices = book-marked (ID)", "activity.idx.road",      LC::BookMarked, PanelCategory::Indices, ToolLibrary::Road,     0 },
+    { "Tu", "Indices = book-marked (Tu)", "activity.idx.district",  LC::BookMarked, PanelCategory::Indices, ToolLibrary::District, 0 },
+    { "Ix", "Indices = book-marked",      "activity.idx.lot",       LC::BookMarked, PanelCategory::Indices, ToolLibrary::Lot,      1 },
 };
 
 // Draw a square icon button, returns true if clicked.
 // Colours the background when `active` is true.
-bool IconButton(const char* label, const char* tooltip,
+bool IconButton(const char* id, const char* fallback_label,
+                const char* tooltip,
                 const char* icon_path,
-                bool active, float size) {
+                bool active, float size, ImU32 accent_color) {
     ImVec2 cursor = ImGui::GetCursorScreenPos();
 
     // Active background fill
@@ -73,7 +82,7 @@ bool IconButton(const char* label, const char* tooltip,
         ImGui::GetWindowDrawList()->AddRectFilled(
             cursor,
             ImVec2(cursor.x + size, cursor.y + size),
-            RC_UI::WithAlpha(UITokens::CyanAccent, 55),   // subtle CyanAccent tint
+            RC_UI::WithAlpha(accent_color, 55),
             3.0f);
     }
 
@@ -82,20 +91,22 @@ bool IconButton(const char* label, const char* tooltip,
         ImGui::GetWindowDrawList()->AddRectFilled(
             cursor,
             ImVec2(cursor.x + 3.0f, cursor.y + size),
-            UITokens::CyanAccent,
+            accent_color,
             0.0f);
     }
 
     ImGui::PushStyleColor(ImGuiCol_Button,        UITokens::Transparent);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RC_UI::WithAlpha(UITokens::CyanAccent, 35));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  RC_UI::WithAlpha(UITokens::CyanAccent, 80));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, RC_UI::WithAlpha(accent_color, 35));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  RC_UI::WithAlpha(accent_color, 80));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
 
-    const bool clicked = ImGui::Button(label, ImVec2(size, size));
+    const std::string button_id = std::string("##") + (id ? id : "activity.left.icon");
+    const bool clicked = API::Button(button_id.c_str(), ImVec2(size, size));
 
+    bool drew_icon = false;
     if (icon_path != nullptr) {
-        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, size * 0.56f)) {
-            const float icon_size = size * 0.56f;
+        const float icon_size = std::min(size * 0.56f, std::max(12.0f, size - 10.0f));
+        if (ImTextureID icon = RC::SvgTextureCache::Get().Load(icon_path, icon_size)) {
             const ImVec2 icon_pos(cursor.x + (size - icon_size) * 0.5f,
                                   cursor.y + (size - icon_size) * 0.5f);
             ImGui::GetWindowDrawList()->AddImage(icon,
@@ -103,8 +114,16 @@ bool IconButton(const char* label, const char* tooltip,
                                                  ImVec2(icon_pos.x + icon_size,
                                                         icon_pos.y + icon_size),
                                                  ImVec2(0, 0), ImVec2(1, 1),
-                                                 UITokens::TextPrimary);
+                                                 active ? LerpColor(accent_color, UITokens::TextPrimary, 0.20f)
+                                                        : accent_color);
+            drew_icon = true;
         }
+    }
+    if (!drew_icon && fallback_label && fallback_label[0] != '\0') {
+        const ImVec2 text_size = ImGui::CalcTextSize(fallback_label);
+        const ImVec2 text_pos(cursor.x + (size - text_size.x) * 0.5f,
+                              cursor.y + (size - text_size.y) * 0.5f);
+        ImGui::GetWindowDrawList()->AddText(text_pos, accent_color, fallback_label);
     }
 
     ImGui::PopStyleVar();
@@ -153,23 +172,25 @@ void Draw(float /*dt*/) {
 
     // ── Domain buttons ────────────────────────────────────────────────────────
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
-    ImGui::Spacing();
+    API::Spacing();
 
     for (const auto& d : kDomains) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (current_state == d.state);
-        if (IconButton(d.label, d.tooltip, d.icon_path, active, btn_size)) {
+        const ImU32 color = RC_UI::ToolColor(d.tool, d.color_variant);
+        if (IconButton(d.action_id, d.label, d.tooltip, d.icon_path, active, btn_size,
+                       color)) {
             hfsm.handle_event(d.event, gs);
             // Switch P3 to Tool mode (not Index mode) when a domain is selected
             RcMasterPanel::RequestCategory(PanelCategory::Tools);
         }
         uiint.RegisterWidget({"button", d.tooltip, d.action_id, {"activity","domain"}});
-        ImGui::Spacing();
+        API::Spacing();
     }
 
     // ── Separator ─────────────────────────────────────────────────────────────
-    ImGui::Separator();
-    ImGui::Spacing();
+    API::Separator();
+    API::Spacing();
 
     // ── Index / Explorer mode buttons ─────────────────────────────────────────
     // These switch P3 to its Index/Explorer view without changing HFSM domain.
@@ -178,12 +199,14 @@ void Draw(float /*dt*/) {
     for (const auto& idx : kIndexModes) {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin_x);
         const bool active = (requested == PanelCategory::Indices);
-        if (IconButton(idx.label, idx.tooltip, idx.icon_path, active, btn_size)) {
+        const ImU32 color = RC_UI::ToolColor(idx.tool, idx.color_variant);
+        if (IconButton(idx.action_id, idx.label, idx.tooltip, idx.icon_path, active,
+                       btn_size, color)) {
             RcMasterPanel::RequestCategory(PanelCategory::Indices);
         }
         uiint.RegisterWidget({"button", idx.tooltip, idx.action_id,
                                {"activity","index","explorer"}});
-        ImGui::Spacing();
+        API::Spacing();
     }
 
     uiint.EndPanel();

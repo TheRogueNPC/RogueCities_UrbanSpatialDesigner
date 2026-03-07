@@ -7,6 +7,7 @@
 // diagnostics.
 
 #include "ui/panels/rc_panel_water_control.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_components.h"
 
@@ -36,11 +37,11 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader(
           "Actions", UITokens::CyanAccent, true,
           RC::SvgTextureCache::Get().Load(LC::Plus, 14.f))) {
-    ImGui::Indent();
-    ImGui::Spacing();
+    API::Indent();
+    API::Spacing();
     RC_UI::Components::DrawToolActionGrid(RC_UI::ToolLibrary::Water, ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   static int selected_type = 0;
@@ -49,11 +50,11 @@ void DrawContent(float dt) {
   static ButtonFeedback add_feedback{};
 
   const char *types[] = {"Lake", "River", "Ocean", "Pond"};
-  ImGui::SetNextItemWidth(170.0f);
-  ImGui::Combo("Water Type", &selected_type, types, IM_ARRAYSIZE(types));
-  ImGui::SetNextItemWidth(140.0f);
-  ImGui::SliderFloat("Depth (m)", &depth_m, 0.5f, 40.0f, "%.1f");
-  ImGui::Checkbox("Generate Shore", &generate_shore);
+  API::SetNextItemWidth(170.0f);
+  API::Combo("Water Type", &selected_type, types, IM_ARRAYSIZE(types));
+  API::SetNextItemWidth(140.0f);
+  API::SliderFloat("Depth (m)", &depth_m, 0.5f, 40.0f, "%.1f");
+  API::Checkbox("Generate Shore", &generate_shore);
 
   if (Components::AnimatedActionButton("spawn_water", "Add Sample Body",
                                        add_feedback, dt, false,
@@ -88,8 +89,8 @@ void DrawContent(float dt) {
 
     gs.waterbodies.add(std::move(body));
   }
-  ImGui::SameLine();
-  if (ImGui::Button("Remove Last")) {
+  API::SameLine();
+  if (API::Button("Remove Last")) {
     const auto size = gs.waterbodies.size();
     if (size > 0) {
       const auto handle = gs.waterbodies.createHandleFromData(size - 1u);
@@ -101,16 +102,16 @@ void DrawContent(float dt) {
   }
 
   if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
-    ImGui::Indent();
+    API::Indent();
     ImGui::Text("Total Water Bodies: %zu", gs.waterbodies.size());
     Components::StatusChip(gs.waterbodies.size() > 0 ? "ACTIVE" : "EMPTY",
                            gs.waterbodies.size() > 0 ? UITokens::SuccessGreen
                                                      : UITokens::YellowWarning,
                            true);
-    ImGui::TextDisabled(
+    API::TextDisabled(
         "Sample authoring is now live; spline/paint tools remain next.");
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 }
 

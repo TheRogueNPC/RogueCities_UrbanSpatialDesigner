@@ -192,6 +192,11 @@ else()
     message(STATUS "sol2 not found (expected at: ${SOL2_DIR})")
 endif()
 
+# === DATABASE CLIENT (Phase 2) ===
+if(EXISTS "${CMAKE_SOURCE_DIR}/rc_db_client/CMakeLists.txt")
+    add_subdirectory(rc_db_client)
+endif()
+
 # === CORE LIBRARY ===
 add_subdirectory(core)
 #=== GENERATORS LIBRARY (Phase 2)===

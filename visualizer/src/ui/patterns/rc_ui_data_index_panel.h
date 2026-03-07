@@ -175,13 +175,14 @@ public:
             ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, RC_UI::WithAlpha(RC_UI::UITokens::AmberGlow, 40));
         }
 
-        const std::string hidden_label = "##row_" + std::to_string(idx);
-
+        // "##row" is unique per-row because PushID(idx) is already in scope.
+        // Do NOT use std::string("##row_") + std::to_string(idx) — that allocates
+        // on the heap every frame for every visible row.
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(UITokens::CyanAccent, 40)));
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::ColorConvertU32ToFloat4(RC_UI::WithAlpha(UITokens::AmberGlow, 60)));
 
         // Span selectable over the first column's cell
-        if (ImGui::Selectable(hidden_label.c_str(), is_selected,
+        if (ImGui::Selectable("##row", is_selected,
                               ImGuiSelectableFlags_SpanAllColumns |
                                   ImGuiSelectableFlags_AllowOverlap)) {
           m_selected_index = static_cast<int>(idx);

@@ -1,0 +1,1 @@
+C:\Users\teamc\Documents\Rogue\ Cities\RogueCities_UrbanSpatialDesigner\server\target\wasm32-unknown-unknown\release\rogue_cities_db.wasm: C:\Users\teamc\Documents\Rogue\ Cities\RogueCities_UrbanSpatialDesigner\server\src\lib.rs

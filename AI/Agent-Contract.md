@@ -43,6 +43,7 @@ If you modify the ImGui visualizer or UI components:
 When implementing a new feature, you must adhere to the documented templates and schemas:
 
 *   **UI Features**: Always consult `visualizer_architecture_ki.md` and complete the `ui_plan_template.md` before writing a single line of ImGui code.
+*   **ImGui Coding Standard**: Read `AI/collaboration/imgui_coding_standard.md` before writing UI code. Non-negotiable rules: panels are freestanding functions (no classes holding widget state); user actions use `if (ImGui::Button(...))` (no callbacks); UI transients use function-local `static`. In loops: always `PushID`/`PopID`; use `##suffix` for duplicate labels; never construct `std::string` per-row per-frame for a label — use `snprintf` or a plain `"##label"` literal when `PushID` already scopes the row.
 *   **Generators**: Ensure any new generator adheres strictly to the staged-cache pipeline and utilizes `Boost::Geometry` for spatial mathematics. Do not write custom geometric overlap functions.
 *   **Strict Pipeline Contract**: The local Ollama bridge enforces strict answer-quality checks. You must return valid JSON matching the exact schema requested, or failing requests will yield HTTP 422 errors.
 

@@ -55,6 +55,11 @@ This document defines the foundational mandates for Gemini CLI in the RogueCitie
 - **NO** early-returns in UI layout that cause content to disappear in collapsed modes.
 - **NO** removal of compatibility paths for legacy editor inputs without explicit approval.
 - **NO** bypassing of `UiIntrospector` or state-aware instrumentation in UI work.
+- **NO** retained-mode UI patterns: no classes/structs owning widget state, no callbacks or
+  event listeners for UI actions, no synchronization between engine data and a UI copy.
+- **NO** duplicate widget labels in the same ID scope without `##suffix` disambiguation.
+- **NO** `std::string` construction per-row per-frame for widget labels inside loops.
+- **NO** manually checking "is mouse hovering a window" — use `io.WantCaptureMouse`.
 
 ## 9. Changelog Management
 - **Explicit Updates:** Update `CHANGELOG.md` immediately upon user request, summarizing all work performed since the last entry.
@@ -93,6 +98,74 @@ Determines land-use classification based on road frontage profiles: **Access (A)
 
 ## 12. Verification & Smoke Gates
 - **Do Not Guess UI Changes:** After modifying the `visualizer/` layer, use `rc-perceive-ui` or `rc-full-smoke` to verify that the UI renders correctly and the ImGui IDs haven't collided before asserting completion.
+
+## 13. HFSM as the Game Loop — Frame Order Contract
+
+The EditorHFSM IS the application state driver. Every frame must follow this order:
+
+```cpp
+glfwPollEvents();          // Poll events (GLFW backend handles input injection)
+hfsm.update(gs, dt);       // Update application state — ALWAYS first
+RC_UI::DrawRoot(dt);       // All ImGui calls — react to current-frame HFSM state
+ImGui::Render();           // Bake to ImDrawData
+RenderDrawData(...);       // GPU render
+glfwSwapBuffers(window);   // Present
+```
+
+**Invariant:** `hfsm.update` must run before any draw call in the same frame.
+All panels are read-only mirrors of HFSM + GlobalState for that frame.
+
+Events dispatched from panel buttons (`hfsm.handle_event(...)`) take effect at
+the *next* frame's update — never mid-frame.
+
+This order is enforced in `main_gui.cpp` (GUI binary) and was fixed in `main.cpp`
+(headless binary had DrawRoot before hfsm.update — a one-frame state lag).
+
+## 14. Dear ImGui Technical Mandates
+
+Full reference: `AI/collaboration/imgui_coding_standard.md`
+Full FAQ: `docs/30_architecture/Imgui_QA.md`
+
+### ID Stack — Most Common Bug
+Same label + same ID scope = **ID collision** — the widget silently stops responding.
+
+- **Loops**: always `PushID(i)` / `PopID()` around every iteration.
+- **Duplicate labels**: add `##suffix` — `"Delete##road"` vs `"Delete##zone"`.
+- **Animated labels, stable ID**: use `###id` — e.g. `"FPS:60###MyGame"`.
+- **When `PushID(idx)` is already in scope**: plain `"##row"` is unique. Do NOT append
+  `std::to_string(idx)` — that is a redundant heap allocation every frame.
+- **Debug at runtime**: `ImGui::ShowIDStackToolWindow()`.
+
+### Input Dispatch
+- Always feed input to ImGui **first** via `io.AddMouseButtonEvent()`, then gate on
+  `io.WantCaptureMouse`. Never manually check "is mouse over a window".
+- **RC exception**: the viewport canvas IS an ImGui widget so `WantCaptureMouse` is
+  always true inside it. `rc_ui_input_gate.cpp` resolves this with canvas-hover state.
+  Do not alter that logic.
+
+### DPI
+- Project uses GLFW (DPI auto-handled) + `ConfigDpiScaleFonts/Viewports` in `main_gui.cpp`.
+- Never hardcode pixel sizes. Express sizes as multiples of `ImGui::GetFontSize()` or
+  `ImGui::GetFrameHeight()`.
+- Change font size per-scope with `ImGui::PushFont(NULL, size)` (Dear ImGui 1.92+).
+
+### ImDrawList Custom Rendering
+- After `AddLine` / `AddCircle` / `AddRectFilled` etc., call `ImGui::Dummy(ImVec2(w,h))`
+  to advance the cursor — without it the host window collapses.
+- `ImGui::GetColorU32(ImVec4(...))` respects `style.Alpha` (prefer for themed colors).
+- `IM_COL32(r,g,b,a)` is a compile-time constant that bypasses global alpha.
+- Draw list accessors: `GetWindowDrawList()` clips to window; `GetBackgroundDrawList()`
+  and `GetForegroundDrawList()` are unclipped behind/in-front of all windows.
+
+### std::string Performance in Hot Paths
+- Never construct `std::string` per-row per-frame for a label. Use instead:
+  - `snprintf(buf, sizeof(buf), "Road #%u", id)` with a stack-local buffer, OR
+  - plain `"##label"` literal when `PushID` already scopes the row uniquely.
+
+### ImTextureRef (Dear ImGui 1.92+)
+- `Image()` / `AddImage()` now take `ImTextureRef`. For user-created textures,
+  continue managing `ImTextureID` and cast implicitly: `(ImTextureID)(intptr_t)tex`.
+- There is intentionally no `ImTextureRef → ImTextureID` reverse cast.
 
 ## 13. Unified Collaboration Mindspace
 - **Cross-Agent Knowledge Transfer:** You are working alongside Claude, Copilot, and local Gemma bots. You must aggressively cache your state, plans, hand-offs, and architectural findings to the `AI/collaboration/` directory so that other agents can read your mind without the user needing to manually paste context.

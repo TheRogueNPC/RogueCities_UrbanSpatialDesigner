@@ -2,6 +2,7 @@
 // It provides functionality to display a searchable list of commands and execute them.
 
 #include "ui/commands/rc_command_palette.h"
+#include "ui/rc_ui_root.h"
 
 #include <imgui.h>
 
@@ -66,7 +67,7 @@ void DrawCommandPalette(
     }
 
     // Close the popup if the Escape key is pressed.
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kCommandCancel)) {
         ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
         return;

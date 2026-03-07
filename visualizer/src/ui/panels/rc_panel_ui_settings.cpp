@@ -2,11 +2,11 @@
 // PURPOSE: UI Settings panel for theme selection and customization
 
 #include "ui/panels/rc_panel_ui_settings.h"
+#include "ui/api/rc_imgui_api.h"
 #include "RogueCity/App/UI/DesignSystem.h"
 #include "RogueCity/App/UI/ThemeManager.h"
 #include "RogueCity/Core/Editor/GlobalState.hpp"
 #include "ui/introspection/UiIntrospection.h"
-#include "ui/rc_ui_animation.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
@@ -63,14 +63,10 @@ void DrawContent(float dt) {
     }
   }
 
-  bool panel_focused = ImGui::IsWindowFocused();
-
   // ======================================================================
   // THEME SELECTION (with breathing animation)
   // ======================================================================
-  RC_UI::AnimationHelpers::BeginBreathingHeader(
-      "Theme Selection", UITokens::InfoBlue, panel_focused);
-  {
+  if (API::SectionHeader("Theme Selection", UITokens::InfoBlue, true)) {
 
     std::vector<std::string> theme_names = theme_mgr.GetAvailableThemes();
     std::vector<const char *> theme_names_cstr;
@@ -94,29 +90,29 @@ void DrawContent(float dt) {
     }
 
     ImGui::Text("Active Theme: %s", current_theme.c_str());
-    ImGui::Spacing();
+    API::Spacing();
 
     if (!theme_names.empty() &&
-        ImGui::Combo("Available Themes", &s_selected_theme_index,
+        API::Combo("Available Themes", &s_selected_theme_index,
                      theme_names_cstr.data(),
                      static_cast<int>(theme_names_cstr.size()))) {
       // Theme changed - apply it
       theme_mgr.LoadTheme(theme_names[s_selected_theme_index]);
       gs.config.active_theme = theme_names[s_selected_theme_index];
     } else if (theme_names.empty()) {
-      ImGui::TextDisabled("No themes are currently registered.");
+      API::TextDisabled("No themes are currently registered.");
     }
     uiint.RegisterWidget(
         {"combo", "Available Themes", "ui.theme_selector", {"ui", "settings"}});
 
-    ImGui::Spacing();
-    ImGui::Separator();
+    API::Spacing();
+    API::Separator();
 
     // Theme color editor (interactive)
     RogueCity::UI::ThemeProfile &active_theme_mut =
         theme_mgr.GetActiveThemeMutable();
     ImGui::TextUnformatted("Theme Colors (Click to Edit):");
-    ImGui::Spacing();
+    API::Spacing();
 
     ImGuiColorEditFlags color_flags =
         ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_AlphaBar;
@@ -143,11 +139,11 @@ void DrawContent(float dt) {
     auto draw_color_row = [&](const ThemeColorRow &row) {
       ImGui::AlignTextToFramePadding();
       ImGui::TextUnformatted(row.label);
-      ImGui::SameLine(
+      API::SameLine(
           std::max(92.0f, ImGui::GetContentRegionAvail().x * 0.36f));
       ImVec4 color = ImGui::ColorConvertU32ToFloat4(*row.color);
       float color_rgba[4] = {color.x, color.y, color.z, color.w};
-      ImGui::SetNextItemWidth(-1.0f);
+      API::SetNextItemWidth(-1.0f);
       if (ImGui::ColorEdit4(row.id, color_rgba, color_flags)) {
         *row.color = ImGui::ColorConvertFloat4ToU32(
             ImVec4(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]));
@@ -194,18 +190,16 @@ void DrawContent(float dt) {
       theme_mgr.ApplyToImGui();
     }
 
-    ImGui::Spacing();
+    API::Spacing();
   }
 
-  ImGui::Separator();
+  API::Separator();
 
   // ======================================================================
   // THEME EDITOR OPTIONS (with breathing animation)
   // ======================================================================
-  RC_UI::AnimationHelpers::BeginBreathingHeader(
-      "Theme Editor Options", UITokens::InfoBlue, panel_focused);
-  {
-    ImGui::Checkbox("Auto-save Custom Themes", &s_auto_save_custom_themes);
+  if (API::SectionHeader("Theme Editor Options", UITokens::InfoBlue, true)) {
+    API::Checkbox("Auto-save Custom Themes", &s_auto_save_custom_themes);
     uiint.RegisterWidget({"checkbox",
                           "Auto-save Custom Themes",
                           "ui.theme_autosave",
@@ -215,7 +209,7 @@ void DrawContent(float dt) {
           "Automatically save custom theme changes after 2 seconds");
     }
 
-    ImGui::Checkbox("Show Hex by Default", &s_show_hex_by_default);
+    API::Checkbox("Show Hex by Default", &s_show_hex_by_default);
     uiint.RegisterWidget({"checkbox",
                           "Show Hex by Default",
                           "ui.theme_show_hex",
@@ -224,29 +218,27 @@ void DrawContent(float dt) {
       ImGui::SetTooltip("Display color values in hexadecimal format");
     }
 
-    ImGui::Spacing();
+    API::Spacing();
     ImGui::TextColored(
         ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue),
         "Note: Editing a built-in theme auto-creates a custom copy");
   }
 
-  ImGui::Separator();
+  API::Separator();
 
   // ======================================================================
   // UI SCALE & DISPLAY OPTIONS (with breathing animation)
   // ======================================================================
-  RC_UI::AnimationHelpers::BeginBreathingHeader(
-      "Display Options", UITokens::InfoBlue, panel_focused);
-  {
+  if (API::SectionHeader("Display Options", UITokens::InfoBlue, true)) {
 
-    ImGui::SliderFloat("UI Scale", &gs.config.ui_scale, 0.8f, 1.5f, "%.2f");
+    API::SliderFloat("UI Scale", &gs.config.ui_scale, 0.8f, 1.5f, "%.2f");
     uiint.RegisterWidget(
         {"slider", "UI Scale", "ui.scale", {"ui", "settings"}});
     if (ImGui::IsItemHovered()) {
       ImGui::SetTooltip("Restart required for full effect");
     }
 
-    bool multi_viewport_changed = ImGui::Checkbox(
+    bool multi_viewport_changed = API::Checkbox(
         "Enable Multi-Viewport (Opt-in)", &gs.config.ui_multi_viewport_enabled);
     uiint.RegisterWidget({"checkbox",
                           "Enable Multi-Viewport (Opt-in)",
@@ -257,14 +249,14 @@ void DrawContent(float dt) {
           "Restart required to fully apply viewport backend state.");
     }
 
-    ImGui::Checkbox("Scale Fonts With DPI",
+    API::Checkbox("Scale Fonts With DPI",
                     &gs.config.ui_dpi_scale_fonts_enabled);
     uiint.RegisterWidget({"checkbox",
                           "Scale Fonts With DPI",
                           "ui.dpi_scale_fonts_enabled",
                           {"ui", "settings", "dpi"}});
 
-    ImGui::Checkbox("Scale Viewports With DPI",
+    API::Checkbox("Scale Viewports With DPI",
                     &gs.config.ui_dpi_scale_viewports_enabled);
     uiint.RegisterWidget({"checkbox",
                           "Scale Viewports With DPI",
@@ -275,7 +267,7 @@ void DrawContent(float dt) {
         "Smart List", "Pie", "Global Palette"};
     int context_mode =
         static_cast<int>(gs.config.viewport_context_default_mode);
-    if (ImGui::Combo("Viewport Right-Click Mode", &context_mode,
+    if (API::Combo("Viewport Right-Click Mode", &context_mode,
                      kCommandModeLabels.data(),
                      static_cast<int>(kCommandModeLabels.size()))) {
       context_mode = std::clamp(
@@ -289,15 +281,15 @@ void DrawContent(float dt) {
                           "ui.viewport_context_mode",
                           {"ui", "settings", "commands"}});
 
-    ImGui::Checkbox("Hotkey: Space -> Smart List",
+    API::Checkbox("Hotkey: Space -> Smart List",
                     &gs.config.viewport_hotkey_space_enabled);
-    ImGui::Checkbox("Hotkey: / -> Pie Menu",
+    API::Checkbox("Hotkey: / -> Pie Menu",
                     &gs.config.viewport_hotkey_slash_enabled);
-    ImGui::Checkbox("Hotkey: `~ -> Pie Menu",
+    API::Checkbox("Hotkey: `~ -> Pie Menu",
                     &gs.config.viewport_hotkey_grave_enabled);
-    ImGui::Checkbox("Hotkey: P -> Global Palette",
+    API::Checkbox("Hotkey: P -> Global Palette",
                     &gs.config.viewport_hotkey_p_enabled);
-    ImGui::Checkbox("Hold A/W/R/D/L/B -> Domain Context",
+    API::Checkbox("Hold A/W/R/D/L/B -> Domain Context",
                     &gs.config.viewport_hotkey_domain_context_enabled);
     uiint.RegisterWidget({"checkbox",
                           "Hotkey Space",
@@ -329,20 +321,18 @@ void DrawContent(float dt) {
     }
   }
 
-  ImGui::Separator();
+  API::Separator();
 
   // ======================================================================
   // LAYOUT PREFERENCES (dock ratio controls with safe center constraints)
   // ======================================================================
-  RC_UI::AnimationHelpers::BeginBreathingHeader(
-      "Layout Preferences", UITokens::InfoBlue, panel_focused);
-  {
+  if (API::SectionHeader("Layout Preferences", UITokens::InfoBlue, true)) {
     RC_UI::Components::BoundedText(
         "Baseline preset is tuned for 1280x1024 and scales to "
         "other resolutions.");
-    ImGui::Spacing();
+    API::Spacing();
 
-    ImGui::SliderFloat("Master Panel Ratio",
+    API::SliderFloat("Master Panel Ratio",
                        &s_layout_prefs_edit.left_panel_ratio, 0.20f, 0.45f,
                        "%.2f");
     bool commit_left = ImGui::IsItemDeactivatedAfterEdit();
@@ -351,7 +341,7 @@ void DrawContent(float dt) {
                           "ui.layout.left_ratio",
                           {"ui", "layout", "dock"}});
 
-    ImGui::SliderFloat("Right Column Ratio",
+    API::SliderFloat("Right Column Ratio",
                        &s_layout_prefs_edit.right_panel_ratio, 0.15f, 0.35f,
                        "%.2f");
     bool commit_right = ImGui::IsItemDeactivatedAfterEdit();
@@ -360,7 +350,7 @@ void DrawContent(float dt) {
                           "ui.layout.right_ratio",
                           {"ui", "layout", "dock"}});
 
-    ImGui::SliderFloat("Tool Deck Height Ratio",
+    API::SliderFloat("Tool Deck Height Ratio",
                        &s_layout_prefs_edit.tool_deck_ratio, 0.18f, 0.45f,
                        "%.2f");
     bool commit_bottom = ImGui::IsItemDeactivatedAfterEdit();
@@ -395,35 +385,34 @@ void DrawContent(float dt) {
                           {"action", "ui", "layout"}});
   }
 
-  ImGui::Separator();
+  API::Separator();
 
   // ======================================================================
   // CUSTOM THEME CREATION (Advanced, with breathing animation)
   // ======================================================================
   if (gs.config.dev_mode_enabled) {
-    RC_UI::AnimationHelpers::BeginBreathingHeader(
-        "Custom Theme (Advanced)", UITokens::InfoBlue, panel_focused);
-    {
+    if (API::SectionHeader("Custom Theme (Advanced)", UITokens::InfoBlue,
+                           true)) {
 
       RC_UI::Components::BoundedText(
           "Create custom theme profiles by editing JSON files in "
           "AI/config/themes/");
-      ImGui::Spacing();
+      API::Spacing();
 
-      ImGui::InputText("Theme Name", s_custom_theme_name,
+      API::InputText("Theme Name", s_custom_theme_name,
                        sizeof(s_custom_theme_name));
       uiint.RegisterWidget(
           {"text", "Theme Name", "ui.custom_theme_name", {"ui", "settings"}});
 
-      ImGui::Spacing();
+      API::Spacing();
 
       if (RogueCity::UI::DesignSystem::ButtonPrimary("Export Current Theme",
                                                      ImVec2(200, 30))) {
         std::string error;
         if (theme_mgr.SaveThemeToFile(theme_mgr.GetActiveTheme(), &error)) {
-          ImGui::OpenPopup("Export Success");
+          API::OpenPopup("Export Success");
         } else {
-          ImGui::OpenPopup("Export Failed");
+          API::OpenPopup("Export Failed");
         }
       }
       uiint.RegisterWidget({"button",
@@ -432,28 +421,28 @@ void DrawContent(float dt) {
                             {"action", "ui", "settings"}});
 
       // Export success/fail popups
-      if (ImGui::BeginPopupModal("Export Success", nullptr,
+      if (API::BeginPopupModal("Export Success", nullptr,
                                  ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Theme exported successfully!");
-        ImGui::Separator();
+        API::Separator();
         if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
-          ImGui::CloseCurrentPopup();
+          API::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        API::EndPopup();
       }
 
-      if (ImGui::BeginPopupModal("Export Failed", nullptr,
+      if (API::BeginPopupModal("Export Failed", nullptr,
                                  ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed),
                            "Theme export failed!");
-        ImGui::Separator();
+        API::Separator();
         if (RogueCity::UI::DesignSystem::ButtonPrimary("OK", ImVec2(120, 0))) {
-          ImGui::CloseCurrentPopup();
+          API::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        API::EndPopup();
       }
 
-      ImGui::Spacing();
+      API::Spacing();
 
       if (RogueCity::UI::DesignSystem::ButtonSecondary("Reload Custom Themes",
                                                        ImVec2(200, 30))) {

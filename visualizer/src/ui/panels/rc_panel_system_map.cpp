@@ -2,6 +2,7 @@
 // (RogueCities_UrbanSpatialDesigner) PURPOSE: Live system map visualization
 // with reactive Y2K overlays and query/toggle plumbing.
 #include "ui/panels/rc_panel_system_map.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/panels/rc_system_map_query.h"
 #include "ui/panels/rc_panel_axiom_editor.h"
 
@@ -216,55 +217,55 @@ void DrawContent(float dt) {
   ImGui::Text("Roads: %zu  Districts: %zu  Lots: %zu", gs.roads.size(),
               gs.districts.size(), gs.lots.size());
 
-  ImGui::Checkbox("Roads", &systems_map.show_roads);
-  ImGui::SameLine();
-  ImGui::Checkbox("Districts", &systems_map.show_districts);
-  ImGui::SameLine();
-  ImGui::Checkbox("Lots", &systems_map.show_lots);
-  ImGui::Checkbox("Buildings", &systems_map.show_buildings);
-  ImGui::SameLine();
-  ImGui::Checkbox("Water", &systems_map.show_water);
-  ImGui::SameLine();
-  ImGui::Checkbox("Labels", &systems_map.show_labels);
-  ImGui::Checkbox("World Constraints", &systems_map.show_world_constraints);
+  API::Checkbox("Roads", &systems_map.show_roads);
+  API::SameLine();
+  API::Checkbox("Districts", &systems_map.show_districts);
+  API::SameLine();
+  API::Checkbox("Lots", &systems_map.show_lots);
+  API::Checkbox("Buildings", &systems_map.show_buildings);
+  API::SameLine();
+  API::Checkbox("Water", &systems_map.show_water);
+  API::SameLine();
+  API::Checkbox("Labels", &systems_map.show_labels);
+  API::Checkbox("World Constraints", &systems_map.show_world_constraints);
 
-  ImGui::Checkbox("Hover Query", &systems_map.enable_hover_query);
-  ImGui::SameLine();
-  ImGui::Checkbox("Click Select", &systems_map.enable_click_select);
+  API::Checkbox("Hover Query", &systems_map.enable_hover_query);
+  API::SameLine();
+  API::Checkbox("Click Select", &systems_map.enable_click_select);
 
   ImGui::SeparatorText("Minimap LOD");
   bool manual_lod = AxiomEditor::IsMinimapManualLODOverride();
-  if (ImGui::Button(manual_lod ? "Minimap LOD: Manual" : "Minimap LOD: Auto")) {
-    ImGui::OpenPopup("MinimapLODMenu");
+  if (API::Button(manual_lod ? "Minimap LOD: Manual" : "Minimap LOD: Auto")) {
+    API::OpenPopup("MinimapLODMenu");
   }
-  if (ImGui::BeginPopup("MinimapLODMenu")) {
-    if (ImGui::MenuItem("Auto", nullptr, !manual_lod)) {
+  if (API::BeginPopup("MinimapLODMenu")) {
+    if (API::MenuItem("Auto", nullptr, !manual_lod)) {
       AxiomEditor::SetMinimapManualLODOverride(false);
     }
-    if (ImGui::MenuItem("LOD0 (Full)", nullptr,
+    if (API::MenuItem("LOD0 (Full)", nullptr,
                         manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 0)) {
       AxiomEditor::SetMinimapManualLODOverride(true);
       AxiomEditor::SetMinimapManualLODLevel(0);
     }
-    if (ImGui::MenuItem("LOD1 (Medium)", nullptr,
+    if (API::MenuItem("LOD1 (Medium)", nullptr,
                         manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 1)) {
       AxiomEditor::SetMinimapManualLODOverride(true);
       AxiomEditor::SetMinimapManualLODLevel(1);
     }
-    if (ImGui::MenuItem("LOD2 (Coarse)", nullptr,
+    if (API::MenuItem("LOD2 (Coarse)", nullptr,
                         manual_lod && AxiomEditor::GetMinimapManualLODLevel() == 2)) {
       AxiomEditor::SetMinimapManualLODOverride(true);
       AxiomEditor::SetMinimapManualLODLevel(2);
     }
-    ImGui::Separator();
+    API::Separator();
     bool adaptive_quality = AxiomEditor::IsMinimapAdaptiveQualityEnabled();
-    if (ImGui::MenuItem("Adaptive Degradation", nullptr, adaptive_quality)) {
+    if (API::MenuItem("Adaptive Degradation", nullptr, adaptive_quality)) {
       AxiomEditor::SetMinimapAdaptiveQualityEnabled(!adaptive_quality);
     }
-    ImGui::EndPopup();
+    API::EndPopup();
   }
-  ImGui::SameLine();
-  ImGui::TextDisabled("%s", AxiomEditor::GetMinimapLODStatusText());
+  API::SameLine();
+  API::TextDisabled("%s", AxiomEditor::GetMinimapLODStatusText());
 
   if (query_hit.valid) {
     ImGui::Text("Query: %s #%u (d=%.2f)", SystemsMapKindLabel(query_hit.kind),

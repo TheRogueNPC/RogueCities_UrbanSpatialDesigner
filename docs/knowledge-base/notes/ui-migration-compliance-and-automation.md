@@ -12,15 +12,19 @@ UI migration policy prohibits raw panel styling shortcuts and enforces token/wra
 - Avoid raw `ImGui::Begin(...)` panel shells
 - Avoid direct color literals in panel sources
 - Route styling through shared UI token system
+- Prefer `RC_UI::API` as the canonical panel wrapper surface; use `RC_UI::API::Mutate` only for explicit specialized cases
 
 ## Enforcement Integration
 - Script: `tools/check_ui_compliance.py`
+- Script: `tools/check_imgui_contracts.py`
 - Build switch: `ROGUEUI_ENFORCE_DESIGN_SYSTEM`
 - CMake adds `check_ui_compliance` dependency for visualizer targets
 
 ## Source Files
-- `docs/UI_MIGRATION.md`
+- `docs/20_specs/ui-faq-compliance-matrix.md`
 - `CMakeLists.txt`
+- `tools/check_ui_compliance.py`
+- `tools/check_imgui_contracts.py`
 
 ## Related
 - [[topics/ui-system-and-panel-patterns]]

@@ -2,6 +2,7 @@
 // PURPOSE: Development-only cockpit panel for exporting UI introspection snapshots.
 
 #include "ui/panels/rc_panel_dev_shell.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/rc_ui_components.h"
@@ -44,6 +45,58 @@ namespace {
     static bool s_show_debug_log_window = false;
     static bool s_show_id_stack_tool_window = false;
     static bool s_debug_begin_return_value_loop = false;
+
+    // Test Suite
+    static std::string       s_test_output;
+    static std::atomic<bool> s_test_busy{false};
+    static std::mutex        s_test_mutex;
+
+    // PVS-Studio Static Analysis
+    static char              s_pvs_dir[260]       = "C:\\Program Files (x86)\\PVS-Studio";
+    static char              s_pvs_output_dir[260] = "tools/.run/pvs_studio";
+    static char              s_pvs_project[128]    = "RogueCityVisualizer";
+    static bool              s_pvs_open_report     = false;
+    static std::string       s_pvs_status;
+    static std::atomic<bool> s_pvs_busy{false};
+    static std::mutex        s_pvs_mutex;
+
+    // Launch a dev-shell command asynchronously via PowerShell.
+    // Writes stdout+stderr to *out_status under *out_mutex; clears *out_busy when done.
+    static void RunDevShellCmdAsync(
+        const std::string& cmd_suffix,
+        std::string*       out_status,
+        std::mutex*        out_mutex,
+        std::atomic<bool>* out_busy)
+    {
+        const std::string full_cmd =
+            "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "
+            "\"& { . .\\tools\\dev-shell.ps1 > $null; " + cmd_suffix + " }\" 2>&1";
+        std::thread([full_cmd, out_status, out_mutex, out_busy]() {
+            std::string result;
+#ifdef _WIN32
+            FILE* pipe = _popen(full_cmd.c_str(), "r");
+#else
+            FILE* pipe = popen(full_cmd.c_str(), "r");
+#endif
+            if (!pipe) {
+                result = "[error] Failed to launch subprocess";
+            } else {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), pipe))
+                    result += buf;
+#ifdef _WIN32
+                _pclose(pipe);
+#else
+                pclose(pipe);
+#endif
+            }
+            {
+                std::scoped_lock lock(*out_mutex);
+                *out_status = result.empty() ? "(no output)" : result;
+            }
+            *out_busy = false;
+        }).detach();
+    }
 
     static std::string TimestampForFilename() {
         using namespace std::chrono;
@@ -121,11 +174,9 @@ void DrawContent(float /*dt*/)
     // ======================================================================
     // DEV MODE FEATURE TOGGLE (unlocks AI panels and experimental features)
     // ======================================================================
-    ImGui::PushStyleColor(ImGuiCol_Header, ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
-    if (ImGui::CollapsingHeader("Developer Mode", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::PopStyleColor();
+    if (API::SectionHeader("Developer Mode", UITokens::InfoBlue, true)) {
         
-        bool dev_mode_changed = ImGui::Checkbox("Enable Dev Mode", &gs.config.dev_mode_enabled);
+        bool dev_mode_changed = API::Checkbox("Enable Dev Mode", &gs.config.dev_mode_enabled);
         uiint.RegisterWidget({"checkbox", "Enable Dev Mode", "dev.mode_enabled", {"dev", "features"}});
         
         if (dev_mode_changed) {
@@ -137,7 +188,7 @@ void DrawContent(float /*dt*/)
             s_lastError[0] = '\0';
         }
         
-        ImGui::SameLine();
+        API::SameLine();
         if (gs.config.dev_mode_enabled) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen));
             ImGui::Text(" [ACTIVE]");
@@ -148,28 +199,26 @@ void DrawContent(float /*dt*/)
             ImGui::PopStyleColor();
         }
         
-        ImGui::Spacing();
+        API::Spacing();
         ImGui::TextWrapped("Dev Mode unlocks feature-gated panels (AI Console, UI Agent, City Spec) and experimental tools. Requires AI bridge dependencies at runtime.");
-        ImGui::Spacing();
-    } else {
-        ImGui::PopStyleColor();
+        API::Spacing();
     }
     
-    ImGui::Separator();
+    API::Separator();
     
     // ======================================================================
     // UI INTROSPECTION EXPORT
     // ======================================================================
     ImGui::TextUnformatted("UI Introspection Export");
-    ImGui::Checkbox("Include dock_tree", &s_includeDockTree);
-    ImGui::InputText("Output dir", s_outputDir, sizeof(s_outputDir));
+    API::Checkbox("Include dock_tree", &s_includeDockTree);
+    API::InputText("Output dir", s_outputDir, sizeof(s_outputDir));
     uiint.RegisterWidget({"checkbox", "Include dock_tree", "uiint.include_dock_tree", {"dev"}});
     uiint.RegisterWidget({"text", "Output dir", "uiint.output_dir", {"dev"}});
 
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Terminal, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Export UI Snapshot JSON")) {
+    if (API::Button("Export UI Snapshot JSON")) {
         auto& introspector = RogueCity::UIInt::UiIntrospector::Instance();
         std::string file = std::string(s_outputDir) + "/ui_introspection_" + TimestampForFilename() + ".json";
 
@@ -203,11 +252,11 @@ void DrawContent(float /*dt*/)
     }
     uiint.RegisterWidget({"button", "Export UI Snapshot JSON", "action:uiint.export", {"action", "dev"}});
 
-    ImGui::SameLine();
+    API::SameLine();
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Terminal, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Export Snapshot \xe2\x86\x92 Mockup Comment")) {
+    if (API::Button("Export Snapshot \xe2\x86\x92 Mockup Comment")) {
         std::string path, err;
         if (ExportMockupStateComment(&path, &err)) {
             std::snprintf(s_lastOutput, sizeof(s_lastOutput), "%s", path.c_str());
@@ -226,7 +275,7 @@ void DrawContent(float /*dt*/)
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed), "Error: %s", s_lastError);
     }
 
-    ImGui::Separator();
+    API::Separator();
     ImGui::TextUnformatted("Snapshot Preview (current frame)");
     const auto preview = RogueCity::UIInt::UiIntrospector::Instance().SnapshotJson().dump(2);
     ImGui::BeginChild("##uiint_preview", ImVec2(0.0f, 220.0f), true);
@@ -234,15 +283,15 @@ void DrawContent(float /*dt*/)
     ImGui::EndChild();
     uiint.RegisterWidget({"tree", "Snapshot Preview", "uiint.preview", {"dev"}});
 
-    ImGui::Separator();
+    API::Separator();
     ImGui::TextUnformatted("Workspace Presets");
-    ImGui::InputText("Preset Name", s_workspacePresetName, sizeof(s_workspacePresetName));
+    API::InputText("Preset Name", s_workspacePresetName, sizeof(s_workspacePresetName));
     uiint.RegisterWidget({"text", "Preset Name", "workspace.preset_name", {"dev", "layout"}});
 
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Plus, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Save Workspace Preset")) {
+    if (API::Button("Save Workspace Preset")) {
         std::string err;
         if (RC_UI::SaveWorkspacePreset(s_workspacePresetName, &err)) {
             std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Saved workspace preset: %s", s_workspacePresetName);
@@ -251,11 +300,11 @@ void DrawContent(float /*dt*/)
             std::snprintf(s_lastError, sizeof(s_lastError), "%s", err.c_str());
         }
     }
-    ImGui::SameLine();
+    API::SameLine();
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::RefreshCw, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Reset Dock Layout")) {
+    if (API::Button("Reset Dock Layout")) {
         RC_UI::ResetDockLayout();
         std::snprintf(s_lastOutput, sizeof(s_lastOutput), "Dock layout reset to defaults");
         s_lastError[0] = '\0';
@@ -265,7 +314,7 @@ void DrawContent(float /*dt*/)
 
     const std::vector<std::string> presets = RC_UI::ListWorkspacePresets();
     if (presets.empty()) {
-        ImGui::TextDisabled("No saved presets yet.");
+        API::TextDisabled("No saved presets yet.");
     } else {
         std::vector<const char*> preset_names;
         preset_names.reserve(presets.size());
@@ -273,8 +322,8 @@ void DrawContent(float /*dt*/)
             preset_names.push_back(preset.c_str());
         }
         s_workspacePresetIndex = std::clamp(s_workspacePresetIndex, 0, static_cast<int>(preset_names.size()) - 1);
-        ImGui::Combo("Saved Presets", &s_workspacePresetIndex, preset_names.data(), static_cast<int>(preset_names.size()));
-        if (ImGui::Button("Load Selected Preset")) {
+        API::Combo("Saved Presets", &s_workspacePresetIndex, preset_names.data(), static_cast<int>(preset_names.size()));
+        if (API::Button("Load Selected Preset")) {
             std::string err;
             const std::string& selected = presets[static_cast<size_t>(s_workspacePresetIndex)];
             if (RC_UI::LoadWorkspacePreset(selected.c_str(), &err)) {
@@ -288,7 +337,7 @@ void DrawContent(float /*dt*/)
         uiint.RegisterWidget({"button", "Load Selected Preset", "action:workspace.load_preset", {"action", "layout"}});
     }
 
-    ImGui::Separator();
+    API::Separator();
     ImGui::TextUnformatted("Input Debug");
     ImGuiIO& io = ImGui::GetIO();
     ImGui::Text("Mouse: (%.0f, %.0f)  L:%d R:%d M:%d",
@@ -305,7 +354,7 @@ void DrawContent(float /*dt*/)
         input_gate.allow_viewport_mouse_actions ? 1 : 0,
         input_gate.allow_viewport_key_actions ? 1 : 0);
 
-    ImGui::Separator();
+    API::Separator();
     ImGui::TextUnformatted("Tool Runtime");
     ImGui::Text("Domain: %s", RC_UI::Tools::ToolDomainName(gs.tool_runtime.active_domain));
     ImGui::Text("Last Action ID: %s",
@@ -326,12 +375,12 @@ void DrawContent(float /*dt*/)
         static_cast<unsigned long long>(gs.tool_runtime.action_serial),
         static_cast<unsigned long long>(gs.tool_runtime.last_action_frame));
 
-    ImGui::Separator();
+    API::Separator();
     ImGui::TextUnformatted("ImGui Diagnostics");
-    ImGui::Checkbox("Show Metrics Window", &s_show_metrics_window);
-    ImGui::Checkbox("Show Debug Log Window", &s_show_debug_log_window);
-    ImGui::Checkbox("Show ID Stack Tool", &s_show_id_stack_tool_window);
-    if (ImGui::Checkbox("Debug Begin/BeginChild Return Loop", &s_debug_begin_return_value_loop)) {
+    API::Checkbox("Show Metrics Window", &s_show_metrics_window);
+    API::Checkbox("Show Debug Log Window", &s_show_debug_log_window);
+    API::Checkbox("Show ID Stack Tool", &s_show_id_stack_tool_window);
+    if (API::Checkbox("Debug Begin/BeginChild Return Loop", &s_debug_begin_return_value_loop)) {
         io.ConfigDebugBeginReturnValueLoop = s_debug_begin_return_value_loop;
     }
     uiint.RegisterWidget({"checkbox", "Show Metrics Window", "dev.imgui.metrics", {"dev", "imgui"}});
@@ -339,17 +388,178 @@ void DrawContent(float /*dt*/)
     uiint.RegisterWidget({"checkbox", "Show ID Stack Tool", "dev.imgui.id_stack", {"dev", "imgui"}});
     uiint.RegisterWidget({"checkbox", "Debug Begin/BeginChild Return Loop", "dev.imgui.begin_return_loop", {"dev", "imgui"}});
 
-    ImGui::Separator();
+    API::Separator();
+
+    // ======================================================================
+    // IMGUI DEBUG PRODUCTIVITY TIPS
+    // ======================================================================
+    if (API::SectionHeader("ImGui Debug Productivity", UITokens::AmberGlow, false)) {
+
+        // Alt-key breakpoint filter tip
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+        ImGui::TextUnformatted("Alt-Key Breakpoint Filter");
+        ImGui::PopStyleColor();
+        ImGui::TextWrapped(
+            "Gate debugger breakpoints on io.KeyAlt to trigger them on demand:\n"
+            "  if (ImGui::GetIO().KeyAlt) printf(\"\"); // set breakpoint here\n"
+            "Set up your UI state, then press ALT to trigger.");
+        API::Spacing();
+        if (io.KeyAlt) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen));
+            ImGui::TextUnformatted("  ALT: HELD  [breakpoint condition is TRUE]");
+            ImGui::PopStyleColor();
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::TextSecondary));
+            ImGui::TextUnformatted("  ALT: released");
+            ImGui::PopStyleColor();
+        }
+
+        API::Spacing();
+        API::Separator();
+
+        // Natvis file
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::InfoBlue));
+        ImGui::TextUnformatted("Natvis Debugger Support");
+        ImGui::PopStyleColor();
+        const char* k_natvis = "3rdparty/imgui/misc/debuggers/imgui.natvis";
+        const bool natvis_ok = std::filesystem::exists(k_natvis);
+        if (natvis_ok) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::SuccessGreen));
+            ImGui::TextUnformatted("imgui.natvis: found");
+            ImGui::PopStyleColor();
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::ErrorRed));
+            ImGui::TextUnformatted("imgui.natvis: NOT FOUND");
+            ImGui::PopStyleColor();
+        }
+        API::SameLine();
+        if (API::SmallButton("Copy Path##natvis")) {
+            ImGui::SetClipboardText(k_natvis);
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(
+                "Add misc/debuggers/imgui.natvis to your VS project to get\n"
+                "Dear ImGui type expansion in Watch/Locals (e.g. ImVector<>).");
+        API::Spacing();
+    }
+    uiint.RegisterWidget({"group", "ImGui Debug Productivity", "dev.imgui.tips", {"dev", "imgui", "debug"}});
+
+    API::Separator();
+
+    // ======================================================================
+    // TEST SUITE (CTest)
+    // ======================================================================
+    if (API::SectionHeader("Test Suite (CTest)", UITokens::CyanAccent, false)) {
+        ImGui::TextWrapped(
+            "Run the regression suite. Results are captured below.\n"
+            "Adding test cases when fixing bugs catches regressions early.");
+        API::Spacing();
+
+        API::BeginDisabled(s_test_busy.load());
+        auto run_test = [](const char* cmd_suffix) {
+            if (!s_test_busy.exchange(true)) {
+                { std::scoped_lock lk(s_test_mutex); s_test_output = "Running..."; }
+                RunDevShellCmdAsync(cmd_suffix, &s_test_output, &s_test_mutex, &s_test_busy);
+            }
+        };
+        if (API::Button("Core##tst"))  run_test("rc-tst-core");
+        API::SameLine();
+        if (API::Button("Gen##tst"))   run_test("rc-tst-gen");
+        API::SameLine();
+        if (API::Button("App##tst"))   run_test("rc-tst-app");
+        API::SameLine();
+        if (API::Button("All##tst"))   run_test("rc-tst");
+        API::EndDisabled();
+
+        if (s_test_busy.load()) {
+            API::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+            ImGui::TextUnformatted("  running...");
+            ImGui::PopStyleColor();
+        }
+        {
+            std::scoped_lock lk(s_test_mutex);
+            if (!s_test_output.empty()) {
+                ImGui::BeginChild("##test_out", ImVec2(0.0f, 120.0f), true);
+                ImGui::TextUnformatted(s_test_output.c_str());
+                ImGui::EndChild();
+            }
+        }
+    }
+    uiint.RegisterWidget({"group", "Test Suite", "dev.test_suite", {"dev", "test", "ctest"}});
+
+    API::Separator();
+
+    // ======================================================================
+    // PVS-STUDIO STATIC ANALYSIS
+    // ======================================================================
+    if (API::SectionHeader("PVS-Studio Static Analysis", UITokens::GreenHUD, false)) {
+        ImGui::TextWrapped(
+            "Run PVS-Studio on the MSVC project. Reports are written to the output dir.\n"
+            "Invokes rc-pvs-studio from dev-shell.ps1 (GA:1,2 + OP:1 severity gates).");
+        API::Spacing();
+
+        API::InputText("PVS-Studio Dir##pvs",  s_pvs_dir,        sizeof(s_pvs_dir));
+        API::InputText("Output Dir##pvs",       s_pvs_output_dir, sizeof(s_pvs_output_dir));
+        API::InputText("Project Name##pvs",     s_pvs_project,    sizeof(s_pvs_project));
+        API::Checkbox("Open HTML report after analysis##pvs", &s_pvs_open_report);
+        API::Spacing();
+
+        const bool pvs_installed =
+            std::filesystem::exists(std::string(s_pvs_dir) + "\\PVS-Studio_Cmd.exe");
+        if (!pvs_installed) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+            ImGui::TextWrapped(
+                "PVS-Studio_Cmd.exe not found at the configured dir.\n"
+                "Install from pvs-studio.com (free for OSS) or adjust path above.");
+            ImGui::PopStyleColor();
+        }
+
+        API::BeginDisabled(s_pvs_busy.load() || !pvs_installed);
+        if (API::Button("Run PVS-Studio Analysis##pvs")) {
+            if (!s_pvs_busy.exchange(true)) {
+                const std::string open_flag = s_pvs_open_report ? " -OpenReport" : "";
+                const std::string cmd =
+                    std::string("rc-pvs-studio -PvsDir '") + s_pvs_dir +
+                    "' -OutputDir '" + s_pvs_output_dir +
+                    "' -ProjectName '" + s_pvs_project + "'" + open_flag;
+                {
+                    std::scoped_lock lk(s_pvs_mutex);
+                    s_pvs_status = "Launching analysis... (may take several minutes)";
+                }
+                RunDevShellCmdAsync(cmd, &s_pvs_status, &s_pvs_mutex, &s_pvs_busy);
+            }
+        }
+        API::EndDisabled();
+
+        if (s_pvs_busy.load()) {
+            API::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(UITokens::AmberGlow));
+            ImGui::TextUnformatted("  analyzing...");
+            ImGui::PopStyleColor();
+        }
+        {
+            std::scoped_lock lk(s_pvs_mutex);
+            if (!s_pvs_status.empty()) {
+                ImGui::BeginChild("##pvs_out", ImVec2(0.0f, 100.0f), true);
+                ImGui::TextWrapped("%s", s_pvs_status.c_str());
+                ImGui::EndChild();
+            }
+        }
+    }
+    uiint.RegisterWidget({"group", "PVS-Studio", "dev.pvs_studio", {"dev", "analysis", "static"}});
+
+    API::Separator();
     ImGui::TextUnformatted("UI Design Assistant");
 
-    ImGui::InputTextMultiline("Goal", s_designGoal, sizeof(s_designGoal), ImVec2(-1, 60));
+    API::InputTextMultiline("Goal", s_designGoal, sizeof(s_designGoal), ImVec2(-1, 60));
     uiint.RegisterWidget({"text", "Goal", "ui_design.goal", {"dev", "input"}});
 
-    ImGui::BeginDisabled(s_designBusy.load());
+    API::BeginDisabled(s_designBusy.load());
     if (auto ico = RC::SvgTextureCache::Get().Load(LC::Bot, 14.f)) {
-        ImGui::Image(ico, ImVec2(14, 14)); ImGui::SameLine(0, 4);
+        ImGui::Image(ico, ImVec2(14, 14)); API::SameLine(0, 4);
     }
-    if (ImGui::Button("Generate Design Plan (from introspection)")) {
+    if (API::Button("Generate Design Plan (from introspection)")) {
         if (!s_designBusy.exchange(true)) {
             {
                 std::scoped_lock lock(s_designMutex);
@@ -378,7 +588,7 @@ void DrawContent(float /*dt*/)
             }).detach();
         }
     }
-    ImGui::EndDisabled();
+    API::EndDisabled();
     uiint.RegisterWidget({"button", "Generate Design Plan (from introspection)", "action:ai.ui_design.generate_plan", {"action", "ai", "dev"}});
 
     {

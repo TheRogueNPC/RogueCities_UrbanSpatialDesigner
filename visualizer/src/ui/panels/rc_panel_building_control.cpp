@@ -5,6 +5,7 @@
 // CATEGORY: Control_Panel
 
 #include "ui/panels/rc_panel_building_control.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/introspection/UiIntrospection.h"
 #include "ui/rc_ui_components.h"
 #include "ui/rc_ui_tokens.h"
@@ -42,23 +43,23 @@ void DrawContent(float dt) {
   if (Components::DrawSectionHeader(
           "Actions", UITokens::CyanAccent, true,
           RC::SvgTextureCache::Get().Load(LC::Plus, 14.f))) {
-    ImGui::Indent();
-    ImGui::Spacing();
+    API::Indent();
+    API::Spacing();
     RC_UI::Components::DrawToolActionGrid(RC_UI::ToolLibrary::Building, ctx);
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Building Parameters",
                                     UITokens::CyanAccent)) {
-    ImGui::Indent();
-    ImGui::SliderFloat("Min Coverage", &s_building_params.min_building_coverage,
+    API::Indent();
+    API::SliderFloat("Min Coverage", &s_building_params.min_building_coverage,
                        0.2f, 0.6f, "%.1f%%");
     uiint.RegisterWidget({"slider",
                           "Min Coverage",
                           "building.min_coverage",
                           {"building", "sizing"}});
-    ImGui::SliderFloat("Max Coverage", &s_building_params.max_building_coverage,
+    API::SliderFloat("Max Coverage", &s_building_params.max_building_coverage,
                        0.5f, 0.9f, "%.1f%%");
     uiint.RegisterWidget({"slider",
                           "Max Coverage",
@@ -69,47 +70,47 @@ void DrawContent(float dt) {
       std::swap(s_building_params.min_building_coverage,
                 s_building_params.max_building_coverage);
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Budget & Population",
                                     UITokens::AmberGlow)) {
-    ImGui::Indent();
-    ImGui::SliderFloat("Budget per Capita",
+    API::Indent();
+    API::SliderFloat("Budget per Capita",
                        &s_building_params.budget_per_capita, 50000.0f,
                        200000.0f, "%.0f");
     uiint.RegisterWidget({"slider",
                           "Budget per Capita",
                           "building.budget_per_capita",
                           {"building", "economy"}});
-    ImGui::SliderInt("Target Population", &s_building_params.target_population,
+    API::SliderInt("Target Population", &s_building_params.target_population,
                      10000, 100000);
     uiint.RegisterWidget({"slider",
                           "Target Population",
                           "building.target_population",
                           {"building", "population"}});
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   if (Components::DrawSectionHeader("Performance", UITokens::GreenHUD)) {
-    ImGui::Indent();
-    ImGui::Checkbox("Auto Threading", &s_building_params.auto_threading);
+    API::Indent();
+    API::Checkbox("Auto Threading", &s_building_params.auto_threading);
     uiint.RegisterWidget({"checkbox",
                           "Auto Threading",
                           "building.auto_threading",
                           {"building", "performance"}});
     if (!s_building_params.auto_threading) {
-      ImGui::SliderInt("Threading Threshold",
+      API::SliderInt("Threading Threshold",
                        &s_building_params.threading_threshold, 10, 500);
       uiint.RegisterWidget({"slider",
                             "Threading Threshold",
                             "building.threading_threshold",
                             {"building", "performance"}});
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 
   // === Generation Button (Y2K pulse affordance) ===
@@ -122,7 +123,7 @@ void DrawContent(float dt) {
                           ImGui::ColorConvertU32ToFloat4(pulse_color));
   }
 
-  if (ImGui::Button("Place Buildings", ImVec2(-1, 40))) {
+  if (API::Button("Place Buildings", ImVec2(-1, 40))) {
     // DEBUG_TAG: BUILDING_CONTROL_GENERATE_CLICKED
     s_zoning_bridge.Generate(s_building_params, gs);
     s_is_generating = true;
@@ -146,23 +147,23 @@ void DrawContent(float dt) {
     }
   }
 
-  ImGui::Spacing();
+  API::Spacing();
 
   if (Components::DrawSectionHeader("Status", UITokens::InfoBlue)) {
-    ImGui::Indent();
+    API::Indent();
     ImGui::Text("Total Buildings: %zu", gs.buildings.size());
     auto stats = s_zoning_bridge.GetLastStats();
     if (stats.buildings_placed > 0) {
       ImGui::Text("Last Generation:");
-      ImGui::Indent();
+      API::Indent();
       ImGui::Text("  Buildings Placed: %d", stats.buildings_placed);
       ImGui::Text("  Projected Population: %d", stats.projected_population);
       ImGui::Text("  Budget Allocated: %.2f", stats.total_budget_allocated);
       ImGui::Text("  Generation Time: %.1f ms", stats.generation_time_ms);
-      ImGui::Unindent();
+      API::Unindent();
     }
-    ImGui::Unindent();
-    ImGui::Spacing();
+    API::Unindent();
+    API::Spacing();
   }
 }
 

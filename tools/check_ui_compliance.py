@@ -17,7 +17,10 @@ PANELS_DIR = ROOT / "visualizer" / "src" / "ui" / "panels"
 
 
 FORBIDDEN_PATTERNS = [
-    (re.compile(r"\bImGui::Begin\s*\("), "Use `Components::BeginTokenPanel()` or `RC_UI::BeginDockableWindow()`."),
+    (
+        re.compile(r"\bImGui::Begin\s*\("),
+        "Use `RC_UI::API::BeginPanel()`, `Components::BeginTokenPanel()`, or `RC_UI::BeginDockableWindow()`.",
+    ),
     (re.compile(r"\bIM_COL32\s*\("), "Use `UITokens` (or token helpers), never literal IM_COL32 in panels."),
     (
         re.compile(r"\bImGui::PushStyleColor\s*\(\s*ImGuiCol_WindowBg\b"),

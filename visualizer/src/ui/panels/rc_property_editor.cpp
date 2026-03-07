@@ -2,6 +2,8 @@
 // PURPOSE: Context-sensitive property editor for selected entities.
 
 #include "ui/panels/rc_property_editor.h"
+#include "ui/api/rc_imgui_api.h"
+#include "ui/rc_ui_root.h"
 #include "ui/rc_ui_tokens.h"
 #include "ui/tools/rc_tool_contract.h"
 
@@ -37,11 +39,11 @@ bool DrawEnumCombo(const char* label, EnumType& value) {
     const auto current_name = std::string(magic_enum::enum_name(value));
     bool changed = false;
 
-    if (ImGui::BeginCombo(label, current_name.c_str())) {
+    if (API::BeginCombo(label, current_name.c_str())) {
         for (size_t i = 0; i < values.size(); ++i) {
             const bool selected = (values[i] == value);
             const std::string name = std::string(names[i]);
-            if (ImGui::Selectable(name.c_str(), selected)) {
+            if (API::Selectable(name.c_str(), selected)) {
                 value = values[i];
                 changed = true;
             }
@@ -49,7 +51,7 @@ bool DrawEnumCombo(const char* label, EnumType& value) {
                 ImGui::SetItemDefaultFocus();
             }
         }
-        ImGui::EndCombo();
+        API::EndCombo();
     }
     return changed;
 }
@@ -330,25 +332,25 @@ void DrawToolRuntime(GlobalState& gs) {
     case RogueCity::Core::Editor::ToolDomain::Flow:
         ImGui::BulletText("Water Tool: %s", WaterSubtoolName(gs.tool_runtime.water_subtool));
         ImGui::BulletText("Water Spline: %s", WaterSplineSubtoolName(gs.tool_runtime.water_spline_subtool));
-        ImGui::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
+        API::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
+        API::SetNextItemWidth(140.0f);
+        API::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
         break;
     case RogueCity::Core::Editor::ToolDomain::Road:
     case RogueCity::Core::Editor::ToolDomain::Paths:
         ImGui::BulletText("Road Tool: %s", RoadSubtoolName(gs.tool_runtime.road_subtool));
         ImGui::BulletText("Road Spline: %s", RoadSplineSubtoolName(gs.tool_runtime.road_spline_subtool));
-        ImGui::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
+        API::Checkbox("Spline Editing Enabled", &gs.spline_editor.enabled);
+        API::SetNextItemWidth(140.0f);
+        API::SliderInt("Spline Samples", &gs.spline_editor.samples_per_segment, 2, 24);
         break;
     case RogueCity::Core::Editor::ToolDomain::District:
     case RogueCity::Core::Editor::ToolDomain::Zone:
         ImGui::BulletText("District Tool: %s", DistrictSubtoolName(gs.tool_runtime.district_subtool));
-        ImGui::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
-        ImGui::Checkbox("Boundary Snap", &gs.district_boundary_editor.snap_to_grid);
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::DragFloat("Boundary Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
+        API::Checkbox("Boundary Editor", &gs.district_boundary_editor.enabled);
+        API::Checkbox("Boundary Snap", &gs.district_boundary_editor.snap_to_grid);
+        API::SetNextItemWidth(140.0f);
+        API::DragFloat("Boundary Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
         break;
     case RogueCity::Core::Editor::ToolDomain::Lot:
         ImGui::BulletText("Lot Tool: %s", LotSubtoolName(gs.tool_runtime.lot_subtool));
@@ -357,10 +359,10 @@ void DrawToolRuntime(GlobalState& gs) {
     case RogueCity::Core::Editor::ToolDomain::FloorPlan:
     case RogueCity::Core::Editor::ToolDomain::Furnature:
         ImGui::BulletText("Building Tool: %s", BuildingSubtoolName(gs.tool_runtime.building_subtool));
-        ImGui::TextDisabled("FloorPlan/Furnature are feature stubs until backend modules are wired.");
+        API::TextDisabled("FloorPlan/Furnature are feature stubs until backend modules are wired.");
         break;
     case RogueCity::Core::Editor::ToolDomain::Axiom:
-        ImGui::TextDisabled("Axiom subtype is driven by the Axiom Library icons.");
+        API::TextDisabled("Axiom subtype is driven by the Axiom Library icons.");
         break;
     }
 }
@@ -373,32 +375,32 @@ void DrawLayerManager(GlobalState& gs) {
         ImGui::PushID(static_cast<int>(layer.id));
 
         bool visible = layer.visible;
-        if (ImGui::Checkbox("##visible", &visible)) {
+        if (API::Checkbox("##visible", &visible)) {
             layer.visible = visible;
             gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
         }
-        ImGui::SameLine();
+        API::SameLine();
 
         const bool active = (layer_state.active_layer == layer.id);
-        if (ImGui::Selectable(layer.name.c_str(), active, ImGuiSelectableFlags_None, ImVec2(140.0f, 0.0f))) {
+        if (API::Selectable(layer.name.c_str(), active, ImGuiSelectableFlags_None, ImVec2(140.0f, 0.0f))) {
             layer_state.active_layer = layer.id;
         }
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Layer %u | Opacity %.2f", static_cast<unsigned>(layer.id), layer.opacity);
         }
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(100.0f);
-        if (ImGui::SliderFloat("Opacity", &layer.opacity, 0.15f, 1.0f, "%.2f")) {
+        API::SameLine();
+        API::SetNextItemWidth(100.0f);
+        if (API::SliderFloat("Opacity", &layer.opacity, 0.15f, 1.0f, "%.2f")) {
             layer.opacity = std::clamp(layer.opacity, 0.15f, 1.0f);
             gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
         }
         ImGui::PopID();
     }
 
-    ImGui::Checkbox("Dim Inactive Layers", &layer_state.dim_inactive);
-    ImGui::Checkbox("Box Through Hidden Layers", &layer_state.allow_through_hidden);
+    API::Checkbox("Dim Inactive Layers", &layer_state.dim_inactive);
+    API::Checkbox("Box Through Hidden Layers", &layer_state.allow_through_hidden);
 
-    if (ImGui::Button("Assign Selection -> Active Layer")) {
+    if (API::Button("Assign Selection -> Active Layer")) {
         const uint8_t layer = layer_state.active_layer;
         for (const auto& item : gs.selection_manager.Items()) {
             gs.SetEntityLayer(item.kind, item.id, layer);
@@ -409,34 +411,34 @@ void DrawLayerManager(GlobalState& gs) {
 
 void DrawValidationOverlayControls(GlobalState& gs) {
     ImGui::SeparatorText("Validation Overlay");
-    ImGui::Checkbox("Show Validation Overlay", &gs.validation_overlay.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Warnings", &gs.validation_overlay.show_warnings);
-    ImGui::Checkbox("Show Labels", &gs.validation_overlay.show_labels);
+    API::Checkbox("Show Validation Overlay", &gs.validation_overlay.enabled);
+    API::SameLine();
+    API::Checkbox("Show Warnings", &gs.validation_overlay.show_warnings);
+    API::Checkbox("Show Labels", &gs.validation_overlay.show_labels);
     ImGui::Text("Errors: %zu", gs.validation_overlay.errors.size());
 }
 
 void DrawGizmoControls(GlobalState& gs) {
     ImGui::SeparatorText("Gizmo");
-    ImGui::Checkbox("Enabled", &gs.gizmo.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Visible", &gs.gizmo.visible);
-    ImGui::SameLine();
-    ImGui::Checkbox("Snapping", &gs.gizmo.snapping);
+    API::Checkbox("Enabled", &gs.gizmo.enabled);
+    API::SameLine();
+    API::Checkbox("Visible", &gs.gizmo.visible);
+    API::SameLine();
+    API::Checkbox("Snapping", &gs.gizmo.snapping);
 
     const char* ops[] = {"Translate (G)", "Rotate (R)", "Scale (S)"};
     int op = static_cast<int>(gs.gizmo.operation);
-    if (ImGui::Combo("Operation", &op, ops, IM_ARRAYSIZE(ops))) {
+    if (API::Combo("Operation", &op, ops, IM_ARRAYSIZE(ops))) {
         op = std::clamp(op, 0, 2);
         gs.gizmo.operation = static_cast<RogueCity::Core::Editor::GizmoOperation>(op);
     }
 
-    ImGui::SetNextItemWidth(140.0f);
-    ImGui::SliderFloat("Translate Snap", &gs.gizmo.translate_snap, 0.5f, 100.0f, "%.1f");
-    ImGui::SetNextItemWidth(140.0f);
-    ImGui::SliderFloat("Rotate Snap (deg)", &gs.gizmo.rotate_snap_degrees, 1.0f, 90.0f, "%.1f");
-    ImGui::SetNextItemWidth(140.0f);
-    ImGui::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.01f, 0.5f, "%.2f");
+    API::SetNextItemWidth(140.0f);
+    API::SliderFloat("Translate Snap", &gs.gizmo.translate_snap, 0.5f, 100.0f, "%.1f");
+    API::SetNextItemWidth(140.0f);
+    API::SliderFloat("Rotate Snap (deg)", &gs.gizmo.rotate_snap_degrees, 1.0f, 90.0f, "%.1f");
+    API::SetNextItemWidth(140.0f);
+    API::SliderFloat("Scale Snap", &gs.gizmo.scale_snap, 0.01f, 0.5f, "%.2f");
 }
 
 // -------------------------------------------------------------------------
@@ -451,7 +453,7 @@ static void DrawUserFlagBlock(
     VpEntityKind kind, bool T::*flag_field,
     const char* label, const char* commit_desc) {
     const bool before = e.*flag_field;
-    if (ImGui::Checkbox(label, &(e.*flag_field))) {
+    if (API::Checkbox(label, &(e.*flag_field))) {
         const bool after = e.*flag_field;
         if (after) {
             e.generation_tag = RogueCity::Core::GenerationTag::M_user;
@@ -473,7 +475,7 @@ static void DrawGenerationLocked(
     CommandHistory& history, GlobalState& gs, T& e,
     VpEntityKind kind, const char* commit_desc) {
     const bool before = e.generation_locked;
-    if (ImGui::Checkbox("Generation Locked", &e.generation_locked)) {
+    if (API::Checkbox("Generation Locked", &e.generation_locked)) {
         const bool after = e.generation_locked;
         CommitValueChange(history, commit_desc, before, after,
             [&e](bool v) { e.generation_locked = v; });
@@ -485,7 +487,7 @@ static void DrawGenerationLocked(
 static void DrawLayerAssignment(GlobalState& gs, VpEntityKind kind, uint32_t id) {
     const uint8_t current_layer = gs.GetEntityLayer(kind, id);
     int layer_idx = static_cast<int>(current_layer);
-    if (ImGui::InputInt("Layer", &layer_idx)) {
+    if (API::InputInt("Layer", &layer_idx)) {
         layer_idx = std::clamp(layer_idx, 0, 255);
         gs.SetEntityLayer(kind, id, static_cast<uint8_t>(layer_idx));
         gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
@@ -495,8 +497,8 @@ static void DrawLayerAssignment(GlobalState& gs, VpEntityKind kind, uint32_t id)
 void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
     auto& history = PropertyHistory();
     ImGui::Text("Selection: Road");
-    ImGui::Separator();
-    ImGui::InputScalar("Road ID", ImGuiDataType_U32, &road.id);
+    API::Separator();
+    API::InputScalar("Road ID", ImGuiDataType_U32, &road.id);
 
     {
         const auto before = road.type;
@@ -521,15 +523,15 @@ void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
     DrawLayerAssignment(gs, VpEntityKind::Road, road.id);
 
     ImGui::SeparatorText("Curve / Spline");
-    ImGui::Checkbox("Enable Spline Tool", &gs.spline_editor.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Closed", &gs.spline_editor.closed);
-    ImGui::SetNextItemWidth(120.0f);
-    ImGui::SliderInt("Samples", &gs.spline_editor.samples_per_segment, 2, 24);
-    ImGui::SetNextItemWidth(120.0f);
-    ImGui::SliderFloat("Tension", &gs.spline_editor.tension, 0.0f, 1.0f, "%.2f");
+    API::Checkbox("Enable Spline Tool", &gs.spline_editor.enabled);
+    API::SameLine();
+    API::Checkbox("Closed", &gs.spline_editor.closed);
+    API::SetNextItemWidth(120.0f);
+    API::SliderInt("Samples", &gs.spline_editor.samples_per_segment, 2, 24);
+    API::SetNextItemWidth(120.0f);
+    API::SliderFloat("Tension", &gs.spline_editor.tension, 0.0f, 1.0f, "%.2f");
 
-    if (ImGui::Button("Apply Catmull-Rom")) {
+    if (API::Button("Apply Catmull-Rom")) {
         RogueCity::App::EditorManipulation::SplineOptions options{};
         options.closed = gs.spline_editor.closed;
         options.samples_per_segment = gs.spline_editor.samples_per_segment;
@@ -551,10 +553,10 @@ void DrawSingleRoad(GlobalState& gs, RogueCity::Core::Road& road) {
 void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     auto& history = PropertyHistory();
     ImGui::Text("Selection: District");
-    ImGui::Separator();
-    ImGui::InputScalar("District ID", ImGuiDataType_U32, &district.id);
-    ImGui::InputInt("Primary Axiom", &district.primary_axiom_id);
-    ImGui::InputInt("Secondary Axiom", &district.secondary_axiom_id);
+    API::Separator();
+    API::InputScalar("District ID", ImGuiDataType_U32, &district.id);
+    API::InputInt("Primary Axiom", &district.primary_axiom_id);
+    API::InputInt("Secondary Axiom", &district.secondary_axiom_id);
 
     {
         const auto before = district.type;
@@ -574,7 +576,7 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     DrawGenerationLocked(history, gs, district, VpEntityKind::District, "District Generation Lock");
 
     {
-        ImGui::InputFloat("Budget Allocated", &district.budget_allocated);
+        API::InputFloat("Budget Allocated", &district.budget_allocated);
         if (CommitValueOnDeactivate(
                 history,
                 "District Budget",
@@ -585,7 +587,7 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     }
 
     {
-        ImGui::InputScalar("Population", ImGuiDataType_U32, &district.projected_population);
+        API::InputScalar("Population", ImGuiDataType_U32, &district.projected_population);
         if (CommitValueOnDeactivate(
                 history,
                 "District Population",
@@ -596,7 +598,7 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     }
 
     {
-        ImGui::InputFloat("Desirability", &district.desirability);
+        API::InputFloat("Desirability", &district.desirability);
         if (CommitValueOnDeactivate(
                 history,
                 "District Desirability",
@@ -611,14 +613,14 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
     DrawLayerAssignment(gs, VpEntityKind::District, district.id);
 
     ImGui::SeparatorText("Boundary Editor");
-    ImGui::Checkbox("Enable Boundary Edit", &gs.district_boundary_editor.enabled);
-    ImGui::SameLine();
-    ImGui::Checkbox("Insert Mode", &gs.district_boundary_editor.insert_mode);
-    ImGui::SameLine();
-    ImGui::Checkbox("Delete Mode", &gs.district_boundary_editor.delete_mode);
-    ImGui::Checkbox("Snap To Grid", &gs.district_boundary_editor.snap_to_grid);
-    ImGui::SetNextItemWidth(120.0f);
-    ImGui::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
+    API::Checkbox("Enable Boundary Edit", &gs.district_boundary_editor.enabled);
+    API::SameLine();
+    API::Checkbox("Insert Mode", &gs.district_boundary_editor.insert_mode);
+    API::SameLine();
+    API::Checkbox("Delete Mode", &gs.district_boundary_editor.delete_mode);
+    API::Checkbox("Snap To Grid", &gs.district_boundary_editor.snap_to_grid);
+    API::SetNextItemWidth(120.0f);
+    API::DragFloat("Snap Size", &gs.district_boundary_editor.snap_size, 0.5f, 0.5f, 200.0f, "%.1f");
 
     for (size_t i = 0; i < district.border.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
@@ -626,7 +628,7 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
             static_cast<float>(district.border[i].x),
             static_cast<float>(district.border[i].y)
         };
-        if (ImGui::InputFloat2("V", vertex, "%.2f")) {
+        if (API::InputFloat2("V", vertex, "%.2f")) {
             const auto before = district.border;
             district.border[i].x = vertex[0];
             district.border[i].y = vertex[1];
@@ -638,8 +640,8 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
                 [&district, after]() { district.border = after; });
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("+")) {
+        API::SameLine();
+        if (API::SmallButton("+")) {
             const auto before = district.border;
             const auto& a = district.border[i];
             const auto& b = district.border[(i + 1) % district.border.size()];
@@ -655,8 +657,8 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
                 [&district, after]() { district.border = after; });
             MarkDirtyForKind(gs, VpEntityKind::District);
         }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("-") && district.border.size() > 3) {
+        API::SameLine();
+        if (API::SmallButton("-") && district.border.size() > 3) {
             const auto before = district.border;
             RogueCity::App::EditorManipulation::RemoveDistrictVertex(district, i);
             const auto after = district.border;
@@ -674,13 +676,13 @@ void DrawSingleDistrict(GlobalState& gs, RogueCity::Core::District& district) {
 void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
     auto& history = PropertyHistory();
     ImGui::Text("Selection: Lot");
-    ImGui::Separator();
-    ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &lot.id);
-    ImGui::InputScalar("District ID", ImGuiDataType_U32, &lot.district_id);
+    API::Separator();
+    API::InputScalar("Lot ID", ImGuiDataType_U32, &lot.id);
+    API::InputScalar("District ID", ImGuiDataType_U32, &lot.district_id);
 
     {
         float centroid_xy[2] = { static_cast<float>(lot.centroid.x), static_cast<float>(lot.centroid.y) };
-        if (ImGui::InputFloat2("Centroid", centroid_xy)) {
+        if (API::InputFloat2("Centroid", centroid_xy)) {
             lot.centroid.x = centroid_xy[0];
             lot.centroid.y = centroid_xy[1];
         }
@@ -713,7 +715,7 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
 
     {
         const bool before = lot.locked_type;
-        if (ImGui::Checkbox("Locked Type", &lot.locked_type)) {
+        if (API::Checkbox("Locked Type", &lot.locked_type)) {
             const bool after = lot.locked_type;
             CommitValueChange(
                 history,
@@ -738,14 +740,14 @@ void DrawSingleLot(GlobalState& gs, RogueCity::Core::LotToken& lot) {
 void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building) {
     auto& history = PropertyHistory();
     ImGui::Text("Selection: Building");
-    ImGui::Separator();
-    ImGui::InputScalar("Building ID", ImGuiDataType_U32, &building.id);
-    ImGui::InputScalar("Lot ID", ImGuiDataType_U32, &building.lot_id);
-    ImGui::InputScalar("District ID", ImGuiDataType_U32, &building.district_id);
+    API::Separator();
+    API::InputScalar("Building ID", ImGuiDataType_U32, &building.id);
+    API::InputScalar("Lot ID", ImGuiDataType_U32, &building.lot_id);
+    API::InputScalar("District ID", ImGuiDataType_U32, &building.district_id);
 
     {
         float pos_xy[2] = { static_cast<float>(building.position.x), static_cast<float>(building.position.y) };
-        if (ImGui::InputFloat2("Position", pos_xy)) {
+        if (API::InputFloat2("Position", pos_xy)) {
             building.position.x = pos_xy[0];
             building.position.y = pos_xy[1];
         }
@@ -778,7 +780,7 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
 
     {
         const bool before = building.locked_type;
-        if (ImGui::Checkbox("Locked Type", &building.locked_type)) {
+        if (API::Checkbox("Locked Type", &building.locked_type)) {
             const bool after = building.locked_type;
             CommitValueChange(
                 history,
@@ -791,7 +793,7 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
     }
 
     {
-        ImGui::InputFloat("Estimated Cost", &building.estimated_cost);
+        API::InputFloat("Estimated Cost", &building.estimated_cost);
         if (CommitValueOnDeactivate(
                 history,
                 "Building Cost",
@@ -802,7 +804,7 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
     }
 
     {
-        ImGui::InputFloat("Rotation (rad)", &building.rotation_radians);
+        API::InputFloat("Rotation (rad)", &building.rotation_radians);
         if (CommitValueOnDeactivate(
                 history,
                 "Building Rotation",
@@ -813,7 +815,7 @@ void DrawSingleBuilding(GlobalState& gs, RogueCity::Core::BuildingSite& building
     }
 
     {
-        if (ImGui::DragFloat("Uniform Scale", &building.uniform_scale, 0.01f, 0.05f, 20.0f, "%.2f")) {
+        if (API::DragFloat("Uniform Scale", &building.uniform_scale, 0.01f, 0.05f, 20.0f, "%.2f")) {
             building.uniform_scale = std::clamp(building.uniform_scale, 0.05f, 20.0f);
         }
         if (CommitValueOnDeactivate(
@@ -861,16 +863,16 @@ void ApplyBatchValue(
 
 void DrawBatchEditor(GlobalState& gs, VpEntityKind kind, const std::vector<uint32_t>& ids) {
     ImGui::Text("Multiple selection (%zu)", ids.size());
-    ImGui::Separator();
+    API::Separator();
 
-    if (ImGui::Button("Assign Batch -> Active Layer")) {
+    if (API::Button("Assign Batch -> Active Layer")) {
         const uint8_t layer = gs.layer_manager.active_layer;
         for (uint32_t id : ids) {
             gs.SetEntityLayer(kind, id, layer);
         }
         gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
     }
-    ImGui::Separator();
+    API::Separator();
 
     if (kind == VpEntityKind::Road) {
         ImGui::Text("Batch Edit: Roads");
@@ -896,7 +898,7 @@ void DrawBatchEditor(GlobalState& gs, VpEntityKind kind, const std::vector<uint3
             user_created = first->is_user_created;
         }
         const bool before_user = user_created;
-        if (ImGui::Checkbox("User Created", &user_created)) {
+        if (API::Checkbox("User Created", &user_created)) {
             ApplyBatchValue<RogueCity::Core::Road>(
                 gs,
                 kind,
@@ -955,7 +957,7 @@ void DrawBatchEditor(GlobalState& gs, VpEntityKind kind, const std::vector<uint3
             locked = first->locked_type;
         }
         const bool before_locked = locked;
-        if (ImGui::Checkbox("Locked Type", &locked)) {
+        if (API::Checkbox("Locked Type", &locked)) {
             ApplyBatchValue<RogueCity::Core::LotToken>(
                 gs,
                 kind,
@@ -993,7 +995,7 @@ void DrawBatchEditor(GlobalState& gs, VpEntityKind kind, const std::vector<uint3
             locked = first->locked_type;
         }
         const bool before_locked = locked;
-        if (ImGui::Checkbox("Locked Type", &locked)) {
+        if (API::Checkbox("Locked Type", &locked)) {
             ApplyBatchValue<RogueCity::Core::BuildingSite>(
                 gs,
                 kind,
@@ -1020,17 +1022,17 @@ void DrawQuerySelection(GlobalState& gs) {
     static bool user_only = false;
 
     const char* kinds[] = {"Any", "Road", "District", "Lot", "Building"};
-    ImGui::SetNextItemWidth(140.0f);
-    ImGui::Combo("Kind", &kind_filter, kinds, IM_ARRAYSIZE(kinds));
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::InputInt("ID Min", &id_min);
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::InputInt("ID Max", &id_max);
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::InputInt("District ID", &district_filter);
-    ImGui::Checkbox("User-Created Only", &user_only);
+    API::SetNextItemWidth(140.0f);
+    API::Combo("Kind", &kind_filter, kinds, IM_ARRAYSIZE(kinds));
+    API::SetNextItemWidth(100.0f);
+    API::InputInt("ID Min", &id_min);
+    API::SetNextItemWidth(100.0f);
+    API::InputInt("ID Max", &id_max);
+    API::SetNextItemWidth(100.0f);
+    API::InputInt("District ID", &district_filter);
+    API::Checkbox("User-Created Only", &user_only);
 
-    if (ImGui::Button("Apply Query")) {
+    if (API::Button("Apply Query")) {
         std::vector<SelectionItem> items;
 
         auto id_in_range = [&](uint32_t id) {
@@ -1095,8 +1097,8 @@ void DrawQuerySelection(GlobalState& gs) {
         RogueCity::Core::Editor::SyncPrimarySelectionFromManager(gs);
     }
 
-    ImGui::SameLine();
-    if (ImGui::Button("Clear Selection")) {
+    API::SameLine();
+    if (API::Button("Clear Selection")) {
         gs.selection_manager.Clear();
         RogueCity::Core::Editor::ClearPrimarySelection(gs.selection);
     }
@@ -1111,47 +1113,43 @@ void PropertyEditor::Draw(GlobalState& gs) {
     const bool can_undo = history.CanUndo();
     const bool can_redo = history.CanRedo();
     if (!can_undo) {
-        ImGui::BeginDisabled();
+        API::BeginDisabled();
     }
-    if (ImGui::Button("Property Undo")) {
+    if (API::Button("Property Undo")) {
         history.Undo();
         gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
     }
     if (!can_undo) {
-        ImGui::EndDisabled();
+        API::EndDisabled();
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", can_undo ? history.PeekUndo()->GetDescription() : "No property edits");
     }
 
-    ImGui::SameLine();
+    API::SameLine();
     if (!can_redo) {
-        ImGui::BeginDisabled();
+        API::BeginDisabled();
     }
-    if (ImGui::Button("Property Redo")) {
+    if (API::Button("Property Redo")) {
         history.Redo();
         gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
     }
     if (!can_redo) {
-        ImGui::EndDisabled();
+        API::EndDisabled();
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", can_redo ? history.PeekRedo()->GetDescription() : "No property edits");
     }
 
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows) && !io.WantTextInput) {
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
-            if (io.KeyShift) {
-                if (history.CanRedo()) {
-                    history.Redo();
-                    gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-                }
-            } else if (history.CanUndo()) {
-                history.Undo();
-                gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
-            }
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y) && history.CanRedo()) {
+        const bool redo_pressed =
+            RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedoShiftZ) ||
+            RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedo);
+        if (redo_pressed && history.CanRedo()) {
             history.Redo();
+            gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
+        } else if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kUndo) && history.CanUndo()) {
+            history.Undo();
             gs.dirty_layers.MarkDirty(DirtyLayer::ViewportIndex);
         }
     }

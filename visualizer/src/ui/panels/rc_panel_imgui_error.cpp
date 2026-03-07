@@ -9,7 +9,9 @@
 //   (5) Exception handling:         BeginProtectedSection before try{}, EndProtectedSection in catch{}
 
 #include "ui/panels/rc_panel_imgui_error.h"
+#include "ui/api/rc_imgui_api.h"
 #include "ui/rc_ui_tokens.h"
+#include "ui/rc_ui_components.h"
 #include "ui/introspection/UiIntrospection.h"
 
 #include <imgui.h>
@@ -97,33 +99,33 @@ namespace {
         ImGui::PushStyleColor(ImGuiCol_Text, UITokens::InfoBlue);
         ImGui::TextUnformatted("Error Recovery Configuration");
         ImGui::PopStyleColor();
-        ImGui::Separator();
-        ImGui::Spacing();
+        API::Separator();
+        API::Spacing();
 
-        if (ImGui::Checkbox("ConfigErrorRecovery (master)", &io.ConfigErrorRecovery)) {}
+        if (API::Checkbox("ConfigErrorRecovery (master)", &io.ConfigErrorRecovery)) {}
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Master switch. Disable only if you want hard crashes on API misuse.\n"
                               "Recommended: ON for all seats.");
 
-        ImGui::BeginDisabled(!io.ConfigErrorRecovery);
+        API::BeginDisabled(!io.ConfigErrorRecovery);
 
-        if (ImGui::Checkbox("EnableAssert  (Scenario 1 — programmer seats)", &io.ConfigErrorRecoveryEnableAssert)) {}
+        if (API::Checkbox("EnableAssert  (Scenario 1 — programmer seats)", &io.ConfigErrorRecoveryEnableAssert)) {}
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Scenario 1: IM_ASSERT fires on every recoverable error.\n"
                               "Default for programmer seats. Disable to use Scenario 2 (tooltip-only).");
 
-        if (ImGui::Checkbox("EnableDebugLog (log to DebugLogBuf)", &io.ConfigErrorRecoveryEnableDebugLog)) {}
+        if (API::Checkbox("EnableDebugLog (log to DebugLogBuf)", &io.ConfigErrorRecoveryEnableDebugLog)) {}
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Appends [imgui-error] lines to the internal DebugLogBuf.\n"
                               "This panel scans that buffer to populate the Error Log below.");
 
-        if (ImGui::Checkbox("EnableTooltip  (Scenario 2 — tooltip-only)", &io.ConfigErrorRecoveryEnableTooltip)) {}
+        if (API::Checkbox("EnableTooltip  (Scenario 2 — tooltip-only)", &io.ConfigErrorRecoveryEnableTooltip)) {}
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Scenario 2 / Non-programmer seats: show an error tooltip in the UI.\n"
                               "The tooltip also includes a button to re-enable asserts.");
 
-        ImGui::EndDisabled();
-        ImGui::Spacing();
+        API::EndDisabled();
+        API::Spacing();
     }
 
     static void DrawErrorLogSection() {
@@ -131,11 +133,11 @@ namespace {
         ImGui::Text("Error Log  (%d entries)", static_cast<int>(s_error_log.size()));
         ImGui::PopStyleColor();
 
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Clear")) {
+        API::SameLine();
+        if (API::SmallButton("Clear")) {
             s_error_log.clear();
         }
-        ImGui::Separator();
+        API::Separator();
 
         const float table_height = 160.0f;
         if (ImGui::BeginTable("##errlog", 3,
@@ -169,21 +171,21 @@ namespace {
             }
             ImGui::EndTable();
         }
-        ImGui::Spacing();
+        API::Spacing();
     }
 
     static void DrawProtectedSectionApiSection() {
         ImGui::PushStyleColor(ImGuiCol_Text, UITokens::CyanAccent);
         ImGui::TextUnformatted("BeginProtectedSection / EndProtectedSection API");
         ImGui::PopStyleColor();
-        ImGui::Separator();
-        ImGui::Spacing();
+        API::Separator();
+        API::Spacing();
 
         const char* status_label = s_section_active
             ? (s_section_label[0] ? s_section_label : "(active)")
             : "(none)";
         ImGui::Text("Active section: %s", status_label);
-        ImGui::Spacing();
+        API::Spacing();
 
         ImGui::PushStyleColor(ImGuiCol_Text, UITokens::GreenHUD);
         ImGui::TextUnformatted("Scenario 4 — scripting language host:");
@@ -192,7 +194,7 @@ namespace {
             "  ImGuiError::BeginProtectedSection(\"script\");\n"
             "  // disable assert, run interpreter, re-enable\n"
             "  ImGuiError::EndProtectedSection();");
-        ImGui::Spacing();
+        API::Spacing();
 
         ImGui::PushStyleColor(ImGuiCol_Text, UITokens::GreenHUD);
         ImGui::TextUnformatted("Scenario 5 — exception boundary:");
@@ -237,13 +239,13 @@ void DrawContent(float dt) {
     s_elapsed += dt;
     ScanDebugLog();
 
-    if (ImGui::CollapsingHeader("Config", ImGuiTreeNodeFlags_DefaultOpen))
+    if (API::CollapsingHeader("Config", ImGuiTreeNodeFlags_DefaultOpen))
         DrawConfigSection();
 
-    if (ImGui::CollapsingHeader("Error Log", ImGuiTreeNodeFlags_DefaultOpen))
+    if (API::CollapsingHeader("Error Log", ImGuiTreeNodeFlags_DefaultOpen))
         DrawErrorLogSection();
 
-    if (ImGui::CollapsingHeader("Protected Section API"))
+    if (API::CollapsingHeader("Protected Section API"))
         DrawProtectedSectionApiSection();
 }
 
@@ -251,11 +253,20 @@ void Draw(float dt) {
     if (!s_open) return;
 
     auto& uiint = RogueCity::UIInt::UiIntrospector::Instance();
-    uiint.BeginPanel("ImGuiErrorAgent", "ImGui Error Agent");
+    uiint.BeginPanel(
+        RogueCity::UIInt::PanelMeta{
+            "ImGuiErrorAgent",
+            "ImGui Error Agent",
+            "debug",
+            "Floating",
+            "visualizer/src/ui/panels/rc_panel_imgui_error.cpp",
+            {"imgui", "error", "recovery"}},
+        true);
     ImGui::SetNextWindowSize(ImVec2(540.0f, 440.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("ImGui Error Agent##ImGuiErrorAgent", &s_open))
+    if (Components::BeginTokenPanel("ImGui Error Agent##ImGuiErrorAgent",
+                                    UITokens::ErrorRed, &s_open))
         DrawContent(dt);
-    ImGui::End();
+    Components::EndTokenPanel();
     uiint.EndPanel();
 }
 

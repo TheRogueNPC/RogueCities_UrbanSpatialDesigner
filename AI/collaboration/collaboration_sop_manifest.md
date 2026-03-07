@@ -24,6 +24,9 @@ Include:
 2. Preserve determinism for generation/pipeline logic.
 3. Use dev-shell commands for configure/build/test flows.
 4. For UI changes, run perception/smoke gates before declaring done.
+5. **ImGui UI code must comply with `AI/collaboration/imgui_coding_standard.md`.**
+   No retained-mode patterns: no UI classes, no callbacks/listeners, no state duplication.
+   All engine data owned by the application; panels are pure visualizers via reference/pointer.
 
 ## 4) Validation Gates
 - UI scope: run `rc-perceive-ui -Mode quick -Screenshot`; run `rc-full-smoke -Port 7222 -Runs 1` for integrated confidence.

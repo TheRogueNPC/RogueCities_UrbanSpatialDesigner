@@ -13,6 +13,7 @@
 #include "ui/rc_ui_input_gate.h"
 #include <array>
 #include <imgui.h>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -30,10 +31,109 @@ void DrawRoot(float dt);
 // drawing begins.
 void ApplyTheme();
 
+namespace Keymap {
+
+struct ShortcutBinding {
+  ImGuiKey key{ImGuiKey_None};
+  bool ctrl{false};
+  bool shift{false};
+  bool alt{false};
+  bool super{false};
+};
+
+struct ShortcutActionInfo {
+  const char *id;
+  const char *category;
+  const char *label;
+};
+
+namespace Action {
+inline constexpr char kUndo[] = "edit.undo";
+inline constexpr char kRedo[] = "edit.redo";
+inline constexpr char kRedoShiftZ[] = "edit.redo_shift_z";
+inline constexpr char kSaveLayout[] = "file.save_layout";
+inline constexpr char kNewCity[] = "file.new_city";
+inline constexpr char kQuit[] = "file.quit";
+inline constexpr char kCommandCancel[] = "command.cancel";
+inline constexpr char kMasterSearchOpen[] = "master.search_open";
+inline constexpr char kMasterSearchNext[] = "master.search_next";
+inline constexpr char kMasterSearchPrev[] = "master.search_prev";
+inline constexpr char kMasterSearchClose[] = "master.search_close";
+inline constexpr char kViewportOpenSmartList[] = "viewport.open_smart_list";
+inline constexpr char kViewportOpenPieMenu[] = "viewport.open_pie_menu";
+inline constexpr char kViewportOpenPalettePrimary[] =
+    "viewport.open_palette_primary";
+inline constexpr char kViewportOpenPaletteAlt[] = "viewport.open_palette_alt";
+inline constexpr char kViewportDomainHoldA[] = "viewport.domain_hold_axiom";
+inline constexpr char kViewportDomainHoldW[] = "viewport.domain_hold_water";
+inline constexpr char kViewportDomainHoldR[] = "viewport.domain_hold_road";
+inline constexpr char kViewportDomainHoldD[] = "viewport.domain_hold_district";
+inline constexpr char kViewportDomainHoldL[] = "viewport.domain_hold_lot";
+inline constexpr char kViewportDomainHoldB[] = "viewport.domain_hold_building";
+inline constexpr char kViewportSelectAuto[] = "viewport.select_auto";
+inline constexpr char kViewportGizmoTranslate[] = "viewport.gizmo_translate";
+inline constexpr char kViewportGizmoTranslateAlt[] =
+    "viewport.gizmo_translate_alt";
+inline constexpr char kViewportGizmoRotate[] = "viewport.gizmo_rotate";
+inline constexpr char kViewportGizmoScale[] = "viewport.gizmo_scale";
+inline constexpr char kViewportGizmoScaleAlt[] = "viewport.gizmo_scale_alt";
+inline constexpr char kViewportGizmoSnapToggle[] = "viewport.gizmo_snap_toggle";
+inline constexpr char kViewportLayer0[] = "viewport.layer_0";
+inline constexpr char kViewportLayer1[] = "viewport.layer_1";
+inline constexpr char kViewportLayer2[] = "viewport.layer_2";
+inline constexpr char kViewportDeleteSelected[] = "viewport.delete_selected";
+inline constexpr char kViewportDeleteSelectedAlt[] =
+    "viewport.delete_selected_alt";
+inline constexpr char kViewportToolPaletteToggle[] =
+    "viewport.tool_palette_toggle";
+inline constexpr char kViewportQuickRect[] = "viewport.quick_rect_select";
+inline constexpr char kViewportQuickLasso[] = "viewport.quick_lasso_select";
+inline constexpr char kViewportQuickMove[] = "viewport.quick_move_nodes";
+inline constexpr char kViewportQuickHandle[] = "viewport.quick_handle_move";
+inline constexpr char kMinimapLodCycle[] = "minimap.lod_cycle";
+inline constexpr char kMinimapLodAuto[] = "minimap.lod_auto";
+inline constexpr char kMinimapLod0[] = "minimap.lod_0";
+inline constexpr char kMinimapLod1[] = "minimap.lod_1";
+inline constexpr char kMinimapLod2[] = "minimap.lod_2";
+inline constexpr char kMinimapAdaptiveToggle[] = "minimap.adaptive_toggle";
+inline constexpr char kMinimapToggleVisible[] = "minimap.toggle_visible";
+inline constexpr char kMinimapToggleSearch[] = "minimap.toggle_search";
+inline constexpr char kToggleBottomPanel[] = "view.toggle_bottom_panel";
+inline constexpr char kToggleLeftPanel[] = "view.toggle_left_panel";
+inline constexpr char kToggleRightPanel[] = "view.toggle_right_panel";
+inline constexpr char kDockModeModifier[] = "view.dock_mode_modifier";
+inline constexpr char kToggleActivityBarLeft[] = "view.toggle_activity_left";
+inline constexpr char kToggleActivityBarRight[] = "view.toggle_activity_right";
+inline constexpr char kToggleDevShell[] = "terminal.toggle_dev_shell";
+inline constexpr char kSoftResetLayout[] = "debug.reset_layout";
+inline constexpr char kHardResetLayout[] = "debug.reset_hard";
+inline constexpr char kRedoAlt[] = "debug.redo_alt";
+} // namespace Action
+
+void EnsureLoaded();
+[[nodiscard]] bool IsPressed(const char *action_id, bool repeat = false);
+[[nodiscard]] bool IsDown(const char *action_id);
+[[nodiscard]] const char *ShortcutLabel(const char *action_id);
+[[nodiscard]] ShortcutBinding GetBinding(const char *action_id);
+bool SetBinding(const char *action_id, const ShortcutBinding &binding,
+                std::string *error = nullptr);
+bool ResetBinding(const char *action_id, std::string *error = nullptr);
+bool ResetAll(std::string *error = nullptr);
+[[nodiscard]] std::span<const ShortcutActionInfo> GetActions();
+[[nodiscard]] bool IsEditorOpen();
+[[nodiscard]] const char *KeymapPath();
+
+} // namespace Keymap
+
 enum class ToolLibrary { Axiom, Water, Road, District, Lot, Building };
 using ToolLibraryIconRenderer =
     void (*)(ImDrawList *draw_list, ToolLibrary tool, const ImVec2 &center,
              float size, ImU32 color);
+
+// Canonical tool palette (5 color families, with per-tool variation support).
+[[nodiscard]] ImU32 ToolColor(ToolLibrary tool, int variation = 0);
+[[nodiscard]] ImU32 ToolColorActive(ToolLibrary tool, int variation = 0);
+[[nodiscard]] ImU32 ToolColorMuted(ToolLibrary tool, int variation = 0);
 
 // ---[BEGIN: NEW TYPE
 // SCHEMA]--------------------------------------------------- WHY: Decouple

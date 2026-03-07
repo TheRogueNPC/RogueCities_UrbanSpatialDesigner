@@ -91,6 +91,7 @@ endif()
         src/ui/rc_ui_input_gate.cpp
         src/ui/rc_ui_root.cpp
         src/ui/rc_ui_theme.cpp
+        src/ui/api/rc_imgui_api.cpp
         src/ui/WorkspaceProfile.cpp
         src/ui/MockupTokenParser.cpp
         src/ui/MockupWatcher.cpp
@@ -120,9 +121,11 @@ endif()
         src/ui/panels/rc_panel_lot_index.cpp
         src/ui/panels/rc_panel_river_index.cpp
         src/ui/panels/rc_panel_dev_shell.cpp
+        src/ui/panels/rc_panel_imgui_error.cpp
         src/ui/panels/rc_panel_road_editor.cpp
         src/ui/panels/rc_panel_workspace.cpp
         src/ui/panels/rc_panel_inspector_sidebar.cpp
+        src/ui/panels/rc_panel_dataviz_gallery.cpp
         src/ui/panels/rc_panel_city_health.cpp
         # 6-Zone Layout — Activity Bars (B1/B2)
         src/ui/panels/rc_panel_activity_bar_left.cpp
@@ -190,8 +193,12 @@ endif()
             <imgui_internal.h>
             <RogueCity/Core/Editor/GlobalState.hpp>
         )
+        # Natvis: Dear ImGui type visualizers for VS debugger (ImVector<> etc.)
+        target_sources(RogueCityVisualizerHeadless PRIVATE
+            "${CMAKE_SOURCE_DIR}/3rdparty/imgui/misc/debuggers/imgui.natvis"
+        )
     endif()
-    
+
     # ==================================================
     # GUI executable (GLFW + OpenGL3 + ImGui)
     # ==================================================
@@ -247,6 +254,7 @@ endif()
                 src/ui/rc_ui_input_gate.cpp
                 src/ui/rc_ui_root.cpp
                 src/ui/rc_ui_theme.cpp
+                src/ui/api/rc_imgui_api.cpp
                 src/ui/WorkspaceProfile.cpp
                 src/ui/MockupTokenParser.cpp
                 src/ui/MockupWatcher.cpp
@@ -282,9 +290,11 @@ endif()
                 src/ui/panels/rc_panel_building_control.cpp
                 src/ui/panels/rc_panel_water_control.cpp
                 src/ui/panels/rc_panel_dev_shell.cpp
+                src/ui/panels/rc_panel_imgui_error.cpp
                 src/ui/panels/rc_panel_road_editor.cpp
                 src/ui/panels/rc_panel_workspace.cpp
                 src/ui/panels/rc_panel_inspector_sidebar.cpp
+                src/ui/panels/rc_panel_dataviz_gallery.cpp
                 src/ui/panels/rc_panel_city_health.cpp
                 # 6-Zone Layout — Activity Bars (B1/B2)
                 src/ui/panels/rc_panel_activity_bar_left.cpp
@@ -317,6 +327,13 @@ endif()
             )
             
             # target_sources removed gl3w.c as it's now in RogueCityGL3W
+
+            if(MSVC)
+                # Natvis: Dear ImGui type visualizers for VS debugger (ImVector<> etc.)
+                target_sources(RogueCityVisualizerGui PRIVATE
+                    "${CMAKE_SOURCE_DIR}/3rdparty/imgui/misc/debuggers/imgui.natvis"
+                )
+            endif()
 
             target_include_directories(RogueCityVisualizerGui PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/src"

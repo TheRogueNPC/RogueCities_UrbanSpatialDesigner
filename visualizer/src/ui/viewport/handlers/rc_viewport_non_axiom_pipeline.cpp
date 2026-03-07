@@ -7,6 +7,7 @@
 #include "RogueCity/App/Tools/WaterTool.hpp"
 #include "RogueCity/App/Viewports/PrimaryViewport.hpp"
 #include "RogueCity/Core/Editor/SelectionSync.hpp"
+#include "ui/rc_ui_root.h"
 #include "ui/tools/rc_tool_interaction_metrics.h"
 #include "ui/viewport/handlers/rc_viewport_domain_handlers.h"
 #include "ui/viewport/handlers/rc_viewport_handler_common.h"
@@ -70,62 +71,66 @@ NonAxiomInteractionResult ProcessNonAxiomViewportInteractionPipeline(
   bool command_history_applied = false;
 
   if (params.allow_viewport_key_actions) {
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
-      auto &history = RogueCity::App::GetEditorCommandHistory();
-      if (io.KeyShift) {
-        if (history.CanRedo()) {
-          history.Redo();
-          command_history_applied = true;
-        }
-      } else if (history.CanUndo()) {
-        history.Undo();
-        command_history_applied = true;
-      }
-    } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) {
+    const bool redo_pressed =
+        RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedoShiftZ, false) ||
+        RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kRedo, false);
+    if (redo_pressed) {
       auto &history = RogueCity::App::GetEditorCommandHistory();
       if (history.CanRedo()) {
         history.Redo();
         command_history_applied = true;
       }
-    } else if (!io.KeyCtrl && !io.KeyAlt &&
-               ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
+    } else if (RC_UI::Keymap::IsPressed(RC_UI::Keymap::Action::kUndo, false)) {
+      auto &history = RogueCity::App::GetEditorCommandHistory();
+      if (history.CanUndo()) {
+        history.Undo();
+        command_history_applied = true;
+      }
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportSelectAuto, false)) {
       gs.tool_runtime.viewport_selection_mode =
           RogueCity::Core::Editor::ViewportSelectionMode::Auto;
       gs.tool_runtime.viewport_edit_tool =
           RogueCity::Core::Editor::ViewportEditTool::Auto;
-    } else if (!io.KeyCtrl && !io.KeyAlt &&
-               (ImGui::IsKeyPressed(ImGuiKey_W, false) ||
-                ImGui::IsKeyPressed(ImGuiKey_G, false))) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoTranslate, false) ||
+               RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoTranslateAlt, false)) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Translate;
       gs.tool_runtime.viewport_selection_mode =
           RogueCity::Core::Editor::ViewportSelectionMode::Auto;
       gs.tool_runtime.viewport_edit_tool =
           RogueCity::Core::Editor::ViewportEditTool::Move;
-    } else if (!io.KeyCtrl && !io.KeyAlt &&
-               ImGui::IsKeyPressed(ImGuiKey_E, false)) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoRotate, false)) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Rotate;
       gs.tool_runtime.viewport_selection_mode =
           RogueCity::Core::Editor::ViewportSelectionMode::Auto;
       gs.tool_runtime.viewport_edit_tool =
           RogueCity::Core::Editor::ViewportEditTool::Move;
-    } else if (!io.KeyCtrl && !io.KeyAlt &&
-               (ImGui::IsKeyPressed(ImGuiKey_R, false) ||
-                ImGui::IsKeyPressed(ImGuiKey_S, false))) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoScale, false) ||
+               RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoScaleAlt, false)) {
       gs.gizmo.enabled = true;
       gs.gizmo.operation = RogueCity::Core::Editor::GizmoOperation::Scale;
       gs.tool_runtime.viewport_selection_mode =
           RogueCity::Core::Editor::ViewportSelectionMode::Auto;
       gs.tool_runtime.viewport_edit_tool =
           RogueCity::Core::Editor::ViewportEditTool::Move;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportGizmoSnapToggle, false)) {
       gs.gizmo.snapping = !gs.gizmo.snapping;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_1)) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportLayer0, false)) {
       gs.layer_manager.active_layer = 0u;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_2)) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportLayer1, false)) {
       gs.layer_manager.active_layer = 1u;
-    } else if (ImGui::IsKeyPressed(ImGuiKey_3)) {
+    } else if (RC_UI::Keymap::IsPressed(
+                   RC_UI::Keymap::Action::kViewportLayer2, false)) {
       gs.layer_manager.active_layer = 2u;
     }
   }
