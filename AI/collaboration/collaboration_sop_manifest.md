@@ -8,6 +8,9 @@ Provide one shared, low-friction protocol for Codex, Gemini, Claude, Copilot, an
 2. Read `.gemini/GEMINI.md`.
 3. Read current files in `AI/collaboration/` to detect active workstreams and avoid overlap.
 4. Declare planned layer target (`core`, `generators`, `app`, `visualizer`, or `meta/collaboration`).
+5. **Generator work**: Read `AI/collaboration/thesis_knowledge_artifact.md` —
+   canonical algorithm spec for the road/zoning pipeline. All generator
+   implementations must trace back to it.
 
 ## 2) Ownership Claim (Lightweight)
 Create or update a short session brief in `AI/collaboration/` using:

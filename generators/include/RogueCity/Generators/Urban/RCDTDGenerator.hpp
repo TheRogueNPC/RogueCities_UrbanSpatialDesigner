@@ -9,6 +9,8 @@
 
 namespace RogueCity::Generators::Urban {
 
+inline constexpr int kMaxRcdtdRecursionLevels = 5;
+
 /**
  * @brief Zoning types for the RCDTD module.
  */
@@ -64,7 +66,7 @@ struct RCDTDConfig {
 
   // Default constructor for sane defaults
   RCDTDConfig() {
-    levels.resize(3); // Default to 3 levels
+    levels.resize(kMaxRcdtdRecursionLevels);
     zoneTypes = {
         ZoneType::CityCenter, ZoneType::MixedResCom, ZoneType::HighRes,
         ZoneType::MedRes,     ZoneType::LowRes,      ZoneType::Commercial,
@@ -134,6 +136,7 @@ private:
 
   // Phase-specific implementation helpers
   void generateNodesAndEdges();
+  void splitEdges(int levelIndex); // Thesis Part 2: subdivide long edges → inner-street anchor nodes
   void detectFaces();
   void performRecursiveInfill();
   void assignZoning();

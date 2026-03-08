@@ -28,10 +28,14 @@ FORBIDDEN_PATTERNS = [
     ),
 ]
 
-# Files exempt from ALL forbidden-pattern checks (self-contained floating windows,
-# not dockable panels — they legitimately own their own ImGui::Begin call).
+# Files exempt from ALL forbidden-pattern checks.
+# Criteria: files that own a custom canvas renderer (direct ImDrawList + ImU32
+# arithmetic) OR self-contained floating windows with their own ImGui::Begin.
 PANEL_ALLOWLIST: set[str] = {
     "rc_panel_dataviz_gallery.cpp",
+    # RC_DTD generator owns a standalone canvas renderer; raw IM_COL32 colour
+    # values are intentional for its per-zone draw-list rendering pipeline.
+    "rc_panel_rcdtd_generator.cpp",
 }
 
 

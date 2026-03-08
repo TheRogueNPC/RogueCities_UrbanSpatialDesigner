@@ -99,10 +99,14 @@ def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-# Files exempt from panel-level ImGui contract checks (self-contained floating windows
-# that own their own ImGui::Begin call and raw widget calls by design).
+# Files exempt from panel-level ImGui contract checks.
+# Criteria: files that use BeginDockableWindow but also own a raw-widget seed-row
+# layout or similar tight inline compositions that would break with API wrappers.
 PANEL_ALLOWLIST: set[str] = {
     "rc_panel_dataviz_gallery.cpp",
+    # RC_DTD generator has a inline seed-randomize row and Fit button that use
+    # tight ImGui layout (SetCursorScreenPos + Button) unavailable via API wrappers.
+    "rc_panel_rcdtd_generator.cpp",
 }
 
 
